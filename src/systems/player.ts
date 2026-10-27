@@ -15,10 +15,20 @@ export class Player {
   private heading = 0;
   private moving = false;
 
-  constructor(scene: Scene, start: Point, private readonly tuning: Tuning['player']) {
+  constructor(
+    scene: Scene,
+    start: Point,
+    private readonly tuning: Tuning['player'],
+    /** Walk-speed upgrade multiplier (1 = no upgrade). */
+    private readonly speedBonus: () => number = () => 1,
+  ) {
     this.mesh = this.avatar.root;
     this.mesh.position.set(start.x, 0, start.z);
     scene.add(this.mesh);
+  }
+
+  get isMoving(): boolean {
+    return this.moving;
   }
 
   get position(): Point {
@@ -30,8 +40,9 @@ export class Player {
     this.moving = strength > 0;
     const p = this.mesh.position;
     if (this.moving) {
-      p.x += move.x * this.tuning.speed * dt;
-      p.z += move.z * this.tuning.speed * dt;
+      const speed = this.tuning.speed * this.speedBonus();
+      p.x += move.x * speed * dt;
+      p.z += move.z * speed * dt;
       const goal = Math.atan2(move.x, move.z);
       let diff = goal - this.heading;
       diff = Math.atan2(Math.sin(diff), Math.cos(diff));

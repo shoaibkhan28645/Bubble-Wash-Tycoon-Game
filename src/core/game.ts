@@ -1,6 +1,6 @@
 import { Loop } from './loop';
 import { GameClock } from './clock';
-import { LOCATION1, PADS, TUNING, type Rect } from './config';
+import { LOCATION1, PADS, TUNING, UPGRADES, type Rect } from './config';
 import type { GameState } from './gameState';
 import type { Lifecycle } from './lifecycle';
 import type { SaveManager } from './save';
@@ -19,6 +19,9 @@ import { Traffic, type Work } from '../systems/traffic';
 import { insideRect, type Station } from '../systems/stations';
 import { IncomeTracker } from '../systems/offline';
 import { Floaters } from '../ui/carBubbles';
+import { Carrier } from '../systems/carry';
+import { Supplies } from '../systems/supplies';
+import { levelStep } from '../systems/economy';
 import { Buildings } from '../systems/buildings';
 import { PadSystem } from '../systems/pads';
 
@@ -53,7 +56,13 @@ export function createGame(
 
   const bayIds = PADS.filter((pad) => pad.effects.bay).map((pad) => pad.effects.bay!);
   stage.scene.add(terrain(layout, bayIds.map((id) => layout.pads[id]!.x)));
-  const player = new Player(stage.scene, layout.playerStart, TUNING.player);
+  const level = (key: string) => state.levels[key] ?? 0;
+  const player = new Player(stage.scene, layout.playerStart, TUNING.player, () => 1 + levelStep(UPGRADES.kinds.walk, level('player.walk')));
+  const playerCarry = new Carrier(
+    player.mesh,
+    () => player.position,
+    () => TUNING.supplies.carryBase + levelStep(UPGRADES.kinds.carry, level('player.carry')),
+  );
   const buildings = new Buildings(stage.scene, layout);
   const cash = new CashSystem(stage.scene, layout, TUNING.cash, state, effects, sound);
   const floaters = new Floaters(labels);
@@ -113,7 +122,7 @@ export function createGame(
   /** Who is working each station this frame. Staff join in a later step. */
   const work = (station: Station): Work =>
     insideRect(player.position, station.zone) ? { rate: 1, byPlayer: true } : { rate: 0, byPlayer: false };
-  const supplies = { take: () => true };
+  const supplies = new Supplies(state, layout, () => traffic.all(), sound, labels);
 
   let lastPadRect = '';
   let rateTimer = 0;
@@ -121,6 +130,8 @@ export function createGame(
     clock.advance(dt);
     player.update(dt, input.read(), [...buildings.obstacles(), ...traffic.obstacles()], walkable);
     pads.update(dt, player.position);
+    supplies.update(dt, [playerCarry]);
+    playerCarry.update(dt, player.isMoving);
     player.scrubbing = traffic.update(dt, work, supplies);
     cash.update(player.position);
     floaters.update(dt);

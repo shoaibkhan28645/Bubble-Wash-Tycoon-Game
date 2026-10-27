@@ -22,8 +22,8 @@ export class Station {
   readonly zone: Rect;
   /** Supply this station uses up per car (soap, towel, wax), or null. */
   supply: string | null = null;
-  private readonly ring: HTMLElement;
-  private readonly label: Label;
+  private readonly ring: HTMLElement | null = null;
+  private readonly label: Label | null = null;
 
   constructor(
     readonly id: string,
@@ -31,7 +31,8 @@ export class Station {
     readonly at: Point,
     size: { width: number; length: number },
     padding: number,
-    labels: WorldLabels,
+    /** Null in tests (no page to draw on). */
+    labels: WorldLabels | null,
   ) {
     this.zone = {
       minX: at.x - size.width / 2 - padding,
@@ -39,6 +40,7 @@ export class Station {
       minZ: at.z - size.length / 2 - padding,
       maxZ: at.z + size.length / 2 + padding,
     };
+    if (!labels) return;
     this.ring = document.createElement('div');
     this.ring.className = 'wash-ring';
     this.ring.innerHTML = RING_SVG;
@@ -53,6 +55,7 @@ export class Station {
 
   /** Shows the progress ring (and an "empty supply" warning) over the station. */
   showProgress(visible: boolean, fraction: number, outOfSupply: boolean): void {
+    if (!this.label || !this.ring) return;
     this.label.visible = visible;
     this.ring.style.setProperty('--p', `${Math.round(fraction * 100)}`);
     this.ring.classList.toggle('ring-empty', outOfSupply);
