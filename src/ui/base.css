@@ -131,6 +131,8 @@ body {
   right: 0;
   display: flex;
   justify-content: center;
+  align-items: center;
+  gap: 8px;
   pointer-events: none;
   z-index: 4;
 }
@@ -259,4 +261,114 @@ body {
   stroke-width: 5;
   stroke-linecap: round;
   stroke-dasharray: calc(var(--p) * 1px) 100px;
+}
+
+.stars-pill {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 2px 0 rgba(0, 0, 0, 0.12);
+  font: 800 18px/1 system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  color: #2d3440;
+}
+
+.star-icon {
+  color: #ffb800;
+  font-size: 20px;
+}
+
+/* Customer mood over waiting cars */
+.car-bubble {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 3px 5px 4px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 2px 0 rgba(0, 0, 0, 0.15);
+}
+
+.car-face {
+  font-size: 18px;
+  line-height: 1;
+}
+
+.patience-bar {
+  width: 30px;
+  height: 5px;
+  border-radius: 3px;
+  background: rgba(45, 52, 64, 0.2);
+  overflow: hidden;
+}
+
+.patience-fill {
+  display: block;
+  width: 100%;
+  height: 100%;
+  background: #5cc45c;
+  transform-origin: left center;
+}
+
+.car-bubble[data-mood='waiting'] .patience-fill {
+  background: #ffb800;
+}
+
+.car-bubble[data-mood='grumpy'] .patience-fill {
+  background: #ff5c6c;
+}
+
+.car-bubble[data-mood='grumpy'] {
+  animation: bubble-shake 0.5s ease-in-out infinite;
+}
+
+@keyframes bubble-shake {
+  25% {
+    margin-left: -2px;
+  }
+  75% {
+    margin-left: 2px;
+  }
+}
+
+/* Floating "+$15", "+$3 tip" */
+.floater {
+  font: 900 20px/1 system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  color: #3fae5a;
+  text-shadow:
+    0 2px 0 #fff,
+    0 0 4px #fff;
+  white-space: nowrap;
+}
+
+.floater-tip {
+  color: #e0a800;
+  font-size: 16px;
+}
+
+.floater-star {
+  font-size: 26px;
+}
+
+/* Station out of supplies: the ring turns into a red warning */
+.wash-ring.ring-empty .ring-track {
+  fill: #ff5c6c;
+  stroke: #fff;
+}
+
+.wash-ring.ring-empty::after {
+  content: '!';
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  color: #fff;
+  font: 900 20px/1 system-ui, sans-serif;
+}
+
+.wash-ring {
+  position: relative;
 }

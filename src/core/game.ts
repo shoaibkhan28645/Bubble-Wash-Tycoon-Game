@@ -15,7 +15,10 @@ import { Input } from '../systems/input';
 import { Player } from '../systems/player';
 import { CarPool } from '../systems/cars';
 import { CashSystem } from '../systems/cash';
-import { BaySystem } from '../systems/bays';
+import { Traffic, type Work } from '../systems/traffic';
+import { insideRect, type Station } from '../systems/stations';
+import { IncomeTracker } from '../systems/offline';
+import { Floaters } from '../ui/carBubbles';
 import { Buildings } from '../systems/buildings';
 import { PadSystem } from '../systems/pads';
 
@@ -53,12 +56,15 @@ export function createGame(
   const player = new Player(stage.scene, layout.playerStart, TUNING.player);
   const buildings = new Buildings(stage.scene, layout);
   const cash = new CashSystem(stage.scene, layout, TUNING.cash, state, effects, sound);
-  const bays = new BaySystem(new CarPool(stage.scene), layout, TUNING, state, cash, effects, sound, labels);
+  const floaters = new Floaters(labels);
+  const income = new IncomeTracker(TUNING.offline.incomeWindowSeconds, state.autoRate);
+  const traffic = new Traffic(new CarPool(stage.scene), layout, state, cash, effects, sound, labels, floaters, (paid) => {
+    if (paid.automated) income.add(clock.now, paid.amount);
+  });
 
   const addBuilt = (id: string, animate: boolean): void => {
     buildings.show(id, animate);
-    const bay = PADS.find((pad) => pad.id === id)?.effects.bay;
-    if (bay) bays.addBay(bay);
+    traffic.addStation(id);
   };
   for (const id of state.unlocked) addBuilt(id, false);
 
@@ -104,13 +110,25 @@ export function createGame(
   refitView(true);
   stage.onResize(() => rig.refit(true));
 
+  /** Who is working each station this frame. Staff join in a later step. */
+  const work = (station: Station): Work =>
+    insideRect(player.position, station.zone) ? { rate: 1, byPlayer: true } : { rate: 0, byPlayer: false };
+  const supplies = { take: () => true };
+
   let lastPadRect = '';
+  let rateTimer = 0;
   const loop = new Loop((dt) => {
     clock.advance(dt);
-    player.update(dt, input.read(), [...buildings.obstacles(), ...bays.obstacles()], walkable);
+    player.update(dt, input.read(), [...buildings.obstacles(), ...traffic.obstacles()], walkable);
     pads.update(dt, player.position);
-    bays.update(dt, player);
+    player.scrubbing = traffic.update(dt, work, supplies);
     cash.update(player.position);
+    floaters.update(dt);
+    rateTimer += dt;
+    if (rateTimer >= 5) {
+      rateTimer = 0;
+      state.autoRate = income.perMinute(clock.now);
+    }
     buildings.update(dt);
     effects.update(dt);
     saves.update(dt);
@@ -123,7 +141,7 @@ export function createGame(
     rig.update(dt);
     stage.render();
     labels.update(stage.camera, stage.size.width, stage.size.height);
-    hud.update(dt, state.cash);
+    hud.update(dt, state.cash, state.stars);
     for (const ticker of tickers) ticker(dt);
   });
 

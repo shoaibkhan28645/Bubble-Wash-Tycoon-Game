@@ -1,6 +1,6 @@
 import type { Mesh, Scene } from 'three';
 import type { LocationLayout, Rect } from '../core/config';
-import { bayModel, hoseModel, registerModel, shelfModel } from '../render/models/props';
+import { bayModel, benchModel, dryerModel, hoseModel, registerModel, shelfModel, waxModel } from '../render/models/props';
 
 const REVEAL_SECONDS = 0.45;
 
@@ -9,6 +9,7 @@ const SOLID: Record<string, [number, number]> = {
   hose: [0.45, 0.45],
   register: [1, 0.45],
   soap: [1.1, 0.4],
+  bench: [1.1, 0.35],
 };
 
 interface Building {
@@ -57,6 +58,10 @@ export class Buildings {
     if (id === 'hose') return hoseModel();
     if (id === 'register') return registerModel();
     if (id === 'soap') return shelfModel();
+    if (id === 'bench') return benchModel();
+    const { width, length } = this.layout.station;
+    if (id === 'dryer') return dryerModel(width, length);
+    if (id === 'wax') return waxModel(width, length);
     return null;
   }
 }

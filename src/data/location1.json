@@ -1,24 +1,46 @@
 {
   "name": "Dusty Roadside Lot",
-  "lot": { "minX": -7.5, "maxX": 7.5, "minZ": -13.5, "maxZ": 10.5 },
+  "lot": { "minX": -7.5, "maxX": 9.5, "minZ": -13.5, "maxZ": 15 },
   "cameraBase": { "minX": -6.6, "maxX": 1.2, "minZ": -15.5, "maxZ": 6 },
   "roadZ": -15.5,
   "spawnX": -14,
-  "exitX": 16,
-  "exitZ": 2.1,
+  "collectZ": 2.1,
+  "finishX": 6.4,
+  "exitZ": 13.4,
+  "exitX": 20,
   "playerStart": { "x": -2.2, "z": 4 },
   "bay": { "width": 3.4, "length": 5 },
+  "station": { "width": 3.2, "length": 3.8 },
   "queueGap": 4.3,
   "piles": {
-    "bay1": { "x": -5, "z": 0 },
-    "bay2": { "x": 5, "z": 0 },
+    "bay1": { "x": -5.2, "z": -0.2 },
+    "bay2": { "x": 5.2, "z": -0.2 },
     "register": { "x": 0, "z": 4.4 }
   },
   "pads": {
     "bay1": { "x": -2.2, "z": -3 },
-    "hose": { "x": -5.3, "z": -4.6 },
+    "hose": { "x": -5.3, "z": -5.4 },
     "register": { "x": 0, "z": 6.2 },
     "bay2": { "x": 2.2, "z": -3 },
-    "soap": { "x": 4.8, "z": 7.6 }
+    "soap": { "x": -4.4, "z": 7.8 },
+    "washer": { "x": -5.4, "z": 3.4 },
+    "dryer": { "x": 6.4, "z": 5.8 },
+    "runner": { "x": -2.2, "z": 10.6 },
+    "bench": { "x": -5.4, "z": -9.6 },
+    "dryerStaff": { "x": 3.2, "z": 9.2 },
+    "wax": { "x": 6.4, "z": 10.4 }
+  },
+  "upgradePads": {
+    "bay1": { "x": -5.4, "z": -2.7 },
+    "bay2": { "x": 5.4, "z": -2.7 },
+    "dryer": { "x": 8.6, "z": 5.8 },
+    "wax": { "x": 8.6, "z": 10.4 },
+    "soap": { "x": -6.4, "z": 10.4 },
+    "staffRoom": { "x": 1, "z": 11 }
+  },
+  "staffSpots": {
+    "washer": { "x": -4.3, "z": -3 },
+    "runner": { "x": -2.8, "z": 8.6 },
+    "dryerStaff": { "x": 4.3, "z": 8.1 }
   }
 }

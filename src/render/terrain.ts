@@ -72,9 +72,11 @@ const flat = (w: number, d: number, color: string, x: number, z: number, y: numb
   rx: -Math.PI / 2,
 });
 
-/** Road with kerbs and dashes, and concrete lanes through the lot. */
+/** Road with kerbs and dashes, and the lanes cars follow through the lot. */
 function roads(layout: LocationLayout, bayXs: number[]): Mesh {
-  const { roadZ, exitZ, exitX } = layout;
+  const { roadZ, collectZ, finishX, exitZ, exitX } = layout;
+  const LANE = '#c4bba9';
+  const W = 2.3;
   const parts: Part[] = [
     flat(160, 3.6, '#6b7280', 0, roadZ, 0.02),
     { geometry: new BoxGeometry(160, 0.16, 0.3), color: '#e9edf2', z: roadZ - 1.95, y: 0.08 },
@@ -82,13 +84,17 @@ function roads(layout: LocationLayout, bayXs: number[]): Mesh {
     flat(160, 1.4, '#cfd5dc', 0, roadZ - 2.8, 0.025),
   ];
   for (let x = -78; x < 80; x += 3.2) parts.push(flat(1.5, 0.2, '#ffd85c', x, roadZ, 0.03));
+  // Down from the road through each bay.
   const laneTop = roadZ + 1.8;
   for (const x of bayXs) {
-    const length = exitZ - laneTop + 1.2;
-    parts.push(flat(2.3, length, '#c4bba9', x, laneTop + length / 2, 0.03));
+    const length = collectZ - laneTop + W / 2;
+    parts.push(flat(W, length, LANE, x, laneTop + length / 2, 0.03));
   }
-  const left = Math.min(...bayXs) - 1.3;
-  parts.push(flat(exitX + 30 - left, 2.3, '#c4bba9', (left + exitX + 30) / 2, exitZ, 0.031));
+  // Collector lane to the finishing lane, down past the dryer and wax, then out.
+  const left = Math.min(...bayXs) - W / 2;
+  parts.push(flat(finishX + W / 2 - left, W, LANE, (left + finishX + W / 2) / 2, collectZ, 0.031));
+  parts.push(flat(W, exitZ - collectZ, LANE, finishX, (collectZ + exitZ) / 2, 0.032));
+  parts.push(flat(exitX + 30 - finishX + W / 2, W, LANE, (finishX - W / 2 + exitX + 30) / 2, exitZ, 0.033));
   return new Mesh(mergeParts(parts), toyMaterial);
 }
 

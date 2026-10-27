@@ -80,13 +80,23 @@ export interface LocationLayout {
   cameraBase: Rect;
   roadZ: number;
   spawnX: number;
-  exitX: number;
+  /** Lane below the bays that carries washed cars to the finishing lane. */
+  collectZ: number;
+  /** Finishing lane (dryer, wax) runs down at this x. */
+  finishX: number;
+  /** Cars leave the lot along this z, out to exitX. */
   exitZ: number;
+  exitX: number;
   playerStart: Point;
   bay: { width: number; length: number };
+  station: { width: number; length: number };
   queueGap: number;
   piles: Record<string, Point>;
   pads: Record<string, Point>;
+  /** Small pads that open an upgrade pop-up, keyed by panel id. */
+  upgradePads: Record<string, Point>;
+  /** Where each staff member stands when idle. */
+  staffSpots: Record<string, Point>;
 }
 
 export type Tuning = typeof tuningJson;

@@ -1,4 +1,4 @@
-export type Sfx = 'scrub' | 'done' | 'coin' | 'drain' | 'build';
+export type Sfx = 'scrub' | 'done' | 'coin' | 'drain' | 'build' | 'honk' | 'pick' | 'drop';
 
 interface Tone {
   type: OscillatorType;
@@ -21,6 +21,13 @@ const RECIPES: Record<Sfx, Tone[]> = {
     { type: 'square', from: 1480, to: 1480, delay: 0.06, length: 0.14, volume: 0.1 },
   ],
   drain: [{ type: 'sine', from: 600, to: 760, delay: 0, length: 0.05, volume: 0.1 }],
+  honk: [
+    { type: 'square', from: 330, to: 330, delay: 0, length: 0.16, volume: 0.12 },
+    { type: 'square', from: 392, to: 392, delay: 0, length: 0.16, volume: 0.08 },
+    { type: 'square', from: 330, to: 330, delay: 0.22, length: 0.24, volume: 0.12 },
+  ],
+  pick: [{ type: 'sine', from: 700, to: 1050, delay: 0, length: 0.07, volume: 0.12 }],
+  drop: [{ type: 'sine', from: 1050, to: 620, delay: 0, length: 0.08, volume: 0.12 }],
   build: [
     { type: 'triangle', from: 523, to: 523, delay: 0, length: 0.12, volume: 0.25 },
     { type: 'triangle', from: 659, to: 659, delay: 0.1, length: 0.12, volume: 0.25 },

@@ -1,8 +1,14 @@
 import type { Scene } from 'three';
-import type { CarDef, Point, Rect } from '../core/config';
+import type { CarDef, Point, Rect, StageDef } from '../core/config';
 import { CarModel } from '../render/models/actors';
+import type { Station } from './stations';
 
-export type CarState = 'arriving' | 'queued' | 'entering' | 'dirty' | 'washed' | 'leaving';
+/**
+ * arriving → queued → entering → waiting (needs service) → done (service
+ * finished, waiting for the next station) → entering … → leaving.
+ * Any car whose patience runs out while waiting goes `angry` and poofs away.
+ */
+export type CarState = 'arriving' | 'queued' | 'entering' | 'waiting' | 'done' | 'leaving' | 'angry';
 
 const TURN_RATE = 10;
 
@@ -10,9 +16,24 @@ const TURN_RATE = 10;
 export class Car {
   def!: CarDef;
   state: CarState = 'arriving';
-  /** Wash progress, 0..1. */
+  /** Wash progress in the bay, 0..1 (also drives the mud shader). */
   clean = 0;
+  /** Progress of the current station's job, 0..1. */
+  progress = 0;
   timer = 0;
+  /** Seconds of patience left, and the starting amount. */
+  patience = 0;
+  patienceMax = 1;
+  /** Stages this car has had so far (it pays for each). */
+  stages: StageDef[] = [];
+  /** Product of the quality upgrades of the stations it visited. */
+  quality = 1;
+  /** True if the player worked on it by hand (not counted as automated income). */
+  manual = false;
+  /** Whether the current station's supply (soap, towel, wax) was used up for it. */
+  supplied = false;
+  /** The station it is in or heading into. */
+  station: Station | null = null;
   private path: Point[] = [];
   /** The turn from the road into the lane, until the car has passed it. */
   private turn: Point | null = null;
@@ -40,7 +61,14 @@ export class Car {
     this.def = def;
     this.state = 'arriving';
     this.clean = 0;
+    this.progress = 0;
     this.timer = 0;
+    this.stages = [];
+    this.quality = 1;
+    this.manual = false;
+    this.supplied = false;
+    this.station = null;
+    this.model.mesh.scale.setScalar(1);
     this.model.setType(def);
     this.model.setClean(def.dirt, 0);
     this.model.mesh.position.set(at.x, 0, at.z);

@@ -6,6 +6,8 @@ const COIN_SVG = `<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy
 export class Hud {
   private readonly amount: HTMLElement;
   private readonly pill: HTMLElement;
+  private readonly starText: HTMLElement;
+  private lastStars = '';
   private shown = 0;
   private last = '';
 
@@ -18,13 +20,23 @@ export class Hud {
     this.amount = document.createElement('span');
     this.amount.className = 'cash-amount';
     this.pill.appendChild(this.amount);
-    hud.appendChild(this.pill);
+    const stars = document.createElement('div');
+    stars.className = 'stars-pill';
+    stars.innerHTML = '<span class="star-icon" aria-hidden="true">★</span>';
+    this.starText = document.createElement('span');
+    stars.appendChild(this.starText);
+    hud.append(this.pill, stars);
     root.appendChild(hud);
     this.shown = cash;
     this.render();
   }
 
-  update(dt: number, cash: number): void {
+  update(dt: number, cash: number, stars: number): void {
+    const starText = stars.toFixed(1);
+    if (starText !== this.lastStars) {
+      this.starText.textContent = starText;
+      this.lastStars = starText;
+    }
     if (cash > this.shown + 0.5) {
       this.shown += Math.max(1, (cash - this.shown) * Math.min(1, dt * 8));
       this.bump();
