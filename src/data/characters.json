@@ -1,0 +1,12 @@
+{
+  "player": "cat",
+  "staff": {
+    "washer": "monkey",
+    "runner": "dog",
+    "dryer": "chick",
+    "cashier": "parrot",
+    "valet": "bunny",
+    "manager": "lion"
+  },
+  "drivers": ["pig", "cow", "hog", "giraffe", "elephant", "tiger"]
+}

@@ -1,13 +1,14 @@
-import type { Mesh, Scene } from 'three';
+import type { Group, Scene } from 'three';
 import type { Point, Rect, Tuning } from '../core/config';
-import { playerModel } from '../render/models/actors';
+import { PlayerAvatar } from '../render/models/actors';
 import type { MoveInput } from './input';
 
 const TURN_RATE = 14;
 
 /** The character the player steers. Kinematic movement on the flat lot. */
 export class Player {
-  readonly mesh: Mesh;
+  readonly mesh: Group;
+  private readonly avatar = new PlayerAvatar();
   /** Set by the bays each frame while the player is washing a car. */
   scrubbing = false;
   private heading = 0;
@@ -15,7 +16,7 @@ export class Player {
   private moving = false;
 
   constructor(scene: Scene, start: Point, private readonly tuning: Tuning['player']) {
-    this.mesh = playerModel();
+    this.mesh = this.avatar.root;
     this.mesh.position.set(start.x, 0, start.z);
     scene.add(this.mesh);
   }
@@ -42,9 +43,9 @@ export class Player {
     p.x = Math.min(bounds.maxX - r, Math.max(bounds.minX + r, p.x));
     p.z = Math.min(bounds.maxZ - r, Math.max(bounds.minZ + r, p.z));
 
-    // Little hop while walking; a wiggle while scrubbing.
-    p.y = this.moving ? Math.abs(Math.sin(this.time * 12)) * 0.14 : 0;
-    this.mesh.rotation.set(0, this.heading, this.scrubbing && !this.moving ? Math.sin(this.time * 28) * 0.18 : 0);
+    // The model's own walk cycle, plus a wiggle while scrubbing.
+    this.avatar.update(dt, strength);
+    this.mesh.rotation.set(0, this.heading, this.scrubbing && !this.moving ? Math.sin(this.time * 28) * 0.15 : 0);
   }
 }
 

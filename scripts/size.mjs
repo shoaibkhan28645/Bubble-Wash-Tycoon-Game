@@ -1,5 +1,6 @@
-// Short size report for dist/: initial download (index.html plus every file
-// it references), total size, and any file over the 512 KiB target.
+// Short size report for dist/: initial download (index.html, every file it
+// references, and the models loaded before gameReady), total size, and any
+// file over the 512 KiB target.
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import { gzipSync } from 'node:zlib';
@@ -24,7 +25,8 @@ const sizes = new Map(
 
 const html = readFileSync(join(DIST, 'index.html'), 'utf8');
 const referenced = [...html.matchAll(/(?:src|href)="\.\/([^"]+)"/g)].map((m) => m[1]);
-const initial = ['index.html', ...referenced].filter((f) => sizes.has(f));
+const models = [...sizes.keys()].filter((f) => f.startsWith('models/') && !f.endsWith('.md'));
+const initial = ['index.html', ...referenced, ...models].filter((f) => sizes.has(f));
 
 const sum = (names, key) => names.reduce((total, n) => total + sizes.get(n)[key], 0);
 const all = [...sizes.keys()];

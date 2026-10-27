@@ -1,6 +1,8 @@
 // The balancing JSON must match the GDD tables and fit together.
 import { describe, expect, it } from 'vitest';
-import { CARS, LOCATION1, PADS, STAGES } from '../src/core/config';
+import { CARS, CHARACTERS, LOCATION1, PADS, STAGES } from '../src/core/config';
+
+const modelFiles = Object.keys(import.meta.glob('../public/models/**/*.glb')).map((f) => f.replace('../public/', ''));
 
 const padIds = PADS.map((p) => p.id);
 
@@ -63,5 +65,13 @@ describe('location1.json', () => {
         const [, b] = spots[j]!;
         expect(Math.max(Math.abs(a.x - b.x), Math.abs(a.z - b.z))).toBeGreaterThan(2.5);
       }
+  });
+});
+
+describe('models', () => {
+  it('every car and animal in the data has a model file', () => {
+    for (const car of CARS) expect(modelFiles).toContain(`models/cars/${car.model}.glb`);
+    const animals = [CHARACTERS.player, ...CHARACTERS.drivers, ...Object.values(CHARACTERS.staff)];
+    for (const pet of animals) expect(modelFiles).toContain(`models/pets/animal-${pet}.glb`);
   });
 });

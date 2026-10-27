@@ -5,6 +5,7 @@ import padsJson from '../data/pads.json';
 import stagesJson from '../data/stages.json';
 import tuningJson from '../data/tuning.json';
 import location1Json from '../data/location1.json';
+import charactersJson from '../data/characters.json';
 
 export type Dirt = 'dusty' | 'muddy' | 'swamp';
 
@@ -31,9 +32,13 @@ export interface CarDef {
   patience: number;
   payMultiplier?: number;
   vip?: boolean;
-  /** Width, height, length in world units. */
+  /** Car Kit model name (public/models/cars/<model>.glb). */
+  model: string;
+  scale: number;
+  /** Optional colour multiplied over the model (the golden VIP). */
+  tint?: string;
+  /** Width, height, length in world units, after scaling. */
   size: [number, number, number];
-  color: string;
 }
 
 export interface PadEffects {
@@ -87,6 +92,8 @@ export const PADS = padsJson as PadDef[];
 export const STAGES = stagesJson as StageDef[];
 export const TUNING: Tuning = tuningJson;
 export const LOCATION1 = location1Json as LocationLayout;
+/** Which Cube Pets animal plays each role. */
+export const CHARACTERS = charactersJson;
 
 export function padById(id: string): PadDef | undefined {
   return PADS.find((pad) => pad.id === id);

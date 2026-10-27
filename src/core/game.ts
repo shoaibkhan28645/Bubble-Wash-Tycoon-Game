@@ -7,7 +7,7 @@ import type { SaveManager } from './save';
 import type { SoundManager } from '../audio/sound';
 import { createStage, type Stage } from '../render/stage';
 import { CameraRig } from '../render/cameraRig';
-import { lotModel } from '../render/lot';
+import { terrain } from '../render/terrain';
 import { Particles } from '../render/effects/particles';
 import { Hud } from '../ui/hud';
 import { WorldLabels } from '../ui/worldLabels';
@@ -49,7 +49,7 @@ export function createGame(
   const effects = new Particles(stage.scene);
 
   const bayIds = PADS.filter((pad) => pad.effects.bay).map((pad) => pad.effects.bay!);
-  stage.scene.add(lotModel(layout, bayIds.map((id) => layout.pads[id]!.x)));
+  stage.scene.add(terrain(layout, bayIds.map((id) => layout.pads[id]!.x)));
   const player = new Player(stage.scene, layout.playerStart, TUNING.player);
   const buildings = new Buildings(stage.scene, layout);
   const cash = new CashSystem(stage.scene, layout, TUNING.cash, state, effects, sound);

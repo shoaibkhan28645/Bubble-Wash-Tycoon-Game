@@ -2,6 +2,7 @@ import * as platform from '../platform/youtube';
 import { SoundManager } from '../audio/sound';
 import { getLoadingScreen } from '../ui/loadingScreen';
 import { setLanguage } from '../ui/strings';
+import { loadAssets } from '../render/assets';
 import { createGame } from './game';
 import { Lifecycle } from './lifecycle';
 import { parseSave } from './migrate';
@@ -32,7 +33,8 @@ export async function boot(root: HTMLElement): Promise<void> {
   platform.onResume(() => lifecycle.resume());
 
   setLanguage(await platform.getLanguage());
-  loading.setProgress(0.6);
+  loading.setProgress(0.5);
+  await loadAssets((fraction) => loading.setProgress(0.5 + fraction * 0.4));
 
   const game = createGame(root, state, lifecycle, saves, sound);
   // Offline earnings are applied here from Milestone 4.

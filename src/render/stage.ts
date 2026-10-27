@@ -1,5 +1,6 @@
 import {
   DirectionalLight,
+  Fog,
   HemisphereLight,
   PerspectiveCamera,
   Scene,
@@ -27,9 +28,10 @@ export function createStage(container: HTMLElement): Stage {
   container.appendChild(renderer.domElement);
 
   const scene = new Scene();
-  scene.add(new HemisphereLight(0xffffff, 0xc9b8a6, 2));
-  const sun = new DirectionalLight(0xffffff, 1.4);
-  sun.position.set(3, 6, 4);
+  scene.fog = new Fog(BACKGROUND, 70, 160);
+  scene.add(new HemisphereLight(0xfff8ee, 0x9fbf8a, 2.1));
+  const sun = new DirectionalLight(0xfff2dd, 1.7);
+  sun.position.set(-4, 8, 5);
   scene.add(sun);
 
   const camera = new PerspectiveCamera(FOV_DEG, 1, 0.5, 200);

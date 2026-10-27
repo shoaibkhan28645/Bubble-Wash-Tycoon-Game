@@ -1,10 +1,10 @@
 [
-  { "id": "hatchback", "name": "Hatchback", "unlockedBy": "bay1", "dirt": "dusty", "basePay": 10, "patience": 60, "size": [1.7, 1.25, 2.9], "color": "#ff8fc8" },
-  { "id": "sedan", "name": "Sedan", "unlockedBy": "bay2", "dirt": "dusty", "basePay": 15, "patience": 50, "size": [1.75, 1.2, 3.4], "color": "#6cc4ff" },
-  { "id": "pickup", "name": "Pickup", "unlockedBy": "soap", "dirt": "muddy", "basePay": 25, "patience": 45, "size": [1.9, 1.45, 3.6], "color": "#ff9f5c" },
-  { "id": "suv", "name": "SUV", "unlockedBy": "dryer", "dirt": "muddy", "basePay": 35, "patience": 45, "size": [1.95, 1.6, 3.5], "color": "#7ee0c3" },
-  { "id": "minivan", "name": "Family minivan", "unlockedBy": "bench", "dirt": "muddy", "basePay": 45, "patience": 70, "size": [1.95, 1.7, 3.8], "color": "#b79cff" },
-  { "id": "sports", "name": "Sports car", "unlockedBy": "wax", "dirt": "dusty", "basePay": 60, "patience": 30, "size": [1.8, 1.0, 3.3], "color": "#ff5c6c" },
-  { "id": "monster", "name": "Monster truck", "unlockedBy": "tunnel", "dirt": "swamp", "basePay": 150, "patience": 40, "size": [2.3, 2.2, 3.8], "color": "#5cc45c" },
-  { "id": "vip", "name": "Golden VIP car", "unlockedBy": null, "dirt": "dusty", "basePay": 0, "payMultiplier": 5, "patience": 30, "vip": true, "size": [1.8, 1.2, 3.4], "color": "#ffd23f" }
+  { "id": "hatchback", "name": "Hatchback", "unlockedBy": "bay1", "dirt": "dusty", "basePay": 10, "patience": 60, "model": "sedan-sports", "scale": 1.15, "size": [1.5, 1.27, 2.93] },
+  { "id": "sedan", "name": "Sedan", "unlockedBy": "bay2", "dirt": "dusty", "basePay": 15, "patience": 50, "model": "sedan", "scale": 1.15, "size": [1.73, 1.5, 2.93] },
+  { "id": "pickup", "name": "Pickup", "unlockedBy": "soap", "dirt": "muddy", "basePay": 25, "patience": 45, "model": "truck", "scale": 1.15, "size": [1.73, 1.5, 3.39] },
+  { "id": "suv", "name": "SUV", "unlockedBy": "dryer", "dirt": "muddy", "basePay": 35, "patience": 45, "model": "suv", "scale": 1.15, "size": [1.73, 1.5, 3.1] },
+  { "id": "minivan", "name": "Family minivan", "unlockedBy": "bench", "dirt": "muddy", "basePay": 45, "patience": 70, "model": "van", "scale": 1.15, "size": [1.73, 1.55, 3.16] },
+  { "id": "sports", "name": "Sports car", "unlockedBy": "wax", "dirt": "dusty", "basePay": 60, "patience": 30, "model": "hatchback-sports", "scale": 1.15, "size": [1.5, 1.27, 3.28] },
+  { "id": "monster", "name": "Monster truck", "unlockedBy": "tunnel", "dirt": "swamp", "basePay": 150, "patience": 40, "model": "truck", "scale": 1.5, "size": [2.25, 1.95, 4.43] },
+  { "id": "vip", "name": "Golden VIP car", "unlockedBy": null, "dirt": "dusty", "basePay": 0, "payMultiplier": 5, "patience": 30, "vip": true, "model": "suv-luxury", "scale": 1.15, "tint": "#ffd23f", "size": [1.73, 1.5, 3.28] }
 ]
