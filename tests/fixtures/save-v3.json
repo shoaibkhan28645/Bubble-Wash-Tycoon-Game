@@ -1,0 +1,15 @@
+{
+  "version": 3,
+  "savedAt": 1793200000000,
+  "cash": 640,
+  "gems": 0,
+  "location": 1,
+  "unlocked": ["bay1", "hose", "register", "bay2", "soap", "washer"],
+  "levels": { "bay1.speed": 2, "player.carry": 1 },
+  "staff": [],
+  "padPaid": { "dryer": 120 },
+  "piles": { "register": 85 },
+  "stars": 3.4,
+  "autoRate": 42.5,
+  "supplies": { "shelf.soap": 6, "bay1.soap": 3 }
+}

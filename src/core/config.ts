@@ -6,6 +6,7 @@ import stagesJson from '../data/stages.json';
 import tuningJson from '../data/tuning.json';
 import location1Json from '../data/location1.json';
 import charactersJson from '../data/characters.json';
+import upgradesJson from '../data/upgrades.json';
 
 export type Dirt = 'dusty' | 'muddy' | 'swamp';
 
@@ -46,6 +47,8 @@ export interface PadEffects {
   stage?: string;
   register?: boolean;
   staff?: string;
+  /** A station cars stop at after the bay (dryer, wax). */
+  station?: string;
   patienceBonus?: number;
   arrivalBonus?: number;
   endOfContent?: boolean;
@@ -63,6 +66,8 @@ export interface PadDef {
 export interface StageDef {
   id: string;
   name: string;
+  /** Where the stage happens: in the wash bay, or at its own station. */
+  station: 'bay' | 'dryer' | 'wax';
   /** Added to the pay multiplier, e.g. 0.5 = +50%. */
   payBonus: number;
   /** Fraction of wash time removed, e.g. 0.3 = 30% faster. */
@@ -86,6 +91,29 @@ export interface LocationLayout {
 
 export type Tuning = typeof tuningJson;
 
+export interface UpgradeKind {
+  name: string;
+  /** What one level does, shown in the upgrade pop-up. */
+  effect: string;
+  base: number;
+  max: number;
+  /** Multiplied in once per level (speed 0.9, quality 1.15). */
+  factor?: number;
+  /** Added once per level (walk +0.1, carry +1). */
+  step?: number;
+  /** Queue: one more spot every N levels. */
+  every?: number;
+}
+
+export interface UpgradesData {
+  growth: number;
+  kinds: Record<string, UpgradeKind>;
+  /** Cost multiplier by upgrade target (station, staff or player). */
+  costScale: Record<string, number>;
+  /** Which "target.kind" upgrades each upgrade pad offers. */
+  panels: Record<string, string[]>;
+}
+
 export const CARS = carsJson as CarDef[];
 /** In unlock order. */
 export const PADS = padsJson as PadDef[];
@@ -94,6 +122,7 @@ export const TUNING: Tuning = tuningJson;
 export const LOCATION1 = location1Json as LocationLayout;
 /** Which Kenney Mini Character plays each role. */
 export const CHARACTERS = charactersJson;
+export const UPGRADES = upgradesJson as UpgradesData;
 
 export function padById(id: string): PadDef | undefined {
   return PADS.find((pad) => pad.id === id);

@@ -1,7 +1,7 @@
 import { newGame, type GameState } from './gameState';
 
 /** Bump when the save shape changes, and add a migration for the old version. */
-export const SAVE_VERSION = 2;
+export const SAVE_VERSION = 3;
 
 type SaveObject = Record<string, unknown>;
 export type Migration = (save: SaveObject) => SaveObject;
@@ -10,6 +10,8 @@ export type Migration = (save: SaveObject) => SaveObject;
 export const MIGRATIONS: Readonly<Record<number, Migration>> = {
   // v2: part-paid unlock pads and uncollected cash piles are saved.
   1: (save) => ({ ...save, padPaid: {}, piles: {} }),
+  // v3: star rating, automated income rate (offline earnings) and supplies.
+  2: (save) => ({ ...save, stars: 3, autoRate: 0, supplies: {} }),
 };
 
 /**
@@ -54,8 +56,22 @@ export function migrate(
 }
 
 export function serialize(state: GameState): string {
-  const { cash, gems, location, unlocked, levels, staff, padPaid, piles, savedAt } = state;
-  return JSON.stringify({ version: SAVE_VERSION, savedAt, cash, gems, location, unlocked, levels, staff, padPaid, piles });
+  const { cash, gems, location, unlocked, levels, staff, padPaid, piles, stars, autoRate, supplies, savedAt } = state;
+  return JSON.stringify({
+    version: SAVE_VERSION,
+    savedAt,
+    cash,
+    gems,
+    location,
+    unlocked,
+    levels,
+    staff,
+    padPaid,
+    piles,
+    stars: Math.round(stars * 100) / 100,
+    autoRate: Math.round(autoRate * 100) / 100,
+    supplies,
+  });
 }
 
 function sanitize(save: SaveObject): GameState {
@@ -69,6 +85,9 @@ function sanitize(save: SaveObject): GameState {
     staff: stringList(save.staff),
     padPaid: amountMap(save.padPaid),
     piles: amountMap(save.piles),
+    stars: Math.min(5, Math.max(1, nonNegative(save.stars, fresh.stars))),
+    autoRate: nonNegative(save.autoRate, fresh.autoRate),
+    supplies: levelMap(save.supplies),
     savedAt: nonNegative(save.savedAt, fresh.savedAt),
   };
 }

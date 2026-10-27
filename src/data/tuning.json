@@ -1,7 +1,23 @@
 {
   "player": { "speed": 5.5, "radius": 0.45 },
   "wash": { "baseSeconds": 3, "minSeconds": 0.5, "zonePadding": 0.9, "dirtMultiplier": { "dusty": 1, "muddy": 1.6, "swamp": 2.4 } },
+  "stations": {
+    "dryer": { "seconds": 2.2, "supply": "towel" },
+    "wax": { "seconds": 2.6, "supply": "wax" },
+    "zonePadding": 1,
+    "supplyCapacity": 6
+  },
   "cars": { "speed": 8, "spawnSeconds": 4.5, "queueSpots": 2, "leaveDelay": 0.35 },
+  "customers": {
+    "tipThreshold": 0.5,
+    "tipBonus": 0.2,
+    "moodHappy": 0.5,
+    "moodGrumpy": 0.2
+  },
+  "stars": { "start": 3, "min": 1, "max": 5, "happy": 0.08, "okay": 0.02, "angry": -0.3, "arrivalPerStar": 0.15 },
   "cash": { "pileCap": 500, "collectRadius": 1.3 },
-  "pads": { "fillSeconds": 2, "minDrainPerSecond": 20, "radius": 1.15, "revealDelay": 0.6 }
+  "pads": { "fillSeconds": 2, "minDrainPerSecond": 20, "radius": 1.15, "revealDelay": 0.6, "upgradeRadius": 0.9 },
+  "supplies": { "shelfCapacity": 8, "restockSeconds": 3, "carryBase": 3, "handSeconds": 0.15, "reach": 1.6 },
+  "staff": { "workRate": 0.85, "walkSpeed": 4, "workSeconds": 45, "breakSeconds": 8 },
+  "offline": { "rate": 0.5, "managerRate": 1, "capHours": [2, 4, 6, 8], "minAwaySeconds": 60, "resumeAwaySeconds": 120, "incomeWindowSeconds": 300 }
 }

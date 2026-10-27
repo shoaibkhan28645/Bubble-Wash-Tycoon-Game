@@ -1,4 +1,4 @@
-import { PADS, stageById, type CarDef, type Dirt, type StageDef } from '../core/config';
+import { PADS, stageById, type CarDef, type Dirt, type StageDef, type UpgradeKind } from '../core/config';
 
 /** Price of one wash: base pay × (1 + stage bonuses) × quality. */
 export function carPay(car: CarDef, stages: readonly StageDef[], quality = 1): number {
@@ -32,13 +32,13 @@ export function padDrain(
   return Math.max(0, Math.min(cost - paid, cash, rate * dt));
 }
 
-/** Stages every car gets, from the pads that have been built. */
-export function builtStages(unlocked: readonly string[]): StageDef[] {
+/** Built stages, optionally only those done at one kind of station. */
+export function builtStages(unlocked: readonly string[], station?: StageDef['station']): StageDef[] {
   const stages: StageDef[] = [];
   for (const pad of PADS) {
     const id = pad.effects.stage;
     const stage = id && unlocked.includes(pad.id) ? stageById(id) : undefined;
-    if (stage) stages.push(stage);
+    if (stage && (!station || stage.station === station)) stages.push(stage);
   }
   return stages;
 }
@@ -61,4 +61,50 @@ export function formatCash(amount: number): string {
     }
   }
   return `$${value}`;
+}
+
+// ---- Upgrades ------------------------------------------------------------
+
+/** Cost of buying the next level: base × target scale × growth^level (GDD: 1.15× per level). */
+export function upgradeCost(kind: UpgradeKind, scale: number, level: number, growth: number): number {
+  return Math.round(kind.base * scale * growth ** level);
+}
+
+/** Multiplier from a "factor" upgrade at a level, e.g. speed 0.9^L, quality 1.15^L. */
+export function levelFactor(kind: UpgradeKind | undefined, level: number): number {
+  return kind?.factor === undefined ? 1 : kind.factor ** level;
+}
+
+/** Amount added by a "step" upgrade at a level, e.g. carry +1 per level. */
+export function levelStep(kind: UpgradeKind | undefined, level: number): number {
+  return (kind?.step ?? 0) * level;
+}
+
+/** Waiting spots in a bay's line: the base plus one every N queue levels. */
+export function queueSpots(base: number, kind: UpgradeKind | undefined, level: number): number {
+  return base + (kind?.every ? Math.floor(level / kind.every) : 0);
+}
+
+// ---- Customers -----------------------------------------------------------
+
+export type Outcome = 'happy' | 'okay' | 'angry';
+
+/** GDD: cars served with more than half their patience left tip 20%. */
+export function tipFor(pay: number, patienceLeft: number, rules: { tipThreshold: number; tipBonus: number }): number {
+  return patienceLeft > rules.tipThreshold ? Math.round(pay * rules.tipBonus) : 0;
+}
+
+/** Star rating (1–5) moves up with happy customers and down with angry ones. */
+export function nextStars(
+  stars: number,
+  outcome: Outcome,
+  rules: { min: number; max: number; happy: number; okay: number; angry: number },
+): number {
+  return Math.min(rules.max, Math.max(rules.min, stars + rules[outcome]));
+}
+
+/** Seconds between new cars: faster with more stars (and the roadside sign later). */
+export function spawnSeconds(base: number, stars: number, perStar: number, arrivalBonus = 0): number {
+  const rate = Math.max(0.2, 1 + (stars - 3) * perStar) * (1 + arrivalBonus);
+  return base / rate;
 }

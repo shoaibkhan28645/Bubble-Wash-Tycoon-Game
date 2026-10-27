@@ -17,6 +17,12 @@ export interface GameState {
   padPaid: Record<string, number>;
   /** Uncollected cash in each pile, by pile id. */
   piles: Record<string, number>;
+  /** Star rating, 1–5 (sets how often cars arrive). */
+  stars: number;
+  /** Automated income per minute, measured in play; drives offline earnings. */
+  autoRate: number;
+  /** Supply counts: "shelf.soap", "bay1.soap", "dryer.towel"… */
+  supplies: Record<string, number>;
   /** Wall-clock ms of the last save (0 = never saved). Used for offline earnings. */
   savedAt: number;
 }
@@ -31,6 +37,9 @@ export function newGame(): GameState {
     staff: [],
     padPaid: {},
     piles: {},
+    stars: 3,
+    autoRate: 0,
+    supplies: {},
     savedAt: 0,
   };
 }

@@ -57,6 +57,9 @@ describe('parseSave', () => {
       staff: [],
       padPaid: { hose: 20 },
       piles: {},
+      stars: 3,
+      autoRate: 0,
+      supplies: {},
       savedAt: 0,
     });
   });
@@ -64,7 +67,21 @@ describe('parseSave', () => {
   it('saves only ids, levels and counts, versioned', () => {
     const saved = JSON.parse(serialize(newGame()));
     expect(saved.version).toBe(SAVE_VERSION);
-    expect(Object.keys(saved).sort()).toEqual(['cash', 'gems', 'levels', 'location', 'padPaid', 'piles', 'savedAt', 'staff', 'unlocked', 'version']);
+    expect(Object.keys(saved).sort()).toEqual([
+      'autoRate',
+      'cash',
+      'gems',
+      'levels',
+      'location',
+      'padPaid',
+      'piles',
+      'savedAt',
+      'staff',
+      'stars',
+      'supplies',
+      'unlocked',
+      'version',
+    ]);
   });
 
   it('keeps a full late-game save well under 50 KiB', () => {
@@ -94,9 +111,20 @@ describe('old saves', () => {
     expect(state.piles).toBeTypeOf('object');
   });
 
-  it('upgrades a v1 save to v2 without losing progress', () => {
+  it('upgrades a v1 save to the current version without losing progress', () => {
     const { state } = parseSave(fixtures['./fixtures/save-v1.json']!);
     expect(state).toMatchObject({ cash: 4250, gems: 30, unlocked: ['bay1', 'hose', 'register', 'bay2', 'soap'], padPaid: {}, piles: {} });
+    expect(state).toMatchObject({ stars: 3, autoRate: 0, supplies: {} });
+  });
+
+  it('keeps v2 piles and part-paid pads when upgrading to v3', () => {
+    const { state } = parseSave(fixtures['./fixtures/save-v2.json']!);
+    expect(state).toMatchObject({ padPaid: { register: 35 }, piles: { bay1: 40 }, stars: 3 });
+  });
+
+  it('clamps stars to 1–5', () => {
+    expect(parseSave(JSON.stringify({ version: 3, stars: 9 })).state.stars).toBe(5);
+    expect(parseSave(JSON.stringify({ version: 3, stars: 0.2 })).state.stars).toBe(1);
   });
 
   it('has a migration from every older version', () => {
