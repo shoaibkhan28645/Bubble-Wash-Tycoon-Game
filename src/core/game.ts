@@ -1,14 +1,28 @@
 import { Loop } from './loop';
 import { GameClock } from './clock';
+import { LOCATION1, PADS, TUNING, type Rect } from './config';
+import type { GameState } from './gameState';
 import type { Lifecycle } from './lifecycle';
 import type { SaveManager } from './save';
 import type { SoundManager } from '../audio/sound';
 import { createStage, type Stage } from '../render/stage';
-import { createDemoCube } from '../render/models/demoCube';
+import { CameraRig } from '../render/cameraRig';
+import { lotModel } from '../render/lot';
+import { Particles } from '../render/effects/particles';
+import { Hud } from '../ui/hud';
+import { WorldLabels } from '../ui/worldLabels';
+import { Input } from '../systems/input';
+import { Player } from '../systems/player';
+import { CarPool } from '../systems/cars';
+import { CashSystem } from '../systems/cash';
+import { BaySystem } from '../systems/bays';
+import { Buildings } from '../systems/buildings';
+import { PadSystem } from '../systems/pads';
 
 export interface Game {
   readonly stage: Stage;
   readonly clock: GameClock;
+  readonly player: Player;
   /** Draws one frame without starting the loop (behind the loading screen). */
   renderOnce(): void;
   start(): void;
@@ -16,35 +30,106 @@ export interface Game {
   addTicker(ticker: (dt: number) => void): void;
 }
 
-/** Builds the scene and the loop, and wires pause/resume to loop, audio, input and saving. */
+/** Builds location 1 and the loop, and wires pause/resume to loop, audio, input and saving. */
 export function createGame(
   root: HTMLElement,
+  state: GameState,
   lifecycle: Lifecycle,
   saves: SaveManager,
   sound: SoundManager,
 ): Game {
+  const layout = LOCATION1;
   const stage = createStage(root);
   const clock = new GameClock();
   const tickers: ((dt: number) => void)[] = [];
+  const rig = new CameraRig(stage.camera);
+  const labels = new WorldLabels(root);
+  const hud = new Hud(root, state.cash);
+  const input = new Input(root, lifecycle);
+  const effects = new Particles(stage.scene);
 
-  const cube = createDemoCube();
-  stage.scene.add(cube.mesh);
-  stage.setFocusRadius(cube.radius);
+  const bayIds = PADS.filter((pad) => pad.effects.bay).map((pad) => pad.effects.bay!);
+  stage.scene.add(lotModel(layout, bayIds.map((id) => layout.pads[id]!.x)));
+  const player = new Player(stage.scene, layout.playerStart, TUNING.player);
+  const buildings = new Buildings(stage.scene, layout);
+  const cash = new CashSystem(stage.scene, layout, TUNING.cash, state, effects, sound);
+  const bays = new BaySystem(new CarPool(stage.scene), layout, TUNING, state, cash, effects, sound, labels);
 
+  const addBuilt = (id: string, animate: boolean): void => {
+    buildings.show(id, animate);
+    const bay = PADS.find((pad) => pad.id === id)?.effects.bay;
+    if (bay) bays.addBay(bay);
+  };
+  for (const id of state.unlocked) addBuilt(id, false);
+
+  const pads = new PadSystem(stage.scene, layout, TUNING.pads, state, effects, sound, labels, (id) => {
+    addBuilt(id, true);
+    refitView();
+    void saves.saveNow();
+  });
+
+  /** Where the player may walk: the lot, limited to what the camera shows. */
+  let walkable: Rect = layout.lot;
+  const refitView = (instant = false): void => {
+    const view = activeRect();
+    rig.setRect(view, instant);
+    walkable = {
+      minX: Math.max(layout.lot.minX, view.minX),
+      maxX: Math.min(layout.lot.maxX, view.maxX),
+      minZ: Math.max(layout.lot.minZ, view.minZ),
+      maxZ: Math.min(layout.lot.maxZ, view.maxZ),
+    };
+  };
+
+  /** Everything built plus the next pad must stay on screen. */
+  const activeRect = (): Rect => {
+    const rect = { ...layout.cameraBase };
+    const grow = (r: Rect) => {
+      rect.minX = Math.min(rect.minX, r.minX);
+      rect.maxX = Math.max(rect.maxX, r.maxX);
+      rect.minZ = Math.min(rect.minZ, r.minZ);
+      rect.maxZ = Math.max(rect.maxZ, r.maxZ);
+    };
+    for (const id of state.unlocked) {
+      const at = layout.pads[id];
+      if (at) grow({ minX: at.x - 1.5, maxX: at.x + 1.5, minZ: at.z - 1.5, maxZ: at.z + 1.5 });
+    }
+    const next = pads.footprint;
+    if (next) grow(next);
+    return rect;
+  };
+
+  // Builds the free first bay before the first frame.
+  pads.update(0, player.position);
+  refitView(true);
+  stage.onResize(() => rig.refit(true));
+
+  let lastPadRect = '';
   const loop = new Loop((dt) => {
     clock.advance(dt);
-    cube.mesh.rotation.y += dt * 0.9;
-    cube.mesh.rotation.x += dt * 0.35;
+    player.update(dt, input.read(), [...buildings.obstacles(), ...bays.obstacles()], walkable);
+    pads.update(dt, player.position);
+    bays.update(dt, player);
+    cash.update(player.position);
+    buildings.update(dt);
+    effects.update(dt);
     saves.update(dt);
+
+    const padRect = JSON.stringify(pads.footprint);
+    if (padRect !== lastPadRect) {
+      lastPadRect = padRect;
+      refitView();
+    }
+    rig.update(dt);
     stage.render();
+    labels.update(stage.camera, stage.size.width, stage.size.height);
+    hud.update(dt, state.cash);
     for (const ticker of tickers) ticker(dt);
   });
 
-  // Input: any tap or key unlocks audio; a tap pops (placeholder until gameplay).
+  // Any tap or key unlocks audio (browsers need a gesture first).
   root.addEventListener('pointerdown', () => {
-    if (lifecycle.paused) return;
-    sound.unlock();
-    sound.pop();
+    if (!lifecycle.paused) sound.unlock();
   });
   window.addEventListener('keydown', () => {
     if (!lifecycle.paused) sound.unlock();
@@ -63,7 +148,11 @@ export function createGame(
   return {
     stage,
     clock,
-    renderOnce: () => stage.render(),
+    player,
+    renderOnce() {
+      stage.render();
+      labels.update(stage.camera, stage.size.width, stage.size.height);
+    },
     start() {
       if (!lifecycle.paused) loop.start();
     },

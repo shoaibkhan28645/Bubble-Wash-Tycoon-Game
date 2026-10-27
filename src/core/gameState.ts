@@ -13,6 +13,10 @@ export interface GameState {
   levels: Record<string, number>;
   /** Ids of hired staff. */
   staff: string[];
+  /** Cash already paid into unlock pads that aren't finished yet, by pad id. */
+  padPaid: Record<string, number>;
+  /** Uncollected cash in each pile, by pile id. */
+  piles: Record<string, number>;
   /** Wall-clock ms of the last save (0 = never saved). Used for offline earnings. */
   savedAt: number;
 }
@@ -25,6 +29,8 @@ export function newGame(): GameState {
     unlocked: [],
     levels: {},
     staff: [],
+    padPaid: {},
+    piles: {},
     savedAt: 0,
   };
 }

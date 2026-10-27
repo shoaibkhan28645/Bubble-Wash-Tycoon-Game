@@ -1,3 +1,34 @@
+export type Sfx = 'scrub' | 'done' | 'coin' | 'drain' | 'build';
+
+interface Tone {
+  type: OscillatorType;
+  from: number;
+  to: number;
+  delay: number;
+  length: number;
+  volume: number;
+}
+
+/** Placeholder sounds made from simple tones; replaced with real effects in the art pass. */
+const RECIPES: Record<Sfx, Tone[]> = {
+  scrub: [{ type: 'triangle', from: 900, to: 1500, delay: 0, length: 0.06, volume: 0.08 }],
+  done: [
+    { type: 'sine', from: 880, to: 880, delay: 0, length: 0.12, volume: 0.25 },
+    { type: 'sine', from: 1320, to: 1320, delay: 0.09, length: 0.2, volume: 0.25 },
+  ],
+  coin: [
+    { type: 'square', from: 990, to: 990, delay: 0, length: 0.06, volume: 0.1 },
+    { type: 'square', from: 1480, to: 1480, delay: 0.06, length: 0.14, volume: 0.1 },
+  ],
+  drain: [{ type: 'sine', from: 600, to: 760, delay: 0, length: 0.05, volume: 0.1 }],
+  build: [
+    { type: 'triangle', from: 523, to: 523, delay: 0, length: 0.12, volume: 0.25 },
+    { type: 'triangle', from: 659, to: 659, delay: 0.1, length: 0.12, volume: 0.25 },
+    { type: 'triangle', from: 784, to: 784, delay: 0.2, length: 0.12, volume: 0.25 },
+    { type: 'triangle', from: 1047, to: 1047, delay: 0.3, length: 0.3, volume: 0.25 },
+  ],
+};
+
 /**
  * Web Audio sound manager. Silent whenever YouTube mutes or pauses the game:
  * the AudioContext is suspended, so nothing can leak through.
@@ -30,22 +61,25 @@ export class SoundManager {
     this.apply();
   }
 
-  /** Short bubble pop (placeholder sound until the art pass). */
-  pop(): void {
+  play(name: Sfx): void {
     const context = this.context;
-    if (!context || !this.master || !this.audible) return;
-    const t = context.currentTime;
-    const osc = context.createOscillator();
-    const gain = context.createGain();
-    osc.type = 'sine';
-    osc.frequency.setValueAtTime(520, t);
-    osc.frequency.exponentialRampToValueAtTime(1400, t + 0.07);
-    gain.gain.setValueAtTime(0.0001, t);
-    gain.gain.exponentialRampToValueAtTime(0.35, t + 0.01);
-    gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.12);
-    osc.connect(gain).connect(this.master);
-    osc.start(t);
-    osc.stop(t + 0.13);
+    const master = this.master;
+    if (!context || !master || !this.audible || context.state !== 'running') return;
+    const now = context.currentTime;
+    for (const tone of RECIPES[name]) {
+      const t = now + tone.delay;
+      const osc = context.createOscillator();
+      const gain = context.createGain();
+      osc.type = tone.type;
+      osc.frequency.setValueAtTime(tone.from, t);
+      if (tone.to !== tone.from) osc.frequency.exponentialRampToValueAtTime(tone.to, t + tone.length);
+      gain.gain.setValueAtTime(0.0001, t);
+      gain.gain.exponentialRampToValueAtTime(tone.volume, t + 0.01);
+      gain.gain.exponentialRampToValueAtTime(0.0001, t + tone.length);
+      osc.connect(gain).connect(master);
+      osc.start(t);
+      osc.stop(t + tone.length + 0.02);
+    }
   }
 
   private get audible(): boolean {

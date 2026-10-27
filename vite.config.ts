@@ -10,8 +10,13 @@ export default defineConfig({
     chunkSizeWarningLimit: 524,
     rollupOptions: {
       output: {
-        // Keep Three.js in its own file so game code changes don't touch it.
-        manualChunks: { three: ['three'] },
+        // Three.js in its own files so game changes don't touch them, split
+        // along its own core / renderer boundary to stay under 512 KiB each.
+        manualChunks(id) {
+          if (id.includes('node_modules/three/build/three.core')) return 'three-core';
+          if (id.includes('node_modules/three/')) return 'three-render';
+          return undefined;
+        },
       },
     },
   },

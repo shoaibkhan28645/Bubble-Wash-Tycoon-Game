@@ -1,0 +1,6 @@
+[
+  { "id": "prerinse", "name": "Pre-rinse", "payBonus": 0, "timeReduction": 0.3 },
+  { "id": "foam", "name": "Foam", "payBonus": 0.5, "timeReduction": 0 },
+  { "id": "dry", "name": "Dry", "payBonus": 0.3, "timeReduction": 0 },
+  { "id": "wax", "name": "Wax", "payBonus": 0.4, "timeReduction": 0 }
+]

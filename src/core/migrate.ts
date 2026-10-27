@@ -1,13 +1,16 @@
 import { newGame, type GameState } from './gameState';
 
 /** Bump when the save shape changes, and add a migration for the old version. */
-export const SAVE_VERSION = 1;
+export const SAVE_VERSION = 2;
 
 type SaveObject = Record<string, unknown>;
 export type Migration = (save: SaveObject) => SaveObject;
 
 /** MIGRATIONS[n] turns a version-n save into a version n+1 save. Never remove one. */
-export const MIGRATIONS: Readonly<Record<number, Migration>> = {};
+export const MIGRATIONS: Readonly<Record<number, Migration>> = {
+  // v2: part-paid unlock pads and uncollected cash piles are saved.
+  1: (save) => ({ ...save, padPaid: {}, piles: {} }),
+};
 
 /**
  * new: nothing saved. corrupt: unreadable JSON, start fresh.
@@ -51,8 +54,8 @@ export function migrate(
 }
 
 export function serialize(state: GameState): string {
-  const { cash, gems, location, unlocked, levels, staff, savedAt } = state;
-  return JSON.stringify({ version: SAVE_VERSION, savedAt, cash, gems, location, unlocked, levels, staff });
+  const { cash, gems, location, unlocked, levels, staff, padPaid, piles, savedAt } = state;
+  return JSON.stringify({ version: SAVE_VERSION, savedAt, cash, gems, location, unlocked, levels, staff, padPaid, piles });
 }
 
 function sanitize(save: SaveObject): GameState {
@@ -64,6 +67,8 @@ function sanitize(save: SaveObject): GameState {
     unlocked: stringList(save.unlocked),
     levels: levelMap(save.levels),
     staff: stringList(save.staff),
+    padPaid: amountMap(save.padPaid),
+    piles: amountMap(save.piles),
     savedAt: nonNegative(save.savedAt, fresh.savedAt),
   };
 }
@@ -88,4 +93,13 @@ function levelMap(value: unknown): Record<string, number> {
     if (typeof level === 'number' && Number.isInteger(level) && level >= 0) levels[id] = level;
   }
   return levels;
+}
+
+function amountMap(value: unknown): Record<string, number> {
+  const amounts: Record<string, number> = {};
+  if (!isObject(value)) return amounts;
+  for (const [id, amount] of Object.entries(value)) {
+    if (typeof amount === 'number' && Number.isFinite(amount) && amount > 0) amounts[id] = amount;
+  }
+  return amounts;
 }

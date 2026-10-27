@@ -1,0 +1,24 @@
+{
+  "name": "Dusty Roadside Lot",
+  "lot": { "minX": -7.5, "maxX": 7.5, "minZ": -13.5, "maxZ": 10.5 },
+  "cameraBase": { "minX": -6.6, "maxX": 1.2, "minZ": -15.5, "maxZ": 6 },
+  "roadZ": -15.5,
+  "spawnX": -14,
+  "exitX": 16,
+  "exitZ": 2.1,
+  "playerStart": { "x": -2.2, "z": 4 },
+  "bay": { "width": 3.4, "length": 5 },
+  "queueGap": 4.3,
+  "piles": {
+    "bay1": { "x": -5, "z": 0 },
+    "bay2": { "x": 5, "z": 0 },
+    "register": { "x": 0, "z": 4.4 }
+  },
+  "pads": {
+    "bay1": { "x": -2.2, "z": -3 },
+    "hose": { "x": -5.3, "z": -4.6 },
+    "register": { "x": 0, "z": 6.2 },
+    "bay2": { "x": 2.2, "z": -3 },
+    "soap": { "x": 4.8, "z": 7.6 }
+  }
+}

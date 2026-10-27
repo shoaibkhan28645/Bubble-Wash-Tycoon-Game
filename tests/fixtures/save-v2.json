@@ -1,0 +1,12 @@
+{
+  "version": 2,
+  "savedAt": 1793100000000,
+  "cash": 180,
+  "gems": 0,
+  "location": 1,
+  "unlocked": ["bay1", "hose"],
+  "levels": {},
+  "staff": [],
+  "padPaid": { "register": 35 },
+  "piles": { "bay1": 40 }
+}

@@ -34,7 +34,7 @@ export async function boot(root: HTMLElement): Promise<void> {
   setLanguage(await platform.getLanguage());
   loading.setProgress(0.6);
 
-  const game = createGame(root, lifecycle, saves, sound);
+  const game = createGame(root, state, lifecycle, saves, sound);
   // Offline earnings are applied here from Milestone 4.
   game.renderOnce();
   loading.setProgress(1);
@@ -43,6 +43,9 @@ export async function boot(root: HTMLElement): Promise<void> {
     const { createDebugOverlay } = await import('../ui/debugOverlay');
     game.addTicker(createDebugOverlay({ root, game, state, saves, lifecycle, dev: platform.devControls }));
   }
+
+  // Dev-only handle for automated play tests; stripped from production builds.
+  if (import.meta.env.DEV) Object.assign(window, { bubbleWash: { state, game } });
 
   await loading.hide();
   game.start();

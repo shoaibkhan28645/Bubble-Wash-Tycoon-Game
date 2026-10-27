@@ -15,7 +15,17 @@ describe('parseSave', () => {
   });
 
   it('round-trips a saved game', () => {
-    const state = { ...newGame(), cash: 1234.5, gems: 7, unlocked: ['bay1', 'hose'], levels: { 'bay1.speed': 2 }, staff: ['washer'], savedAt: 99 };
+    const state = {
+      ...newGame(),
+      cash: 1234.5,
+      gems: 7,
+      unlocked: ['bay1', 'hose'],
+      levels: { 'bay1.speed': 2 },
+      staff: ['washer'],
+      padPaid: { register: 40 },
+      piles: { bay1: 25 },
+      savedAt: 99,
+    };
     expect(parseSave(serialize(state))).toEqual({ state, status: 'loaded' });
   });
 
@@ -27,13 +37,15 @@ describe('parseSave', () => {
 
   it('repairs bad fields one by one and keeps the good ones', () => {
     const text = JSON.stringify({
-      version: 1,
+      version: SAVE_VERSION,
       cash: -5,
       gems: 'lots',
       location: 0,
       unlocked: ['bay1', 3, 'bay1', 'hose'],
       levels: { 'bay1.speed': 2, broken: -1, half: 1.5, word: 'x' },
       staff: 'washer',
+      padPaid: { hose: 20, bad: -3, word: 'x' },
+      piles: [5],
       savedAt: Number.NaN,
     });
     expect(parseSave(text).state).toEqual({
@@ -43,6 +55,8 @@ describe('parseSave', () => {
       unlocked: ['bay1', 'hose'],
       levels: { 'bay1.speed': 2 },
       staff: [],
+      padPaid: { hose: 20 },
+      piles: {},
       savedAt: 0,
     });
   });
@@ -50,7 +64,7 @@ describe('parseSave', () => {
   it('saves only ids, levels and counts, versioned', () => {
     const saved = JSON.parse(serialize(newGame()));
     expect(saved.version).toBe(SAVE_VERSION);
-    expect(Object.keys(saved).sort()).toEqual(['cash', 'gems', 'levels', 'location', 'savedAt', 'staff', 'unlocked', 'version']);
+    expect(Object.keys(saved).sort()).toEqual(['cash', 'gems', 'levels', 'location', 'padPaid', 'piles', 'savedAt', 'staff', 'unlocked', 'version']);
   });
 
   it('keeps a full late-game save well under 50 KiB', () => {
@@ -76,6 +90,13 @@ describe('old saves', () => {
     expect(status).toBe('loaded');
     expect(state.unlocked.length).toBeGreaterThan(0);
     expect(state.cash).toBeGreaterThan(0);
+    expect(state.padPaid).toBeTypeOf('object');
+    expect(state.piles).toBeTypeOf('object');
+  });
+
+  it('upgrades a v1 save to v2 without losing progress', () => {
+    const { state } = parseSave(fixtures['./fixtures/save-v1.json']!);
+    expect(state).toMatchObject({ cash: 4250, gems: 30, unlocked: ['bay1', 'hose', 'register', 'bay2', 'soap'], padPaid: {}, piles: {} });
   });
 
   it('has a migration from every older version', () => {

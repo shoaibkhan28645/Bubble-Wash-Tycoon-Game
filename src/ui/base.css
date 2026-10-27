@@ -27,7 +27,7 @@ body {
 
 .debug-overlay {
   position: absolute;
-  top: calc(env(safe-area-inset-top) + 8px);
+  bottom: calc(env(safe-area-inset-bottom) + 8px);
   left: calc(env(safe-area-inset-left) + 8px);
   padding: 4px 8px;
   border-radius: 6px;
@@ -121,4 +121,142 @@ body {
   50% {
     transform: translateY(-10px);
   }
+}
+
+/* HUD */
+.hud {
+  position: absolute;
+  top: calc(env(safe-area-inset-top) + 10px);
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: center;
+  pointer-events: none;
+  z-index: 4;
+}
+
+.cash-pill {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 16px 4px 6px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 2px 0 rgba(0, 0, 0, 0.12);
+  font: 800 22px/1 system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  color: #2d3440;
+}
+
+.cash-pill svg {
+  width: 30px;
+  height: 30px;
+}
+
+.cash-pill.bump {
+  animation: hud-bump 160ms ease-out;
+}
+
+@keyframes hud-bump {
+  50% {
+    transform: scale(1.08);
+  }
+}
+
+/* Floating joystick */
+.joystick {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 112px;
+  height: 112px;
+  margin: -56px 0 0 -56px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.25);
+  border: 3px solid rgba(255, 255, 255, 0.6);
+  box-sizing: border-box;
+  pointer-events: none;
+  opacity: 0;
+  z-index: 3;
+}
+
+.joystick.joystick-on {
+  opacity: 1;
+}
+
+.joystick-knob {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 48px;
+  height: 48px;
+  margin: -24px 0 0 -24px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.9);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+}
+
+/* Labels pinned to the 3D world */
+.world-labels {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.world-label {
+  position: absolute;
+  left: 0;
+  top: 0;
+  will-change: transform;
+}
+
+.pad-label {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  white-space: nowrap;
+}
+
+.pad-price {
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: #2d3440;
+  color: #ffd85c;
+  font: 800 18px/1.1 system-ui, sans-serif;
+}
+
+.pad-name {
+  color: #2d3440;
+  font: 600 11px/1.1 system-ui, sans-serif;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.8);
+}
+
+.wash-ring {
+  --p: 0;
+  width: 34px;
+  height: 34px;
+}
+
+.wash-ring svg {
+  width: 100%;
+  height: 100%;
+  transform: rotate(-90deg);
+  filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.25));
+}
+
+.ring-track {
+  fill: rgba(255, 255, 255, 0.35);
+  stroke: rgba(45, 52, 64, 0.45);
+  stroke-width: 5;
+}
+
+.ring-fill {
+  fill: none;
+  stroke: #7ee0c3;
+  stroke-width: 5;
+  stroke-linecap: round;
+  stroke-dasharray: calc(var(--p) * 1px) 100px;
 }
