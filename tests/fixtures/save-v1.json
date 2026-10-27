@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "savedAt": 1761600000000,
+  "cash": 4250,
+  "gems": 30,
+  "location": 1,
+  "unlocked": ["bay1", "hose", "register", "bay2", "soap"],
+  "levels": { "bay1.speed": 3, "player.carry": 2 },
+  "staff": ["washer"]
+}

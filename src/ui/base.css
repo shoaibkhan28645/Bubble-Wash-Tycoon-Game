@@ -34,5 +34,91 @@ body {
   background: rgba(0, 0, 0, 0.6);
   color: #fff;
   font: 12px/1.4 ui-monospace, monospace;
+  max-width: calc(100% - 32px);
+  z-index: 5;
+}
+
+.debug-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.debug-buttons button {
+  min-height: 36px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 6px;
+  background: #ffd85c;
+  color: #222;
+  font: 600 13px system-ui, sans-serif;
+}
+
+/* Loading screen: in index.html so it shows on the first paint. */
+#loading {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 24px;
+  background: #bfe9ff;
+  transition: opacity 250ms ease-out;
+  z-index: 10;
+}
+
+#loading.loading-done {
+  opacity: 0;
   pointer-events: none;
+}
+
+.loading-bubbles {
+  display: flex;
+  gap: 12px;
+}
+
+.loading-bubbles span {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #fff 0 18%, #ff8fc8 22% 100%);
+  animation: loading-bob 900ms ease-in-out infinite;
+}
+
+.loading-bubbles span:nth-child(2) {
+  background: radial-gradient(circle at 35% 30%, #fff 0 18%, #ffd85c 22% 100%);
+  animation-delay: 150ms;
+}
+
+.loading-bubbles span:nth-child(3) {
+  background: radial-gradient(circle at 35% 30%, #fff 0 18%, #7ee0c3 22% 100%);
+  animation-delay: 300ms;
+}
+
+.loading-bar {
+  width: min(60vw, 240px);
+  height: 10px;
+  border-radius: 5px;
+  background: rgba(255, 255, 255, 0.7);
+  overflow: hidden;
+}
+
+.loading-fill {
+  width: 0;
+  height: 100%;
+  border-radius: 5px;
+  background: #ff8fc8;
+  transition: width 200ms ease-out;
+}
+
+@keyframes loading-bob {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
 }
