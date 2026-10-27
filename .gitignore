@@ -1,0 +1,9 @@
+node_modules/
+dist/
+*.zip
+*.log
+.DS_Store
+
+# Kept local only, never committed
+CLAUDE.md
+docs/

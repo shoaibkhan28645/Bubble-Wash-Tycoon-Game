@@ -1,0 +1,25 @@
+{
+  "name": "bubble-wash-tycoon",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "zip": "vite build && node scripts/zip.mjs",
+    "size": "node scripts/size.mjs"
+  },
+  "devDependencies": {
+    "@types/three": "0.186.0",
+    "fflate": "0.8.3",
+    "typescript": "5.9.3",
+    "vite": "7.3.7",
+    "vitest": "5.0.5"
+  },
+  "dependencies": {
+    "three": "0.186.1"
+  }
+}
