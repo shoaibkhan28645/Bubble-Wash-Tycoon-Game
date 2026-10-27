@@ -391,3 +391,118 @@ body {
   font-size: 18px;
   line-height: 1.2;
 }
+
+/* Upgrade pads and their pop-up */
+.upgrade-icon {
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: #2f7fd0;
+  color: #fff;
+  font: 800 13px/1.3 system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  white-space: nowrap;
+}
+
+.upgrade-panel {
+  position: absolute;
+  left: 50%;
+  bottom: calc(env(safe-area-inset-bottom) + 12px);
+  transform: translateX(-50%);
+  width: min(420px, calc(100% - 24px));
+  max-height: 55%;
+  overflow-y: auto;
+  padding: 12px 14px 14px;
+  border-radius: 18px;
+  background: #fff;
+  box-shadow: 0 6px 0 rgba(0, 0, 0, 0.12), 0 10px 30px rgba(0, 0, 0, 0.2);
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  color: #2d3440;
+  z-index: 6;
+  animation: panel-up 160ms ease-out;
+}
+
+.upgrade-panel[hidden] {
+  display: none;
+}
+
+@keyframes panel-up {
+  from {
+    transform: translate(-50%, 24px);
+    opacity: 0;
+  }
+}
+
+.upgrade-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+
+.upgrade-header h2 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 800;
+}
+
+.upgrade-close {
+  width: 48px;
+  height: 48px;
+  margin: -8px -8px -8px 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  font-size: 20px;
+  color: #6b7280;
+}
+
+.upgrade-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 0;
+  border-top: 1px solid #eef1f5;
+}
+
+.upgrade-text {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.upgrade-text strong {
+  font-size: 15px;
+}
+
+.upgrade-text span {
+  font-size: 12px;
+  color: #6b7280;
+}
+
+.upgrade-text .upgrade-level {
+  color: #2f7fd0;
+  font-weight: 700;
+}
+
+.upgrade-row button {
+  min-width: 96px;
+  min-height: 48px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 12px;
+  background: #5cc45c;
+  box-shadow: 0 3px 0 #3d9a3d;
+  color: #fff;
+  font: 800 16px/1 system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+}
+
+.upgrade-row button:disabled {
+  background: #c9d0d9;
+  box-shadow: 0 3px 0 #aab3bf;
+}
+
+.upgrade-row button:not(:disabled):active {
+  transform: translateY(2px);
+  box-shadow: 0 1px 0 #3d9a3d;
+}

@@ -22,6 +22,8 @@ import { Floaters } from '../ui/carBubbles';
 import { Carrier } from '../systems/carry';
 import { Supplies } from '../systems/supplies';
 import { StaffSystem } from '../systems/staff';
+import { UpgradePads } from '../systems/upgrades';
+import { UpgradePanel } from '../ui/upgradePanel';
 import { levelStep } from '../systems/economy';
 import { Buildings } from '../systems/buildings';
 import { PadSystem } from '../systems/pads';
@@ -87,6 +89,9 @@ export function createGame(
     void saves.saveNow();
   });
 
+  const panel = new UpgradePanel(root, (key) => upgrades.buy(key), () => {});
+  const upgrades = new UpgradePads(stage.scene, layout, state, panel, labels, sound, effects, () => void saves.saveNow());
+
   /** Where the player may walk: the lot, limited to what the camera shows. */
   let walkable: Rect = layout.lot;
   const refitView = (instant = false): void => {
@@ -115,6 +120,7 @@ export function createGame(
     }
     const next = pads.footprint;
     if (next) grow(next);
+    for (const footprint of upgrades.footprints()) grow(footprint);
     return rect;
   };
 
@@ -137,6 +143,7 @@ export function createGame(
     clock.advance(dt);
     player.update(dt, input.read(), [...buildings.obstacles(), ...traffic.obstacles()], walkable);
     pads.update(dt, player.position);
+    upgrades.update(dt, player.position);
     staff.update(dt, traffic.all(), supplies, buildings.obstacles());
     supplies.update(dt, [playerCarry, ...staff.carriers()]);
     playerCarry.update(dt, player.isMoving);
@@ -152,7 +159,7 @@ export function createGame(
     effects.update(dt);
     saves.update(dt);
 
-    const padRect = JSON.stringify(pads.footprint);
+    const padRect = JSON.stringify(pads.footprint) + upgrades.footprints().length;
     if (padRect !== lastPadRect) {
       lastPadRect = padRect;
       refitView();

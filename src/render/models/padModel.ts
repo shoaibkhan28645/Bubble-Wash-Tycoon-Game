@@ -18,7 +18,10 @@ const outlineGeometry = (() => {
 })();
 const plane = new PlaneGeometry(1, 1).rotateX(-Math.PI / 2);
 
-/** Dashed unlock pad on the ground. The mint fill grows left to right as cash drains in. */
+/**
+ * Dashed pad on the ground. Unlock pads: the mint fill grows left to right as
+ * cash drains in. Upgrade pads: smaller, with a coloured tint and no fill.
+ */
 export class PadModel {
   readonly group = new Group();
   private readonly base: Mesh;
@@ -27,8 +30,15 @@ export class PadModel {
   private readonly fillMaterial = new MeshBasicMaterial({ color: 0x7ee0c3 });
   private readonly outline = new Mesh(outlineGeometry, new MeshBasicMaterial({ vertexColors: true }));
   private time = 0;
+  private tinted = false;
 
-  constructor() {
+  constructor(size = SIZE, tint?: number) {
+    this.group.scale.setScalar(size / SIZE);
+    if (tint !== undefined) {
+      this.baseMaterial.color.setHex(tint);
+      this.baseMaterial.opacity = 0.45;
+      this.tinted = true;
+    }
     this.base = new Mesh(plane, this.baseMaterial);
     this.base.scale.set(SIZE, 1, SIZE);
     this.base.position.y = 0.02;
@@ -51,7 +61,7 @@ export class PadModel {
     this.time += dt;
     const pulse = active ? 1.06 : 1 + Math.sin(this.time * 4) * 0.03;
     this.outline.scale.set(pulse, 1, pulse);
-    this.baseMaterial.opacity = active ? 0.4 : 0.25;
+    this.baseMaterial.opacity = this.tinted ? (active ? 0.7 : 0.45) : active ? 0.4 : 0.25;
   }
 
   dispose(): void {
