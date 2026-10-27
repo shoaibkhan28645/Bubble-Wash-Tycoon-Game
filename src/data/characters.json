@@ -1,12 +1,11 @@
 {
-  "player": "cat",
+  "player": "male-c",
   "staff": {
-    "washer": "monkey",
-    "runner": "dog",
-    "dryer": "chick",
-    "cashier": "parrot",
-    "valet": "bunny",
-    "manager": "lion"
-  },
-  "drivers": ["pig", "cow", "hog", "giraffe", "elephant", "tiger"]
+    "washer": "male-f",
+    "runner": "female-b",
+    "dryer": "female-c",
+    "cashier": "female-d",
+    "valet": "male-a",
+    "manager": "male-d"
+  }
 }

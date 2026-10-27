@@ -42,7 +42,8 @@ const SCENERY = [
 function manifest(): Record<string, string> {
   const files: Record<string, string> = {};
   for (const car of CARS) files[`car:${car.model}`] = `models/cars/${car.model}.glb`;
-  for (const pet of [CHARACTERS.player, ...CHARACTERS.drivers]) files[`pet:${pet}`] = `models/pets/animal-${pet}.glb`;
+  // Only the player for now; staff join in Milestone 4.
+  files[`person:${CHARACTERS.player}`] = `models/people/character-${CHARACTERS.player}.glb`;
   for (const name of SCENERY) files[`nature:${name}`] = `models/nature/${name}.glb`;
   return files;
 }

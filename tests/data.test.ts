@@ -69,9 +69,10 @@ describe('location1.json', () => {
 });
 
 describe('models', () => {
-  it('every car and animal in the data has a model file', () => {
+  it('every car and character in the data has a model file', () => {
     for (const car of CARS) expect(modelFiles).toContain(`models/cars/${car.model}.glb`);
-    const animals = [CHARACTERS.player, ...CHARACTERS.drivers, ...Object.values(CHARACTERS.staff)];
-    for (const pet of animals) expect(modelFiles).toContain(`models/pets/animal-${pet}.glb`);
+    for (const person of [CHARACTERS.player, ...Object.values(CHARACTERS.staff)]) {
+      expect(modelFiles).toContain(`models/people/character-${person}.glb`);
+    }
   });
 });

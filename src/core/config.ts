@@ -92,7 +92,7 @@ export const PADS = padsJson as PadDef[];
 export const STAGES = stagesJson as StageDef[];
 export const TUNING: Tuning = tuningJson;
 export const LOCATION1 = location1Json as LocationLayout;
-/** Which Cube Pets animal plays each role. */
+/** Which Kenney Mini Character plays each role. */
 export const CHARACTERS = charactersJson;
 
 export function padById(id: string): PadDef | undefined {
