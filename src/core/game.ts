@@ -21,6 +21,7 @@ import { IncomeTracker } from '../systems/offline';
 import { Floaters } from '../ui/carBubbles';
 import { Carrier } from '../systems/carry';
 import { Supplies } from '../systems/supplies';
+import { StaffSystem } from '../systems/staff';
 import { levelStep } from '../systems/economy';
 import { Buildings } from '../systems/buildings';
 import { PadSystem } from '../systems/pads';
@@ -71,9 +72,12 @@ export function createGame(
     if (paid.automated) income.add(clock.now, paid.amount);
   });
 
+  const staff = new StaffSystem(stage.scene, layout, state, labels);
+
   const addBuilt = (id: string, animate: boolean): void => {
     buildings.show(id, animate);
     traffic.addStation(id);
+    staff.hire(id);
   };
   for (const id of state.unlocked) addBuilt(id, false);
 
@@ -119,9 +123,12 @@ export function createGame(
   refitView(true);
   stage.onResize(() => rig.refit(true));
 
-  /** Who is working each station this frame. Staff join in a later step. */
-  const work = (station: Station): Work =>
-    insideRect(player.position, station.zone) ? { rate: 1, byPlayer: true } : { rate: 0, byPlayer: false };
+  /** Who is working each station this frame: the player, staff, or both (the faster counts). */
+  const work = (station: Station): Work => {
+    const byStaff = staff.rateFor(station);
+    const byPlayer = insideRect(player.position, station.zone) ? 1 : 0;
+    return { rate: Math.max(byStaff, byPlayer), byPlayer: byPlayer > 0 && byPlayer >= byStaff };
+  };
   const supplies = new Supplies(state, layout, () => traffic.all(), sound, labels);
 
   let lastPadRect = '';
@@ -130,7 +137,8 @@ export function createGame(
     clock.advance(dt);
     player.update(dt, input.read(), [...buildings.obstacles(), ...traffic.obstacles()], walkable);
     pads.update(dt, player.position);
-    supplies.update(dt, [playerCarry]);
+    staff.update(dt, traffic.all(), supplies, buildings.obstacles());
+    supplies.update(dt, [playerCarry, ...staff.carriers()]);
     playerCarry.update(dt, player.isMoving);
     player.scrubbing = traffic.update(dt, work, supplies);
     cash.update(player.position);

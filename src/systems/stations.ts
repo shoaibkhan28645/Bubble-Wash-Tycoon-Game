@@ -5,7 +5,8 @@ import type { Car } from './cars';
 
 export type StationKind = 'bay' | 'dryer' | 'wax';
 
-const RING_HEIGHT = 3.4;
+/** Rings float above the bay arch, lower over the dryer and wax so each sits on its own station. */
+const RING_HEIGHT: Record<StationKind, number> = { bay: 3.4, dryer: 2.2, wax: 2.2 };
 // Progress ring: track plus a fill whose dash length follows --p (0..100).
 const RING_SVG = `<svg viewBox="0 0 36 36" aria-hidden="true"><circle cx="18" cy="18" r="14" class="ring-track"/><circle cx="18" cy="18" r="14" class="ring-fill" pathLength="100"/></svg>`;
 
@@ -44,7 +45,7 @@ export class Station {
     this.ring = document.createElement('div');
     this.ring.className = 'wash-ring';
     this.ring.innerHTML = RING_SVG;
-    this.label = labels.add(this.ring, new Vector3(at.x, RING_HEIGHT, at.z));
+    this.label = labels.add(this.ring, new Vector3(at.x, RING_HEIGHT[kind], at.z));
     this.label.visible = false;
   }
 

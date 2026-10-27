@@ -37,6 +37,11 @@ export class Supplies implements SupplyCheck {
     this.shelfLabel = labels.add(this.shelfText, new Vector3(at.x, 2.5, at.z));
   }
 
+  /** Station stock is counted in uses (cars); each item carried in adds several. */
+  private maxUses(): number {
+    return TUNING.stations.supplyCapacity * TUNING.stations.usesPerItem;
+  }
+
   /** Called by traffic when a car needs this station's supply. */
   take(station: Station): boolean {
     if (!station.supply) return true;
@@ -69,13 +74,25 @@ export class Supplies implements SupplyCheck {
     return (['soap', 'towel', 'wax'] as SupplyType[]).filter((t) => used.has(t));
   }
 
-  /** How many more of a type the stations could take, minus what's already being carried. */
+  /** How many more items of a type the stations could take, minus what's already being carried. */
   need(type: SupplyType, carriers: readonly Carrier[] = []): number {
     let room = 0;
     for (const station of this.stations()) {
-      if (station.supply === type) room += TUNING.stations.supplyCapacity - (this.state.supplies[`${station.id}.${type}`] ?? 0);
+      if (station.supply !== type) continue;
+      const uses = this.state.supplies[`${station.id}.${type}`] ?? 0;
+      room += Math.floor((this.maxUses() - uses) / TUNING.stations.usesPerItem);
     }
     return room - carriers.reduce((sum, c) => sum + c.count(type), 0);
+  }
+
+  /** Items' worth of stock in the emptiest station that uses this type. */
+  lowestStock(type: SupplyType): number {
+    let low = Infinity;
+    for (const station of this.stations()) {
+      if (station.supply !== type) continue;
+      low = Math.min(low, (this.state.supplies[`${station.id}.${type}`] ?? 0) / TUNING.stations.usesPerItem);
+    }
+    return low;
   }
 
   shelfCapacity(): number {
@@ -89,7 +106,7 @@ export class Supplies implements SupplyCheck {
     station.supply = wanted;
     // A station starts full the first time it needs a supply.
     const key = `${station.id}.${wanted}`;
-    if (wanted && this.state.supplies[key] === undefined) this.state.supplies[key] = TUNING.stations.supplyCapacity;
+    if (wanted && this.state.supplies[key] === undefined) this.state.supplies[key] = this.maxUses();
   }
 
   private restock(dt: number): void {
@@ -107,14 +124,16 @@ export class Supplies implements SupplyCheck {
     const at = this.layout.pads[SHELF];
     if (!at || carrier.full) return false;
     if (Math.hypot(carrier.position.x - at.x, carrier.position.z - at.z) > TUNING.supplies.reach) return false;
-    // Take whatever the stations are shortest of.
+    // Most urgent first: the type whose emptiest station is lowest (an empty one blocks cars).
     let best: SupplyType | null = null;
-    let bestNeed = 0;
+    let bestLow = Infinity;
     for (const type of this.types()) {
-      const n = this.need(type, [carrier]);
-      if (n > bestNeed && (this.state.supplies[`shelf.${type}`] ?? this.shelfCapacity()) > 0) {
+      if (this.need(type, [carrier]) <= 0) continue;
+      if ((this.state.supplies[`shelf.${type}`] ?? this.shelfCapacity()) <= 0) continue;
+      const low = this.lowestStock(type) + carrier.count(type);
+      if (low < bestLow) {
         best = type;
-        bestNeed = n;
+        bestLow = low;
       }
     }
     if (!best) return false;
@@ -131,9 +150,9 @@ export class Supplies implements SupplyCheck {
       if (!type || carrier.count(type) === 0 || !insideRect(carrier.position, station.zone)) continue;
       const key = `${station.id}.${type}`;
       const stock = this.state.supplies[key] ?? 0;
-      if (stock >= TUNING.stations.supplyCapacity) continue;
+      if (stock + TUNING.stations.usesPerItem > this.maxUses()) continue;
       carrier.remove(type);
-      this.state.supplies[key] = stock + 1;
+      this.state.supplies[key] = stock + TUNING.stations.usesPerItem;
       this.sound.play('drop');
       return true;
     }

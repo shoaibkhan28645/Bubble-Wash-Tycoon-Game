@@ -9,7 +9,9 @@ import type { SoundManager } from '../src/audio/sound';
 
 const silent = { play: () => {} } as unknown as SoundManager;
 const shelf = LOCATION1.pads.soap!;
-const CAP = TUNING.stations.supplyCapacity;
+const USES = TUNING.stations.usesPerItem;
+/** A full station, counted in uses (cars). */
+const CAP = TUNING.stations.supplyCapacity * USES;
 
 function setup(unlocked = ['bay1', 'soap']) {
   const state = { ...newGame(), unlocked: [...unlocked] };
@@ -34,6 +36,14 @@ describe('supplies', () => {
     expect(supplies.take(stations[0]!)).toBe(true);
   });
 
+  it('one item serves several cars', () => {
+    const { state, stations, supplies, tick } = setup();
+    tick();
+    state.supplies['bay1.soap'] = USES;
+    for (let i = 0; i < USES; i++) expect(supplies.take(stations[0]!)).toBe(true);
+    expect(supplies.take(stations[0]!)).toBe(false);
+  });
+
   it('a bay starts full of soap and each car uses one', () => {
     const { state, stations, supplies, tick } = setup();
     tick();
@@ -53,11 +63,11 @@ describe('supplies', () => {
   it('picks up only what stations need, up to the carry limit', () => {
     const { state, carrier, moveTo, tick } = setup();
     tick();
-    state.supplies['bay1.soap'] = 1; // room for 5 more
+    state.supplies['bay1.soap'] = USES; // room for 5 more items
     moveTo(shelf);
     for (let i = 0; i < 10; i++) tick();
     expect(carrier.stack).toEqual(['soap', 'soap', 'soap']);
-    state.supplies['bay1.soap'] = CAP - 1; // now needs just 1, and we carry 3
+    state.supplies['bay1.soap'] = CAP - USES; // now needs just 1 item, and we carry 3
     const before = carrier.stack.length;
     tick();
     expect(carrier.stack.length).toBe(before);
@@ -66,7 +76,7 @@ describe('supplies', () => {
   it('drops off inside the station, never over capacity', () => {
     const { state, carrier, moveTo, tick } = setup();
     tick();
-    state.supplies['bay1.soap'] = CAP - 2;
+    state.supplies['bay1.soap'] = CAP - 2 * USES;
     carrier.push('soap');
     carrier.push('soap');
     carrier.push('soap');
@@ -84,7 +94,7 @@ describe('supplies', () => {
     tick();
     expect(supplies.types()).toEqual(['soap', 'towel']);
     state.supplies['bay1.soap'] = CAP;
-    state.supplies['dryer.towel'] = 2;
+    state.supplies['dryer.towel'] = 2 * USES;
     moveTo(shelf);
     for (let i = 0; i < 5; i++) tick();
     expect(carrier.stack.every((item) => item === 'towel')).toBe(true);
@@ -98,5 +108,27 @@ describe('supplies', () => {
     expect(state.supplies['shelf.soap']).toBe(TUNING.supplies.shelfCapacity);
     state.levels['soap.storage'] = 2;
     expect(supplies.shelfCapacity()).toBe(TUNING.supplies.shelfCapacity + 4);
+  });
+});
+
+describe('supply priority', () => {
+  it('fetches for an empty station first, even if another type has more room', () => {
+    const { state, carrier, moveTo, tick } = setup(['bay1', 'soap', 'dryer']);
+    tick();
+    state.supplies['bay1.soap'] = USES; // room for 5 items
+    state.supplies['dryer.towel'] = 0; // room for 6 and blocking cars
+    moveTo(shelf);
+    tick();
+    expect(carrier.stack[0]).toBe('towel');
+  });
+
+  it('alternates once the empty station is covered by what is carried', () => {
+    const { state, carrier, moveTo, tick } = setup(['bay1', 'soap', 'dryer']);
+    tick();
+    state.supplies['bay1.soap'] = USES;
+    state.supplies['dryer.towel'] = 0;
+    moveTo(shelf);
+    for (let i = 0; i < 6; i++) tick();
+    expect(carrier.stack.sort()).toEqual(['soap', 'towel', 'towel']);
   });
 });
