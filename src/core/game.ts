@@ -31,6 +31,7 @@ import { Buildings } from '../systems/buildings';
 import { PadSystem } from '../systems/pads';
 import { createMeta } from './meta';
 import { WashSounds } from '../audio/washSounds';
+import { blobShadows } from '../render/models/actors';
 
 /** Width of the side button column plus its margins, in CSS pixels. */
 const SIDE_BAR_PX = 64;
@@ -71,6 +72,7 @@ export function createGame(
   const hud = new Hud(root, state.cash);
   const input = new Input(root, lifecycle);
   const effects = new Particles(stage.scene);
+  blobShadows.attach(stage.scene);
 
   const bayIds = PADS.filter((pad) => pad.effects.bay).map((pad) => pad.effects.bay!);
   stage.scene.add(terrain(layout, bayIds.map((id) => layout.pads[id]!.x)));
@@ -214,7 +216,8 @@ export function createGame(
       rateTimer = 0;
       state.autoRate = income.perMinute(clock.now);
     }
-    buildings.update(dt, traffic.tunnelBusy);
+    // The shadow map only changes while a new building pops in.
+    if (buildings.update(dt, traffic.tunnelBusy)) stage.refreshShadows();
     effects.update(dt);
     saves.update(dt);
     meta.update(dt);
@@ -225,6 +228,7 @@ export function createGame(
       refitView();
     }
     rig.update(dt);
+    blobShadows.update();
     stage.render();
     labels.update(stage.camera, stage.size.width, stage.size.height);
     hud.update(dt, state.cash, state.stars, state.gems);
@@ -264,6 +268,7 @@ export function createGame(
     renderOnce() {
       // Compile every material now, behind the loading screen, not mid-game.
       stage.renderer.compile(stage.scene, stage.camera);
+      blobShadows.update();
       stage.render();
       labels.update(stage.camera, stage.size.width, stage.size.height);
     },

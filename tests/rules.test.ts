@@ -48,3 +48,16 @@ describe('YouTube Playables rules', () => {
     expect(offenders(/screen\.orientation\.lock|lockOrientation/)).toEqual([]);
   });
 });
+
+describe('shipped files', () => {
+  // Everything in public/ goes into the build as-is.
+  const shipped = Object.keys(import.meta.glob('../public/**/*')).map((p) => p.replace('../public/', ''));
+
+  it('finds the shipped files', () => {
+    expect(shipped.length).toBeGreaterThan(20);
+  });
+
+  it('file names use only letters, digits, _, - and .', () => {
+    for (const path of shipped) for (const part of path.split('/')) expect(part, path).toMatch(/^[A-Za-z0-9_.-]+$/);
+  });
+});

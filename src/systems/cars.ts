@@ -142,6 +142,7 @@ export class CarPool {
 
   acquire(): Car {
     const car = this.free.pop() ?? new Car(new CarModel());
+    car.model.mesh.name = 'car';
     this.scene.add(car.model.mesh);
     return car;
   }

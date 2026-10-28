@@ -13,6 +13,8 @@ import { offlineEarnings } from '../systems/offline';
 
 /** Boot sequence from the Tech Guide. gameReady() only once the game is playable. */
 export async function boot(root: HTMLElement): Promise<void> {
+  /** Milliseconds from page load to playable (shown in the debug panel; budget: under 5 s). */
+  let readyMs = 0;
   platform.installErrorReporting();
   const loading = getLoadingScreen();
   platform.firstFrameReady();
@@ -65,7 +67,7 @@ export async function boot(root: HTMLElement): Promise<void> {
 
   if (new URLSearchParams(window.location.search).has('debug')) {
     const { createDebugOverlay } = await import('../ui/debugOverlay');
-    game.addTicker(createDebugOverlay({ root, game, state, saves, lifecycle, dev: platform.devControls }));
+    game.addTicker(createDebugOverlay({ root, game, state, saves, lifecycle, dev: platform.devControls, readyMs: () => readyMs }));
   }
 
   // Dev-only handle for automated play tests; stripped from production builds.
@@ -74,6 +76,9 @@ export async function boot(root: HTMLElement): Promise<void> {
   await loading.hide();
   game.start();
   platform.gameReady();
+  readyMs = performance.now();
+  // The music isn't needed to play: make it now, after the start.
+  setTimeout(() => sound.prepareMusic(), 300);
   if (offline.cash > 0) game.welcomeBack(offline);
 
   // A long pause inside YouTube counts as time away too.

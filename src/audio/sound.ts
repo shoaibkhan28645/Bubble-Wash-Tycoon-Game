@@ -39,8 +39,8 @@ export class SoundManager {
   private unlocked = false;
 
   /**
-   * Loads and decodes every sound, and renders the music, during the loading
-   * screen. The context stays suspended until the first tap. Never throws:
+   * Loads and decodes every sound during the loading screen (the music is
+   * made later, by prepareMusic). The context stays suspended until the first tap. Never throws:
    * the game simply plays silently if audio isn't available.
    */
   async load(onProgress: (fraction: number) => void = () => {}): Promise<void> {
@@ -73,12 +73,18 @@ export class SoundManager {
         onProgress(++done / (names.length + 1));
       }),
     );
-    const rate = AUDIO.music.sampleRate;
     for (const [name, variants] of Object.entries(renderSynth(context.sampleRate))) {
       this.synth[name as SynthSound] = variants.map((samples) => this.toBuffer(samples, context.sampleRate));
     }
-    this.music = this.toBuffer(renderMusic(rate), rate);
     onProgress(1);
+    this.apply();
+  }
+
+  /** Renders the music loop; called just after the game is playable so it doesn't delay the start. */
+  prepareMusic(): void {
+    if (this.music || !this.context) return;
+    const rate = AUDIO.music.sampleRate;
+    this.music = this.toBuffer(renderMusic(rate), rate);
     this.apply();
   }
 

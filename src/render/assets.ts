@@ -9,6 +9,9 @@ import {
   Mesh,
   MeshLambertMaterial,
   MeshStandardMaterial,
+  SkinnedMesh,
+  Cache,
+  type Texture,
   type AnimationClip,
   type Object3D,
 } from 'three';
@@ -59,9 +62,13 @@ interface Merged {
 const assets = new Map<string, ModelAsset>();
 const mergedCache = new Map<string, Merged>();
 const lambertCache = new Map<Material, MeshLambertMaterial>();
+/** Every Car Kit and Mini Characters model points at the same colour texture; keep one copy per image. */
+const textures = new Map<unknown, Texture>();
 
 /** Loads everything in the manifest; `onProgress` gets 0..1. */
 export async function loadAssets(onProgress: (fraction: number) => void): Promise<void> {
+  // Files loaded twice (the shared colour textures) come from memory the second time.
+  Cache.enabled = true;
   const loader = new GLTFLoader();
   const entries = Object.entries(manifest());
   let done = 0;
@@ -69,6 +76,7 @@ export async function loadAssets(onProgress: (fraction: number) => void): Promis
     entries.map(async ([id, path]) => {
       const gltf = await loader.loadAsync(import.meta.env.BASE_URL + path);
       prepare(gltf.scene);
+      if (id.startsWith('person:')) mergeSkinnedParts(gltf.scene);
       assets.set(id, { scene: gltf.scene, animations: gltf.animations });
       onProgress(++done / entries.length);
     }),
@@ -93,6 +101,49 @@ export function asset(id: string): ModelAsset {
   return found;
 }
 
+/**
+ * Mini Characters come as a body and a head, two skinned meshes on the same
+ * bones with the same material and bind pose: joined, each person is one
+ * draw call instead of two.
+ */
+function mergeSkinnedParts(scene: Object3D): void {
+  const parts: SkinnedMesh[] = [];
+  scene.traverse((node) => {
+    if (node instanceof SkinnedMesh) parts.push(node);
+  });
+  const [first, ...rest] = parts;
+  if (!first || rest.length === 0) return;
+  const sameRig = rest.every(
+    (p) =>
+      p.material === first.material &&
+      p.skeleton.bones.length === first.skeleton.bones.length &&
+      p.skeleton.bones.every((bone, i) => bone === first.skeleton.bones[i]) &&
+      p.bindMatrix.equals(first.bindMatrix),
+  );
+  if (!sameRig) return;
+  const merged = mergeGeometries(parts.map((p) => p.geometry as BufferGeometry));
+  if (!merged) return;
+  first.geometry.dispose();
+  first.geometry = merged;
+  for (const part of rest) {
+    part.removeFromParent();
+    part.geometry.dispose();
+  }
+}
+
+/** The first texture seen for an image; later copies of it are dropped. */
+function shared(map: Texture | null): Texture | null {
+  if (!map) return null;
+  const key = map.source.data ?? map;
+  const known = textures.get(key);
+  if (known) {
+    if (known !== map) map.dispose();
+    return known;
+  }
+  textures.set(key, map);
+  return map;
+}
+
 /** Lambert instead of PBR (much cheaper on phones); drop data we never use. */
 function prepare(scene: Object3D): void {
   scene.traverse((node) => {
@@ -108,7 +159,7 @@ function toLambert(material: Material): MeshLambertMaterial {
   if (lambert) return lambert;
   const source = material as MeshStandardMaterial;
   const color = RECOLOR[source.name] ? new Color(RECOLOR[source.name]) : source.color?.clone() ?? new Color(0xffffff);
-  lambert = new MeshLambertMaterial({ map: source.map ?? null, color, name: source.name });
+  lambert = new MeshLambertMaterial({ map: shared(source.map), color, name: source.name });
   lambertCache.set(material, lambert);
   material.dispose();
   return lambert;

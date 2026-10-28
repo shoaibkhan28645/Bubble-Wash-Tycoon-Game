@@ -40,6 +40,15 @@ const all = [...sizes.keys()];
 console.log(`Initial: ${kib(sum(initial, 'gz'))} gzip (${kib(sum(initial, 'raw'))} raw), ${initial.length} files`);
 console.log(`Loaded later (Car of the Day): ${kib(sum([...lazy].filter((f) => sizes.has(f)), 'gz'))} gzip, ${lazy.size} files`);
 console.log(`dist total: ${kib(sum(all, 'raw'))} raw, ${all.length} files`);
+// Budgets (Tech Guide): fail the command if one is broken.
+const INITIAL_BUDGET = 15 * 1024 * 1024;
 for (const [name, { raw }] of sizes) {
-  if (raw > FILE_TARGET) console.log(`Over 512 KiB: ${name} (${kib(raw)})`);
+  if (raw > FILE_TARGET) {
+    console.log(`Over 512 KiB: ${name} (${kib(raw)})`);
+    process.exitCode = 1;
+  }
+}
+if (sum(initial, 'gz') > INITIAL_BUDGET) {
+  console.log('Initial download is over the 15 MiB budget');
+  process.exitCode = 1;
 }

@@ -7,7 +7,7 @@ import {
   Object3D,
   OctahedronGeometry,
   Scene,
-  SphereGeometry,
+  IcosahedronGeometry,
   Vector3,
 } from 'three';
 
@@ -43,9 +43,9 @@ export class Particles {
 
   constructor(scene: Scene) {
     this.addKind(scene, 'sparkle', new OctahedronGeometry(0.14), new MeshBasicMaterial({ color: 0xfff6b0 }));
-    this.addKind(scene, 'bubble', new SphereGeometry(0.16, 8, 6), new MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.85 }));
+    this.addKind(scene, 'bubble', new IcosahedronGeometry(0.16, 0), new MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.85 }));
     this.addKind(scene, 'bill', new BoxGeometry(0.42, 0.06, 0.24), new MeshBasicMaterial({ color: 0x5cc45c }));
-    this.addKind(scene, 'water', new SphereGeometry(0.06, 6, 4), new MeshBasicMaterial({ color: 0x8fd3ff, transparent: true, opacity: 0.85 }));
+    this.addKind(scene, 'water', new OctahedronGeometry(0.07), new MeshBasicMaterial({ color: 0x8fd3ff, transparent: true, opacity: 0.85 }));
     this.addKind(scene, 'confetti', new BoxGeometry(0.16, 0.02, 0.1), new MeshBasicMaterial({ color: 0xffffff }));
   }
 
@@ -114,6 +114,7 @@ export class Particles {
     const mesh = new InstancedMesh(geometry, material, POOL);
     mesh.count = 0;
     mesh.frustumCulled = false;
+    mesh.name = `fx:${kind}`;
     const tints = TINTS[kind];
     if (tints) for (let i = 0; i < POOL; i++) mesh.setColorAt(i, new Color(tints[i % tints.length]));
     scene.add(mesh);

@@ -42,6 +42,7 @@ export class Buildings {
     const at = this.layout.pads[id];
     if (!mesh || !at) return;
     mesh.position.set(at.x, 0, at.z);
+    mesh.name = `building:${id}`;
     this.scene.add(withShadows(mesh));
     this.built.push({ id, mesh, age: animate ? 0 : REVEAL_SECONDS });
     if (!animate) mesh.scale.setScalar(1);
@@ -53,14 +54,17 @@ export class Buildings {
     return this.solids;
   }
 
-  /** `tunnelBusy`: a car is in the tunnel, so the brushes spin fast. */
-  update(dt: number, tunnelBusy = false): void {
+  /** `tunnelBusy`: a car is in the tunnel, so the brushes spin fast. Returns true while a building is popping in. */
+  update(dt: number, tunnelBusy = false): boolean {
     this.tunnel?.update(dt, tunnelBusy);
+    let growing = false;
     for (const b of this.built) {
       if (b.age >= REVEAL_SECONDS) continue;
       b.age = Math.min(REVEAL_SECONDS, b.age + dt);
       b.mesh.scale.setScalar(easeOutBack(b.age / REVEAL_SECONDS));
+      growing = true;
     }
+    return growing;
   }
 
   private model(id: string): Object3D | null {

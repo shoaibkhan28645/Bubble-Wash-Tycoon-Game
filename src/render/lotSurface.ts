@@ -1,10 +1,10 @@
 import { CanvasTexture, Mesh, MeshLambertMaterial, PlaneGeometry, SRGBColorSpace } from 'three';
 import type { LocationLayout } from '../core/config';
 
-/** Texture size in pixels; the lot is stretched over it (about 55 pixels per metre). */
-const TEXTURE_SIZE = [1024, 2048] as const;
+/** Texture size in pixels (Tech Guide: at most 512): the lot is stretched over it, about 28 pixels per metre. */
+const TEXTURE_SIZE = [512, 1024] as const;
 /** Pixels per metre for sizes that should look round (arrows, splashes). */
-const PX = 58;
+const PX = 29;
 const JOINT = 3;
 const LANE = 2.7;
 const CONCRETE = '#d9d2c4';

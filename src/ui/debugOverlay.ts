@@ -16,10 +16,12 @@ interface DebugDeps {
   lifecycle: Lifecycle;
   /** Fake YouTube pause/mute; null inside YouTube. */
   dev: DevControls | null;
+  /** Page load to playable, in ms (0 until then). */
+  readyMs: () => number;
 }
 
 /** `?debug` overlay: stats, +$1,000, and (outside YouTube) fake pause/mute. Off by default. */
-export function createDebugOverlay({ root, game, state, saves, lifecycle, dev }: DebugDeps): (dt: number) => void {
+export function createDebugOverlay({ root, game, state, saves, lifecycle, dev, readyMs }: DebugDeps): (dt: number) => void {
   const panel = document.createElement('div');
   panel.className = 'debug-overlay';
   const stats = document.createElement('div');
@@ -78,7 +80,10 @@ export function createDebugOverlay({ root, game, state, saves, lifecycle, dev }:
     const status = lifecycle.paused ? 'PAUSED · ' : '';
     stats.textContent = `${status}FPS ${fps} · JS ${game.frameMs.toFixed(1)}ms · calls ${calls} · tris ${triangles}`;
     const lost = game.stage.contextLosses;
-    gpu.textContent = `GPU ${game.stage.gpu} · res ${game.stage.pixelRatio.toFixed(2)}×${lost ? ` · crashed ${lost}×` : ''}`;
+    const memory = (performance as { memory?: { usedJSHeapSize: number } }).memory;
+    const heap = memory ? ` · heap ${Math.round(memory.usedJSHeapSize / 1048576)} MB` : '';
+    const ready = readyMs() ? ` · ready ${(readyMs() / 1000).toFixed(1)} s` : '';
+    gpu.textContent = `GPU ${game.stage.gpu} · res ${game.stage.pixelRatio.toFixed(2)}×${ready}${heap}${lost ? ` · crashed ${lost}×` : ''}`;
     // Shadows also switch off by themselves after a GPU crash.
     shadowButton.textContent = shadowLabel();
   }

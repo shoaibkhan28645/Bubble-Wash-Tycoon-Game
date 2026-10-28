@@ -46,7 +46,8 @@ export function stripedBeam(span: number, y: number, z: number, color: string, a
   const step = span / stripes;
   for (let i = 0; i < stripes; i++) {
     const offset = -span / 2 + step * (i + 0.5);
-    const geometry = alongZ ? rbox(0.44, 0.5, step + 0.01, 0.04) : rbox(step + 0.01, 0.5, 0.44, 0.04);
+    // Plain boxes: side by side they read as one beam, and bevels here cost ~1k triangles a station.
+    const geometry = alongZ ? box(0.44, 0.5, step + 0.01) : box(step + 0.01, 0.5, 0.44);
     parts.push({ geometry, color: i % 2 === 0 ? C.white : color, x: alongZ ? x : x + offset, y, z: alongZ ? z + offset : z });
   }
   return parts;

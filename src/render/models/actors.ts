@@ -6,9 +6,12 @@ import {
   CanvasTexture,
   Color,
   Group,
+  InstancedMesh,
   Mesh,
   MeshBasicMaterial,
+  Object3D,
   PlaneGeometry,
+  Scene,
   type AnimationAction,
 } from 'three';
 import { clone as cloneSkinned } from 'three/addons/utils/SkeletonUtils.js';
@@ -44,14 +47,63 @@ function getShadowMaterial(): MeshBasicMaterial {
 }
 const shadowGeometry = new PlaneGeometry(1, 1).rotateX(-Math.PI / 2);
 
-/** Soft blob shadow, added as a child just above the ground. */
-export function blobShadow(width: number, length: number): Mesh {
-  const shadow = new Mesh(shadowGeometry, getShadowMaterial());
-  shadow.scale.set(width, 1, length);
-  shadow.position.y = 0.03;
-  shadow.renderOrder = -1;
-  shadow.userData.noShadow = true;
-  return shadow;
+const MAX_BLOBS = 64;
+
+/**
+ * Every soft blob shadow in one draw call. Objects carry an invisible marker;
+ * each frame the visible markers' positions go into one InstancedMesh.
+ */
+class BlobShadows {
+  private mesh: InstancedMesh | null = null;
+  private readonly markers = new Set<Object3D>();
+
+  attach(scene: Scene): void {
+    this.mesh = new InstancedMesh(shadowGeometry, getShadowMaterial(), MAX_BLOBS);
+    this.mesh.name = 'blob-shadows';
+    this.mesh.frustumCulled = false;
+    this.mesh.renderOrder = -1;
+    this.mesh.count = 0;
+    scene.add(this.mesh);
+  }
+
+  add(marker: Object3D): void {
+    this.markers.add(marker);
+  }
+
+  update(): void {
+    const mesh = this.mesh;
+    if (!mesh) return;
+    let n = 0;
+    for (const marker of this.markers) {
+      if (n >= MAX_BLOBS || !shown(marker)) continue;
+      marker.updateWorldMatrix(true, false);
+      mesh.setMatrixAt(n++, marker.matrixWorld);
+    }
+    mesh.count = n;
+    mesh.instanceMatrix.needsUpdate = true;
+  }
+}
+
+/** Visible all the way up to the scene. */
+function shown(object: Object3D): boolean {
+  let node: Object3D | null = object;
+  while (node) {
+    if (!node.visible) return false;
+    if (node instanceof Scene) return true;
+    node = node.parent;
+  }
+  return false;
+}
+
+export const blobShadows = new BlobShadows();
+
+/** Soft blob shadow just above the ground, as a child of the object it belongs to. */
+export function blobShadow(width: number, length: number): Object3D {
+  const marker = new Object3D();
+  marker.scale.set(width, 1, length);
+  marker.position.y = 0.03;
+  blobShadows.add(marker);
+  return marker;
 }
 
 type Pose = 'idle' | 'walk' | 'sprint' | 'scrub';
@@ -84,6 +136,7 @@ export class PersonAvatar {
     model.scale.setScalar(PERSON_SCALE);
     // People keep their soft blob shadow: real ones would draw every
     // animated character a second time each frame.
+    this.root.name = 'person';
     this.root.add(model, blobShadow(1.2, 1.2));
     this.mixer = new AnimationMixer(model);
     const clips: Record<Pose, string> = { idle: 'idle', walk: 'walk', sprint: 'sprint', scrub: 'interact-right' };
@@ -150,7 +203,8 @@ export class CarModel {
   private time = 0;
 
   constructor() {
-    this.body.castShadow = this.body.receiveShadow = true;
+    // Cars keep their soft blob shadow; they receive the buildings' and trees' shadows.
+    this.body.receiveShadow = true;
     this.mesh.add(this.body, this.shadow);
   }
 

@@ -93,6 +93,7 @@ export class CashSystem {
     mesh.position.set(at.x, 0, at.z);
     mesh.count = 0;
     mesh.add(blobShadow(1.3, 1));
+    mesh.name = 'cash';
     this.scene.add(mesh);
     pile = { id, at, mesh, shown: 0 };
     this.piles.set(id, pile);

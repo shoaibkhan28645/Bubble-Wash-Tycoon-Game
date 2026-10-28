@@ -19,7 +19,7 @@ const GRASS_A = new Color('#8fd46a');
 const GRASS_B = new Color('#6fc35a');
 const KERB = '#cdd2d9';
 const GROUND_SIZE = 140;
-const GROUND_SEGMENTS = 48;
+const GROUND_SEGMENTS = 32;
 
 /** Small seeded random generator so the scenery is the same every time. */
 function seeded(seed: number): () => number {
@@ -114,6 +114,7 @@ function scatter(id: string, items: { x: number; z: number; s: number; r: number
     dummy.updateMatrix();
     mesh.setMatrixAt(i, dummy.matrix);
   });
+  mesh.name = id;
   // Only trees and the fence: small plants and rocks aren't worth a shadow pass.
   mesh.castShadow = /tree|fence/.test(id);
   return mesh;
@@ -149,12 +150,12 @@ function scenery(layout: LocationLayout): Group {
     { id: 'nature:plant_bushLarge', count: 14, scale: [1.6, 2.2], margin: 0.8, near: 4 },
     { id: 'nature:plant_bush', count: 18, scale: [1.6, 2.2], margin: 0.6, near: 3 },
     { id: 'nature:plant_bushDetailed', count: 10, scale: [1.6, 2], margin: 0.6, near: 3 },
-    { id: 'nature:grass_large', count: 40, scale: [1.8, 2.6], margin: 0.3, near: 5 },
-    { id: 'nature:grass', count: 40, scale: [1.8, 2.6], margin: 0.3 },
+    { id: 'nature:grass_large', count: 14, scale: [1.8, 2.6], margin: 0.3, near: 4 },
+    { id: 'nature:grass', count: 18, scale: [1.8, 2.6], margin: 0.3, near: 6 },
     { id: 'nature:grass_leafs', count: 24, scale: [1.6, 2.2], margin: 0.3 },
-    { id: 'nature:flower_redA', count: 16, scale: [1.6, 2], margin: 0.4, near: 4 },
-    { id: 'nature:flower_yellowA', count: 16, scale: [1.6, 2], margin: 0.4, near: 4 },
-    { id: 'nature:flower_purpleA', count: 12, scale: [1.6, 2], margin: 0.4, near: 4 },
+    { id: 'nature:flower_redA', count: 9, scale: [1.6, 2], margin: 0.4, near: 4 },
+    { id: 'nature:flower_yellowA', count: 9, scale: [1.6, 2], margin: 0.4, near: 4 },
+    { id: 'nature:flower_purpleA', count: 7, scale: [1.6, 2], margin: 0.4, near: 4 },
     { id: 'nature:rock_smallA', count: 12, scale: [1.4, 2.2], margin: 0.4 },
     { id: 'nature:rock_largeA', count: 5, scale: [1.2, 1.8], margin: 1 },
   ];

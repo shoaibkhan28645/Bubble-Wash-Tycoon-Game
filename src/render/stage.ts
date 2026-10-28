@@ -43,6 +43,8 @@ export interface Stage {
   readonly pixelRatio: number;
   /** Turns real shadows on or off (they're turned off for good after a GPU crash). */
   setShadows(on: boolean): void;
+  /** Only still things cast shadows, so the shadow map is redrawn only when the lot changes. */
+  refreshShadows(): void;
   /** Points the sun's shadow camera at an area (the lot), so shadows stay sharp there. */
   shadowArea(rect: { minX: number; maxX: number; minZ: number; maxZ: number }): void;
   /** Called after every resize, once the camera's aspect is updated. */
@@ -58,9 +60,10 @@ export function createStage(container: HTMLElement): Stage {
   const scene = new Scene();
   scene.fog = new Fog(BACKGROUND, 70, 160);
   renderer.shadowMap.type = PCFShadowMap;
-  // Shadows are redrawn every other frame: half the cost, and a one-frame lag nobody sees.
+  // Only buildings, trees and the fence cast shadows (cars and people have soft
+  // blob shadows), so the shadow map is drawn once and again only when the lot changes.
   renderer.shadowMap.autoUpdate = false;
-  let shadowFrame = false;
+  renderer.shadowMap.needsUpdate = true;
   scene.add(new HemisphereLight(0xf4f8ff, 0x9fbf8a, 1.35));
   const sun = new DirectionalLight(0xffeccc, 2.7);
   sun.shadow.mapSize.set(SHADOW_MAP_SIZE, SHADOW_MAP_SIZE);
@@ -71,6 +74,7 @@ export function createStage(container: HTMLElement): Stage {
   const setShadows = (on: boolean): void => {
     renderer.shadowMap.enabled = on;
     sun.castShadow = on;
+    renderer.shadowMap.needsUpdate = true;
   };
   setShadows(GRAPHICS.shadows);
 
@@ -126,6 +130,9 @@ export function createStage(container: HTMLElement): Stage {
       return renderer.shadowMap.enabled;
     },
     setShadows,
+    refreshShadows() {
+      renderer.shadowMap.needsUpdate = true;
+    },
     get pixelRatio() {
       return renderer.getPixelRatio();
     },
@@ -149,8 +156,6 @@ export function createStage(container: HTMLElement): Stage {
       if (lastFrame) resolution.tick((now - lastFrame) / 1000);
       lastFrame = now;
       if (contextLost) return;
-      shadowFrame = !shadowFrame;
-      if (shadowFrame) renderer.shadowMap.needsUpdate = true;
       renderer.render(scene, camera);
     },
   };

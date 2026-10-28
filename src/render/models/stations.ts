@@ -159,7 +159,7 @@ export class TunnelModel {
     const brushMaterial = new MeshLambertMaterial({ vertexColors: true });
     const side = mergeParts([
       { geometry: cylinder(0.12, 2.3, 8), color: C.steel, y: 1.25 },
-      ...[0.45, 0.85, 1.25, 1.65, 2.05].map((y, i) => ({ geometry: cylinder(0.42, 0.34, 10), color: i % 2 ? C.pink : C.blue, y })),
+      ...[0.45, 0.85, 1.25, 1.65, 2.05].map((y, i) => ({ geometry: cylinder(0.42, 0.34, 8), color: i % 2 ? C.pink : C.blue, y })),
     ]);
     for (const z of [-length / 4, length / 4]) {
       for (const sx of [-1, 1]) {
@@ -172,7 +172,7 @@ export class TunnelModel {
     const roller = new Mesh(
       mergeParts([
         { geometry: cylinder(0.1, width - 0.4, 8), color: C.steel, rz: Math.PI / 2 },
-        ...[-0.9, -0.3, 0.3, 0.9].map((x, i) => ({ geometry: cylinder(0.36, 0.5, 10), color: i % 2 ? C.mint : C.yellow, x, rz: Math.PI / 2 })),
+        ...[-0.9, -0.3, 0.3, 0.9].map((x, i) => ({ geometry: cylinder(0.36, 0.5, 8), color: i % 2 ? C.mint : C.yellow, x, rz: Math.PI / 2 })),
       ]),
       brushMaterial,
     );
