@@ -68,9 +68,9 @@ describe('supplies', () => {
     for (let i = 0; i < 10; i++) tick();
     expect(carrier.stack).toEqual(['soap', 'soap', 'soap']);
     state.supplies['bay1.soap'] = CAP - USES; // now needs just 1 item, and we carry 3
-    const before = carrier.stack.length;
-    tick();
-    expect(carrier.stack.length).toBe(before);
+    for (let i = 0; i < 10; i++) tick();
+    // The 2 extra go back on the shelf instead of clogging the carrier's hands.
+    expect(carrier.stack).toEqual(['soap']);
   });
 
   it('drops off inside the station, never over capacity', () => {
