@@ -1,6 +1,8 @@
 import { Group, type Object3D, type Scene } from 'three';
 import type { LocationLayout, Rect } from '../core/config';
-import { bayModel, benchModel, dryerModel, hoseModel, registerModel, shelfModel, waxModel } from '../render/models/props';
+import { bayModel } from '../render/models/bay';
+import { benchModel, dryerModel, hoseModel, registerModel, shelfModel, waxModel } from '../render/models/props';
+import { withShadows } from '../render/stage';
 import { garageModel, signModel, TunnelModel, truckModel, vendingModel } from '../render/models/bigProps';
 
 const REVEAL_SECONDS = 0.45;
@@ -41,7 +43,7 @@ export class Buildings {
     const at = this.layout.pads[id];
     if (!mesh || !at) return;
     mesh.position.set(at.x, 0, at.z);
-    this.scene.add(mesh);
+    this.scene.add(withShadows(mesh));
     this.built.push({ id, mesh, age: animate ? 0 : REVEAL_SECONDS });
     if (!animate) mesh.scale.setScalar(1);
     const solid = SOLID[id];
@@ -63,7 +65,7 @@ export class Buildings {
   }
 
   private model(id: string): Object3D | null {
-    if (id.startsWith('bay')) return bayModel(this.layout.bay.width, this.layout.bay.length);
+    if (id.startsWith('bay')) return bayModel(this.layout.bay.width, this.layout.bay.length, `BAY ${id.slice(3)}`);
     if (id === 'hose') return hoseModel();
     if (id === 'register') return registerModel();
     if (id === 'soap') return shelfModel();

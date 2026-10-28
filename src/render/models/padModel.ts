@@ -44,6 +44,7 @@ export class PadModel {
     this.base.position.y = 0.02;
     this.fill = new Mesh(plane, this.fillMaterial);
     this.fill.position.y = 0.025;
+    this.base.receiveShadow = this.fill.receiveShadow = true;
     this.group.add(this.base, this.fill, this.outline);
     this.setProgress(0);
   }

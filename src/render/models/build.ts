@@ -7,6 +7,7 @@ import {
   MeshLambertMaterial,
   SphereGeometry,
 } from 'three';
+import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 
 /** One coloured shape in a model, placed relative to the model's origin. */
@@ -25,6 +26,9 @@ export interface Part {
 export const toyMaterial = new MeshLambertMaterial({ vertexColors: true });
 
 export const box = (w: number, h: number, d: number) => new BoxGeometry(w, h, d);
+/** Box with softly rounded edges (reads as a toy rather than a raw cube). */
+export const rbox = (w: number, h: number, d: number, radius = 0.06) =>
+  new RoundedBoxGeometry(w, h, d, 2, Math.min(radius, w / 2, h / 2, d / 2));
 export const cylinder = (radius: number, height: number, segments = 12) =>
   new CylinderGeometry(radius, radius, height, segments);
 export const sphere = (radius: number, segments = 12) => new SphereGeometry(radius, segments, Math.ceil(segments * 0.75));
@@ -45,7 +49,9 @@ export function mergeParts(parts: Part[]): BufferGeometry {
     g.translate(part.x ?? 0, part.y ?? 0, part.z ?? 0);
     return g;
   });
-  const merged = mergeGeometries(pieces);
+  // Rounded boxes come without an index; everything must match to merge.
+  const mixed = pieces.some((g) => !g.index) && pieces.some((g) => g.index);
+  const merged = mergeGeometries(mixed ? pieces.map((g) => (g.index ? g.toNonIndexed() : g)) : pieces);
   for (const piece of pieces) piece.dispose();
   if (!merged) throw new Error('Could not merge model parts');
   return merged;

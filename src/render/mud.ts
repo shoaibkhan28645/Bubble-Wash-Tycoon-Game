@@ -2,8 +2,11 @@ import { Color, type MeshLambertMaterial } from 'three';
 
 /** Per-material settings the mud shader reads every frame. */
 export interface MudUniforms {
+  /** Mud shows where the mud field is above this (raised as the car gets cleaner). */
   uClean: { value: number };
   uMudColor: { value: Color };
+  /** Height of the model (its own units), so mud can splash up from the bottom. */
+  uTop: { value: number };
 }
 
 // Cheap 3D value noise, so the mud breaks up in blotches instead of fading evenly.
@@ -11,6 +14,7 @@ const NOISE = /* glsl */ `
 varying vec3 vMudPos;
 uniform float uClean;
 uniform vec3 uMudColor;
+uniform float uTop;
 float mudHash(vec3 p) { return fract(sin(dot(p, vec3(17.1, 113.5, 71.7))) * 43758.5453); }
 float mudNoise(vec3 p) {
   vec3 i = floor(p);
@@ -24,11 +28,12 @@ float mudNoise(vec3 p) {
 `;
 
 /**
- * Mud-to-shine: a dirt layer dissolves in noisy blotches as `uClean`
- * goes from 0 (muddy) to 1 (clean). One shader for every car.
+ * Mud-to-shine: mud splashed up from the wheels, thickest low down, in
+ * blotches and drips so the car's paint still shows on top. It dissolves as
+ * `uClean` rises. A dull film over the rest of the paint goes too.
  */
 export function addMud(material: MeshLambertMaterial): MudUniforms {
-  const uniforms: MudUniforms = { uClean: { value: 0 }, uMudColor: { value: new Color('#8a6a48') } };
+  const uniforms: MudUniforms = { uClean: { value: 0 }, uMudColor: { value: new Color('#8a6a48') }, uTop: { value: 1 } };
   material.onBeforeCompile = (shader) => {
     Object.assign(shader.uniforms, uniforms);
     shader.vertexShader = shader.vertexShader
@@ -39,10 +44,16 @@ export function addMud(material: MeshLambertMaterial): MudUniforms {
       .replace(
         '#include <map_fragment>',
         `#include <map_fragment>
-        float mudN = mudNoise(vMudPos * 2.2) * 0.75 + mudNoise(vMudPos * 7.0) * 0.25;
-        float mudMask = smoothstep(uClean - 0.06, uClean + 0.06, mudN);
-        vec3 mudTone = uMudColor * (0.8 + 0.35 * mudNoise(vMudPos * 13.0));
-        diffuseColor.rgb = mix(diffuseColor.rgb, mudTone, mudMask * 0.92);`,
+        float mudLow = 1.0 - clamp(vMudPos.y / uTop, 0.0, 1.0);
+        float mudDrip = mudNoise(vec3(vMudPos.x * 9.0, vMudPos.y * 1.3, vMudPos.z * 9.0));
+        float mudN = mudNoise(vMudPos * 2.6) * 0.55 + mudNoise(vMudPos * 8.0) * 0.2 + mudDrip * 0.25;
+        float mudField = mudN * 0.75 + mudLow * mudLow * 0.7;
+        float mudMask = smoothstep(uClean - 0.03, uClean + 0.03, mudField);
+        vec3 mudTone = uMudColor * (0.75 + 0.4 * mudNoise(vMudPos * 15.0));
+        // Dull, dusty film until washed.
+        float mudFilm = clamp(1.25 - uClean, 0.0, 1.0) * 0.55;
+        diffuseColor.rgb = mix(diffuseColor.rgb, mix(diffuseColor.rgb, uMudColor, 0.45), mudFilm);
+        diffuseColor.rgb = mix(diffuseColor.rgb, mudTone, mudMask * 0.95);`,
       );
   };
   material.customProgramCacheKey = () => 'mud';

@@ -13,11 +13,14 @@ import { clone as cloneSkinned } from 'three/addons/utils/SkeletonUtils.js';
 import type { CarDef } from '../../core/config';
 import { asset, mergedModel } from '../assets';
 import { addMud, type MudUniforms } from '../mud';
+import { withShadows } from '../stage';
 
 /** Mini Characters are 0.8 units tall; this makes them about car-roof height. */
 const PERSON_SCALE = 2;
 
 const MUD: Record<string, string> = { dusty: '#a4825c', muddy: '#7a5a3a', swamp: '#5a6636' };
+/** Mud threshold on a dirty car (lower = more mud): see mud.ts. */
+const DIRT_START: Record<string, number> = { dusty: 0.56, muddy: 0.48, swamp: 0.36 };
 
 let shadowMaterial: MeshBasicMaterial | null = null;
 
@@ -44,6 +47,7 @@ export function blobShadow(width: number, length: number): Mesh {
   shadow.scale.set(width, 1, length);
   shadow.position.y = 0.03;
   shadow.renderOrder = -1;
+  shadow.userData.noShadow = true;
   return shadow;
 }
 
@@ -60,6 +64,7 @@ export class PersonAvatar {
     const { scene, animations } = asset(`person:${character}`);
     const model = cloneSkinned(scene);
     model.scale.setScalar(PERSON_SCALE);
+    withShadows(model, true, false);
     this.root.add(model, blobShadow(1.2, 1.2));
     this.mixer = new AnimationMixer(model);
     const clips: Record<Pose, string> = { idle: 'idle', walk: 'walk', sprint: 'sprint', scrub: 'interact-right' };
@@ -93,6 +98,7 @@ export class CarModel {
   private mud: MudUniforms | null = null;
 
   constructor() {
+    this.body.castShadow = this.body.receiveShadow = true;
     this.mesh.add(this.body, this.shadow);
   }
 
@@ -101,6 +107,7 @@ export class CarModel {
     const own = material.clone();
     if (def.tint) own.color = new Color(def.tint);
     this.mud = addMud(own);
+    this.mud.uTop.value = def.size[1] / def.scale;
     this.body.geometry = geometry;
     (this.body.material as { dispose?: () => void }).dispose?.();
     this.body.material = own;
@@ -108,11 +115,12 @@ export class CarModel {
     this.shadow.scale.set(def.size[0] * 1.35, 1, def.size[2] * 1.2);
   }
 
-/** 0 = fully muddy, 1 = sparkling clean. */
+  /** 0 = fully muddy, 1 = sparkling clean. */
   setClean(dirt: string, clean: number): void {
     if (!this.mud) return;
     this.mud.uMudColor.value.set(MUD[dirt] ?? MUD.dusty!);
-    // The noise mostly sits mid-range, so stretch the threshold to use all of it.
-    this.mud.uClean.value = clean <= 0 ? -1 : clean >= 1 ? 2 : 0.18 + clean * 0.66;
+    // How high the mud reaches on a dirty car: dust stays low, swamp mud covers most of it.
+    const start = DIRT_START[dirt] ?? DIRT_START.dusty!;
+    this.mud.uClean.value = clean >= 1 ? 9 : start + clean * (1.2 - start);
   }
 }

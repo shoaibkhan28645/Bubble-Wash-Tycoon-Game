@@ -21,39 +21,6 @@ function cached(key: string, build: () => Part[]): Mesh {
   return new Mesh(geometry, toyMaterial);
 }
 
-/** Open hand-wash bay: concrete slab, drain grate, striped arches at both ends, bucket. */
-export function bayModel(width: number, length: number): Mesh {
-  return cached(`bay:${width}:${length}`, () => {
-    const parts: Part[] = [
-      { geometry: box(width + 0.3, 0.1, length + 0.3), color: '#aeb6c2', y: 0.05 },
-      { geometry: box(width, 0.12, length), color: '#e3e8ee', y: 0.07 },
-    ];
-    // Drain grate down the middle.
-    for (let i = -3; i <= 3; i++) parts.push({ geometry: box(0.7, 0.13, 0.08), color: '#8b95a3', y: 0.075, z: i * 0.18 });
-    const hx = width / 2 + 0.05;
-    for (const sz of [-1, 1]) {
-      const z = sz * (length / 2 - 0.15);
-      for (const sx of [-1, 1]) {
-        parts.push({ geometry: cylinder(0.16, 2.7, 12), color: WHITE, x: sx * hx, y: 1.35, z });
-        parts.push({ geometry: cylinder(0.24, 0.16, 12), color: '#aeb6c2', x: sx * hx, y: 0.08, z });
-      }
-      // Arch beam with candy stripes.
-      parts.push({ geometry: box(width + 0.5, 0.42, 0.36), color: sz < 0 ? BLUE : PINK, y: 2.82, z });
-      for (let i = 0; i < 5; i++) {
-        const x = -width / 2 + 0.2 + (i * (width - 0.4)) / 4;
-        parts.push({ geometry: box(0.28, 0.44, 0.38), color: WHITE, x, y: 2.82, z });
-      }
-    }
-    // Side rails joining the arches.
-    for (const sx of [-1, 1]) parts.push({ geometry: box(0.14, 0.14, length - 0.3), color: WHITE, x: sx * hx, y: 2.55 });
-    // Bucket with a sponge in the corner.
-    parts.push({ geometry: cylinder(0.26, 0.42, 12), color: YELLOW, x: hx - 0.55, y: 0.33, z: length / 2 - 0.55 });
-    parts.push({ geometry: cylinder(0.2, 0.05, 12), color: '#bfe9ff', x: hx - 0.55, y: 0.54, z: length / 2 - 0.55 });
-    parts.push({ geometry: box(0.3, 0.14, 0.2), color: PINK, x: hx - 0.5, y: 0.6, z: length / 2 - 0.5, ry: 0.4 });
-    return parts;
-  });
-}
-
 /** Garden hose: post with a reel. */
 export function hoseModel(): Mesh {
   return cached('hose', () => [

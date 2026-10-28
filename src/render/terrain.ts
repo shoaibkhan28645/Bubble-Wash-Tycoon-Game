@@ -11,12 +11,12 @@ import {
 } from 'three';
 import type { LocationLayout, Rect } from '../core/config';
 import { mergedModel } from './assets';
+import { lotSurface } from './lotSurface';
 import { mergeParts, toyMaterial, type Part } from './models/build';
 
 const GRASS_A = new Color('#8fd46a');
 const GRASS_B = new Color('#6fc35a');
-const DIRT_A = new Color('#e6cc9a');
-const DIRT_B = new Color('#d4b27c');
+const KERB = '#cdd2d9';
 const GROUND_SIZE = 140;
 const GROUND_SEGMENTS = 70;
 
@@ -36,7 +36,7 @@ function inside(x: number, z: number, r: Rect, margin = 0): boolean {
   return x > r.minX - margin && x < r.maxX + margin && z > r.minZ - margin && z < r.maxZ + margin;
 }
 
-/** Grass with colour variation and gentle bumps; the dirt lot blends in with a soft, uneven edge. */
+/** Grass with colour variation and gentle bumps; flat where the paved lot and the road go. */
 function ground(layout: LocationLayout): Mesh {
   const geometry = new PlaneGeometry(GROUND_SIZE, GROUND_SIZE, GROUND_SEGMENTS, GROUND_SEGMENTS).rotateX(-Math.PI / 2);
   const pos = geometry.getAttribute('position');
@@ -47,20 +47,16 @@ function ground(layout: LocationLayout): Mesh {
     const x = pos.getX(i);
     const z = pos.getZ(i);
     const n = wobble(x, z);
-    // Distance outside the lot (0 inside), with a ragged edge.
-    const dx = Math.max(lot.minX - x, 0, x - lot.maxX);
-    const dz = Math.max(lot.minZ - z, 0, z - lot.maxZ);
-    const out = Math.hypot(dx, dz) + n * 0.6;
-    const dirt = Math.min(1, Math.max(0, 1 - out / 1.2));
     c.copy(GRASS_A).lerp(GRASS_B, 0.5 + n * 0.5);
-    c.lerp(DIRT_A.clone().lerp(DIRT_B, 0.5 + wobble(x * 2, z * 2) * 0.5), dirt);
     colors.set([c.r, c.g, c.b], i * 3);
-    const nearRoad = Math.abs(z - roadZ) < 4;
-    pos.setY(i, dirt > 0 || nearRoad ? -0.02 : Math.max(0, n) * 0.25 - 0.02);
+    const flat = inside(x, z, lot, 1.5) || Math.abs(z - roadZ) < 4;
+    pos.setY(i, flat ? -0.02 : Math.max(0, n) * 0.25 - 0.02);
   }
   geometry.setAttribute('color', new Float32BufferAttribute(colors, 3));
   geometry.computeVertexNormals();
-  return new Mesh(geometry, new MeshLambertMaterial({ vertexColors: true }));
+  const mesh = new Mesh(geometry, new MeshLambertMaterial({ vertexColors: true }));
+  mesh.receiveShadow = true;
+  return mesh;
 }
 
 const flat = (w: number, d: number, color: string, x: number, z: number, y: number): Part => ({
@@ -72,11 +68,10 @@ const flat = (w: number, d: number, color: string, x: number, z: number, y: numb
   rx: -Math.PI / 2,
 });
 
-/** Road with kerbs and dashes, and the lanes cars follow through the lot. */
-function roads(layout: LocationLayout, bayXs: number[]): Mesh {
-  const { roadZ, collectZ, finishX, exitZ, earlyExitZ, exitX } = layout;
-  const LANE = '#c4bba9';
-  const W = 2.3;
+/** The street with kerbs and dashes, the exits out to it, and kerbs around the lot. */
+function roads(layout: LocationLayout): Mesh {
+  const { roadZ, exitZ, earlyExitZ, exitX, lot } = layout;
+  const W = 2.7;
   const parts: Part[] = [
     flat(160, 3.6, '#6b7280', 0, roadZ, 0.02),
     { geometry: new BoxGeometry(160, 0.16, 0.3), color: '#e9edf2', z: roadZ - 1.95, y: 0.08 },
@@ -84,23 +79,26 @@ function roads(layout: LocationLayout, bayXs: number[]): Mesh {
     flat(160, 1.4, '#cfd5dc', 0, roadZ - 2.8, 0.025),
   ];
   for (let x = -78; x < 80; x += 3.2) parts.push(flat(1.5, 0.2, '#ffd85c', x, roadZ, 0.03));
-  // Down from the road through each bay.
-  const laneTop = roadZ + 1.8;
-  for (const x of bayXs) {
-    const length = collectZ - laneTop + W / 2;
-    parts.push(flat(W, length, LANE, x, laneTop + length / 2, 0.03));
-  }
-  // Collector lane to the finishing lane, down past the dryer and wax, then out.
-  const left = Math.min(...bayXs) - W / 2;
-  parts.push(flat(finishX + W / 2 - left, W, LANE, (left + finishX + W / 2) / 2, collectZ, 0.031));
-  parts.push(flat(W, exitZ - collectZ, LANE, finishX, (collectZ + exitZ) / 2, 0.032));
-  // Tunnel lane: from the road straight down the finishing lane's line.
-  parts.push(flat(W, collectZ - laneTop, LANE, finishX, (laneTop + collectZ) / 2, 0.0315));
-  // Two ways out: just after the waxing station, and after the garage.
+  // The two ways out, from the lot's edge across the grass.
   for (const z of [earlyExitZ, exitZ]) {
-    parts.push(flat(exitX + 30 - finishX + W / 2, W, LANE, (finishX - W / 2 + exitX + 30) / 2, z, 0.033));
+    const length = exitX + 30 - lot.maxX;
+    parts.push(flat(length, W, '#646b77', lot.maxX + length / 2, z, 0.03));
   }
-  return new Mesh(mergeParts(parts), toyMaterial);
+  // Kerbs on the three sides away from the road, open where cars drive out.
+  const kerb = (x0: number, z0: number, x1: number, z1: number) =>
+    parts.push({ geometry: new BoxGeometry(Math.max(0.24, x1 - x0), 0.14, Math.max(0.24, z1 - z0)), color: KERB, x: (x0 + x1) / 2, y: 0.07, z: (z0 + z1) / 2 });
+  kerb(lot.minX, lot.maxZ, lot.maxX, lot.maxZ);
+  kerb(lot.minX, lot.minZ + 0.2, lot.minX, lot.maxZ);
+  const gaps = [earlyExitZ, exitZ].sort((a, b) => a - b);
+  let from = lot.minZ + 0.2;
+  for (const z of gaps) {
+    kerb(lot.maxX, from, lot.maxX, z - W / 2);
+    from = z + W / 2;
+  }
+  kerb(lot.maxX, from, lot.maxX, lot.maxZ);
+  const mesh = new Mesh(mergeParts(parts), toyMaterial);
+  mesh.receiveShadow = true;
+  return mesh;
 }
 
 /** Many copies of one Kenney model in a single draw call. */
@@ -115,6 +113,8 @@ function scatter(id: string, items: { x: number; z: number; s: number; r: number
     dummy.updateMatrix();
     mesh.setMatrixAt(i, dummy.matrix);
   });
+  // Grass and flowers are too small to bother; everything bigger casts a shadow.
+  mesh.castShadow = !/grass|flower/.test(id);
   return mesh;
 }
 
@@ -169,14 +169,6 @@ function scenery(layout: LocationLayout): Group {
     }
     group.add(scatter(kind.id, items));
   }
-  // A few weeds in the dusty lot (the GDD's "cracked dirt with weeds").
-  const weeds: { x: number; z: number; s: number; r: number }[] = [];
-  for (let i = 0; i < 8; i++) {
-    const side = i % 2 === 0 ? lot.minX + 0.6 + rand() * 1.2 : lot.maxX - 0.6 - rand() * 1.2;
-    weeds.push({ x: side, z: lot.minZ + 1 + rand() * (lot.maxZ - lot.minZ - 2), s: 1.6, r: rand() * 6 });
-  }
-  group.add(scatter('nature:grass_leafs', weeds));
-
   // A row of trees along the far side of the road.
   const row: { x: number; z: number; s: number; r: number }[] = [];
   for (let x = -26; x <= 26; x += 3.2 + rand() * 1.5) row.push({ x, z: roadZ - 4.6 - rand() * 1.5, s: 2.6 + rand() * 0.8, r: rand() * 6 });
@@ -187,6 +179,6 @@ function scenery(layout: LocationLayout): Group {
 /** All static ground and scenery for a location. */
 export function terrain(layout: LocationLayout, bayXs: number[]): Group {
   const group = new Group();
-  group.add(ground(layout), roads(layout, bayXs), fence(layout), scenery(layout));
+  group.add(ground(layout), lotSurface(layout, bayXs), roads(layout), fence(layout), scenery(layout));
   return group;
 }

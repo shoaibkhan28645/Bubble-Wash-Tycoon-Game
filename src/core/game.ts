@@ -54,6 +54,7 @@ export function createGame(
 ): Game {
   const layout = LOCATION1;
   const stage = createStage(root);
+  stage.shadowArea({ ...layout.lot, minZ: layout.roadZ - 3 });
   const clock = new GameClock();
   const tickers: ((dt: number) => void)[] = [];
   const rig = new CameraRig(stage.camera);
