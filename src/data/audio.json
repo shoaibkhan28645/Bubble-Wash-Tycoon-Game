@@ -1,0 +1,23 @@
+{
+  "music": { "volume": 0.2, "duckVolume": 0.07, "sampleRate": 22050 },
+  "sfxVolume": 0.8,
+  "sounds": {
+    "coins": { "files": ["coins-1", "coins-2"], "volume": 0.55, "gap": 0.12 },
+    "chip": { "files": ["chip-1", "chip-2", "chip-3"], "volume": 0.35, "gap": 0.06 },
+    "ching": { "files": ["register"], "synth": "bell", "volume": 0.35, "gap": 0.45 },
+    "sparkle": { "files": ["sparkle"], "volume": 0.45, "gap": 0.15 },
+    "pick": { "files": ["pick"], "volume": 0.5, "gap": 0.05 },
+    "drop": { "files": ["drop"], "volume": 0.5, "gap": 0.05 },
+    "click": { "files": ["click"], "volume": 0.6, "gap": 0.03 },
+    "open": { "files": ["open"], "volume": 0.4, "gap": 0.1 },
+    "upgrade": { "files": ["upgrade"], "volume": 0.55, "gap": 0.1 },
+    "build": { "files": ["jingle-build"], "volume": 0.6, "gap": 0.5, "duck": true },
+    "reward": { "files": ["jingle-reward"], "volume": 0.6, "gap": 0.5, "duck": true },
+    "vip": { "files": ["jingle-vip"], "volume": 0.55, "gap": 1, "duck": true },
+    "mission": { "files": ["jingle-mission"], "volume": 0.55, "gap": 0.5, "duck": true },
+    "squeak": { "synth": "squeak", "volume": 0.18, "gap": 0.12 },
+    "spray": { "synth": "spray", "volume": 0.2, "gap": 0.4 },
+    "pop": { "synth": "pop", "volume": 0.25, "gap": 0.05 },
+    "honk": { "synth": "honk", "volume": 0.3, "gap": 0.6 }
+  }
+}

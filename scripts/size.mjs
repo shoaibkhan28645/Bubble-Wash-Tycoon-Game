@@ -31,7 +31,8 @@ const cars = JSON.parse(readFileSync('src/data/cars.json', 'utf8'));
 const atStart = new Set([...cars.map((c) => c.model), 'delivery']);
 const lazy = new Set(daily.carOfDay.cars.map((c) => `models/cars/${c.model}.glb`).filter((f) => !atStart.has(f.slice(12, -4))));
 const models = [...sizes.keys()].filter((f) => f.startsWith('models/') && !f.endsWith('.md') && !lazy.has(f));
-const initial = ['index.html', ...referenced, ...models].filter((f) => sizes.has(f));
+const sounds = [...sizes.keys()].filter((f) => f.startsWith('audio/') && f.endsWith('.mp3'));
+const initial = ['index.html', ...referenced, ...models, ...sounds].filter((f) => sizes.has(f));
 
 const sum = (names, key) => names.reduce((total, n) => total + sizes.get(n)[key], 0);
 const all = [...sizes.keys()];

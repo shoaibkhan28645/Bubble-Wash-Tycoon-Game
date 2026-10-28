@@ -214,7 +214,7 @@ export class Traffic {
     const p = car.position;
     const big = station.kind === 'wax' || station.kind === 'garage';
     this.effects.burst('sparkle', new Vector3(p.x, 1.4, p.z), big ? 26 : 16, 5, car.def.size[0]);
-    this.sound.play('done');
+    this.sound.play('sparkle');
   }
 
   /**
@@ -282,6 +282,7 @@ export class Traffic {
     this.floaters.show(`+$${pay}`, new Vector3(at.x, 1.2, at.z), car.vip ? 'tip' : 'cash');
     if (tip > 0) this.floaters.show(`+$${tip} tip`, new Vector3(at.x + 0.6, 1.9, at.z), 'tip');
     this.rate(tip > 0 ? 'happy' : 'okay');
+    this.sound.play('ching');
     this.onPaid({ amount: pay + tip, tip, automated: !car.manual, at, car });
   }
 

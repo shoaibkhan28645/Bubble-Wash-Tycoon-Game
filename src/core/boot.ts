@@ -37,7 +37,20 @@ export async function boot(root: HTMLElement): Promise<void> {
 
   setLanguage(await platform.getLanguage());
   loading.setProgress(0.5);
-  await loadAssets((fraction) => loading.setProgress(0.5 + fraction * 0.4));
+  // Models and sounds load side by side; the bar shows the slower of the two.
+  let models = 0;
+  let audio = 0;
+  const progress = () => loading.setProgress(0.5 + Math.min(models, audio) * 0.4);
+  await Promise.all([
+    loadAssets((fraction) => {
+      models = fraction;
+      progress();
+    }),
+    sound.load((fraction) => {
+      audio = fraction;
+      progress();
+    }),
+  ]);
 
   const game = createGame(root, state, lifecycle, saves, sound);
   // Offline earnings since the last save (Tech Guide boot sequence).
@@ -56,7 +69,7 @@ export async function boot(root: HTMLElement): Promise<void> {
   }
 
   // Dev-only handle for automated play tests; stripped from production builds.
-  if (import.meta.env.DEV) Object.assign(window, { bubbleWash: { state, game } });
+  if (import.meta.env.DEV) Object.assign(window, { bubbleWash: { state, game, sound } });
 
   await loading.hide();
   game.start();

@@ -79,7 +79,7 @@ export class CashSystem {
         from.y = 0.2 + i * 0.1;
         this.effects.fly('bill', from, to, 0.25 + i * 0.03);
       }
-      this.sound.play('coin');
+      this.sound.play('coins');
       this.refresh(pile);
     }
     return collected;

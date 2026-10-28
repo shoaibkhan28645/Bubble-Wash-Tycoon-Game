@@ -30,6 +30,7 @@ import { levelStep } from '../systems/economy';
 import { Buildings } from '../systems/buildings';
 import { PadSystem } from '../systems/pads';
 import { createMeta } from './meta';
+import { WashSounds } from '../audio/washSounds';
 
 /** Width of the side button column plus its margins, in CSS pixels. */
 const SIDE_BAR_PX = 64;
@@ -174,6 +175,7 @@ export function createGame(
     if (carrier === playerCarry) flag('supplied');
   });
   const hand = new GuideHand(labels);
+  const washSounds = new WashSounds(sound);
   const meta = createMeta({ root, state, saves, sound, traffic, pads, supplies });
 
   /** What the tutorial hand can point at this frame. */
@@ -203,6 +205,7 @@ export function createGame(
     supplies.update(dt, [playerCarry, ...staff.carriers()]);
     playerCarry.update(dt, player.isMoving);
     player.scrubbing = traffic.update(dt, work, supplies);
+    washSounds.update(dt, player.scrubbing);
     if (cash.update(player.position)) flag('collected');
     hand.point(tutorialActive(state) ? guideTarget(state, guideView()) : null);
     floaters.update(dt);

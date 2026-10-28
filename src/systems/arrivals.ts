@@ -103,7 +103,7 @@ export class Arrivals {
     if (!vip || !best || !lane) return false;
     const car = this.addCar(vip, { ...vip, basePay: best.basePay }, lane, 0);
     car.wantsDetail = true;
-    this.sound.play('build');
+    this.sound.play('vip');
     return true;
   }
 
@@ -115,7 +115,7 @@ export class Arrivals {
     const car = this.addCar(def, { ...def, basePay: best.basePay }, lane, lane.queue.length);
     car.patienceMax = car.patience = patience;
     car.wantsDetail = true;
-    this.sound.play('build');
+    this.sound.play('vip');
     return true;
   }
 

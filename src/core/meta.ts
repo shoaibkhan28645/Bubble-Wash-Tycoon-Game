@@ -13,7 +13,7 @@ import type { PadSystem } from '../systems/pads';
 import type { Supplies } from '../systems/supplies';
 import type { Paid, Traffic } from '../systems/traffic';
 import { showCalendar, showMissions } from '../ui/dailyPanels';
-import { offer, toast } from '../ui/dialog';
+import { offer, setUiSound, toast } from '../ui/dialog';
 import { SideBar, type SideAction } from '../ui/sideBar';
 import { t } from '../ui/strings';
 import { showWelcomeBack } from '../ui/welcomeBack';
@@ -56,6 +56,7 @@ export function createMeta(deps: {
   let refillUntil = 0;
 
   const save = () => void saves.saveNow();
+  setUiSound((name) => sound.play(name));
 
   /** Pays for a reward with a rewarded ad or gems, as the player chose. True if earned. */
   const earn = async (rewardId: string, icon: string, title: string, body: string, gems: number): Promise<boolean> => {
@@ -78,7 +79,7 @@ export function createMeta(deps: {
       if (state.boostSeconds > 0) return;
       if (!(await earn('speed-boost', '⚡', t('speedTitle'), t('speedBody'), ADS.speedBoost.gems))) return;
       state.boostSeconds = ADS.speedBoost.seconds;
-      sound.play('build');
+      sound.play('reward');
       save();
     },
     convoy: async () => {
@@ -91,7 +92,7 @@ export function createMeta(deps: {
     refill: async () => {
       if (!(await earn('instant-supply', '🧴', t('refillTitle'), t('refillBody'), ADS.refill.gems))) return;
       supplies.fillAll();
-      sound.play('drop');
+      sound.play('reward');
       save();
     },
     finish: async () => {
@@ -105,18 +106,19 @@ export function createMeta(deps: {
   const openCalendar = (): void => {
     showCalendar(root, state, today, () => {
       if (claimCalendar(state, today) > 0) {
-        sound.play('build');
+        sound.play('reward');
         save();
       }
     });
   };
 
   const sideBar = new SideBar(root, (action) => {
+    sound.play('click');
     if (action === 'calendar') openCalendar();
     else if (action === 'missions') {
       showMissions(root, state, (i) => {
         if (claimMission(state, i) > 0) {
-          sound.play('build');
+          sound.play('reward');
           save();
         }
       });
@@ -156,7 +158,7 @@ export function createMeta(deps: {
   const progress = (kind: Parameters<typeof addProgress>[1], amount = 1): void => {
     if (addProgress(state, kind, amount).length === 0) return;
     toast(root, `✅ ${t('missionDone')}`);
-    sound.play('build');
+    sound.play('mission');
   };
 
   return {
@@ -222,7 +224,10 @@ export function createMeta(deps: {
           } else toast(root, t('adFailed'));
           return ok;
         },
-        () => void ads.betweenScreens(),
+        () => {
+          sound.play('coins');
+          void ads.betweenScreens();
+        },
       );
     },
     screenClosed() {

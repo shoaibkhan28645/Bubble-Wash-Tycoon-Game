@@ -183,7 +183,7 @@ export class PadSystem {
     }
     this.soundTimer -= dt;
     if (this.soundTimer <= 0) {
-      this.sound.play('drain');
+      this.sound.play('chip');
       this.soundTimer = DRAIN_SOUND_SECONDS;
     }
   }

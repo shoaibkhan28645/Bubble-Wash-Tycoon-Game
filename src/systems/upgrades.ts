@@ -82,7 +82,7 @@ export class UpgradePads {
     if (this.state.cash < cost) return;
     this.state.cash -= cost;
     this.state.levels[key] = level + 1;
-    this.sound.play('build');
+    this.sound.play('upgrade');
     const at = this.layout.upgradePads[this.panel.openId ?? ''] ?? this.layout.pads[target];
     if (at) this.effects.burst('sparkle', new Vector3(at.x, 0.6, at.z), 16, 4, 1);
     this.panel.refresh();

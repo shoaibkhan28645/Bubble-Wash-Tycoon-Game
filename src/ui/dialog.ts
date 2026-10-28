@@ -1,5 +1,11 @@
 import { t } from './strings';
 
+/** Button clicks and dialogs opening make a sound; the game sets who plays it. */
+let uiSound: (name: 'click' | 'open') => void = () => {};
+export function setUiSound(play: (name: 'click' | 'open') => void): void {
+  uiSound = play;
+}
+
 export interface DialogButton {
   label: string;
   /** ad: "📺 Watch ad" (green), gems: pay with gems (blue), plain: a quiet text button. */
@@ -68,6 +74,7 @@ export function openDialog(root: HTMLElement, options: DialogOptions): { close: 
     button.textContent = spec.label;
     button.disabled = !!spec.disabled;
     button.addEventListener('click', async () => {
+      uiSound('click');
       for (const b of buttons) b.disabled = true;
       const keepOpen = (await spec.onTap()) === false;
       if (!keepOpen) close();
@@ -78,6 +85,7 @@ export function openDialog(root: HTMLElement, options: DialogOptions): { close: 
   });
   window.addEventListener('keydown', onKey);
   root.appendChild(overlay);
+  uiSound('open');
   buttons.find((b) => !b.disabled)?.focus();
   return { close };
 }
