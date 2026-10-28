@@ -17,7 +17,6 @@ import { asset, mergedModel } from '../assets';
 import { addMud, type MudUniforms } from '../mud';
 import { GRAPHICS } from '../graphics';
 import { cylinder, mergeParts, rbox, toyMaterial, type Part } from './build';
-import { withShadows } from '../stage';
 
 /** Mini Characters are 0.8 units tall; this makes them about car-roof height. */
 const PERSON_SCALE = 2;
@@ -83,7 +82,8 @@ export class PersonAvatar {
     const { scene, animations } = asset(`person:${character}`);
     const model = cloneSkinned(scene);
     model.scale.setScalar(PERSON_SCALE);
-    withShadows(model, true, false);
+    // People keep their soft blob shadow: real ones would draw every
+    // animated character a second time each frame.
     this.root.add(model, blobShadow(1.2, 1.2));
     this.mixer = new AnimationMixer(model);
     const clips: Record<Pose, string> = { idle: 'idle', walk: 'walk', sprint: 'sprint', scrub: 'interact-right' };

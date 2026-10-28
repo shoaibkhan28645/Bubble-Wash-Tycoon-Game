@@ -17,6 +17,7 @@ export class CarBubble {
   private readonly fill: HTMLElement;
   private readonly label: Label;
   private shown = '';
+  private fillShown = -1;
 
   constructor(labels: WorldLabels) {
     this.el = document.createElement('div');
@@ -36,17 +37,21 @@ export class CarBubble {
   show(x: number, y: number, z: number, patienceLeft: number, mood: Mood, vip = false): void {
     this.at.set(x, y, z);
     this.label.visible = true;
-    this.fill.style.transform = `scaleX(${Math.max(0, Math.min(1, patienceLeft)).toFixed(3)})`;
+    const fill = Math.round(Math.max(0, Math.min(1, patienceLeft)) * 100);
+    if (fill !== this.fillShown) {
+      this.fill.style.transform = `scaleX(${fill / 100})`;
+      this.fillShown = fill;
+    }
     // Bubbles are reused with pooled cars, so the VIP flag is part of what's cached.
     const key = `${mood}:${vip}`;
     if (key !== this.shown) {
       this.face.textContent = vip ? '👑' : FACES[mood];
       this.el.dataset.mood = mood;
+      // Golden VIP: crown and a gold bubble.
+      if (vip) this.el.dataset.vip = '';
+      else delete this.el.dataset.vip;
       this.shown = key;
     }
-    // Golden VIP: crown and a gold bubble.
-    if (vip) this.el.dataset.vip = '';
-    else delete this.el.dataset.vip;
   }
 
   hide(): void {

@@ -76,7 +76,7 @@ export function createDebugOverlay({ root, game, state, saves, lifecycle, dev }:
   function showStats(): void {
     const { calls, triangles } = game.stage.renderer.info.render;
     const status = lifecycle.paused ? 'PAUSED · ' : '';
-    stats.textContent = `${status}FPS ${fps} · calls ${calls} · tris ${triangles} · $${Math.floor(state.cash)}`;
+    stats.textContent = `${status}FPS ${fps} · JS ${game.frameMs.toFixed(1)}ms · calls ${calls} · tris ${triangles}`;
     const lost = game.stage.contextLosses;
     gpu.textContent = `GPU ${game.stage.gpu} · res ${game.stage.pixelRatio.toFixed(2)}×${lost ? ` · crashed ${lost}×` : ''}`;
     // Shadows also switch off by themselves after a GPU crash.

@@ -4,6 +4,10 @@ interface Label {
   el: HTMLElement;
   at: Vector3;
   visible: boolean;
+  /** What's on the page now, so unchanged labels aren't touched (style writes are slow on phones). */
+  shownAs: boolean | null;
+  x: number;
+  y: number;
 }
 
 /** HTML elements pinned to 3D points (sharp text at any screen density). */
@@ -19,7 +23,7 @@ export class WorldLabels {
   }
 
   add(el: HTMLElement, at: Vector3): Label {
-    const label = { el, at, visible: true };
+    const label = { el, at, visible: true, shownAs: null, x: NaN, y: NaN };
     el.classList.add('world-label');
     this.layer.appendChild(el);
     this.labels.add(label);
@@ -35,11 +39,18 @@ export class WorldLabels {
     for (const label of this.labels) {
       this.p.copy(label.at).project(camera);
       const show = label.visible && this.p.z < 1;
-      label.el.style.display = show ? '' : 'none';
+      if (show !== label.shownAs) {
+        label.el.style.display = show ? '' : 'none';
+        label.shownAs = show;
+      }
       if (!show) continue;
-      const x = (this.p.x + 1) * 0.5 * width;
-      const y = (1 - this.p.y) * 0.5 * height;
-      label.el.style.transform = `translate(${x.toFixed(1)}px, ${y.toFixed(1)}px) translate(-50%, -50%)`;
+      // Half-pixel steps: smooth enough, and still labels skip the write.
+      const x = Math.round((this.p.x + 1) * width) / 2;
+      const y = Math.round((1 - this.p.y) * height) / 2;
+      if (x === label.x && y === label.y) continue;
+      label.x = x;
+      label.y = y;
+      label.el.style.transform = `translate(${x}px, ${y}px) translate(-50%, -50%)`;
     }
   }
 }

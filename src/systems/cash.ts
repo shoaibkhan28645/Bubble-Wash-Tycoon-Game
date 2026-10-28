@@ -92,7 +92,6 @@ export class CashSystem {
     const mesh = new InstancedMesh(billGeometry, billMaterial, MAX_BILLS);
     mesh.position.set(at.x, 0, at.z);
     mesh.count = 0;
-    mesh.castShadow = true;
     mesh.add(blobShadow(1.3, 1));
     this.scene.add(mesh);
     pile = { id, at, mesh, shown: 0 };

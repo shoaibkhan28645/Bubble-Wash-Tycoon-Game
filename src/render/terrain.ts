@@ -114,8 +114,8 @@ function scatter(id: string, items: { x: number; z: number; s: number; r: number
     dummy.updateMatrix();
     mesh.setMatrixAt(i, dummy.matrix);
   });
-  // Grass and flowers are too small to bother; everything bigger casts a shadow.
-  mesh.castShadow = !/grass|flower/.test(id);
+  // Only trees and the fence: small plants and rocks aren't worth a shadow pass.
+  mesh.castShadow = /tree|fence/.test(id);
   return mesh;
 }
 

@@ -325,12 +325,13 @@ body {
   animation: bubble-shake 0.5s ease-in-out infinite;
 }
 
+/* `rotate`, not margin: a margin change re-lays-out the page every frame. */
 @keyframes bubble-shake {
   25% {
-    margin-left: -2px;
+    rotate: -7deg;
   }
   75% {
-    margin-left: 2px;
+    rotate: 7deg;
   }
 }
 

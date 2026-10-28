@@ -103,6 +103,8 @@ export class Particles {
         this.dummy.updateMatrix();
         pool.mesh.setMatrixAt(n++, this.dummy.matrix);
       }
+      // Nothing to upload when this kind had no particles last frame either.
+      if (n === 0 && pool.mesh.count === 0) continue;
       pool.mesh.count = n;
       pool.mesh.instanceMatrix.needsUpdate = true;
     }

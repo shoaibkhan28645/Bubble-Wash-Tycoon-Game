@@ -37,6 +37,8 @@ export interface Game {
   /** Cars, stations and staff (the dev console and play-test bot look at them). */
   readonly traffic: Traffic;
   readonly staff: StaffSystem;
+  /** Average JavaScript milliseconds per frame, for the debug panel. */
+  readonly frameMs: number;
   /** Draws one frame without starting the loop (behind the loading screen). */
   renderOnce(): void;
   start(): void;
@@ -234,6 +236,9 @@ export function createGame(
     player,
     traffic,
     staff,
+    get frameMs() {
+      return loop.busyMs;
+    },
     renderOnce() {
       stage.render();
       labels.update(stage.camera, stage.size.width, stage.size.height);
