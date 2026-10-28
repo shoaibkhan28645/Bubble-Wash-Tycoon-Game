@@ -43,7 +43,12 @@ export async function boot(root: HTMLElement): Promise<void> {
   const game = createGame(root, state, lifecycle, saves, sound);
   // Offline earnings since the last save (Tech Guide boot sequence).
   const offline = applyOffline(state, state.savedAt);
-  game.renderOnce();
+  try {
+    game.renderOnce();
+  } catch (error) {
+    // A GPU crash during the first draw must not leave the loading screen up.
+    platform.logError(error);
+  }
   loading.setProgress(1);
 
   if (new URLSearchParams(window.location.search).has('debug')) {

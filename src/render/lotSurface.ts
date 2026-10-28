@@ -1,8 +1,10 @@
 import { CanvasTexture, Mesh, MeshLambertMaterial, PlaneGeometry, SRGBColorSpace } from 'three';
 import type { LocationLayout } from '../core/config';
 
-/** Texture pixels per metre of lot. */
-const PX = 40;
+/** Texture size in pixels; the lot is stretched over it (about 55 pixels per metre). */
+const TEXTURE_SIZE = [1024, 2048] as const;
+/** Pixels per metre for sizes that should look round (arrows, splashes). */
+const PX = 58;
 const JOINT = 3;
 const LANE = 2.7;
 const CONCRETE = '#d9d2c4';
@@ -28,21 +30,18 @@ export function lotSurface(layout: LocationLayout, bayXs: number[]): Mesh {
   const width = lot.maxX - lot.minX;
   const depth = lot.maxZ - lot.minZ;
   const canvas = document.createElement('canvas');
-  canvas.width = Math.round(width * PX);
-  canvas.height = Math.round(depth * PX);
-  const ctx = canvas.getContext('2d')!;
+  // Power-of-two size: the safest kind of texture for every phone GPU.
+  canvas.width = TEXTURE_SIZE[0];
+  canvas.height = TEXTURE_SIZE[1];
+  const sx = canvas.width / width;
+  const sy = canvas.height / depth;
+  // A software canvas, drawn on the CPU and uploaded once. (A GPU canvas
+  // replays every stroke in one burst on first use, which stalled phones.)
+  const ctx = canvas.getContext('2d', { willReadFrequently: true })!;
   const rand = seeded(11);
-  const u = (x: number) => (x - lot.minX) * PX;
-  const v = (z: number) => (z - lot.minZ) * PX;
-  const rect = (x0: number, z0: number, x1: number, z1: number) => ctx.fillRect(u(x0), v(z0), (x1 - x0) * PX, (z1 - z0) * PX);
-
-  // Concrete with speckles and expansion joints.
-  ctx.fillStyle = CONCRETE;
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
-  speckle(ctx, rand, canvas.width, canvas.height, ['rgba(0,0,0,0.05)', 'rgba(255,255,255,0.18)'], 9000);
-  ctx.fillStyle = 'rgba(90,80,65,0.3)';
-  for (let x = lot.minX + JOINT; x < lot.maxX; x += JOINT) rect(x - 0.02, lot.minZ, x + 0.02, lot.maxZ);
-  for (let z = lot.minZ + JOINT; z < lot.maxZ; z += JOINT) rect(lot.minX, z - 0.02, lot.maxX, z + 0.02);
+  const u = (x: number) => (x - lot.minX) * sx;
+  const v = (z: number) => (z - lot.minZ) * sy;
+  const rect = (x0: number, z0: number, x1: number, z1: number) => ctx.fillRect(u(x0), v(z0), (x1 - x0) * sx, (z1 - z0) * sy);
 
   // Driveways: down through each bay, across to the finishing lane, down it and out.
   const top = Math.min(roadZ, lot.minZ);
@@ -52,14 +51,21 @@ export function lotSurface(layout: LocationLayout, bayXs: number[]): Mesh {
   lanes.push([left, collectZ - half, finishX + half, collectZ + half]);
   lanes.push([finishX - half, top, finishX + half, exitZ + half]);
   for (const z of [earlyExitZ, exitZ]) lanes.push([finishX - half, z - half, lot.maxX, z + half]);
-  ctx.fillStyle = ASPHALT;
-  for (const [x0, z0, x1, z1] of lanes) rect(x0, z0, x1, z1);
-  ctx.save();
-  ctx.beginPath();
-  for (const [x0, z0, x1, z1] of lanes) ctx.rect(u(x0), v(z0), (x1 - x0) * PX, (z1 - z0) * PX);
-  ctx.clip();
-  speckle(ctx, rand, canvas.width, canvas.height, ['rgba(0,0,0,0.12)', 'rgba(255,255,255,0.08)'], 12000);
-  ctx.restore();
+  // Concrete slabs with joints, asphalt on the driveways, both with grain.
+  const joints = (from: number, to: number, toPx: (m: number) => number, size: number) => {
+    const marks = new Uint8Array(size);
+    for (let m = from + JOINT; m < to; m += JOINT) {
+      const p = Math.round(toPx(m));
+      for (let d = -1; d <= 1; d++) if (p + d >= 0 && p + d < size) marks[p + d] = 1;
+    }
+    return marks;
+  };
+  paintBase(
+    ctx,
+    lanes.map(([x0, z0, x1, z1]) => [u(x0), v(z0), u(x1), v(z1)]),
+    joints(lot.minX, lot.maxX, u, canvas.width),
+    joints(lot.minZ, lot.maxZ, v, canvas.height),
+  );
 
   // Edge lines along the long driveways.
   ctx.fillStyle = PAINT;
@@ -88,7 +94,6 @@ export function lotSurface(layout: LocationLayout, bayXs: number[]): Mesh {
 
   const texture = new CanvasTexture(canvas);
   texture.colorSpace = SRGBColorSpace;
-  texture.anisotropy = 4;
   const geometry = new PlaneGeometry(width, depth).rotateX(-Math.PI / 2);
   const mesh = new Mesh(geometry, new MeshLambertMaterial({ map: texture }));
   mesh.position.set((lot.minX + lot.maxX) / 2, 0.012, (lot.minZ + lot.maxZ) / 2);
@@ -96,12 +101,34 @@ export function lotSurface(layout: LocationLayout, bayXs: number[]): Mesh {
   return mesh;
 }
 
-function speckle(ctx: CanvasRenderingContext2D, rand: () => number, w: number, h: number, colors: string[], count: number): void {
-  for (let i = 0; i < count; i++) {
-    ctx.fillStyle = colors[i % colors.length]!;
-    const s = 1 + rand() * 2.5;
-    ctx.fillRect(rand() * w, rand() * h, s, s);
+const hex = (color: string) => [1, 3, 5].map((i) => parseInt(color.slice(i, i + 2), 16)) as [number, number, number];
+
+/** Pixel by pixel: concrete or asphalt, darker joints between slabs, and fine grain. */
+function paintBase(ctx: CanvasRenderingContext2D, lanes: number[][], jointCols: Uint8Array, jointRows: Uint8Array): void {
+  const { width, height } = ctx.canvas;
+  const image = ctx.createImageData(width, height);
+  const data = image.data;
+  const concrete = hex(CONCRETE);
+  const asphalt = hex(ASPHALT);
+  let seed = 7;
+  for (let py = 0; py < height; py++) {
+    const row = lanes.filter((r) => py >= r[1]! && py < r[3]!);
+    for (let px = 0; px < width; px++) {
+      seed = (seed * 1664525 + 1013904223) >>> 0;
+      const n = (seed >>> 24) / 255 - 0.5;
+      const onLane = row.some((r) => px >= r[0]! && px < r[2]!);
+      const base = onLane ? asphalt : concrete;
+      // Mostly gentle grain, with the odd bright fleck.
+      const k = n * (onLane ? 22 : 14) + (n > 0.47 ? 26 : 0);
+      const shade = !onLane && (jointCols[px] || jointRows[py]) ? 0.8 : 1;
+      const i = (py * width + px) * 4;
+      data[i] = base[0] * shade + k;
+      data[i + 1] = base[1] * shade + k;
+      data[i + 2] = base[2] * shade + k;
+      data[i + 3] = 255;
+    }
   }
+  ctx.putImageData(image, 0, 0);
 }
 
 /** A soft irregular splash. */

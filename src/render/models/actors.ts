@@ -13,6 +13,7 @@ import { clone as cloneSkinned } from 'three/addons/utils/SkeletonUtils.js';
 import type { CarDef } from '../../core/config';
 import { asset, mergedModel } from '../assets';
 import { addMud, type MudUniforms } from '../mud';
+import { GRAPHICS } from '../graphics';
 import { withShadows } from '../stage';
 
 /** Mini Characters are 0.8 units tall; this makes them about car-roof height. */
@@ -106,8 +107,8 @@ export class CarModel {
     const { geometry, material } = mergedModel(`car:${def.model}`);
     const own = material.clone();
     if (def.tint) own.color = new Color(def.tint);
-    this.mud = addMud(own);
-    this.mud.uTop.value = def.size[1] / def.scale;
+    this.mud = GRAPHICS.mud ? addMud(own) : null;
+    if (this.mud) this.mud.uTop.value = def.size[1] / def.scale;
     this.body.geometry = geometry;
     (this.body.material as { dispose?: () => void }).dispose?.();
     this.body.material = own;

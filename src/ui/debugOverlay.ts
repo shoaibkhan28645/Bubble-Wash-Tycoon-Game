@@ -23,9 +23,11 @@ export function createDebugOverlay({ root, game, state, saves, lifecycle, dev }:
   const panel = document.createElement('div');
   panel.className = 'debug-overlay';
   const stats = document.createElement('div');
+  const gpu = document.createElement('div');
+  gpu.className = 'debug-gpu';
   const buttons = document.createElement('div');
   buttons.className = 'debug-buttons';
-  panel.append(stats, buttons);
+  panel.append(stats, gpu, buttons);
   root.appendChild(panel);
   // Taps on the panel must not reach the game.
   panel.addEventListener('pointerdown', (event) => event.stopPropagation());
@@ -43,6 +45,13 @@ export function createDebugOverlay({ root, game, state, saves, lifecycle, dev }:
     void saves.saveNow();
     showStats();
   });
+
+  const shadowLabel = () => `Shadows ${game.stage.shadows ? 'on' : 'off'}`;
+  addButton(shadowLabel(), () => {
+    game.stage.setShadows(!game.stage.shadows);
+    showStats();
+  });
+  const shadowButton = buttons.lastElementChild as HTMLButtonElement;
 
   if (dev) {
     addButton('Pause 3s', () => {
@@ -68,6 +77,10 @@ export function createDebugOverlay({ root, game, state, saves, lifecycle, dev }:
     const { calls, triangles } = game.stage.renderer.info.render;
     const status = lifecycle.paused ? 'PAUSED · ' : '';
     stats.textContent = `${status}FPS ${fps} · calls ${calls} · tris ${triangles} · $${Math.floor(state.cash)}`;
+    const lost = game.stage.contextLosses;
+    gpu.textContent = `GPU ${game.stage.gpu}${lost ? ` · crashed ${lost}×` : ''}`;
+    // Shadows also switch off by themselves after a GPU crash.
+    shadowButton.textContent = shadowLabel();
   }
 
   lifecycle.onPause(showStats);

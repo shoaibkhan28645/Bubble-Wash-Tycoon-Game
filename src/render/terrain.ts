@@ -11,6 +11,7 @@ import {
 } from 'three';
 import type { LocationLayout, Rect } from '../core/config';
 import { mergedModel } from './assets';
+import { GRAPHICS } from './graphics';
 import { lotSurface } from './lotSurface';
 import { mergeParts, toyMaterial, type Part } from './models/build';
 
@@ -179,6 +180,7 @@ function scenery(layout: LocationLayout): Group {
 /** All static ground and scenery for a location. */
 export function terrain(layout: LocationLayout, bayXs: number[]): Group {
   const group = new Group();
-  group.add(ground(layout), lotSurface(layout, bayXs), roads(layout), fence(layout), scenery(layout));
+  group.add(ground(layout), roads(layout), fence(layout), scenery(layout));
+  if (GRAPHICS.lot) group.add(lotSurface(layout, bayXs));
   return group;
 }
