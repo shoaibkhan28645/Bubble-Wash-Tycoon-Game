@@ -49,10 +49,34 @@ export class PadSystem {
     return { minX: x - 1.5, maxX: x + 1.5, minZ: z - 1.5, maxZ: z + 1.5 };
   }
 
+  /** Name of the pad on show (for the finish-it-now offer). */
+  get nextName(): string {
+    return this.current?.def.name ?? '';
+  }
+
   /** The pad being paid for now, and what's still owed (for the tutorial hand). */
   get next(): { at: Point; owed: number } | null {
     if (!this.current) return null;
     return { at: this.current.at, owed: this.current.def.cost - (this.state.padPaid[this.current.def.id] ?? 0) };
+  }
+
+  /**
+   * The next pad is out of reach but close: what's paid in plus the player's
+   * cash covers at least `fraction` of its cost (the rewarded ad covers the rest).
+   */
+  nearlyAffordable(fraction: number): boolean {
+    const next = this.next;
+    if (!next || !this.current) return false;
+    const short = next.owed - this.state.cash;
+    return short > 0 && short <= this.current.def.cost * (1 - fraction);
+  }
+
+  /** Rewarded ad: the player's cash goes in, the ad covers what's left, and the pad is built. */
+  finishNow(): void {
+    const next = this.next;
+    if (!next) return;
+    this.state.cash = Math.max(0, this.state.cash - next.owed);
+    this.build();
   }
 
   /** Next pad in order that isn't built and has a place on this lot. */

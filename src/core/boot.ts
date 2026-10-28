@@ -10,7 +10,6 @@ import { SaveManager } from './save';
 import { TUNING } from './config';
 import type { GameState } from './gameState';
 import { offlineEarnings } from '../systems/offline';
-import { showWelcomeBack } from '../ui/welcomeBack';
 
 /** Boot sequence from the Tech Guide. gameReady() only once the game is playable. */
 export async function boot(root: HTMLElement): Promise<void> {
@@ -62,7 +61,7 @@ export async function boot(root: HTMLElement): Promise<void> {
   await loading.hide();
   game.start();
   platform.gameReady();
-  if (offline.cash > 0) welcome(root, offline, saves);
+  if (offline.cash > 0) game.welcomeBack(offline);
 
   // A long pause inside YouTube counts as time away too.
   let pausedAt = 0;
@@ -70,7 +69,7 @@ export async function boot(root: HTMLElement): Promise<void> {
   lifecycle.onResume(() => {
     if (Date.now() - pausedAt < TUNING.offline.resumeAwaySeconds * 1000) return;
     const away = applyOffline(state, pausedAt);
-    if (away.cash > 0) welcome(root, away, saves);
+    if (away.cash > 0) game.welcomeBack(away);
   });
 }
 
@@ -83,7 +82,3 @@ function applyOffline(state: GameState, since: number): { cash: number; seconds:
   return earned;
 }
 
-function welcome(root: HTMLElement, earned: { cash: number; seconds: number }, saves: SaveManager): void {
-  void saves.saveNow();
-  showWelcomeBack(root, earned.cash, earned.seconds, () => {});
-}

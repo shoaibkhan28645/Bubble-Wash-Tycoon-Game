@@ -2,7 +2,7 @@ import { Emitter } from '../core/events';
 import type { DevControls, PlatformBackend } from './types';
 
 const SAVE_KEY = 'bubble-wash-dev-save';
-const FAKE_AD_MS = 800;
+const FAKE_AD_MS = 1500;
 
 const wait = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
@@ -41,6 +41,25 @@ export function createDevPlatform(): { backend: PlatformBackend; controls: DevCo
     }
   };
 
+  /** A visible stand-in for YouTube's ad player; the game is paused while it shows, as on YouTube. */
+  const fakeAd = async (label: string): Promise<void> => {
+    const screen = document.createElement('div');
+    screen.className = 'dev-ad';
+    screen.textContent = `📺 ${label} (dev stand-in)`;
+    document.body.appendChild(screen);
+    const wasPaused = paused;
+    if (!wasPaused) {
+      paused = true;
+      pauseEvents.emit();
+    }
+    await wait(FAKE_AD_MS);
+    screen.remove();
+    if (!wasPaused) {
+      paused = false;
+      resumeEvents.emit();
+    }
+  };
+
   const backend: PlatformBackend = {
     firstFrameReady: () => {},
     gameReady: () => {},
@@ -52,10 +71,10 @@ export function createDevPlatform(): { backend: PlatformBackend; controls: DevCo
     onResume: (callback) => void resumeEvents.on(callback),
     getLanguage: async () => 'en',
     requestRewardedAd: async () => {
-      await wait(FAKE_AD_MS);
+      await fakeAd('Rewarded ad');
       return true;
     },
-    requestInterstitialAd: () => wait(FAKE_AD_MS),
+    requestInterstitialAd: () => fakeAd('Interstitial ad'),
     logError: () => {},
     logWarning: () => {},
   };

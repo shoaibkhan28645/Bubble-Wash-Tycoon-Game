@@ -1,7 +1,7 @@
-import { newGame, type GameState } from './gameState';
+import { newDaily, newGame, type DailyState, type GameState } from './gameState';
 
 /** Bump when the save shape changes, and add a migration for the old version. */
-export const SAVE_VERSION = 4;
+export const SAVE_VERSION = 5;
 
 type SaveObject = Record<string, unknown>;
 export type Migration = (save: SaveObject) => SaveObject;
@@ -14,6 +14,8 @@ export const MIGRATIONS: Readonly<Record<number, Migration>> = {
   2: (save) => ({ ...save, stars: 3, autoRate: 0, supplies: {} }),
   // v4: tutorial flags and play time. Existing players are past the tutorial.
   3: (save) => ({ ...save, flags: ['washed', 'collected', 'supplied'], playSeconds: 3600 }),
+  // v5: login calendar, daily missions, Car of the Day and the speed boost.
+  4: (save) => ({ ...save, daily: newDaily(), boostSeconds: 0 }),
 };
 
 /**
@@ -75,6 +77,8 @@ export function serialize(state: GameState): string {
     supplies,
     flags,
     playSeconds: Math.floor(state.playSeconds),
+    daily: state.daily,
+    boostSeconds: Math.ceil(state.boostSeconds),
   });
 }
 
@@ -94,7 +98,35 @@ function sanitize(save: SaveObject): GameState {
     supplies: levelMap(save.supplies),
     flags: stringList(save.flags),
     playSeconds: nonNegative(save.playSeconds, fresh.playSeconds),
+    daily: dailyState(save.daily),
+    boostSeconds: nonNegative(save.boostSeconds, fresh.boostSeconds),
     savedAt: nonNegative(save.savedAt, fresh.savedAt),
+  };
+}
+
+const DATE = /^\d{4}-\d{2}-\d{2}$/;
+
+/** Today's missions are kept only if all their lists line up; otherwise they're picked again. */
+function dailyState(value: unknown): DailyState {
+  const fresh = newDaily();
+  if (!isObject(value)) return fresh;
+  const date = (v: unknown) => (typeof v === 'string' && DATE.test(v) ? v : '');
+  const missions = Array.isArray(value.missions) ? value.missions.filter((m): m is string => typeof m === 'string') : [];
+  const numbers = (v: unknown) => (Array.isArray(v) ? v.map((n) => nonNegative(n, 0)) : []);
+  const goals = numbers(value.goals);
+  const progress = numbers(value.progress);
+  const claimed = Array.isArray(value.claimed) ? value.claimed.map((c) => c === true) : [];
+  const n = missions.length;
+  const consistent = goals.length === n && progress.length === n && claimed.length === n;
+  return {
+    date: consistent ? date(value.date) : '',
+    missions: consistent ? missions : [],
+    goals: consistent ? goals : [],
+    progress: consistent ? progress : [],
+    claimed: consistent ? claimed : [],
+    loginDay: Math.min(6, Math.floor(nonNegative(value.loginDay, 0))),
+    loginDate: date(value.loginDate),
+    carOfDayDate: date(value.carOfDayDate),
   };
 }
 

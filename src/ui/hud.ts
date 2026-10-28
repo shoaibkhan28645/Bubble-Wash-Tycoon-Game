@@ -7,7 +7,9 @@ export class Hud {
   private readonly amount: HTMLElement;
   private readonly pill: HTMLElement;
   private readonly starText: HTMLElement;
+  private readonly gemText: HTMLElement;
   private lastStars = '';
+  private lastGems = -1;
   private shown = 0;
   private last = '';
 
@@ -25,13 +27,22 @@ export class Hud {
     stars.innerHTML = '<span class="star-icon" aria-hidden="true">★</span>';
     this.starText = document.createElement('span');
     stars.appendChild(this.starText);
-    hud.append(this.pill, stars);
+    const gems = document.createElement('div');
+    gems.className = 'stars-pill gems-pill';
+    gems.innerHTML = '<span class="gem-icon" aria-hidden="true">💎</span>';
+    this.gemText = document.createElement('span');
+    gems.appendChild(this.gemText);
+    hud.append(this.pill, stars, gems);
     root.appendChild(hud);
     this.shown = cash;
     this.render();
   }
 
-  update(dt: number, cash: number, stars: number): void {
+  update(dt: number, cash: number, stars: number, gems: number): void {
+    if (gems !== this.lastGems) {
+      this.gemText.textContent = String(gems);
+      this.lastGems = gems;
+    }
     const starText = stars.toFixed(1);
     if (starText !== this.lastStars) {
       this.starText.textContent = starText;

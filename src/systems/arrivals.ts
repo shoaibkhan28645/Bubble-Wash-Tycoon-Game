@@ -1,4 +1,4 @@
-import { CARS, PADS, TUNING, UPGRADES, type CarDef, type LocationLayout, type Point } from '../core/config';
+import { ADS, CARS, PADS, TUNING, UPGRADES, type CarDef, type LocationLayout, type Point } from '../core/config';
 import type { GameState } from '../core/gameState';
 import type { SoundManager } from '../audio/sound';
 import type { Car, CarPool } from './cars';
@@ -36,6 +36,9 @@ export class Arrivals {
   private vipTimer: number;
   private valetTimer = 0;
   private valetCallAge = 0;
+  /** Golden VIPs still to come in a rewarded convoy, and the gap before the next. */
+  private convoyLeft = 0;
+  private convoyTimer = 0;
 
   constructor(
     private readonly pool: CarPool,
@@ -51,6 +54,7 @@ export class Arrivals {
   update(dt: number): void {
     this.spawn(dt);
     this.spawnVip(dt);
+    this.spawnConvoy(dt);
     this.rebalance(dt);
   }
 
@@ -72,18 +76,51 @@ export class Arrivals {
   private spawnVip(dt: number): void {
     this.vipTimer -= dt;
     if (this.vipTimer > 0) return;
-    const vip = CARS.find((c) => c.vip);
-    const best = this.availableCars().reduce<CarDef | null>((a, b) => (!a || b.basePay > a.basePay ? b : a), null);
-    const lane = vip && this.laneFor(vip, true);
-    if (!vip || !best || !lane) {
+    if (!this.addVip()) {
       this.vipTimer = 5; // Try again shortly.
       return;
     }
-    // Pays 5x (its payMultiplier) the best regular car on the lot.
+    this.vipTimer = TUNING.vip.minSeconds + Math.random() * (TUNING.vip.maxSeconds - TUNING.vip.minSeconds);
+  }
+
+  /** Rewarded ad: a convoy of golden VIPs, a few seconds apart. */
+  callConvoy(cars: number): void {
+    this.convoyLeft += cars;
+  }
+
+  private spawnConvoy(dt: number): void {
+    this.convoyTimer -= dt;
+    if (this.convoyLeft <= 0 || this.convoyTimer > 0) return;
+    if (this.addVip()) this.convoyLeft--;
+    this.convoyTimer = ADS.convoy.spacingSeconds;
+  }
+
+  /** A golden VIP at the front of a bay line. Pays 5× (its payMultiplier) the best regular car on the lot. */
+  private addVip(): boolean {
+    const vip = CARS.find((c) => c.vip);
+    const best = this.bestCar();
+    const lane = vip && this.laneFor(vip, true);
+    if (!vip || !best || !lane) return false;
     const car = this.addCar(vip, { ...vip, basePay: best.basePay }, lane, 0);
     car.wantsDetail = true;
-    this.vipTimer = TUNING.vip.minSeconds + Math.random() * (TUNING.vip.maxSeconds - TUNING.vip.minSeconds);
     this.sound.play('build');
+    return true;
+  }
+
+  /** The Car of the Day: joins the shortest bay line and pays its multiplier on the best regular car. Returns false if there's no room. */
+  addSpecial(def: CarDef, patience: number): boolean {
+    const best = this.bestCar();
+    const lane = best && this.laneFor(def, false);
+    if (!best || !lane) return false;
+    const car = this.addCar(def, { ...def, basePay: best.basePay }, lane, lane.queue.length);
+    car.patienceMax = car.patience = patience;
+    car.wantsDetail = true;
+    this.sound.play('build');
+    return true;
+  }
+
+  private bestCar(): CarDef | null {
+    return this.availableCars().reduce<CarDef | null>((a, b) => (!a || b.basePay > a.basePay ? b : a), null);
   }
 
   private addCar(def: CarDef, payDef: CarDef, lane: Lane, index: number): Car {

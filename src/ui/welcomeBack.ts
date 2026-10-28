@@ -12,10 +12,17 @@ export function formatAway(seconds: number): string {
 
 /**
  * Welcome-back screen (GDD): a big cash bag with what the staff earned while
- * the player was away, and a Collect button. "Collect 2×" (rewarded ad)
- * arrives with the ads milestone.
+ * the player was away, a Collect button, and Collect 2× (a rewarded ad).
+ * The cash is already banked; `double` plays the ad and adds it again,
+ * resolving true if it did.
  */
-export function showWelcomeBack(root: HTMLElement, cash: number, seconds: number, onCollect: () => void): void {
+export function showWelcomeBack(
+  root: HTMLElement,
+  cash: number,
+  seconds: number,
+  double: () => Promise<boolean>,
+  onClose: () => void,
+): void {
   const overlay = document.createElement('div');
   overlay.className = 'welcome-overlay';
   overlay.setAttribute('role', 'dialog');
@@ -37,7 +44,11 @@ export function showWelcomeBack(root: HTMLElement, cash: number, seconds: number
   collect.type = 'button';
   collect.className = 'welcome-collect';
   collect.textContent = t('collect');
-  card.append(title, bag, amount, away, collect);
+  const twice = document.createElement('button');
+  twice.type = 'button';
+  twice.className = 'welcome-collect welcome-double';
+  twice.textContent = `📺 ${t('collectDouble')}`;
+  card.append(title, bag, amount, away, twice, collect);
   overlay.appendChild(card);
   // The overlay swallows taps so the joystick doesn't start underneath.
   overlay.addEventListener('pointerdown', (e) => e.stopPropagation());
@@ -45,12 +56,17 @@ export function showWelcomeBack(root: HTMLElement, cash: number, seconds: number
   const close = () => {
     window.removeEventListener('keydown', onKey);
     overlay.remove();
-    onCollect();
+    onClose();
   };
   const onKey = (e: KeyboardEvent) => {
     if (e.key === 'Escape' || e.key === 'Enter') close();
   };
   collect.addEventListener('click', close);
+  twice.addEventListener('click', async () => {
+    twice.disabled = collect.disabled = true;
+    if (await double()) amount.textContent = formatCash(cash * 2);
+    close();
+  });
   window.addEventListener('keydown', onKey);
   root.appendChild(overlay);
   collect.focus();

@@ -1,6 +1,6 @@
 // The balancing JSON must match the GDD tables and fit together.
 import { describe, expect, it } from 'vitest';
-import { CARS, CHARACTERS, LOCATION1, PADS, STAGES } from '../src/core/config';
+import { CARS, CHARACTERS, DAILY, LOCATION1, PADS, STAGES } from '../src/core/config';
 
 const modelFiles = Object.keys(import.meta.glob('../public/models/**/*.glb')).map((f) => f.replace('../public/', ''));
 
@@ -71,6 +71,7 @@ describe('location1.json', () => {
 describe('models', () => {
   it('every car and character in the data has a model file', () => {
     for (const car of CARS) expect(modelFiles).toContain(`models/cars/${car.model}.glb`);
+    for (const car of DAILY.carOfDay.cars) expect(modelFiles).toContain(`models/cars/${car.model}.glb`);
     for (const person of [CHARACTERS.player, ...Object.values(CHARACTERS.staff)]) {
       expect(modelFiles).toContain(`models/people/character-${person}.glb`);
     }

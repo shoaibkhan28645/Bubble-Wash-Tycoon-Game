@@ -40,6 +40,8 @@ export interface Paid {
   tip: number;
   automated: boolean;
   at: Point;
+  /** The car that paid; absent for vending snacks. */
+  car?: Car;
 }
 
 /**
@@ -54,6 +56,8 @@ export class Traffic {
   /** Dryer, waxing station and garage, in the order cars visit them. */
   readonly finishing: Station[] = [];
   readonly arrivals: Arrivals;
+  /** Wash speed multiplier (2 during the rewarded speed boost). */
+  boost = 1;
   private readonly moving = new Set<Car>();
   private readonly moods: CarMoods;
   private bubbleTimer = 0;
@@ -122,7 +126,7 @@ export class Traffic {
     for (const station of [...this.bays, ...this.finishing]) {
       if (this.serve(dt, station, work(station), supplies)) playerWorking = true;
     }
-    this.tunnel?.run(dt, this.level('tunnel.speed'), supplies, {
+    this.tunnel?.run(dt * this.boost, this.level('tunnel.speed'), supplies, {
       onMoving: (car) => {
         car.model.setClean(car.def.dirt, car.clean);
         this.bubbles(dt, car);
@@ -174,7 +178,7 @@ export class Traffic {
       if (work.rate > 0 && !stalled) {
         byPlayer = work.byPlayer;
         if (byPlayer) car.manual = true;
-        car.progress = Math.min(1, car.progress + (dt * work.rate) / jobSeconds(station.id, station.kind, car.def.dirt, this.state, byPlayer));
+        car.progress = Math.min(1, car.progress + (dt * work.rate * this.boost) / jobSeconds(station.id, station.kind, car.def.dirt, this.state, byPlayer));
         if (station.kind === 'bay') {
           car.clean = car.progress;
           car.model.setClean(car.def.dirt, car.clean);
@@ -278,7 +282,7 @@ export class Traffic {
     this.floaters.show(`+$${pay}`, new Vector3(at.x, 1.2, at.z), car.vip ? 'tip' : 'cash');
     if (tip > 0) this.floaters.show(`+$${tip} tip`, new Vector3(at.x + 0.6, 1.9, at.z), 'tip');
     this.rate(tip > 0 ? 'happy' : 'okay');
-    this.onPaid({ amount: pay + tip, tip, automated: !car.manual, at });
+    this.onPaid({ amount: pay + tip, tip, automated: !car.manual, at, car });
   }
 
   private rate(outcome: Outcome): void {

@@ -97,6 +97,16 @@ export class Supplies implements SupplyCheck {
     return low;
   }
 
+  /** A station has run dry (offer the instant-delivery reward). */
+  anyEmpty(): boolean {
+    return this.stations().some((s) => s.supply !== null && (this.state.supplies[`${s.id}.${s.supply}`] ?? 0) <= 0);
+  }
+
+  /** Rewarded ad: every station filled to the top at once. */
+  fillAll(): void {
+    for (const s of this.stations()) if (s.supply) this.state.supplies[`${s.id}.${s.supply}`] = this.maxUses();
+  }
+
   shelfCapacity(): number {
     return TUNING.supplies.shelfCapacity + levelStep(UPGRADES.kinds.storage, this.state.levels[`${SHELF}.storage`] ?? 0);
   }

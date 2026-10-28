@@ -1,0 +1,35 @@
+{
+  "calendar": [
+    { "gems": 5 },
+    { "gems": 10 },
+    { "gems": 10 },
+    { "gems": 15 },
+    { "gems": 15 },
+    { "gems": 20 },
+    { "gems": 50, "chest": true }
+  ],
+  "missionsPerDay": 3,
+  "missions": [
+    { "id": "wash", "goal": 15, "growth": 1.1, "gems": 5 },
+    { "id": "handWash", "goal": 5, "growth": 1.04, "gems": 5 },
+    { "id": "earn", "goal": 400, "growth": 1.28, "gems": 6 },
+    { "id": "tips", "goal": 5, "growth": 1.08, "gems": 5 },
+    { "id": "upgrade", "goal": 2, "growth": 1.03, "gems": 6 },
+    { "id": "vip", "goal": 2, "growth": 1, "gems": 8, "requires": "bay2" },
+    { "id": "monster", "goal": 3, "growth": 1, "gems": 10, "requires": "tunnel" },
+    { "id": "detail", "goal": 4, "growth": 1.02, "gems": 8, "requires": "garage" },
+    { "id": "snack", "goal": 10, "growth": 1.03, "gems": 5, "requires": "vending" }
+  ],
+  "carOfDay": {
+    "afterSeconds": 60,
+    "payMultiplier": 10,
+    "patience": 120,
+    "cars": [
+      { "id": "icecream", "name": "Ice cream van", "model": "van", "tint": "#ffb3d9", "scale": 1.15, "size": [1.73, 1.55, 3.16] },
+      { "id": "firetruck", "name": "Fire truck", "model": "firetruck", "scale": 1.15, "size": [1.73, 1.96, 3.91] },
+      { "id": "police", "name": "Police car", "model": "police", "scale": 1.15, "size": [1.73, 1.51, 3.59] },
+      { "id": "taxi", "name": "Taxi", "model": "taxi", "scale": 1.15, "size": [1.73, 1.73, 3.16] },
+      { "id": "ambulance", "name": "Ambulance", "model": "ambulance", "scale": 1.15, "size": [1.73, 2.07, 3.74] }
+    ]
+  }
+}

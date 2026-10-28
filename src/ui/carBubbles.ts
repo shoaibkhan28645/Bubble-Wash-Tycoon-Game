@@ -34,7 +34,9 @@ export class CarBubble {
     this.label.visible = false;
   }
 
-  show(x: number, y: number, z: number, patienceLeft: number, mood: Mood, vip = false): void {
+  /** `badge`: a crown for the golden VIP, a star for the Car of the Day. */
+  show(x: number, y: number, z: number, patienceLeft: number, mood: Mood, badge: '' | 'vip' | 'special' = ''): void {
+    const vip = badge !== '';
     this.at.set(x, y, z);
     this.label.visible = true;
     const fill = Math.round(Math.max(0, Math.min(1, patienceLeft)) * 100);
@@ -43,9 +45,9 @@ export class CarBubble {
       this.fillShown = fill;
     }
     // Bubbles are reused with pooled cars, so the VIP flag is part of what's cached.
-    const key = `${mood}:${vip}`;
+    const key = `${mood}:${badge}`;
     if (key !== this.shown) {
-      this.face.textContent = vip ? '👑' : FACES[mood];
+      this.face.textContent = badge === 'vip' ? '👑' : badge === 'special' ? '🌟' : FACES[mood];
       this.el.dataset.mood = mood;
       // Golden VIP: crown and a gold bubble.
       if (vip) this.el.dataset.vip = '';
@@ -79,7 +81,7 @@ export class CarMoods {
       const rules = TUNING.customers;
       const mood: Mood = left > rules.moodHappy ? 'happy' : left > rules.moodGrumpy ? 'waiting' : 'grumpy';
       const p = car.position;
-      bubble.show(beside ? p.x + car.def.size[0] / 2 + 0.9 : p.x, BUBBLE_HEIGHT, p.z, left, mood, car.vip);
+      bubble.show(beside ? p.x + car.def.size[0] / 2 + 0.9 : p.x, BUBBLE_HEIGHT, p.z, left, mood, car.vip ? 'vip' : car.special ? 'special' : '');
       now.add(car);
     }
     for (const car of this.shown) if (!now.has(car)) this.hide(car);

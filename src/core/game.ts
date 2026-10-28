@@ -29,11 +29,17 @@ import { showEndScreen } from '../ui/endScreen';
 import { levelStep } from '../systems/economy';
 import { Buildings } from '../systems/buildings';
 import { PadSystem } from '../systems/pads';
+import { createMeta } from './meta';
+
+/** Width of the side button column plus its margins, in CSS pixels. */
+const SIDE_BAR_PX = 64;
 
 export interface Game {
   readonly stage: Stage;
   readonly clock: GameClock;
   readonly player: Player;
+  /** Offline earnings screen (cash already banked), with Collect 2×. */
+  welcomeBack(earned: { cash: number; seconds: number }): void;
   /** Cars, stations and staff (the dev console and play-test bot look at them). */
   readonly traffic: Traffic;
   readonly staff: StaffSystem;
@@ -87,6 +93,7 @@ export function createGame(
   const traffic = new Traffic(new CarPool(stage.scene), layout, state, cash, effects, sound, labels, floaters, (paid) => {
     if (paid.automated) income.add(clock.now, paid.amount);
     else flag('washed');
+    meta.onPaid(paid);
   });
 
   const staff = new StaffSystem(stage.scene, layout, state, labels, cash);
@@ -104,12 +111,15 @@ export function createGame(
     void saves.saveNow();
     if (PADS.find((p) => p.id === id)?.effects.endOfContent) {
       flag('ended');
-      showEndScreen(root, () => {});
+      showEndScreen(root, () => meta.screenClosed());
     }
   });
 
   const panel = new UpgradePanel(root, (key) => upgrades.buy(key), () => {});
-  const upgrades = new UpgradePads(stage.scene, layout, state, panel, labels, sound, effects, () => void saves.saveNow());
+  const upgrades = new UpgradePads(stage.scene, layout, state, panel, labels, sound, effects, () => {
+    meta.onUpgrade();
+    void saves.saveNow();
+  });
 
   /** Where the player may walk: the lot, limited to what the camera shows. */
   let walkable: Rect = layout.lot;
@@ -144,9 +154,15 @@ export function createGame(
   };
 
   // Builds the free first bay before the first frame.
+  // The side buttons take a strip on the right; the lot is framed beside them.
+  const fitSideBar = () => rig.setRightInset(SIDE_BAR_PX, stage.size.width);
+  fitSideBar();
   pads.update(0, player.position);
   refitView(true);
-  stage.onResize(() => rig.refit(true));
+  stage.onResize(() => {
+    fitSideBar();
+    rig.refit(true);
+  });
 
   /** Who is working each station this frame: the player, staff, or both (the faster counts). */
   const work = (station: Station): Work => {
@@ -158,6 +174,7 @@ export function createGame(
     if (carrier === playerCarry) flag('supplied');
   });
   const hand = new GuideHand(labels);
+  const meta = createMeta({ root, state, saves, sound, traffic, pads, supplies });
 
   /** What the tutorial hand can point at this frame. */
   const guideView = (): GuideView => {
@@ -197,6 +214,7 @@ export function createGame(
     buildings.update(dt, traffic.tunnelBusy);
     effects.update(dt);
     saves.update(dt);
+    meta.update(dt);
 
     const padRect = JSON.stringify(pads.footprint) + upgrades.footprints().length;
     if (padRect !== lastPadRect) {
@@ -206,7 +224,7 @@ export function createGame(
     rig.update(dt);
     stage.render();
     labels.update(stage.camera, stage.size.width, stage.size.height);
-    hud.update(dt, state.cash, state.stars);
+    hud.update(dt, state.cash, state.stars, state.gems);
     for (const ticker of tickers) ticker(dt);
   });
 
@@ -236,10 +254,13 @@ export function createGame(
     player,
     traffic,
     staff,
+    welcomeBack: (earned) => meta.welcomeBack(earned),
     get frameMs() {
       return loop.busyMs;
     },
     renderOnce() {
+      // Compile every material now, behind the loading screen, not mid-game.
+      stage.renderer.compile(stage.scene, stage.camera);
       stage.render();
       labels.update(stage.camera, stage.size.width, stage.size.height);
     },

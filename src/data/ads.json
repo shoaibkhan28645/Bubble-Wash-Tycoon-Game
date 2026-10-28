@@ -1,0 +1,8 @@
+{
+  "speedBoost": { "seconds": 180, "multiplier": 2, "gems": 15 },
+  "convoy": { "cars": 5, "spacingSeconds": 3, "cooldownSeconds": 600, "gems": 25 },
+  "refill": { "gems": 5 },
+  "finishPad": { "fraction": 0.8, "gems": 10 },
+  "offline": { "multiplier": 2 },
+  "interstitial": { "minGapSeconds": 180, "newPlayerSeconds": 300, "sessionGraceSeconds": 60 }
+}

@@ -46,3 +46,20 @@ describe('fitCameraToRect', () => {
     });
   }
 });
+
+describe('fitCameraToRect with a strip kept clear on the right', () => {
+  it.each(ASPECTS)('keeps the lot left of the side buttons at aspect %f', (aspect) => {
+    const inset = 0.3;
+    const rect = LOCATION1.lot;
+    const { target, distance } = fitCameraToRect(FOV, aspect, VIEW_DIR, rect, HEIGHT, LIMIT, inset);
+    const camera = new PerspectiveCamera(FOV, aspect, 0.1, 5000);
+    camera.position.copy(target).addScaledVector(VIEW_DIR, distance);
+    camera.lookAt(target);
+    camera.updateMatrixWorld();
+    const xs: number[] = [];
+    for (const x of [rect.minX, rect.maxX])
+      for (const y of [0, HEIGHT]) for (const z of [rect.minZ, rect.maxZ]) xs.push(new Vector3(x, y, z).project(camera).x);
+    expect(Math.max(...xs)).toBeLessThanOrEqual(LIMIT - inset + 1e-6);
+    expect(Math.min(...xs)).toBeGreaterThanOrEqual(-LIMIT - 1e-6);
+  });
+});

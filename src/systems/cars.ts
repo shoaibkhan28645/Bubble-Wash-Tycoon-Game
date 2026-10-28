@@ -38,6 +38,8 @@ export class Car {
   payDef!: CarDef;
   /** Golden VIP: only the player serves it until the manager is hired. */
   vip = false;
+  /** The Car of the Day. */
+  special = false;
   /** Will stop at the detailing garage (if built). */
   wantsDetail = false;
   /** Bought a snack from the vending machine while waiting. */
@@ -71,6 +73,7 @@ export class Car {
     this.def = def;
     this.payDef = payDef;
     this.vip = !!def.vip;
+    this.special = !!def.special;
     this.wantsDetail = false;
     this.snacked = false;
     this.waited = 0;

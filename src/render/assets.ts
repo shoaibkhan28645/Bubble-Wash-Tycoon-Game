@@ -75,6 +75,18 @@ export async function loadAssets(onProgress: (fraction: number) => void): Promis
   );
 }
 
+/** Loads one more model after the start (the Car of the Day), unless it's already here. */
+export async function loadModel(id: string, path: string): Promise<void> {
+  if (assets.has(id)) return;
+  const gltf = await new GLTFLoader().loadAsync(import.meta.env.BASE_URL + path);
+  prepare(gltf.scene);
+  assets.set(id, { scene: gltf.scene, animations: gltf.animations });
+}
+
+export function hasModel(id: string): boolean {
+  return assets.has(id);
+}
+
 export function asset(id: string): ModelAsset {
   const found = assets.get(id);
   if (!found) throw new Error(`Model not loaded: ${id}`);

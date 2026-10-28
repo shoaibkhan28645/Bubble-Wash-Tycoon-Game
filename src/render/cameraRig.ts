@@ -15,6 +15,8 @@ export class CameraRig {
   private goalTarget = new Vector3();
   private goalDistance = 30;
   private rect: Rect = { minX: -1, maxX: 1, minZ: -1, maxZ: 1 };
+  /** Screen strip on the right kept clear for the side buttons (normalised units). */
+  private insetRight = 0;
 
   constructor(private readonly camera: PerspectiveCamera) {}
 
@@ -24,9 +26,14 @@ export class CameraRig {
     this.refit(instant);
   }
 
+  /** Keeps `pixels` on the right of a `width`-pixel screen clear of the lot. */
+  setRightInset(pixels: number, width: number): void {
+    this.insetRight = (2 * pixels) / Math.max(1, width);
+  }
+
   /** Call after the camera's aspect changes. */
   refit(instant = true): void {
-    const goal = fitCameraToRect(this.camera.fov, this.camera.aspect, VIEW_DIR, this.rect, CONTENT_HEIGHT);
+    const goal = fitCameraToRect(this.camera.fov, this.camera.aspect, VIEW_DIR, this.rect, CONTENT_HEIGHT, undefined, this.insetRight);
     this.goalTarget = goal.target;
     this.goalDistance = goal.distance;
     if (instant) {

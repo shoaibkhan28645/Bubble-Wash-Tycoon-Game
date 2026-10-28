@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { newGame } from '../src/core/gameState';
+import { newDaily, newGame } from '../src/core/gameState';
 import { MIGRATIONS, SAVE_VERSION, migrate, parseSave, serialize, type Migration } from '../src/core/migrate';
 
 // Every save version ever shipped gets a fixture here, and must keep loading.
@@ -47,6 +47,8 @@ describe('parseSave', () => {
       padPaid: { hose: 20, bad: -3, word: 'x' },
       piles: [5],
       savedAt: Number.NaN,
+      daily: { date: 'yesterday', missions: ['wash'], goals: [], progress: [1], claimed: [true], loginDay: 99 },
+      boostSeconds: -4,
     });
     expect(parseSave(text).state).toEqual({
       cash: 0,
@@ -62,6 +64,8 @@ describe('parseSave', () => {
       supplies: {},
       flags: [],
       playSeconds: 0,
+      daily: { ...newDaily(), loginDay: 6 },
+      boostSeconds: 0,
       savedAt: 0,
     });
   });
@@ -71,7 +75,9 @@ describe('parseSave', () => {
     expect(saved.version).toBe(SAVE_VERSION);
     expect(Object.keys(saved).sort()).toEqual([
       'autoRate',
+      'boostSeconds',
       'cash',
+      'daily',
       'flags',
       'gems',
       'levels',
@@ -130,6 +136,18 @@ describe('old saves', () => {
     const { state } = parseSave(fixtures['./fixtures/save-v3.json']!);
     expect(state.flags).toEqual(['washed', 'collected', 'supplied']);
     expect(state.playSeconds).toBeGreaterThan(600);
+  });
+
+  it('gives players from before v5 an empty daily record (missions are dealt on load)', () => {
+    const { state } = parseSave(fixtures['./fixtures/save-v4.json']!);
+    expect(state.daily).toEqual(newDaily());
+    expect(state.boostSeconds).toBe(0);
+  });
+
+  it('keeps today\'s missions, the calendar and a running boost', () => {
+    const { state } = parseSave(fixtures['./fixtures/save-v5.json']!);
+    expect(state.daily).toMatchObject({ date: '2026-10-28', progress: [12, 8, 400], claimed: [false, true, false], loginDay: 3 });
+    expect(state.boostSeconds).toBe(75);
   });
 
   it('clamps stars to 1–5', () => {

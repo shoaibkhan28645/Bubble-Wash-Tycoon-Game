@@ -7,6 +7,8 @@ import tuningJson from '../data/tuning.json';
 import location1Json from '../data/location1.json';
 import charactersJson from '../data/characters.json';
 import upgradesJson from '../data/upgrades.json';
+import dailyJson from '../data/daily.json';
+import adsJson from '../data/ads.json';
 
 export type Dirt = 'dusty' | 'muddy' | 'swamp';
 
@@ -33,6 +35,8 @@ export interface CarDef {
   patience: number;
   payMultiplier?: number;
   vip?: boolean;
+  /** The Car of the Day (a one-a-day special visitor). */
+  special?: boolean;
   /** Car Kit model name (public/models/cars/<model>.glb). */
   model: string;
   scale: number;
@@ -129,6 +133,34 @@ export interface UpgradesData {
   panels: Record<string, string[]>;
 }
 
+/** A daily mission template; the goal grows with the number of pads built. */
+export interface MissionDef {
+  id: string;
+  goal: number;
+  growth: number;
+  gems: number;
+  /** Only offered once this pad is built. */
+  requires?: string;
+}
+
+/** A Car of the Day: a one-a-day special visitor. */
+export interface DayCarDef {
+  id: string;
+  name: string;
+  model: string;
+  tint?: string;
+  scale: number;
+  size: [number, number, number];
+}
+
+export interface DailyData {
+  /** Rewards for days 1–7 of the login calendar. */
+  calendar: { gems: number; chest?: boolean }[];
+  missionsPerDay: number;
+  missions: MissionDef[];
+  carOfDay: { afterSeconds: number; payMultiplier: number; patience: number; cars: DayCarDef[] };
+}
+
 export const CARS = carsJson as CarDef[];
 /** In unlock order. */
 export const PADS = padsJson as PadDef[];
@@ -138,6 +170,9 @@ export const LOCATION1 = location1Json as LocationLayout;
 /** Which Kenney Mini Character plays each role. */
 export const CHARACTERS = charactersJson;
 export const UPGRADES = upgradesJson as UpgradesData;
+export const DAILY = dailyJson as DailyData;
+/** Rewarded ad rewards (and their gem prices) and interstitial limits. */
+export const ADS = adsJson;
 
 export function padById(id: string): PadDef | undefined {
   return PADS.find((pad) => pad.id === id);

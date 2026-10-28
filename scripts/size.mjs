@@ -25,13 +25,19 @@ const sizes = new Map(
 
 const html = readFileSync(join(DIST, 'index.html'), 'utf8');
 const referenced = [...html.matchAll(/(?:src|href)="\.\/([^"]+)"/g)].map((m) => m[1]);
-const models = [...sizes.keys()].filter((f) => f.startsWith('models/') && !f.endsWith('.md'));
+// Car of the Day models load later, one a day, so they don't count towards the start.
+const daily = JSON.parse(readFileSync('src/data/daily.json', 'utf8'));
+const cars = JSON.parse(readFileSync('src/data/cars.json', 'utf8'));
+const atStart = new Set([...cars.map((c) => c.model), 'delivery']);
+const lazy = new Set(daily.carOfDay.cars.map((c) => `models/cars/${c.model}.glb`).filter((f) => !atStart.has(f.slice(12, -4))));
+const models = [...sizes.keys()].filter((f) => f.startsWith('models/') && !f.endsWith('.md') && !lazy.has(f));
 const initial = ['index.html', ...referenced, ...models].filter((f) => sizes.has(f));
 
 const sum = (names, key) => names.reduce((total, n) => total + sizes.get(n)[key], 0);
 const all = [...sizes.keys()];
 
 console.log(`Initial: ${kib(sum(initial, 'gz'))} gzip (${kib(sum(initial, 'raw'))} raw), ${initial.length} files`);
+console.log(`Loaded later (Car of the Day): ${kib(sum([...lazy].filter((f) => sizes.has(f)), 'gz'))} gzip, ${lazy.size} files`);
 console.log(`dist total: ${kib(sum(all, 'raw'))} raw, ${all.length} files`);
 for (const [name, { raw }] of sizes) {
   if (raw > FILE_TARGET) console.log(`Over 512 KiB: ${name} (${kib(raw)})`);
