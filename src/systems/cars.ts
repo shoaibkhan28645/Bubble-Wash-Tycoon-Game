@@ -106,6 +106,7 @@ export class Car {
 
   update(dt: number, speed: number): void {
     const next = this.path[0];
+    this.model.animate(dt, !!next);
     if (!next) return;
     const p = this.model.mesh.position;
     const dx = next.x - p.x;

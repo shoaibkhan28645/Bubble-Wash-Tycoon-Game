@@ -1,6 +1,8 @@
 // Player and car models from the Kenney packs (Mini Characters, Car Kit).
 import {
   AnimationMixer,
+  LoopOnce,
+  type BufferGeometry,
   CanvasTexture,
   Color,
   Group,
@@ -14,6 +16,7 @@ import type { CarDef } from '../../core/config';
 import { asset, mergedModel } from '../assets';
 import { addMud, type MudUniforms } from '../mud';
 import { GRAPHICS } from '../graphics';
+import { cylinder, mergeParts, rbox, toyMaterial, type Part } from './build';
 import { withShadows } from '../stage';
 
 /** Mini Characters are 0.8 units tall; this makes them about car-roof height. */
@@ -53,6 +56,18 @@ export function blobShadow(width: number, length: number): Mesh {
 }
 
 type Pose = 'idle' | 'walk' | 'sprint' | 'scrub';
+/** What a person holds while working. */
+export type Tool = 'sponge' | 'towel' | 'polisher';
+
+const TOOL_PARTS: Record<Tool, Part[]> = {
+  sponge: [{ geometry: rbox(0.13, 0.07, 0.09, 0.03), color: '#ffd24a' }],
+  towel: [{ geometry: rbox(0.16, 0.03, 0.12, 0.012), color: '#7ee0c3' }],
+  polisher: [
+    { geometry: cylinder(0.08, 0.04, 12), color: '#fff3c4', y: -0.03 },
+    { geometry: rbox(0.06, 0.07, 0.06, 0.02), color: '#3b4a5e', y: 0.02 },
+  ],
+};
+const toolGeometries = new Map<Tool, BufferGeometry>();
 
 /** A person (Kenney Mini Characters) with the pack's own animations. */
 export class PersonAvatar {
@@ -60,8 +75,11 @@ export class PersonAvatar {
   private readonly mixer: AnimationMixer;
   private readonly actions = new Map<Pose, AnimationAction>();
   private current: AnimationAction | undefined;
+  private readonly tool: Mesh | null = null;
+  private readonly gestureAction: AnimationAction | null = null;
+  private gestureLeft = 0;
 
-  constructor(character: string) {
+  constructor(character: string, tool: Tool | null = null) {
     const { scene, animations } = asset(`person:${character}`);
     const model = cloneSkinned(scene);
     model.scale.setScalar(PERSON_SCALE);
@@ -73,12 +91,41 @@ export class PersonAvatar {
       const clip = animations.find((a) => a.name === name);
       if (clip) this.actions.set(pose, this.mixer.clipAction(clip));
     }
+    // A tool in the right hand, shown while working.
+    const hand = model.getObjectByName('arm-right');
+    if (tool && hand) {
+      let geometry = toolGeometries.get(tool);
+      if (!geometry) {
+        geometry = mergeParts(TOOL_PARTS[tool]);
+        toolGeometries.set(tool, geometry);
+      }
+      this.tool = new Mesh(geometry, toyMaterial);
+      this.tool.position.set(0, -0.21, 0.03);
+      this.tool.visible = false;
+      hand.add(this.tool);
+    }
+    const pick = animations.find((a) => a.name === 'pick-up');
+    if (pick) this.gestureAction = this.mixer.clipAction(pick).setLoop(LoopOnce, 1);
     this.play('idle');
+  }
+
+  /** Bend down and pick something up (cash, supplies); walking cancels it. */
+  pickUp(): void {
+    if (!this.gestureAction || this.gestureLeft > 0) return;
+    this.current?.fadeOut(0.1);
+    this.gestureAction.reset().fadeIn(0.1).play();
+    this.current = this.gestureAction;
+    this.gestureLeft = this.gestureAction.getClip().duration;
   }
 
   /** speed: 0 idle, up to 1 full speed. Scrubbing shows when standing still. */
   update(dt: number, speed: number, scrubbing: boolean): void {
-    this.play(speed > 0.75 ? 'sprint' : speed > 0.05 ? 'walk' : scrubbing ? 'scrub' : 'idle');
+    this.gestureLeft -= dt;
+    if (this.gestureLeft <= 0 || speed > 0.05) {
+      this.gestureLeft = 0;
+      this.play(speed > 0.75 ? 'sprint' : speed > 0.05 ? 'walk' : scrubbing ? 'scrub' : 'idle');
+    }
+    if (this.tool) this.tool.visible = scrubbing && speed <= 0.05;
     this.mixer.update(dt);
   }
 
@@ -97,6 +144,10 @@ export class CarModel {
   private readonly body = new Mesh();
   private readonly shadow = blobShadow(1, 1);
   private mud: MudUniforms | null = null;
+  private wasMoving = false;
+  private dip = 0;
+  private dipSpeed = 0;
+  private time = 0;
 
   constructor() {
     this.body.castShadow = this.body.receiveShadow = true;
@@ -116,6 +167,18 @@ export class CarModel {
     this.shadow.scale.set(def.size[0] * 1.35, 1, def.size[2] * 1.2);
   }
 
+  /** A little bob while driving, and the nose dips and springs back when it stops. */
+  animate(dt: number, moving: boolean): void {
+    this.time += dt;
+    if (this.wasMoving && !moving) this.dipSpeed = -2.4;
+    this.wasMoving = moving;
+    const step = Math.min(dt, 0.05);
+    this.dipSpeed += (-70 * this.dip - 8 * this.dipSpeed) * step;
+    this.dip += this.dipSpeed * step;
+    this.body.rotation.x = -this.dip * 0.05;
+    this.body.position.y = moving ? Math.abs(Math.sin(this.time * 13)) * 0.025 : 0;
+  }
+
   /** 0 = fully muddy, 1 = sparkling clean. */
   setClean(dirt: string, clean: number): void {
     if (!this.mud) return;
@@ -123,5 +186,7 @@ export class CarModel {
     // How high the mud reaches on a dirty car: dust stays low, swamp mud covers most of it.
     const start = DIRT_START[dirt] ?? DIRT_START.dusty!;
     this.mud.uClean.value = clean >= 1 ? 9 : start + clean * (1.2 - start);
+    // Suds build up quickly, then the last fifth of the wash rinses them off.
+    this.mud.uFoam.value = clean <= 0 || clean >= 1 ? 0 : Math.min(1, clean * 4) * Math.min(1, (1 - clean) * 5);
   }
 }

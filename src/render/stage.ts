@@ -9,6 +9,7 @@ import {
   WebGLRenderer,
 } from 'three';
 import { GRAPHICS } from './graphics';
+import { AdaptiveResolution } from './resolution';
 
 const MAX_PIXEL_RATIO = 2;
 const FOV_DEG = 35;
@@ -38,6 +39,8 @@ export interface Stage {
   /** How many times the browser dropped the 3D canvas (a GPU crash or reset). */
   readonly contextLosses: number;
   readonly shadows: boolean;
+  /** Pixels drawn per CSS pixel right now (drops if the phone can't keep up). */
+  readonly pixelRatio: number;
   /** Turns real shadows on or off (they're turned off for good after a GPU crash). */
   setShadows(on: boolean): void;
   /** Points the sun's shadow camera at an area (the lot), so shadows stay sharp there. */
@@ -55,6 +58,9 @@ export function createStage(container: HTMLElement): Stage {
   const scene = new Scene();
   scene.fog = new Fog(BACKGROUND, 70, 160);
   renderer.shadowMap.type = PCFShadowMap;
+  // Shadows are redrawn every other frame: half the cost, and a one-frame lag nobody sees.
+  renderer.shadowMap.autoUpdate = false;
+  let shadowFrame = false;
   scene.add(new HemisphereLight(0xf4f8ff, 0x9fbf8a, 1.35));
   const sun = new DirectionalLight(0xffeccc, 2.7);
   sun.shadow.mapSize.set(SHADOW_MAP_SIZE, SHADOW_MAP_SIZE);
@@ -88,11 +94,13 @@ export function createStage(container: HTMLElement): Stage {
   const camera = new PerspectiveCamera(FOV_DEG, 1, 0.5, 200);
   const size = { width: 1, height: 1 };
   const listeners: (() => void)[] = [];
+  const resolution = new AdaptiveResolution(() => fit());
+  let lastFrame = 0;
 
   const fit = (): void => {
     size.width = Math.max(1, container.clientWidth);
     size.height = Math.max(1, container.clientHeight);
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, MAX_PIXEL_RATIO));
+    renderer.setPixelRatio(Math.max(1, Math.min(window.devicePixelRatio || 1, MAX_PIXEL_RATIO) * resolution.scale));
     renderer.setSize(size.width, size.height, false);
     camera.aspect = size.width / size.height;
     camera.updateProjectionMatrix();
@@ -118,6 +126,9 @@ export function createStage(container: HTMLElement): Stage {
       return renderer.shadowMap.enabled;
     },
     setShadows,
+    get pixelRatio() {
+      return renderer.getPixelRatio();
+    },
     shadowArea(rect) {
       const cx = (rect.minX + rect.maxX) / 2;
       const cz = (rect.minZ + rect.maxZ) / 2;
@@ -134,7 +145,13 @@ export function createStage(container: HTMLElement): Stage {
     },
     onResize: (callback) => void listeners.push(callback),
     render() {
-      if (!contextLost) renderer.render(scene, camera);
+      const now = performance.now();
+      if (lastFrame) resolution.tick((now - lastFrame) / 1000);
+      lastFrame = now;
+      if (contextLost) return;
+      shadowFrame = !shadowFrame;
+      if (shadowFrame) renderer.shadowMap.needsUpdate = true;
+      renderer.render(scene, camera);
     },
   };
 }

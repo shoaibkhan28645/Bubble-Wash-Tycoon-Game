@@ -11,7 +11,7 @@ import {
   Vector3,
 } from 'three';
 
-export type ParticleKind = 'sparkle' | 'bubble' | 'bill';
+export type ParticleKind = 'sparkle' | 'bubble' | 'bill' | 'water' | 'confetti';
 
 interface Particle {
   active: boolean;
@@ -27,7 +27,13 @@ interface Particle {
   spin: number;
 }
 
-const GRAVITY: Record<ParticleKind, number> = { sparkle: -9, bubble: 1.2, bill: -12 };
+const GRAVITY: Record<ParticleKind, number> = { sparkle: -9, bubble: 1.2, bill: -12, water: -14, confetti: -5 };
+/** How fast each kind slows down in the air (bubbles float, confetti flutters). */
+const DRAG: Partial<Record<ParticleKind, number>> = { bubble: 2.5, confetti: 1.8 };
+const TINTS: Partial<Record<ParticleKind, number[]>> = {
+  sparkle: [0xfff6b0, 0xffffff, 0xffd85c, 0xbfe9ff],
+  confetti: [0xff8fc8, 0x5bbcff, 0xffd24a, 0x7ee0c3, 0xb79cff],
+};
 const POOL = 96;
 
 /** Pooled particles drawn as one InstancedMesh per kind. */
@@ -39,6 +45,8 @@ export class Particles {
     this.addKind(scene, 'sparkle', new OctahedronGeometry(0.14), new MeshBasicMaterial({ color: 0xfff6b0 }));
     this.addKind(scene, 'bubble', new SphereGeometry(0.16, 8, 6), new MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.85 }));
     this.addKind(scene, 'bill', new BoxGeometry(0.42, 0.06, 0.24), new MeshBasicMaterial({ color: 0x5cc45c }));
+    this.addKind(scene, 'water', new SphereGeometry(0.06, 6, 4), new MeshBasicMaterial({ color: 0x8fd3ff, transparent: true, opacity: 0.85 }));
+    this.addKind(scene, 'confetti', new BoxGeometry(0.16, 0.02, 0.1), new MeshBasicMaterial({ color: 0xffffff }));
   }
 
   /** Particles flung outward from a point. */
@@ -51,7 +59,7 @@ export class Particles {
       const angle = Math.random() * Math.PI * 2;
       const out = speed * (0.3 + Math.random() * 0.7);
       p.vel.set(Math.cos(angle) * out, speed * (0.6 + Math.random() * 0.8), Math.sin(angle) * out);
-      p.life = kind === 'bubble' ? 0.9 + Math.random() * 0.6 : 0.6 + Math.random() * 0.4;
+      p.life = kind === 'bubble' ? 0.9 + Math.random() * 0.6 : kind === 'confetti' ? 1.4 + Math.random() * 0.6 : 0.6 + Math.random() * 0.4;
       p.size = kind === 'bubble' ? 0.6 + Math.random() * 0.9 : 0.7 + Math.random() * 0.6;
     }
   }
@@ -84,7 +92,8 @@ export class Particles {
           p.pos.y += Math.sin(t * Math.PI) * 1.2;
         } else {
           p.vel.y += GRAVITY[kind] * dt;
-          if (kind === 'bubble') p.vel.multiplyScalar(1 - dt * 2.5);
+          const drag = DRAG[kind];
+          if (drag) p.vel.multiplyScalar(Math.max(0, 1 - dt * drag));
           p.pos.addScaledVector(p.vel, dt);
         }
         const scale = p.size * (p.fly ? 1 : 1 - t * t);
@@ -103,10 +112,8 @@ export class Particles {
     const mesh = new InstancedMesh(geometry, material, POOL);
     mesh.count = 0;
     mesh.frustumCulled = false;
-    if (kind === 'sparkle') {
-      const tints = [0xfff6b0, 0xffffff, 0xffd85c, 0xbfe9ff];
-      for (let i = 0; i < POOL; i++) mesh.setColorAt(i, new Color(tints[i % tints.length]));
-    }
+    const tints = TINTS[kind];
+    if (tints) for (let i = 0; i < POOL; i++) mesh.setColorAt(i, new Color(tints[i % tints.length]));
     scene.add(mesh);
     const items = Array.from({ length: POOL }, () => ({
       active: false,

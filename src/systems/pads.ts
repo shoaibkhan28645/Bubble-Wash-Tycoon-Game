@@ -179,6 +179,7 @@ export class PadSystem {
     delete this.state.padPaid[def.id];
     if (def.cost > 0) {
       this.effects.burst('sparkle', new Vector3(at.x, 0.5, at.z), 28, 6, 1.5);
+      this.effects.burst('confetti', new Vector3(at.x, 1.2, at.z), 40, 7, 1.5);
       this.sound.play('build');
     }
     this.waitTimer = this.tuning.revealDelay;

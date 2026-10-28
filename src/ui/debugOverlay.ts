@@ -78,7 +78,7 @@ export function createDebugOverlay({ root, game, state, saves, lifecycle, dev }:
     const status = lifecycle.paused ? 'PAUSED · ' : '';
     stats.textContent = `${status}FPS ${fps} · calls ${calls} · tris ${triangles} · $${Math.floor(state.cash)}`;
     const lost = game.stage.contextLosses;
-    gpu.textContent = `GPU ${game.stage.gpu}${lost ? ` · crashed ${lost}×` : ''}`;
+    gpu.textContent = `GPU ${game.stage.gpu} · res ${game.stage.pixelRatio.toFixed(2)}×${lost ? ` · crashed ${lost}×` : ''}`;
     // Shadows also switch off by themselves after a GPU crash.
     shadowButton.textContent = shadowLabel();
   }

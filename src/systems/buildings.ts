@@ -1,9 +1,8 @@
 import { Group, type Object3D, type Scene } from 'three';
 import type { LocationLayout, Rect } from '../core/config';
-import { bayModel } from '../render/models/bay';
-import { benchModel, dryerModel, hoseModel, registerModel, shelfModel, waxModel } from '../render/models/props';
+import { benchModel, hoseModel, registerModel, shelfModel, signModel, truckModel, vendingModel } from '../render/models/props';
+import { bayModel, dryerModel, garageModel, TunnelModel, waxModel } from '../render/models/stations';
 import { withShadows } from '../render/stage';
-import { garageModel, signModel, TunnelModel, truckModel, vendingModel } from '../render/models/bigProps';
 
 const REVEAL_SECONDS = 0.45;
 
@@ -14,7 +13,7 @@ export const SOLID: Record<string, [number, number]> = {
   soap: [1.1, 0.4],
   bench: [1.1, 0.35],
   vending: [0.65, 0.45],
-  sign: [1.3, 0.35],
+  sign: [0.35, 0.35],
   tunnel: [1.8, 4.2],
   truck: [2.2, 1.1],
 };

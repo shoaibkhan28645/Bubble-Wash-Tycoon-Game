@@ -19,7 +19,7 @@ const GRASS_A = new Color('#8fd46a');
 const GRASS_B = new Color('#6fc35a');
 const KERB = '#cdd2d9';
 const GROUND_SIZE = 140;
-const GROUND_SEGMENTS = 70;
+const GROUND_SEGMENTS = 48;
 
 /** Small seeded random generator so the scenery is the same every time. */
 function seeded(seed: number): () => number {

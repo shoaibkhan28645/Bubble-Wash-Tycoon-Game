@@ -1,7 +1,7 @@
 import { Vector3, type Scene } from 'three';
 import { CHARACTERS, TUNING, UPGRADES, type LocationLayout, type Point, type Rect } from '../core/config';
 import type { GameState } from '../core/gameState';
-import { PersonAvatar } from '../render/models/actors';
+import { PersonAvatar, type Tool } from '../render/models/actors';
 import type { Label, WorldLabels } from '../ui/worldLabels';
 import { Carrier } from './carry';
 import { levelFactor, levelStep } from './economy';
@@ -37,7 +37,11 @@ const WORKS: Record<Role, StationKind[]> = {
   garage: ['garage', 'wax'],
 };
 
+/** What each worker holds while working a station. */
+const TOOLS: Partial<Record<Role, Tool>> = { washer: 'sponge', dryerStaff: 'towel', garage: 'polisher' };
+
 const ARRIVE = 0.2;
+const PICK_UP_SECONDS = 0.7;
 const RADIUS = 0.45;
 /** How far inside a station's zone staff stand to work or drop supplies. */
 const SIDE = 0.9;
@@ -55,6 +59,8 @@ class Helper {
   working: Station | null = null;
   onBreak = 0;
   worked = 0;
+  /** Seconds left standing still (e.g. picking up cash). */
+  hold = 0;
   private path: Point[] = [];
   private pathFor: Point | null = null;
   private replan = 0;
@@ -68,7 +74,7 @@ class Helper {
     capacity: () => number,
     labels: WorldLabels,
   ) {
-    this.avatar = new PersonAvatar(CHARACTERS.staff[ROLES[role]]);
+    this.avatar = new PersonAvatar(CHARACTERS.staff[ROLES[role]], TOOLS[role] ?? null);
     this.avatar.root.position.set(start.x, 0, start.z);
     scene.add(this.avatar.root);
     this.target = start;
@@ -198,7 +204,7 @@ export class StaffSystem {
         continue;
       }
       if (helper.role === 'runner') this.planRun(helper, stations, supplies);
-      else if (helper.role === 'cashier') this.planCashier(helper);
+      else if (helper.role === 'cashier') this.planCashier(dt, helper);
       else if (helper.role === 'valet' || helper.role === 'manager') {
         helper.assigned = null;
         helper.target = (helper.role === 'valet' && valetCall) || this.home(helper.role);
@@ -218,9 +224,17 @@ export class StaffSystem {
   }
 
   /** Cashier: walk to the fullest cash pile and bank it; wait by the register when all is collected. */
-  private planCashier(helper: Helper): void {
+  private planCashier(dt: number, helper: Helper): void {
     helper.assigned = null;
-    if (this.cash.update(helper.position)) return;
+    // Stay bent over the pile for a moment after picking it up.
+    helper.hold = Math.max(0, helper.hold - dt);
+    if (helper.hold > 0) return;
+    if (this.cash.update(helper.position)) {
+      helper.avatar.pickUp();
+      helper.target = helper.position;
+      helper.hold = PICK_UP_SECONDS;
+      return;
+    }
     const pile = this.cash.fullestPile();
     helper.target = pile ? { x: pile.at.x + 0.6, z: pile.at.z + 0.6 } : this.home('cashier');
   }

@@ -26,9 +26,9 @@ export interface Part {
 export const toyMaterial = new MeshLambertMaterial({ vertexColors: true });
 
 export const box = (w: number, h: number, d: number) => new BoxGeometry(w, h, d);
-/** Box with softly rounded edges (reads as a toy rather than a raw cube). */
+/** Box with bevelled edges (reads as a toy rather than a raw cube); one bevel step keeps it cheap. */
 export const rbox = (w: number, h: number, d: number, radius = 0.06) =>
-  new RoundedBoxGeometry(w, h, d, 2, Math.min(radius, w / 2, h / 2, d / 2));
+  new RoundedBoxGeometry(w, h, d, 1, Math.min(radius, w / 2, h / 2, d / 2));
 export const cylinder = (radius: number, height: number, segments = 12) =>
   new CylinderGeometry(radius, radius, height, segments);
 export const sphere = (radius: number, segments = 12) => new SphereGeometry(radius, segments, Math.ceil(segments * 0.75));

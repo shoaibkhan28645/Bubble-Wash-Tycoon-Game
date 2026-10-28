@@ -7,6 +7,8 @@ export interface MudUniforms {
   uMudColor: { value: Color };
   /** Height of the model (its own units), so mud can splash up from the bottom. */
   uTop: { value: number };
+  /** Soap foam, 0..1: builds up while washing, rinsed off at the end. */
+  uFoam: { value: number };
 }
 
 // Cheap 3D value noise, so the mud breaks up in blotches instead of fading evenly.
@@ -15,6 +17,7 @@ varying vec3 vMudPos;
 uniform float uClean;
 uniform vec3 uMudColor;
 uniform float uTop;
+uniform float uFoam;
 float mudHash(vec3 p) { return fract(sin(dot(p, vec3(17.1, 113.5, 71.7))) * 43758.5453); }
 float mudNoise(vec3 p) {
   vec3 i = floor(p);
@@ -33,7 +36,12 @@ float mudNoise(vec3 p) {
  * `uClean` rises. A dull film over the rest of the paint goes too.
  */
 export function addMud(material: MeshLambertMaterial): MudUniforms {
-  const uniforms: MudUniforms = { uClean: { value: 0 }, uMudColor: { value: new Color('#8a6a48') }, uTop: { value: 1 } };
+  const uniforms: MudUniforms = {
+    uClean: { value: 0 },
+    uMudColor: { value: new Color('#8a6a48') },
+    uTop: { value: 1 },
+    uFoam: { value: 0 },
+  };
   material.onBeforeCompile = (shader) => {
     Object.assign(shader.uniforms, uniforms);
     shader.vertexShader = shader.vertexShader
@@ -53,7 +61,11 @@ export function addMud(material: MeshLambertMaterial): MudUniforms {
         // Dull, dusty film until washed.
         float mudFilm = clamp(1.25 - uClean, 0.0, 1.0) * 0.55;
         diffuseColor.rgb = mix(diffuseColor.rgb, mix(diffuseColor.rgb, uMudColor, 0.45), mudFilm);
-        diffuseColor.rgb = mix(diffuseColor.rgb, mudTone, mudMask * 0.95);`,
+        diffuseColor.rgb = mix(diffuseColor.rgb, mudTone, mudMask * 0.95);
+        // Foam: white suds in bubbly clumps, thickest on top.
+        float foamN = mudNoise(vMudPos * 16.0) * 0.65 + mudNoise(vMudPos * 36.0) * 0.35 + (1.0 - mudLow) * 0.25;
+        float foamMask = smoothstep(1.08 - uFoam * 0.42, 1.13 - uFoam * 0.42, foamN);
+        diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.97, 0.98, 1.0), foamMask * 0.92);`,
       );
   };
   material.customProgramCacheKey = () => 'mud';

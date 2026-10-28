@@ -185,7 +185,7 @@ export class Traffic {
         this.drainPatience(car, dt);
       }
     }
-    station.showProgress(car.state === 'waiting' || car.state === 'entering', car.progress, stalled);
+    station.showProgress(car.state === 'waiting', car.progress, stalled);
     if (car.state === 'done') this.moveOn(dt, station, car);
     return byPlayer;
   }
@@ -195,6 +195,7 @@ export class Traffic {
     if (this.bubbleTimer > 0) return;
     const p = car.position;
     this.effects.burst('bubble', new Vector3(p.x, 0.9 + Math.random() * 0.6, p.z), 2, 1.6, car.def.size[0]);
+    this.effects.burst('water', new Vector3(p.x, 1.4, p.z), 3, 3.2, car.def.size[0]);
     this.bubbleTimer = BUBBLE_SECONDS;
   }
 

@@ -9,7 +9,7 @@ const TURN_RATE = 14;
 /** The character the player steers. Kinematic movement on the flat lot. */
 export class Player {
   readonly mesh: Group;
-  private readonly avatar = new PersonAvatar(CHARACTERS.player);
+  private readonly avatar = new PersonAvatar(CHARACTERS.player, 'sponge');
   /** Set by the bays each frame while the player is washing a car. */
   scrubbing = false;
   private heading = 0;
