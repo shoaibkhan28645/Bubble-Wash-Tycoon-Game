@@ -1,6 +1,9 @@
 // UI text by language. English is required and is the fallback for every key.
 const EN = {
   loading: 'Loading',
+  welcomeBack: 'Welcome back!',
+  staffEarned: 'Your staff earned this while you were away',
+  collect: 'Collect',
 } as const;
 
 export type StringKey = keyof typeof EN;
