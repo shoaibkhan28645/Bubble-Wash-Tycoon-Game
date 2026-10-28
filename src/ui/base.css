@@ -369,10 +369,6 @@ body {
   font: 900 20px/1 system-ui, sans-serif;
 }
 
-.wash-ring {
-  position: relative;
-}
-
 .shelf-stock {
   padding: 3px 8px;
   border-radius: 999px;

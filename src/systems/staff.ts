@@ -3,28 +3,41 @@ import { CHARACTERS, TUNING, UPGRADES, type LocationLayout, type Point, type Rec
 import type { GameState } from '../core/gameState';
 import { PersonAvatar } from '../render/models/actors';
 import type { Label, WorldLabels } from '../ui/worldLabels';
-import { Carrier, type SupplyType } from './carry';
+import { Carrier } from './carry';
 import { levelFactor, levelStep } from './economy';
-import { pushOut } from './player';
-import type { Station } from './stations';
+import { NavGrid } from './nav';
+import { pickStation, planRunner, sideOf } from './staffPlan';
+import { insideRect, type Station, type StationKind } from './stations';
 import type { Supplies } from './supplies';
 
 /** Hire pad id → the role's key in characters.json. */
 const ROLES = { washer: 'washer', runner: 'runner', dryerStaff: 'dryer' } as const;
 export type Role = keyof typeof ROLES;
 
-const ARRIVE = 0.25;
-/** How far beside a station's edge staff stand to work or drop supplies. */
-const SIDE = 0.9;
+/** Stations each role works: the washer both bays, the dryer staff the dryer and wax. */
+const WORKS: Record<Role, StationKind[]> = { washer: ['bay'], runner: [], dryerStaff: ['dryer', 'wax'] };
 
-/** One hired helper: walks, works a station or carries supplies, takes coffee breaks. */
+const ARRIVE = 0.2;
+const RADIUS = 0.45;
+/** How far inside a station's zone staff stand to work or drop supplies. */
+const SIDE = 0.9;
+/** Re-plan the route this often, in case the way changed. */
+const REPLAN_SECONDS = 1.5;
+
+/** One hired helper: walks a planned route, works a station or carries supplies, takes coffee breaks. */
 class Helper {
   readonly avatar: PersonAvatar;
   readonly carrier: Carrier | null;
   target: Point;
+  /** The station this helper has taken on (keeps it until that car is done). */
+  assigned: Station | null = null;
+  /** The station being worked right now (assigned and standing in its zone). */
   working: Station | null = null;
   onBreak = 0;
   worked = 0;
+  private path: Point[] = [];
+  private pathFor: Point | null = null;
+  private replan = 0;
   private heading = 0;
   private readonly bubble: Label | null;
 
@@ -51,21 +64,40 @@ class Helper {
     return { x: this.avatar.root.position.x, z: this.avatar.root.position.z };
   }
 
-  /** Walks towards the target; returns true once there. */
-  walk(dt: number, speed: number, obstacles: readonly Rect[]): boolean {
+  /** Follows a route around obstacles to the target; returns true once there. */
+  walk(dt: number, speed: number, nav: NavGrid): boolean {
     const p = this.avatar.root.position;
-    const dx = this.target.x - p.x;
-    const dz = this.target.z - p.z;
-    const dist = Math.hypot(dx, dz);
-    if (dist <= ARRIVE) return true;
-    const step = Math.min(dist, speed * dt);
-    p.x += (dx / dist) * step;
-    p.z += (dz / dist) * step;
-    for (const rect of obstacles) pushOut(p, 0.4, rect);
-    const goal = Math.atan2(dx, dz);
-    this.heading += Math.atan2(Math.sin(goal - this.heading), Math.cos(goal - this.heading)) * Math.min(1, dt * 12);
+    if (Math.hypot(this.target.x - p.x, this.target.z - p.z) <= ARRIVE) return true;
+    this.replan -= dt;
+    const moved = !this.pathFor || Math.hypot(this.pathFor.x - this.target.x, this.pathFor.z - this.target.z) > 0.3;
+    if (moved || this.replan <= 0 || this.path.length === 0) {
+      this.path = nav.findPath(this.position, this.target);
+      this.pathFor = { ...this.target };
+      this.replan = REPLAN_SECONDS;
+    }
+    let budget = speed * dt;
+    while (budget > 0 && this.path.length > 0) {
+      const next = this.path[0]!;
+      const dx = next.x - p.x;
+      const dz = next.z - p.z;
+      const dist = Math.hypot(dx, dz);
+      if (dist > 1e-4) {
+        const goal = Math.atan2(dx, dz);
+        this.heading += Math.atan2(Math.sin(goal - this.heading), Math.cos(goal - this.heading)) * Math.min(1, dt * 12);
+      }
+      if (dist <= budget) {
+        p.x = next.x;
+        p.z = next.z;
+        budget -= dist;
+        this.path.shift();
+      } else {
+        p.x += (dx / dist) * budget;
+        p.z += (dz / dist) * budget;
+        budget = 0;
+      }
+    }
     this.avatar.root.rotation.y = this.heading;
-    return false;
+    return Math.hypot(this.target.x - p.x, this.target.z - p.z) <= ARRIVE;
   }
 
   face(point: Point): void {
@@ -82,19 +114,24 @@ class Helper {
 }
 
 /**
- * Staff AI (GDD "staff & automation"): the washer runs bay 1, the runner
- * carries supplies, the dryer runs the dryer and waxing station. Each works
- * a while, then takes a short coffee break that upgrades shorten.
+ * Staff AI (GDD "staff & automation"). The washer serves both bays and the
+ * dryer staff the dryer and waxing station, always going to the car that
+ * has waited longest; the runner carries supplies. Each works a while, then
+ * takes a short coffee break between cars (upgrades shorten it).
  */
 export class StaffSystem {
   private readonly helpers: Helper[] = [];
+  private nav: NavGrid;
+  private navKey = '';
 
   constructor(
     private readonly scene: Scene,
     private readonly layout: LocationLayout,
     private readonly state: GameState,
     private readonly labels: WorldLabels,
-  ) {}
+  ) {
+    this.nav = new NavGrid(layout.lot, [], RADIUS);
+  }
 
   /** Hires the helper a built pad provides; they appear on the pad and walk to work. */
   hire(padId: string): void {
@@ -118,80 +155,69 @@ export class StaffSystem {
     return TUNING.staff.workRate / levelFactor(UPGRADES.kinds.staffSpeed, this.level(`${helper.role}.staffSpeed`));
   }
 
-  update(dt: number, stations: readonly Station[], supplies: Supplies, obstacles: readonly Rect[]): void {
+  update(
+    dt: number,
+    stations: readonly Station[],
+    supplies: Supplies,
+    obstacles: readonly Rect[],
+    playerAt: (station: Station) => boolean,
+  ): void {
+    this.refreshNav(obstacles);
     for (const helper of this.helpers) {
       const speed = TUNING.staff.walkSpeed / levelFactor(UPGRADES.kinds.staffSpeed, this.level(`${helper.role}.staffSpeed`));
       if (this.takeBreak(dt, helper)) {
         helper.avatar.update(dt, 0, false);
         continue;
       }
-      const station = helper.role === 'runner' ? this.run(helper, stations, supplies) : this.chooseStation(helper, stations);
-      const there = helper.walk(dt, speed, obstacles);
-      // Can't work a station until standing beside it.
-      helper.working = there ? station : null;
-      if (helper.working) helper.face(helper.working.at);
+      if (helper.role === 'runner') this.planRun(helper, stations, supplies);
+      else {
+        helper.assigned = pickStation(stations, WORKS[helper.role], helper.assigned, playerAt);
+        helper.target = helper.assigned ? sideOf(helper.assigned, SIDE) : this.home(helper.role);
+      }
+      const there = helper.walk(dt, speed, this.nav);
+      // Work starts as soon as the helper is beside the station, even before the exact spot.
+      const station = helper.assigned;
+      helper.working = station && insideRect(helper.position, station.zone) ? station : null;
+      if (helper.working && there) helper.face(helper.working.at);
       if (!there || helper.working || helper.role === 'runner') helper.worked += dt;
       helper.carrier?.update(dt, !there);
       helper.avatar.update(dt, there ? 0 : 0.5, !!helper.working?.needsWork);
     }
   }
 
-  /** Coffee break after a stretch of work. Returns true while on break. */
+  private planRun(helper: Helper, stations: readonly Station[], supplies: Supplies): void {
+    const plan = planRunner(helper.carrier!, stations, this.state, supplies);
+    const shelf = this.layout.pads.soap;
+    helper.assigned = null;
+    if (plan.kind === 'drop') helper.target = sideOf(plan.station, SIDE);
+    else if (plan.kind === 'shelf' && shelf) helper.target = { x: shelf.x, z: shelf.z + 1 };
+    else helper.target = this.home('runner');
+  }
+
+  /** Coffee break after a stretch of work, but never in the middle of a car. Returns true while on break. */
   private takeBreak(dt: number, helper: Helper): boolean {
     if (helper.onBreak > 0) {
       helper.onBreak -= dt;
       helper.showCoffee(helper.onBreak > 0);
       return helper.onBreak > 0;
     }
-    if (helper.worked < TUNING.staff.workSeconds) return false;
+    if (helper.worked < TUNING.staff.workSeconds || helper.assigned?.needsWork) return false;
     helper.worked = 0;
     const kind = helper.role === 'washer' ? UPGRADES.kinds.stamina : UPGRADES.kinds.staffSpeed;
     const key = helper.role === 'washer' ? 'washer.stamina' : `${helper.role}.staffSpeed`;
     helper.onBreak = TUNING.staff.breakSeconds * levelFactor(kind, this.level(key));
+    helper.assigned = null;
     helper.working = null;
     helper.showCoffee(true);
     return true;
   }
 
-  /** Washer: bay 1. Dryer: whichever of the dryer and waxing station has a car waiting. */
-  private chooseStation(helper: Helper, stations: readonly Station[]): Station | null {
-    const mine = stations.filter((s) => (helper.role === 'washer' ? s.id === 'bay1' : s.kind === 'dryer' || s.kind === 'wax'));
-    const station = mine.find((s) => s.needsWork) ?? null;
-    helper.target = station ? this.sideOf(station) : this.home(helper.role);
-    return station;
-  }
-
-  /** Runner: drop off what a station needs, or fetch more from the shelf, or wait at home. Works no station. */
-  private run(helper: Helper, stations: readonly Station[], supplies: Supplies): null {
-    const carrier = helper.carrier!;
-    const shelf = this.layout.pads.soap;
-    const lowest = (types: SupplyType[]) => {
-      let best: Station | null = null;
-      let bestStock = Infinity;
-      for (const s of stations) {
-        if (!s.supply || !types.includes(s.supply as SupplyType)) continue;
-        const stock = this.state.supplies[`${s.id}.${s.supply}`] ?? 0;
-        const max = TUNING.stations.supplyCapacity * TUNING.stations.usesPerItem;
-        if (stock + TUNING.stations.usesPerItem <= max && stock < bestStock) {
-          best = s;
-          bestStock = stock;
-        }
-      }
-      return best;
-    };
-    const dropAt = carrier.stack.length > 0 ? lowest([...new Set(carrier.stack)]) : null;
-    if (dropAt) helper.target = this.sideOf(dropAt);
-    else if (shelf && supplies.types().some((t) => supplies.need(t, [carrier]) > 0) && !carrier.full) {
-      helper.target = { x: shelf.x, z: shelf.z + 1 };
-    } else helper.target = this.home('runner');
-    return null;
-  }
-
-  /** A spot just outside a station on its left (the side facing the middle of the lot). */
-  private sideOf(station: Station): Point {
-    const left = station.at.x <= 0 || station.kind !== 'bay';
-    const x = left ? station.zone.minX + SIDE : station.zone.maxX - SIDE;
-    return { x, z: station.at.z };
+  /** Rebuilds the walkable grid when something solid is built. */
+  private refreshNav(obstacles: readonly Rect[]): void {
+    const key = obstacles.map((o) => `${o.minX},${o.minZ}`).join('|');
+    if (key === this.navKey) return;
+    this.navKey = key;
+    this.nav = new NavGrid(this.layout.lot, obstacles, RADIUS);
   }
 
   private home(role: Role): Point {

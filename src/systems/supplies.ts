@@ -122,8 +122,18 @@ export class Supplies implements SupplyCheck {
 
   private pickUp(carrier: Carrier): boolean {
     const at = this.layout.pads[SHELF];
-    if (!at || carrier.full) return false;
+    if (!at) return false;
     if (Math.hypot(carrier.position.x - at.x, carrier.position.z - at.z) > TUNING.supplies.reach) return false;
+    // First put back anything no station can take, so it never clogs the carrier's hands.
+    for (const type of new Set(carrier.stack)) {
+      if (this.need(type, [carrier]) >= 0) continue;
+      carrier.remove(type);
+      const key = `shelf.${type}`;
+      this.state.supplies[key] = Math.min(this.shelfCapacity(), (this.state.supplies[key] ?? this.shelfCapacity()) + 1);
+      this.sound.play('drop');
+      return true;
+    }
+    if (carrier.full) return false;
     // Most urgent first: the type whose emptiest station is lowest (an empty one blocks cars).
     let best: SupplyType | null = null;
     let bestLow = Infinity;
