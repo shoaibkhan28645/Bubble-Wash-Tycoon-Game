@@ -3,6 +3,7 @@ import { Group } from 'three';
 import { LOCATION1, TUNING, type Point, type Rect } from '../src/core/config';
 import { newGame } from '../src/core/gameState';
 import type { Car } from '../src/systems/cars';
+import { SOLID } from '../src/systems/buildings';
 import { Carrier } from '../src/systems/carry';
 import { NavGrid } from '../src/systems/nav';
 import { pickStation, planRunner } from '../src/systems/staffPlan';
@@ -12,13 +13,12 @@ import type { SoundManager } from '../src/audio/sound';
 
 const silent = { play: () => {} } as unknown as SoundManager;
 
-/** The solid props from buildings.ts: hose, register, shelf, bench. */
+/** Every solid prop from buildings.ts, at its pad (the whole lot built). */
 function solids(): Rect[] {
-  const box = (id: string, hw: number, hd: number) => {
-    const at = LOCATION1.pads[id]!;
-    return { minX: at.x - hw, maxX: at.x + hw, minZ: at.z - hd, maxZ: at.z + hd };
-  };
-  return [box('hose', 0.45, 0.45), box('register', 1, 0.45), box('soap', 1.1, 0.4), box('bench', 1.1, 0.35)];
+  return Object.entries(SOLID).flatMap(([id, [hw, hd]]) => {
+    const at = LOCATION1.pads[id];
+    return at ? [{ minX: at.x - hw, maxX: at.x + hw, minZ: at.z - hd, maxZ: at.z + hd }] : [];
+  });
 }
 
 /** Walks a path like the staff do and reports whether the target was reached without entering a prop. */

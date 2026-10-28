@@ -4,6 +4,10 @@ const EN = {
   welcomeBack: 'Welcome back!',
   staffEarned: 'Your staff earned this while you were away',
   collect: 'Collect',
+  endTitle: "You've built every car wash!",
+  endBody: 'More towns are coming soon. Your car wash keeps running in the meantime.',
+  keepWashing: 'Keep washing',
+  locked: 'Coming up',
 } as const;
 
 export type StringKey = keyof typeof EN;

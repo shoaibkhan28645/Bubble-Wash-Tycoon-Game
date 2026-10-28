@@ -9,13 +9,33 @@ import { NavGrid } from './nav';
 import { pickStation, planRunner, sideOf } from './staffPlan';
 import { insideRect, type Station, type StationKind } from './stations';
 import type { Supplies } from './supplies';
+import type { CashSystem } from './cash';
 
-/** Hire pad id → the role's key in characters.json. */
-const ROLES = { washer: 'washer', runner: 'runner', dryerStaff: 'dryer' } as const;
+/** Hire pad id → the role's key in characters.json (the garage comes with its detailer). */
+const ROLES = {
+  washer: 'washer',
+  runner: 'runner',
+  dryerStaff: 'dryer',
+  cashier: 'cashier',
+  valet: 'valet',
+  manager: 'manager',
+  garage: 'detailer',
+} as const;
 export type Role = keyof typeof ROLES;
 
-/** Stations each role works: the washer both bays, the dryer staff the dryer and wax. */
-const WORKS: Record<Role, StationKind[]> = { washer: ['bay'], runner: [], dryerStaff: ['dryer', 'wax'] };
+/**
+ * Stations each role works: the washer both bays, the dryer staff the dryer
+ * and wax, the detailer the garage (and wax when the garage is empty).
+ */
+const WORKS: Record<Role, StationKind[]> = {
+  washer: ['bay'],
+  runner: [],
+  dryerStaff: ['dryer', 'wax'],
+  cashier: [],
+  valet: [],
+  manager: [],
+  garage: ['garage', 'wax'],
+};
 
 const ARRIVE = 0.2;
 const RADIUS = 0.45;
@@ -129,6 +149,7 @@ export class StaffSystem {
     private readonly layout: LocationLayout,
     private readonly state: GameState,
     private readonly labels: WorldLabels,
+    private readonly cash: CashSystem,
   ) {
     this.nav = new NavGrid(layout.lot, [], RADIUS);
   }
@@ -161,17 +182,28 @@ export class StaffSystem {
     supplies: Supplies,
     obstacles: readonly Rect[],
     playerAt: (station: Station) => boolean,
+    /** Where the valet is needed (a car just moved to another line), if anywhere. */
+    valetCall: Point | null,
   ): void {
     this.refreshNav(obstacles);
+    // Golden VIPs are the player's to serve, until the manager is hired.
+    const manager = this.state.unlocked.includes('manager');
     for (const helper of this.helpers) {
+      // Leave a station to the player, or to another helper already on it.
+      const skip = (station: Station) =>
+        playerAt(station) || (!manager && !!station.car?.vip) || this.helpers.some((o) => o !== helper && o.assigned === station);
       const speed = TUNING.staff.walkSpeed / levelFactor(UPGRADES.kinds.staffSpeed, this.level(`${helper.role}.staffSpeed`));
       if (this.takeBreak(dt, helper)) {
         helper.avatar.update(dt, 0, false);
         continue;
       }
       if (helper.role === 'runner') this.planRun(helper, stations, supplies);
-      else {
-        helper.assigned = pickStation(stations, WORKS[helper.role], helper.assigned, playerAt);
+      else if (helper.role === 'cashier') this.planCashier(helper);
+      else if (helper.role === 'valet' || helper.role === 'manager') {
+        helper.assigned = null;
+        helper.target = (helper.role === 'valet' && valetCall) || this.home(helper.role);
+      } else {
+        helper.assigned = pickStation(stations, WORKS[helper.role], helper.assigned, skip);
         helper.target = helper.assigned ? sideOf(helper.assigned, SIDE) : this.home(helper.role);
       }
       const there = helper.walk(dt, speed, this.nav);
@@ -183,6 +215,14 @@ export class StaffSystem {
       helper.carrier?.update(dt, !there);
       helper.avatar.update(dt, there ? 0 : 0.5, !!helper.working?.needsWork);
     }
+  }
+
+  /** Cashier: walk to the fullest cash pile and bank it; wait by the register when all is collected. */
+  private planCashier(helper: Helper): void {
+    helper.assigned = null;
+    if (this.cash.update(helper.position)) return;
+    const pile = this.cash.fullestPile();
+    helper.target = pile ? { x: pile.at.x + 0.6, z: pile.at.z + 0.6 } : this.home('cashier');
   }
 
   private planRun(helper: Helper, stations: readonly Station[], supplies: Supplies): void {
@@ -201,7 +241,8 @@ export class StaffSystem {
       helper.showCoffee(helper.onBreak > 0);
       return helper.onBreak > 0;
     }
-    if (helper.worked < TUNING.staff.workSeconds || helper.assigned?.needsWork) return false;
+    // The manager never takes a break.
+    if (helper.role === 'manager' || helper.worked < TUNING.staff.workSeconds || helper.assigned?.needsWork) return false;
     helper.worked = 0;
     const kind = helper.role === 'washer' ? UPGRADES.kinds.stamina : UPGRADES.kinds.staffSpeed;
     const key = helper.role === 'washer' ? 'washer.stamina' : `${helper.role}.staffSpeed`;

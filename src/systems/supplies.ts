@@ -29,6 +29,8 @@ export class Supplies implements SupplyCheck {
     private readonly sound: SoundManager,
     /** Null in tests (no page to draw on). */
     labels: WorldLabels | null,
+    /** Called whenever a carrier drops supplies at a station (the tutorial listens). */
+    private readonly onDrop: (carrier: Carrier) => void = () => {},
   ) {
     const at = layout.pads[SHELF];
     if (!labels || !at) return;
@@ -164,6 +166,7 @@ export class Supplies implements SupplyCheck {
       carrier.remove(type);
       this.state.supplies[key] = stock + TUNING.stations.usesPerItem;
       this.sound.play('drop');
+      this.onDrop(carrier);
       return true;
     }
     return false;

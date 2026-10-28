@@ -16,7 +16,7 @@ export class CarBubble {
   private readonly face: HTMLElement;
   private readonly fill: HTMLElement;
   private readonly label: Label;
-  private mood: Mood | null = null;
+  private shown = '';
 
   constructor(labels: WorldLabels) {
     this.el = document.createElement('div');
@@ -33,15 +33,20 @@ export class CarBubble {
     this.label.visible = false;
   }
 
-  show(x: number, y: number, z: number, patienceLeft: number, mood: Mood): void {
+  show(x: number, y: number, z: number, patienceLeft: number, mood: Mood, vip = false): void {
     this.at.set(x, y, z);
     this.label.visible = true;
     this.fill.style.transform = `scaleX(${Math.max(0, Math.min(1, patienceLeft)).toFixed(3)})`;
-    if (mood !== this.mood) {
-      this.face.textContent = FACES[mood];
+    // Bubbles are reused with pooled cars, so the VIP flag is part of what's cached.
+    const key = `${mood}:${vip}`;
+    if (key !== this.shown) {
+      this.face.textContent = vip ? '👑' : FACES[mood];
       this.el.dataset.mood = mood;
-      this.mood = mood;
+      this.shown = key;
     }
+    // Golden VIP: crown and a gold bubble.
+    if (vip) this.el.dataset.vip = '';
+    else delete this.el.dataset.vip;
   }
 
   hide(): void {
@@ -69,7 +74,7 @@ export class CarMoods {
       const rules = TUNING.customers;
       const mood: Mood = left > rules.moodHappy ? 'happy' : left > rules.moodGrumpy ? 'waiting' : 'grumpy';
       const p = car.position;
-      bubble.show(beside ? p.x + car.def.size[0] / 2 + 0.9 : p.x, BUBBLE_HEIGHT, p.z, left, mood);
+      bubble.show(beside ? p.x + car.def.size[0] / 2 + 0.9 : p.x, BUBBLE_HEIGHT, p.z, left, mood, car.vip);
       now.add(car);
     }
     for (const car of this.shown) if (!now.has(car)) this.hide(car);

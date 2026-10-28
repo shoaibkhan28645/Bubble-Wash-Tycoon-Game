@@ -74,7 +74,7 @@ const flat = (w: number, d: number, color: string, x: number, z: number, y: numb
 
 /** Road with kerbs and dashes, and the lanes cars follow through the lot. */
 function roads(layout: LocationLayout, bayXs: number[]): Mesh {
-  const { roadZ, collectZ, finishX, exitZ, exitX } = layout;
+  const { roadZ, collectZ, finishX, exitZ, earlyExitZ, exitX } = layout;
   const LANE = '#c4bba9';
   const W = 2.3;
   const parts: Part[] = [
@@ -94,7 +94,12 @@ function roads(layout: LocationLayout, bayXs: number[]): Mesh {
   const left = Math.min(...bayXs) - W / 2;
   parts.push(flat(finishX + W / 2 - left, W, LANE, (left + finishX + W / 2) / 2, collectZ, 0.031));
   parts.push(flat(W, exitZ - collectZ, LANE, finishX, (collectZ + exitZ) / 2, 0.032));
-  parts.push(flat(exitX + 30 - finishX + W / 2, W, LANE, (finishX - W / 2 + exitX + 30) / 2, exitZ, 0.033));
+  // Tunnel lane: from the road straight down the finishing lane's line.
+  parts.push(flat(W, collectZ - laneTop, LANE, finishX, (laneTop + collectZ) / 2, 0.0315));
+  // Two ways out: just after the waxing station, and after the garage.
+  for (const z of [earlyExitZ, exitZ]) {
+    parts.push(flat(exitX + 30 - finishX + W / 2, W, LANE, (finishX - W / 2 + exitX + 30) / 2, z, 0.033));
+  }
   return new Mesh(mergeParts(parts), toyMaterial);
 }
 
@@ -115,14 +120,14 @@ function scatter(id: string, items: { x: number; z: number; s: number; r: number
 
 /** Fence around the lot, open to the road and where cars drive out. */
 function fence(layout: LocationLayout): InstancedMesh {
-  const { lot, exitZ } = layout;
+  const { lot, exitZ, earlyExitZ } = layout;
   const SEG = 1.5;
   const items: { x: number; z: number; s: number; r: number }[] = [];
   // The road side stays open; fence on the other three sides.
   for (let x = lot.minX + SEG / 2; x < lot.maxX; x += SEG) items.push({ x, z: lot.maxZ, s: SEG, r: 0 });
   for (let z = lot.minZ + SEG / 2; z < lot.maxZ; z += SEG) {
     items.push({ x: lot.minX, z, s: SEG, r: Math.PI / 2 });
-    if (Math.abs(z - exitZ) > 1.9) items.push({ x: lot.maxX, z, s: SEG, r: Math.PI / 2 });
+    if (Math.abs(z - exitZ) > 1.9 && Math.abs(z - earlyExitZ) > 1.9) items.push({ x: lot.maxX, z, s: SEG, r: Math.PI / 2 });
   }
   return scatter('nature:fence_simple', items);
 }
@@ -131,9 +136,10 @@ function fence(layout: LocationLayout): InstancedMesh {
 function scenery(layout: LocationLayout): Group {
   const group = new Group();
   const rand = seeded(7);
-  const { lot, roadZ, exitZ } = layout;
+  const { lot, roadZ, exitZ, earlyExitZ } = layout;
+  const onExit = (z: number, margin: number) => Math.abs(z - exitZ) < 2 + margin || Math.abs(z - earlyExitZ) < 2 + margin;
   const blocked = (x: number, z: number, margin: number) =>
-    inside(x, z, lot, margin) || Math.abs(z - roadZ) < 3.6 + margin || (x > lot.maxX - 1 && Math.abs(z - exitZ) < 2 + margin);
+    inside(x, z, lot, margin) || Math.abs(z - roadZ) < 3.6 + margin || (x > lot.maxX - 1 && onExit(z, margin));
   const kinds: { id: string; count: number; scale: [number, number]; margin: number; near?: number }[] = [
     { id: 'nature:tree_oak', count: 14, scale: [2.6, 3.4], margin: 1.6 },
     { id: 'nature:tree_default', count: 12, scale: [2.4, 3.2], margin: 1.6 },

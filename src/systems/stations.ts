@@ -3,7 +3,7 @@ import type { Point, Rect } from '../core/config';
 import type { Label, WorldLabels } from '../ui/worldLabels';
 import type { Car } from './cars';
 
-export type StationKind = 'bay' | 'dryer' | 'wax';
+export type StationKind = 'bay' | 'dryer' | 'wax' | 'garage' | 'tunnel';
 
 /**
  * Bays: the ring floats above the arch. Dryer and wax are stacked down one
@@ -52,6 +52,11 @@ export class Station {
     this.ring.innerHTML = RING_SVG;
     this.label = labels.add(this.ring, ringSpot(kind, at, size.width));
     this.label.visible = false;
+  }
+
+  /** Free to take the next car (a bay with nobody in it). */
+  get idle(): boolean {
+    return !this.car;
   }
 
   /** A car parked here that still needs this station's service. */

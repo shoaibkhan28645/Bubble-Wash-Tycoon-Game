@@ -1,24 +1,141 @@
 {
   "growth": 1.15,
   "kinds": {
-    "speed": { "name": "Speed", "effect": "10% faster", "base": 60, "max": 10, "factor": 0.9 },
-    "quality": { "name": "Quality", "effect": "+15% pay", "base": 80, "max": 10, "factor": 1.15 },
-    "queue": { "name": "Queue", "effect": "+1 waiting spot every 3 levels", "base": 100, "max": 9, "every": 3 },
-    "walk": { "name": "Walk speed", "effect": "+10% walk speed", "base": 50, "max": 10, "step": 0.1 },
-    "carry": { "name": "Carry stack", "effect": "+1 item carried", "base": 60, "max": 12, "step": 1 },
-    "scrub": { "name": "Scrub power", "effect": "Hand washes 10% faster", "base": 40, "max": 10, "factor": 0.9 },
-    "storage": { "name": "Bigger storage", "effect": "+2 of each supply on the shelf", "base": 120, "max": 10, "step": 2 },
-    "staffSpeed": { "name": "Speed", "effect": "Works 10% faster", "base": 150, "max": 10, "factor": 0.9 },
-    "stamina": { "name": "Stamina", "effect": "Shorter coffee breaks", "base": 150, "max": 10, "factor": 0.85 },
-    "staffCarry": { "name": "Carry size", "effect": "+1 item carried", "base": 150, "max": 10, "step": 1 }
+    "speed": {
+      "name": "Speed",
+      "effect": "10% faster",
+      "base": 60,
+      "max": 10,
+      "factor": 0.9
+    },
+    "quality": {
+      "name": "Quality",
+      "effect": "+15% pay",
+      "base": 80,
+      "max": 10,
+      "factor": 1.15
+    },
+    "queue": {
+      "name": "Queue",
+      "effect": "+1 waiting spot every 3 levels",
+      "base": 100,
+      "max": 9,
+      "every": 3
+    },
+    "walk": {
+      "name": "Walk speed",
+      "effect": "+10% walk speed",
+      "base": 50,
+      "max": 10,
+      "step": 0.1
+    },
+    "carry": {
+      "name": "Carry stack",
+      "effect": "+1 item carried",
+      "base": 60,
+      "max": 12,
+      "step": 1
+    },
+    "scrub": {
+      "name": "Scrub power",
+      "effect": "Hand washes 10% faster",
+      "base": 40,
+      "max": 10,
+      "factor": 0.9
+    },
+    "storage": {
+      "name": "Bigger storage",
+      "effect": "+2 of each supply on the shelf",
+      "base": 120,
+      "max": 10,
+      "step": 2
+    },
+    "staffSpeed": {
+      "name": "Speed",
+      "effect": "Works 10% faster",
+      "base": 150,
+      "max": 10,
+      "factor": 0.9
+    },
+    "stamina": {
+      "name": "Stamina",
+      "effect": "Shorter coffee breaks",
+      "base": 150,
+      "max": 10,
+      "factor": 0.85
+    },
+    "staffCarry": {
+      "name": "Carry size",
+      "effect": "+1 item carried",
+      "base": 150,
+      "max": 10,
+      "step": 1
+    },
+    "offlineHours": {
+      "name": "Offline hours",
+      "effect": "Earn while away for longer (2 \u2192 4 \u2192 6 \u2192 8 h)",
+      "base": 2000,
+      "max": 3
+    }
   },
-  "costScale": { "bay1": 1, "bay2": 1.3, "dryer": 1.6, "wax": 2, "player": 1, "soap": 1, "washer": 1, "runner": 1.2, "dryerStaff": 1.5 },
+  "costScale": {
+    "bay1": 1,
+    "bay2": 1.3,
+    "dryer": 1.6,
+    "wax": 2,
+    "player": 1,
+    "soap": 1,
+    "washer": 1,
+    "runner": 1.2,
+    "dryerStaff": 1.5,
+    "tunnel": 3,
+    "garage": 4,
+    "cashier": 2,
+    "valet": 2.2,
+    "manager": 1
+  },
   "panels": {
-    "bay1": ["bay1.speed", "bay1.quality", "bay1.queue", "washer.staffSpeed", "washer.stamina"],
-    "bay2": ["bay2.speed", "bay2.quality", "bay2.queue"],
-    "dryer": ["dryer.speed", "dryer.quality", "dryerStaff.staffSpeed"],
-    "wax": ["wax.speed", "wax.quality"],
-    "soap": ["soap.storage", "runner.staffCarry", "runner.staffSpeed"],
-    "staffRoom": ["player.walk", "player.carry", "player.scrub"]
+    "bay1": [
+      "bay1.speed",
+      "bay1.quality",
+      "bay1.queue",
+      "washer.staffSpeed",
+      "washer.stamina"
+    ],
+    "bay2": [
+      "bay2.speed",
+      "bay2.quality",
+      "bay2.queue"
+    ],
+    "dryer": [
+      "dryer.speed",
+      "dryer.quality",
+      "dryerStaff.staffSpeed"
+    ],
+    "wax": [
+      "wax.speed",
+      "wax.quality"
+    ],
+    "soap": [
+      "soap.storage",
+      "runner.staffCarry",
+      "runner.staffSpeed"
+    ],
+    "staffRoom": [
+      "player.walk",
+      "player.carry",
+      "player.scrub",
+      "cashier.staffSpeed",
+      "valet.staffSpeed",
+      "manager.offlineHours"
+    ],
+    "tunnel": [
+      "tunnel.speed",
+      "tunnel.quality"
+    ],
+    "garage": [
+      "garage.speed",
+      "garage.quality"
+    ]
   }
 }

@@ -23,6 +23,10 @@ export interface GameState {
   autoRate: number;
   /** Supply counts: "shelf.soap", "bay1.soap", "dryer.towel"… */
   supplies: Record<string, number>;
+  /** One-off milestones for the tutorial hand: "washed", "collected", "supplied", "ended"… */
+  flags: string[];
+  /** Total seconds played (game clock), for the first-10-minutes timeline. */
+  playSeconds: number;
   /** Wall-clock ms of the last save (0 = never saved). Used for offline earnings. */
   savedAt: number;
 }
@@ -40,6 +44,8 @@ export function newGame(): GameState {
     stars: 3,
     autoRate: 0,
     supplies: {},
+    flags: [],
+    playSeconds: 0,
     savedAt: 0,
   };
 }

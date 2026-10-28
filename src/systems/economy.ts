@@ -1,4 +1,4 @@
-import { PADS, stageById, type CarDef, type Dirt, type StageDef, type UpgradeKind } from '../core/config';
+import { PADS, TUNING, UPGRADES, stageById, type CarDef, type Dirt, type StageDef, type UpgradeKind } from '../core/config';
 
 /** Price of one wash: base pay × (1 + stage bonuses) × quality. */
 export function carPay(car: CarDef, stages: readonly StageDef[], quality = 1): number {
@@ -107,4 +107,18 @@ export function nextStars(
 export function spawnSeconds(base: number, stars: number, perStar: number, arrivalBonus = 0): number {
   const rate = Math.max(0.2, 1 + (stars - 3) * perStar) * (1 + arrivalBonus);
   return base / rate;
+}
+
+/** Seconds a station needs for one car at full work rate, with speed (and, by hand, scrub) upgrades. */
+export function jobSeconds(
+  stationId: string,
+  kind: string,
+  dirt: Dirt,
+  state: { unlocked: readonly string[]; levels: Record<string, number> },
+  byPlayer: boolean,
+): number {
+  const speed = levelFactor(UPGRADES.kinds.speed, state.levels[`${stationId}.speed`] ?? 0);
+  if (kind === 'dryer' || kind === 'wax' || kind === 'garage') return TUNING.stations[kind].seconds * speed;
+  const scrub = byPlayer ? levelFactor(UPGRADES.kinds.scrub, state.levels['player.scrub'] ?? 0) : 1;
+  return washSeconds(dirt, builtStages(state.unlocked, 'bay'), TUNING.wash) * speed * scrub;
 }

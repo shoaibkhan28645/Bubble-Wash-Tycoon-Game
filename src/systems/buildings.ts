@@ -1,20 +1,25 @@
-import type { Mesh, Scene } from 'three';
+import { Group, type Object3D, type Scene } from 'three';
 import type { LocationLayout, Rect } from '../core/config';
 import { bayModel, benchModel, dryerModel, hoseModel, registerModel, shelfModel, waxModel } from '../render/models/props';
+import { garageModel, signModel, TunnelModel, truckModel, vendingModel } from '../render/models/bigProps';
 
 const REVEAL_SECONDS = 0.45;
 
 /** Footprints (half width, half depth) of props the player can't walk through. */
-const SOLID: Record<string, [number, number]> = {
+export const SOLID: Record<string, [number, number]> = {
   hose: [0.45, 0.45],
   register: [1, 0.45],
   soap: [1.1, 0.4],
   bench: [1.1, 0.35],
+  vending: [0.65, 0.45],
+  sign: [1.3, 0.35],
+  tunnel: [1.8, 4.2],
+  truck: [2.2, 1.1],
 };
 
 interface Building {
   id: string;
-  mesh: Mesh;
+  mesh: Object3D;
   age: number;
 }
 
@@ -22,6 +27,8 @@ interface Building {
 export class Buildings {
   private readonly built: Building[] = [];
   private readonly solids: Rect[] = [];
+  /** The brush tunnel, once built (its brushes animate). */
+  tunnel: TunnelModel | null = null;
 
   constructor(
     private readonly scene: Scene,
@@ -45,7 +52,9 @@ export class Buildings {
     return this.solids;
   }
 
-  update(dt: number): void {
+  /** `tunnelBusy`: a car is in the tunnel, so the brushes spin fast. */
+  update(dt: number, tunnelBusy = false): void {
+    this.tunnel?.update(dt, tunnelBusy);
     for (const b of this.built) {
       if (b.age >= REVEAL_SECONDS) continue;
       b.age = Math.min(REVEAL_SECONDS, b.age + dt);
@@ -53,7 +62,7 @@ export class Buildings {
     }
   }
 
-  private model(id: string): Mesh | null {
+  private model(id: string): Object3D | null {
     if (id.startsWith('bay')) return bayModel(this.layout.bay.width, this.layout.bay.length);
     if (id === 'hose') return hoseModel();
     if (id === 'register') return registerModel();
@@ -62,6 +71,19 @@ export class Buildings {
     const { width, length } = this.layout.station;
     if (id === 'dryer') return dryerModel(width, length);
     if (id === 'wax') return waxModel(width, length);
+    if (id === 'vending') return vendingModel();
+    if (id === 'sign') return signModel();
+    if (id === 'garage') return garageModel(this.layout.garage.width, this.layout.garage.length);
+    if (id === 'tunnel') {
+      this.tunnel = new TunnelModel(this.layout.tunnel.width, this.layout.tunnel.length);
+      return this.tunnel.root;
+    }
+    if (id === 'truck') {
+      // Wrapped so the pop-in animation doesn't overwrite the truck's own scale.
+      const group = new Group();
+      group.add(truckModel());
+      return group;
+    }
     return null;
   }
 }

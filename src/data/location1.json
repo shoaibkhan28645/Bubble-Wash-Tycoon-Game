@@ -1,21 +1,26 @@
 {
   "name": "Dusty Roadside Lot",
-  "lot": { "minX": -7.5, "maxX": 9.5, "minZ": -13.5, "maxZ": 15 },
+  "lot": { "minX": -7.5, "maxX": 11, "minZ": -13.5, "maxZ": 20.2 },
   "cameraBase": { "minX": -6.6, "maxX": 1.2, "minZ": -15.5, "maxZ": 6 },
   "roadZ": -15.5,
   "spawnX": -14,
   "collectZ": 2.1,
-  "finishX": 6.4,
-  "exitZ": 13.4,
-  "exitX": 20,
+  "finishX": 7.4,
+  "exitZ": 19,
+  "earlyExitZ": 12.9,
+  "exitX": 24,
   "playerStart": { "x": -2.2, "z": 4 },
   "bay": { "width": 3.4, "length": 5 },
   "station": { "width": 3.2, "length": 3.8 },
+  "tunnel": { "width": 3.2, "length": 8.4 },
+  "garage": { "width": 3.6, "length": 4.2 },
   "queueGap": 4.3,
   "piles": {
     "bay1": { "x": -5.2, "z": -0.2 },
-    "bay2": { "x": 5.2, "z": -0.2 },
-    "register": { "x": 0, "z": 4.4 }
+    "bay2": { "x": 5, "z": -0.2 },
+    "register": { "x": 0, "z": 4.4 },
+    "vending": { "x": -6.1, "z": -11 },
+    "tunnel": { "x": 5, "z": -5 }
   },
   "pads": {
     "bay1": { "x": -2.2, "z": -3 },
@@ -24,23 +29,37 @@
     "bay2": { "x": 2.2, "z": -3 },
     "soap": { "x": -4.4, "z": 7.8 },
     "washer": { "x": -5.4, "z": 3.4 },
-    "dryer": { "x": 6.4, "z": 5.8 },
-    "runner": { "x": -2.2, "z": 10.6 },
-    "bench": { "x": -5.4, "z": -9.6 },
-    "dryerStaff": { "x": 3.2, "z": 9.2 },
-    "wax": { "x": 6.4, "z": 10.4 }
+    "dryer": { "x": 7.4, "z": 5.8 },
+    "runner": { "x": -3.6, "z": 10.8 },
+    "bench": { "x": -5.4, "z": -8.6 },
+    "dryerStaff": { "x": 3.4, "z": 9.2 },
+    "wax": { "x": 7.4, "z": 10.4 },
+    "vending": { "x": -6.1, "z": -12.4 },
+    "sign": { "x": 4.7, "z": -12.4 },
+    "tunnel": { "x": 7.4, "z": -7.6 },
+    "cashier": { "x": 3, "z": 5.4 },
+    "valet": { "x": -2.2, "z": 13.8 },
+    "manager": { "x": 3.4, "z": 13.4 },
+    "garage": { "x": 7.4, "z": 15.4 },
+    "truck": { "x": -1.6, "z": 17.8 }
   },
   "upgradePads": {
     "bay1": { "x": -5.4, "z": -2.7 },
-    "bay2": { "x": 5.4, "z": -2.7 },
-    "dryer": { "x": 8.6, "z": 5.8 },
-    "wax": { "x": 8.6, "z": 10.4 },
+    "bay2": { "x": 5.2, "z": -2.7 },
+    "dryer": { "x": 9.8, "z": 5.8 },
+    "wax": { "x": 9.8, "z": 10.4 },
     "soap": { "x": -6.4, "z": 10.4 },
-    "staffRoom": { "x": 1, "z": 11 }
+    "staffRoom": { "x": 1, "z": 11 },
+    "tunnel": { "x": 9.8, "z": -7.6 },
+    "garage": { "x": 9.8, "z": 15.4 }
   },
   "staffSpots": {
     "washer": { "x": -4.3, "z": -3 },
     "runner": { "x": -2.8, "z": 8.6 },
-    "dryerStaff": { "x": 4.3, "z": 8.1 }
+    "dryerStaff": { "x": 5.2, "z": 8.1 },
+    "cashier": { "x": 1.8, "z": 4.2 },
+    "valet": { "x": 0, "z": -9.6 },
+    "manager": { "x": 1.4, "z": 13.2 },
+    "garage": { "x": 5.2, "z": 15.4 }
   }
 }

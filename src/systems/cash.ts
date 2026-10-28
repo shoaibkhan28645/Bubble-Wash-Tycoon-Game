@@ -42,22 +42,39 @@ export class CashSystem {
     for (const id of Object.keys(state.piles)) this.refresh(this.pile(id));
   }
 
-  /** Adds pay to a pile; anything over the cap is lost (the pile looks full). */
+  /**
+   * Adds pay to a pile. Until the cashier is hired a pile caps (GDD: 500) and
+   * anything over is lost; after that there is no cap.
+   */
   add(pileId: string, amount: number): void {
     const current = this.state.piles[pileId] ?? 0;
-    this.state.piles[pileId] = Math.min(this.tuning.pileCap, current + amount);
+    const cap = this.state.unlocked.includes('cashier') ? Number.POSITIVE_INFINITY : this.tuning.pileCap;
+    this.state.piles[pileId] = Math.min(cap, current + amount);
     this.refresh(this.pile(pileId));
   }
 
-  update(player: Point): void {
+  /** The pile holding the most cash, for the cashier to walk to. */
+  fullestPile(): { id: string; at: Point } | null {
+    let best: Pile | null = null;
+    for (const pile of this.piles.values()) {
+      if ((this.state.piles[pile.id] ?? 0) <= 0) continue;
+      if (!best || (this.state.piles[pile.id] ?? 0) > (this.state.piles[best.id] ?? 0)) best = pile;
+    }
+    return best && { id: best.id, at: best.at };
+  }
+
+  /** Vacuums up any pile within reach of `collector` into the player's cash. True if anything was collected. */
+  update(collector: Point): boolean {
+    let collected = false;
     for (const pile of this.piles.values()) {
       const amount = this.state.piles[pile.id] ?? 0;
       if (amount <= 0) continue;
-      if (Math.hypot(player.x - pile.at.x, player.z - pile.at.z) > this.tuning.collectRadius) continue;
+      if (Math.hypot(collector.x - pile.at.x, collector.z - pile.at.z) > this.tuning.collectRadius) continue;
+      collected = true;
       this.state.cash += amount;
       delete this.state.piles[pile.id];
       const from = new Vector3(pile.at.x, 0.4, pile.at.z);
-      const to = new Vector3(player.x, 1.2, player.z);
+      const to = new Vector3(collector.x, 1.2, collector.z);
       for (let i = 0; i < Math.min(8, pile.shown); i++) {
         from.y = 0.2 + i * 0.1;
         this.effects.fly('bill', from, to, 0.25 + i * 0.03);
@@ -65,6 +82,7 @@ export class CashSystem {
       this.sound.play('coin');
       this.refresh(pile);
     }
+    return collected;
   }
 
   private pile(id: string): Pile {
@@ -83,7 +101,8 @@ export class CashSystem {
 
   private refresh(pile: Pile): void {
     const amount = this.state.piles[pile.id] ?? 0;
-    const bills = amount <= 0 ? 0 : Math.max(1, Math.ceil((amount / this.tuning.pileCap) * MAX_BILLS));
+    // A full stack at the cap; past it (cashier hired) the stack just stays full.
+    const bills = amount <= 0 ? 0 : Math.min(MAX_BILLS, Math.max(1, Math.ceil((amount / this.tuning.pileCap) * MAX_BILLS)));
     for (let i = pile.shown; i < bills; i++) {
       const [x, z] = COLUMNS[i % COLUMNS.length]!;
       this.dummy.position.set(x, 0.05 + Math.floor(i / COLUMNS.length) * 0.11, z);

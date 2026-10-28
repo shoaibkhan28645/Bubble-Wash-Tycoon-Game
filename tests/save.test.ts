@@ -60,6 +60,8 @@ describe('parseSave', () => {
       stars: 3,
       autoRate: 0,
       supplies: {},
+      flags: [],
+      playSeconds: 0,
       savedAt: 0,
     });
   });
@@ -70,11 +72,13 @@ describe('parseSave', () => {
     expect(Object.keys(saved).sort()).toEqual([
       'autoRate',
       'cash',
+      'flags',
       'gems',
       'levels',
       'location',
       'padPaid',
       'piles',
+      'playSeconds',
       'savedAt',
       'staff',
       'stars',
@@ -120,6 +124,12 @@ describe('old saves', () => {
   it('keeps v2 piles and part-paid pads when upgrading to v3', () => {
     const { state } = parseSave(fixtures['./fixtures/save-v2.json']!);
     expect(state).toMatchObject({ padPaid: { register: 35 }, piles: { bay1: 40 }, stars: 3 });
+  });
+
+  it('treats players from before v4 as past the tutorial', () => {
+    const { state } = parseSave(fixtures['./fixtures/save-v3.json']!);
+    expect(state.flags).toEqual(['washed', 'collected', 'supplied']);
+    expect(state.playSeconds).toBeGreaterThan(600);
   });
 
   it('clamps stars to 1–5', () => {

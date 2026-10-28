@@ -34,6 +34,16 @@ export class Car {
   supplied = false;
   /** The station it is in or heading into. */
   station: Station | null = null;
+  /** What it pays as (the golden VIP pays 5x the best regular car). */
+  payDef!: CarDef;
+  /** Golden VIP: only the player serves it until the manager is hired. */
+  vip = false;
+  /** Will stop at the detailing garage (if built). */
+  wantsDetail = false;
+  /** Bought a snack from the vending machine while waiting. */
+  snacked = false;
+  /** Seconds spent waiting in line. */
+  waited = 0;
   private path: Point[] = [];
   /** The turn from the road into the lane, until the car has passed it. */
   private turn: Point | null = null;
@@ -57,8 +67,13 @@ export class Car {
     return { minX: x - hw, maxX: x + hw, minZ: z - hl, maxZ: z + hl };
   }
 
-  spawn(def: CarDef, at: Point, turn: Point, goal: Point): void {
+  spawn(def: CarDef, at: Point, turn: Point, goal: Point, payDef: CarDef = def): void {
     this.def = def;
+    this.payDef = payDef;
+    this.vip = !!def.vip;
+    this.wantsDetail = false;
+    this.snacked = false;
+    this.waited = 0;
     this.state = 'arriving';
     this.clean = 0;
     this.progress = 0;

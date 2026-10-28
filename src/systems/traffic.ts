@@ -1,5 +1,5 @@
 import { Vector3 } from 'three';
-import { CARS, PADS, TUNING, UPGRADES, type CarDef, type LocationLayout, type Point, type Rect } from '../core/config';
+import { PADS, TUNING, UPGRADES, type LocationLayout, type Point, type Rect } from '../core/config';
 import type { GameState } from '../core/gameState';
 import type { Particles } from '../render/effects/particles';
 import type { SoundManager } from '../audio/sound';
@@ -7,10 +7,19 @@ import type { WorldLabels } from '../ui/worldLabels';
 import { CarMoods, type Floaters } from '../ui/carBubbles';
 import { Car, CarPool } from './cars';
 import type { CashSystem } from './cash';
-import { builtStages, carPay, levelFactor, nextStars, queueSpots, spawnSeconds, tipFor, washSeconds, type Outcome } from './economy';
+import { builtStages, carPay, jobSeconds, levelFactor, nextStars, tipFor, type Outcome } from './economy';
+import { Arrivals, slotOf, type Lane } from './arrivals';
+import { nextStop } from './lanes';
 import { Station, type StationKind } from './stations';
+import { Tunnel } from './tunnel';
 
 const BUBBLE_SECONDS = 0.07;
+
+/** What a car pays at checkout: every stage it got, its quality, and a tip if it didn't wait long. */
+export function bill(car: Pick<Car, 'payDef' | 'stages' | 'quality' | 'patience' | 'patienceMax'>): { pay: number; tip: number } {
+  const pay = carPay(car.payDef, car.stages, car.quality);
+  return { pay, tip: tipFor(pay, car.patience / car.patienceMax, TUNING.customers) };
+}
 const POOF_SECONDS = 0.6;
 const ANGRY_HEIGHT = 3.2;
 
@@ -34,17 +43,19 @@ export interface Paid {
 }
 
 /**
- * Every car's journey: arrive from the road, wait in a bay's line, get washed,
- * visit the dryer and waxing station if built, pay at checkout and leave.
- * Patience drains while waiting; tips and stars follow from it.
+ * Every car's journey: arrive from the road, wait in a lane (a bay or the
+ * tunnel), get washed, visit the dryer, waxing station and garage if built,
+ * pay at checkout and leave. Patience drains while waiting; tips and stars
+ * follow from it. Also the golden VIP, vending snacks and the valet.
  */
 export class Traffic {
   readonly bays: Station[] = [];
-  /** Dryer and waxing station, in the order cars visit them. */
+  tunnel: Tunnel | null = null;
+  /** Dryer, waxing station and garage, in the order cars visit them. */
   readonly finishing: Station[] = [];
+  readonly arrivals: Arrivals;
   private readonly moving = new Set<Car>();
   private readonly moods: CarMoods;
-  private spawnTimer: number;
   private bubbleTimer = 0;
 
   constructor(
@@ -59,17 +70,25 @@ export class Traffic {
     private readonly onPaid: (paid: Paid) => void,
   ) {
     this.moods = new CarMoods(labels);
-    // The first car rolls in straight away.
-    this.spawnTimer = Number.POSITIVE_INFINITY;
+    this.arrivals = new Arrivals(pool, layout, state, () => this.lanes(), sound);
   }
 
-  /** Adds the station a built pad provides (a bay, the dryer or the waxing station). */
+  /** Where the valet is needed (a car it just moved), if anywhere. */
+  get valetCall(): Point | null {
+    return this.arrivals.valetCall;
+  }
+
+  /** Adds the station a built pad provides: a bay, the tunnel, the dryer, waxing station or garage. */
   addStation(padId: string): void {
     const pad = PADS.find((p) => p.id === padId);
     const kind: StationKind | undefined = pad?.effects.bay ? 'bay' : (pad?.effects.station as StationKind | undefined);
     const at = this.layout.pads[padId];
     if (!kind || !at || this.all().some((s) => s.id === padId)) return;
-    const size = kind === 'bay' ? this.layout.bay : this.layout.station;
+    if (kind === 'tunnel') {
+      this.tunnel = new Tunnel(at, this.layout.tunnel, this.labels);
+      return;
+    }
+    const size = kind === 'bay' ? this.layout.bay : kind === 'garage' ? this.layout.garage : this.layout.station;
     const padding = kind === 'bay' ? TUNING.wash.zonePadding : TUNING.stations.zonePadding;
     const station = new Station(padId, kind, at, size, padding, this.labels);
     if (kind === 'bay') this.bays.push(station);
@@ -80,34 +99,64 @@ export class Traffic {
   }
 
   all(): Station[] {
-    return [...this.bays, ...this.finishing];
+    return [...this.bays, ...(this.tunnel ? [this.tunnel] : []), ...this.finishing];
   }
 
   /** Parked cars block the player. */
   obstacles(): Rect[] {
-    return this.all().flatMap((s) => (s.car && s.car.state !== 'entering' ? [s.car.footprint] : []));
+    return [...this.bays, ...this.finishing].flatMap((s) => (s.car && s.car.state !== 'entering' ? [s.car.footprint] : []));
+  }
+
+  /** A car is in the tunnel (its brushes spin fast). */
+  get tunnelBusy(): boolean {
+    return (this.tunnel?.inside.length ?? 0) > 0;
   }
 
   update(dt: number, work: (station: Station) => Work, supplies: SupplyCheck): boolean {
-    this.spawn(dt);
+    this.arrivals.update(dt);
     let playerWorking = false;
-    for (const bay of this.bays) {
-      this.advanceQueue(bay);
-      for (const car of [...bay.queue]) {
-        car.update(dt, TUNING.cars.speed);
-        if (car.state === 'arriving' && car.arrived) car.state = 'queued';
-        if (car.state === 'queued') this.drainPatience(car, dt);
-      }
+    for (const lane of this.lanes()) {
+      this.advanceQueue(lane);
+      for (const car of [...lane.queue]) this.wait(dt, car);
     }
-    for (const station of this.all()) {
+    for (const station of [...this.bays, ...this.finishing]) {
       if (this.serve(dt, station, work(station), supplies)) playerWorking = true;
     }
+    this.tunnel?.run(dt, this.level('tunnel.speed'), supplies, {
+      onMoving: (car) => {
+        car.model.setClean(car.def.dirt, car.clean);
+        this.bubbles(dt, car);
+      },
+      onFinished: (car) => this.finishJob(this.tunnel!, car),
+      onWaiting: (car) => this.drainPatience(car, dt),
+      onDone: (car) => this.moveOn(dt, this.tunnel!, car),
+    });
     for (const car of [...this.moving]) this.updateMoving(dt, car);
     this.updateBubbles();
     return playerWorking;
   }
 
-  /** The car in a station: drive in, get served, then move on. Returns true if the player worked it. */
+  private lanes(): Lane[] {
+    return [...this.bays, ...(this.tunnel ? [this.tunnel] : [])];
+  }
+
+  /** A car in line: drive up, lose patience, maybe buy a snack from the vending machine. */
+  private wait(dt: number, car: Car): void {
+    car.update(dt, TUNING.cars.speed);
+    if (car.state === 'arriving' && car.arrived) car.state = 'queued';
+    if (car.state !== 'queued') return;
+    car.waited += dt;
+    if (!car.snacked && car.waited >= TUNING.vending.afterSeconds && this.state.unlocked.includes('vending')) {
+      car.snacked = true;
+      this.cash.add('vending', TUNING.vending.pay);
+      const p = car.position;
+      this.floaters.show(`+$${TUNING.vending.pay} 🥤`, new Vector3(p.x, 2.2, p.z), 'tip');
+      this.onPaid({ amount: TUNING.vending.pay, tip: 0, automated: true, at: p });
+    }
+    this.drainPatience(car, dt);
+  }
+
+  /** The car in a bay or finishing station: drive in, get served, then move on. True if the player worked it. */
   private serve(dt: number, station: Station, work: Work, supplies: SupplyCheck): boolean {
     const car = station.car;
     if (!car) {
@@ -125,17 +174,12 @@ export class Traffic {
       if (work.rate > 0 && !stalled) {
         byPlayer = work.byPlayer;
         if (byPlayer) car.manual = true;
-        car.progress = Math.min(1, car.progress + (dt * work.rate) / this.jobSeconds(station, car, byPlayer));
+        car.progress = Math.min(1, car.progress + (dt * work.rate) / jobSeconds(station.id, station.kind, car.def.dirt, this.state, byPlayer));
         if (station.kind === 'bay') {
           car.clean = car.progress;
           car.model.setClean(car.def.dirt, car.clean);
         }
-        this.bubbleTimer -= dt;
-        if (this.bubbleTimer <= 0) {
-          const p = car.position;
-          this.effects.burst('bubble', new Vector3(p.x, 0.9 + Math.random() * 0.6, p.z), 2, 1.6, car.def.size[0]);
-          this.bubbleTimer = BUBBLE_SECONDS;
-        }
+        this.bubbles(dt, car);
         if (car.progress >= 1) this.finishJob(station, car);
       } else {
         this.drainPatience(car, dt);
@@ -146,39 +190,61 @@ export class Traffic {
     return byPlayer;
   }
 
-  private jobSeconds(station: Station, car: Car, byPlayer: boolean): number {
-    const speed = levelFactor(UPGRADES.kinds.speed, this.level(`${station.id}.speed`));
-    if (station.kind !== 'bay') return TUNING.stations[station.kind].seconds * speed;
-    const scrub = byPlayer ? levelFactor(UPGRADES.kinds.scrub, this.level('player.scrub')) : 1;
-    return washSeconds(car.def.dirt, builtStages(this.state.unlocked, 'bay'), TUNING.wash) * speed * scrub;
+  private bubbles(dt: number, car: Car): void {
+    this.bubbleTimer -= dt;
+    if (this.bubbleTimer > 0) return;
+    const p = car.position;
+    this.effects.burst('bubble', new Vector3(p.x, 0.9 + Math.random() * 0.6, p.z), 2, 1.6, car.def.size[0]);
+    this.bubbleTimer = BUBBLE_SECONDS;
   }
 
   private finishJob(station: Station, car: Car): void {
     car.state = 'done';
     car.timer = 0;
-    car.stages.push(...builtStages(this.state.unlocked, station.kind));
+    if (station.kind === 'tunnel') {
+      // Brushes, pre-soak and blowers: every bay stage plus drying.
+      car.stages.push(...builtStages(this.state.unlocked, 'bay'), ...builtStages(this.state.unlocked, 'dryer'));
+    } else car.stages.push(...builtStages(this.state.unlocked, station.kind));
     car.quality *= levelFactor(UPGRADES.kinds.quality, this.level(`${station.id}.quality`));
     const p = car.position;
-    this.effects.burst('sparkle', new Vector3(p.x, 1.4, p.z), station.kind === 'wax' ? 26 : 16, 5, car.def.size[0]);
+    const big = station.kind === 'wax' || station.kind === 'garage';
+    this.effects.burst('sparkle', new Vector3(p.x, 1.4, p.z), big ? 26 : 16, 5, car.def.size[0]);
     this.sound.play('done');
   }
 
+  /**
+   * Of the cars done and waiting for `next`, the one that has waited longest.
+   * Without this the tunnel, updated last, took every free dryer and the
+   * bays' finished cars sat waiting forever.
+   */
+  private firstInLine(next: Station): Car | undefined {
+    const done = [...this.bays, ...this.finishing].flatMap((s) => (s.car?.state === 'done' ? [{ car: s.car, from: s }] : []));
+    const front = this.tunnel?.inside[0];
+    if (front?.state === 'done') done.push({ car: front, from: this.tunnel! });
+    let first: Car | undefined;
+    for (const { car, from } of done) {
+      if (nextStop(this.finishing, from, car.wantsDetail) === next && (!first || car.timer > first.timer)) first = car;
+    }
+    return first;
+  }
+
   /** After a short pause, go to the next free station, or pay and leave. */
-  private moveOn(dt: number, station: Station, car: Car): void {
+  private moveOn(dt: number, from: Station, car: Car): void {
     car.timer += dt;
     if (car.timer < TUNING.cars.leaveDelay) return;
-    const index = this.finishing.indexOf(station);
-    const next = this.finishing[index + 1];
-    const fromBay = station.kind === 'bay';
-    const toLane = fromBay
-      ? [
-          { x: station.at.x, z: this.layout.collectZ },
-          { x: this.layout.finishX, z: this.layout.collectZ },
-        ]
-      : [];
+    const lane = this.layout.finishX;
+    const toLane =
+      from.kind === 'bay'
+        ? [
+            { x: from.at.x, z: this.layout.collectZ },
+            { x: lane, z: this.layout.collectZ },
+          ]
+        : [];
+    const next = nextStop(this.finishing, from, car.wantsDetail);
     if (next) {
-      if (next.car) return; // Wait here until the next station is free.
-      station.car = null;
+      // Wait here until the next station is free and it's this car's turn.
+      if (next.car || this.firstInLine(next) !== car) return;
+      this.leave(from, car);
       next.car = car;
       car.station = next;
       car.state = 'entering';
@@ -187,27 +253,28 @@ export class Traffic {
       car.follow([...toLane, next.at]);
       return;
     }
-    station.car = null;
-    this.checkout(car, station);
+    this.leave(from, car);
+    this.checkout(car, from);
     this.moods.hide(car);
     car.state = 'leaving';
-    car.follow([
-      ...toLane,
-      { x: this.layout.finishX, z: this.layout.exitZ },
-      { x: this.layout.exitX, z: this.layout.exitZ },
-    ]);
+    const exitZ = from.kind === 'garage' ? this.layout.exitZ : this.layout.earlyExitZ;
+    car.follow([...toLane, { x: lane, z: exitZ }, { x: this.layout.exitX, z: exitZ }]);
     this.moving.add(car);
+  }
+
+  private leave(from: Station, car: Car): void {
+    if (from instanceof Tunnel) from.inside.splice(from.inside.indexOf(car), 1);
+    else from.car = null;
   }
 
   /** Pays for every stage the car got, plus a tip if it didn't wait long. */
   private checkout(car: Car, last: Station): void {
-    const pay = carPay(car.def, car.stages, car.quality);
-    const tip = tipFor(pay, car.patience / car.patienceMax, TUNING.customers);
+    const { pay, tip } = bill(car);
     const register = this.state.unlocked.includes('register');
     const pileId = register ? 'register' : last.id;
     this.cash.add(pileId, pay + tip);
     const at = this.layout.piles[pileId] ?? last.at;
-    this.floaters.show(`+$${pay}`, new Vector3(at.x, 1.2, at.z));
+    this.floaters.show(`+$${pay}`, new Vector3(at.x, 1.2, at.z), car.vip ? 'tip' : 'cash');
     if (tip > 0) this.floaters.show(`+$${tip} tip`, new Vector3(at.x + 0.6, 1.9, at.z), 'tip');
     this.rate(tip > 0 ? 'happy' : 'okay');
     this.onPaid({ amount: pay + tip, tip, automated: !car.manual, at });
@@ -221,12 +288,12 @@ export class Traffic {
     car.patience -= dt;
     if (car.patience > 0) return;
     // Out of patience: honk, storm off in a puff of dust.
-    const bay = this.bays.find((b) => b.queue.includes(car));
-    if (bay) {
-      bay.queue.splice(bay.queue.indexOf(car), 1);
-      bay.queue.forEach((c, i) => c.driveTo(this.slot(bay, i)));
+    for (const lane of this.lanes()) {
+      if (!lane.queue.includes(car)) continue;
+      lane.queue.splice(lane.queue.indexOf(car), 1);
+      lane.queue.forEach((c, i) => c.driveTo(slotOf(lane, i, this.layout)));
     }
-    if (car.station?.car === car) car.station.car = null;
+    if (car.station) this.leave(car.station, car);
     car.station = null;
     this.moods.hide(car);
     car.state = 'angry';
@@ -260,48 +327,20 @@ export class Traffic {
     this.pool.release(car);
   }
 
-  /** Front car moves into an empty bay; the rest shuffle forward. */
-  private advanceQueue(bay: Station): void {
-    if (bay.car || bay.queue.length === 0) return;
-    const next = bay.queue.shift()!;
+  /** Front car moves into an empty bay or onto the tunnel conveyor; the rest shuffle forward. */
+  private advanceQueue(lane: Lane): void {
+    if (!lane.idle || lane.queue.length === 0) return;
+    const next = lane.queue.shift()!;
     next.state = 'entering';
-    next.station = bay;
-    next.driveTo(bay.at);
-    bay.car = next;
-    bay.queue.forEach((car, i) => car.driveTo(this.slot(bay, i)));
-  }
-
-  private spawn(dt: number): void {
-    const signBonus = PADS.filter((p) => this.state.unlocked.includes(p.id)).reduce((sum, p) => sum + (p.effects.arrivalBonus ?? 0), 0);
-    const interval = spawnSeconds(TUNING.cars.spawnSeconds, this.state.stars, TUNING.stars.arrivalPerStar, signBonus);
-    this.spawnTimer = Math.min(interval, this.spawnTimer + dt);
-    if (this.spawnTimer < interval) return;
-    const load = (bay: Station) => bay.queue.length + (bay.car ? 1 : 0);
-    const open = this.bays.filter((bay) => load(bay) < 1 + this.queueLength(bay));
-    if (open.length === 0) return;
-    const bay = open.reduce((a, b) => (load(b) < load(a) ? b : a));
-    const types = this.availableCars();
-    const def = types[Math.floor(Math.random() * types.length)];
-    if (!def) return;
-    const car = this.pool.acquire();
-    car.spawn(def, { x: this.layout.spawnX, z: this.layout.roadZ }, { x: bay.at.x, z: this.layout.roadZ }, this.slot(bay, bay.queue.length));
-    const bench = PADS.filter((p) => this.state.unlocked.includes(p.id)).reduce((sum, p) => sum + (p.effects.patienceBonus ?? 0), 0);
-    car.patienceMax = def.patience * (1 + bench);
-    car.patience = car.patienceMax;
-    bay.queue.push(car);
-    this.spawnTimer = 0;
-  }
-
-  private queueLength(bay: Station): number {
-    return queueSpots(TUNING.cars.queueSpots, UPGRADES.kinds.queue, this.level(`${bay.id}.queue`));
-  }
-
-  private slot(bay: Station, index: number): Point {
-    return { x: bay.at.x, z: bay.at.z - this.layout.queueGap * (index + 1) };
-  }
-
-  private availableCars(): CarDef[] {
-    return CARS.filter((car) => car.unlockedBy !== null && this.state.unlocked.includes(car.unlockedBy));
+    next.station = lane;
+    if (lane instanceof Tunnel) {
+      next.driveTo(lane.entry);
+      lane.inside.push(next);
+    } else {
+      next.driveTo(lane.at);
+      lane.car = next;
+    }
+    lane.queue.forEach((car, i) => car.driveTo(slotOf(lane, i, this.layout)));
   }
 
   private level(key: string): number {
@@ -311,10 +350,11 @@ export class Traffic {
   /** Mood bubbles over every car that is waiting. */
   private updateBubbles(): void {
     const waiting: { car: Car; beside: boolean }[] = [];
-    for (const bay of this.bays) for (const car of bay.queue) if (car.state === 'queued') waiting.push({ car, beside: false });
-    for (const station of this.all()) {
+    for (const lane of this.lanes()) for (const car of lane.queue) if (car.state === 'queued') waiting.push({ car, beside: false });
+    for (const station of [...this.bays, ...this.finishing]) {
       if (station.car?.state === 'waiting') waiting.push({ car: station.car, beside: true });
     }
+    for (const car of this.tunnel?.inside ?? []) if (car.state === 'waiting' && !car.supplied) waiting.push({ car, beside: true });
     this.moods.update(waiting);
   }
 }

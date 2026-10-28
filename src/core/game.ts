@@ -24,6 +24,8 @@ import { Supplies } from '../systems/supplies';
 import { StaffSystem } from '../systems/staff';
 import { UpgradePads } from '../systems/upgrades';
 import { UpgradePanel } from '../ui/upgradePanel';
+import { GuideHand, guideTarget, tutorialActive, type GuideView } from '../systems/guide';
+import { showEndScreen } from '../ui/endScreen';
 import { levelStep } from '../systems/economy';
 import { Buildings } from '../systems/buildings';
 import { PadSystem } from '../systems/pads';
@@ -32,6 +34,9 @@ export interface Game {
   readonly stage: Stage;
   readonly clock: GameClock;
   readonly player: Player;
+  /** Cars, stations and staff (the dev console and play-test bot look at them). */
+  readonly traffic: Traffic;
+  readonly staff: StaffSystem;
   /** Draws one frame without starting the loop (behind the loading screen). */
   renderOnce(): void;
   start(): void;
@@ -70,11 +75,18 @@ export function createGame(
   const cash = new CashSystem(stage.scene, layout, TUNING.cash, state, effects, sound);
   const floaters = new Floaters(labels);
   const income = new IncomeTracker(TUNING.offline.incomeWindowSeconds, state.autoRate);
+  /** Records a one-off milestone (tutorial steps, end of content) and saves it. */
+  const flag = (name: string): void => {
+    if (state.flags.includes(name)) return;
+    state.flags.push(name);
+    void saves.saveNow();
+  };
   const traffic = new Traffic(new CarPool(stage.scene), layout, state, cash, effects, sound, labels, floaters, (paid) => {
     if (paid.automated) income.add(clock.now, paid.amount);
+    else flag('washed');
   });
 
-  const staff = new StaffSystem(stage.scene, layout, state, labels);
+  const staff = new StaffSystem(stage.scene, layout, state, labels, cash);
 
   const addBuilt = (id: string, animate: boolean): void => {
     buildings.show(id, animate);
@@ -87,6 +99,10 @@ export function createGame(
     addBuilt(id, true);
     refitView();
     void saves.saveNow();
+    if (PADS.find((p) => p.id === id)?.effects.endOfContent) {
+      flag('ended');
+      showEndScreen(root, () => {});
+    }
   });
 
   const panel = new UpgradePanel(root, (key) => upgrades.buy(key), () => {});
@@ -135,27 +151,47 @@ export function createGame(
     const byPlayer = insideRect(player.position, station.zone) ? 1 : 0;
     return { rate: Math.max(byStaff, byPlayer), byPlayer: byPlayer > 0 && byPlayer >= byStaff };
   };
-  const supplies = new Supplies(state, layout, () => traffic.all(), sound, labels);
+  const supplies = new Supplies(state, layout, () => traffic.all(), sound, labels, (carrier) => {
+    if (carrier === playerCarry) flag('supplied');
+  });
+  const hand = new GuideHand(labels);
+
+  /** What the tutorial hand can point at this frame. */
+  const guideView = (): GuideView => {
+    const first = traffic.bays[0]?.car;
+    const perItem = TUNING.stations.usesPerItem;
+    const low = traffic.bays.find((b) => b.supply === 'soap' && (state.supplies[`${b.id}.soap`] ?? 0) <= perItem);
+    return {
+      firstCar: first && (first.state === 'waiting' || first.state === 'entering') ? first.position : null,
+      pile: cash.fullestPile()?.at ?? null,
+      pad: pads.next,
+      shelf: state.unlocked.includes('soap') ? (layout.pads.soap ?? null) : null,
+      lowBay: low?.at ?? null,
+      carryingSoap: playerCarry.count('soap') > 0,
+    };
+  };
 
   let lastPadRect = '';
   let rateTimer = 0;
   const loop = new Loop((dt) => {
     clock.advance(dt);
+    state.playSeconds += dt;
     player.update(dt, input.read(), [...buildings.obstacles(), ...traffic.obstacles()], walkable);
     pads.update(dt, player.position);
     upgrades.update(dt, player.position);
-    staff.update(dt, traffic.all(), supplies, buildings.obstacles(), (station) => insideRect(player.position, station.zone));
+    staff.update(dt, traffic.all(), supplies, buildings.obstacles(), (station) => insideRect(player.position, station.zone), traffic.valetCall);
     supplies.update(dt, [playerCarry, ...staff.carriers()]);
     playerCarry.update(dt, player.isMoving);
     player.scrubbing = traffic.update(dt, work, supplies);
-    cash.update(player.position);
+    if (cash.update(player.position)) flag('collected');
+    hand.point(tutorialActive(state) ? guideTarget(state, guideView()) : null);
     floaters.update(dt);
     rateTimer += dt;
     if (rateTimer >= 5) {
       rateTimer = 0;
       state.autoRate = income.perMinute(clock.now);
     }
-    buildings.update(dt);
+    buildings.update(dt, traffic.tunnelBusy);
     effects.update(dt);
     saves.update(dt);
 
@@ -181,10 +217,12 @@ export function createGame(
 
   lifecycle.onPause(() => {
     loop.stop();
+    root.classList.add('is-paused');
     sound.setPaused(true);
     void saves.saveNow();
   });
   lifecycle.onResume(() => {
+    root.classList.remove('is-paused');
     sound.setPaused(false);
     loop.start();
   });
@@ -193,6 +231,8 @@ export function createGame(
     stage,
     clock,
     player,
+    traffic,
+    staff,
     renderOnce() {
       stage.render();
       labels.update(stage.camera, stage.size.width, stage.size.height);

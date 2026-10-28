@@ -4,6 +4,8 @@
   "stations": {
     "dryer": { "seconds": 2.2, "supply": "towel" },
     "wax": { "seconds": 2.6, "supply": "wax" },
+    "garage": { "seconds": 4, "supply": null, "chance": 0.5 },
+    "tunnel": { "seconds": 7, "supply": "soap", "capacity": 3, "queueSpots": 1, "zonePadding": 1.6 },
     "zonePadding": 1,
     "supplyCapacity": 6,
     "usesPerItem": 4
@@ -17,6 +19,10 @@
   },
   "stars": { "start": 3, "min": 1, "max": 5, "happy": 0.08, "okay": 0.02, "angry": -0.3, "arrivalPerStar": 0.15 },
   "cash": { "pileCap": 500, "collectRadius": 1.3 },
+  "vending": { "pay": 6, "afterSeconds": 4 },
+  "vip": { "firstSeconds": 300, "minSeconds": 180, "maxSeconds": 300 },
+  "valet": { "checkSeconds": 1 },
+  "guide": { "height": 3.2 },
   "pads": { "fillSeconds": 2, "minDrainPerSecond": 20, "radius": 1.15, "revealDelay": 0.6, "upgradeRadius": 0.9 },
   "supplies": { "shelfCapacity": 8, "restockSeconds": 3, "carryBase": 3, "handSeconds": 0.15, "reach": 1.6 },
   "staff": { "workRate": 0.85, "walkSpeed": 4, "workSeconds": 45, "breakSeconds": 8 },

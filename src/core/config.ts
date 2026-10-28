@@ -47,8 +47,9 @@ export interface PadEffects {
   stage?: string;
   register?: boolean;
   staff?: string;
-  /** A station cars stop at after the bay (dryer, wax). */
+  /** A station this pad adds: dryer, wax and garage (after the bays), or the tunnel. */
   station?: string;
+  vending?: boolean;
   patienceBonus?: number;
   arrivalBonus?: number;
   endOfContent?: boolean;
@@ -66,8 +67,8 @@ export interface PadDef {
 export interface StageDef {
   id: string;
   name: string;
-  /** Where the stage happens: in the wash bay, or at its own station. */
-  station: 'bay' | 'dryer' | 'wax';
+  /** Where the stage happens: in the wash bay (and tunnel), or at its own station. */
+  station: 'bay' | 'dryer' | 'wax' | 'garage';
   /** Added to the pay multiplier, e.g. 0.5 = +50%. */
   payBonus: number;
   /** Fraction of wash time removed, e.g. 0.3 = 30% faster. */
@@ -84,12 +85,16 @@ export interface LocationLayout {
   collectZ: number;
   /** Finishing lane (dryer, wax) runs down at this x. */
   finishX: number;
-  /** Cars leave the lot along this z, out to exitX. */
+  /** Cars leave the lot along this z, out to exitX (from the garage). */
   exitZ: number;
+  /** Cars that skip the garage turn out here, just after the waxing station. */
+  earlyExitZ: number;
   exitX: number;
   playerStart: Point;
   bay: { width: number; length: number };
   station: { width: number; length: number };
+  tunnel: { width: number; length: number };
+  garage: { width: number; length: number };
   queueGap: number;
   piles: Record<string, Point>;
   pads: Record<string, Point>;
