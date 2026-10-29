@@ -1,6 +1,6 @@
-// Wash stations: hand bays, dryer, waxing and the detailing garage. All
-// share the kit's tiled pad, columns and striped canopy. (The brush tunnel
-// is a Blender model: tunnel.ts.)
+// Wash stations: dryer, waxing and the detailing garage. All share the
+// kit's tiled pad, columns and striped canopy. (The hand wash bays and the
+// brush tunnel are Blender models: washBay.ts, tunnel.ts.)
 import { Group, Mesh, TorusGeometry, type BufferGeometry } from 'three';
 import { box, cylinder, mergeParts, rbox, sphere, toyMaterial, type Part } from './build';
 import { C, canopy, plate, signFrame, washPad } from './kit';
@@ -24,30 +24,6 @@ function withSign(body: Mesh, length: number, text: string, color: string, width
   sign.position.set(0, 4.0, -(length / 2 - 0.2) + 0.065);
   group.add(body, sign);
   return group;
-}
-
-/** Hand-wash bay: tiled pad, blue and pink canopy, hose reel, soap dispenser and bucket. */
-export function bayModel(width: number, length: number, label: string): Group {
-  const body = merged(`bay:${width}:${length}`, () => {
-    const hx = width / 2 + 0.1;
-    const hz = length / 2 - 0.2;
-    const parts = [...washPad(width, length, '#d3e6f0', '#b6cbd8'), ...canopy(width, length, C.blue, C.pink), ...signFrame(-hz, 1.9)];
-    for (const sx of [-1, 1]) parts.push({ geometry: sphere(0.13, 10), color: '#fff3b0', x: sx * (width / 4), y: 2.85, z: -hz });
-    // Hose reel on the near right column, with its coiled hose and spray gun.
-    const reel = { x: hx - 0.05, z: hz - 0.32 };
-    parts.push({ geometry: cylinder(0.3, 0.14, 16), color: C.blue, ...reel, y: 1.45, rx: Math.PI / 2 });
-    parts.push({ geometry: new TorusGeometry(0.24, 0.06, 6, 16), color: C.yellow, ...reel, y: 1.45, z: reel.z - 0.1 });
-    parts.push({ geometry: rbox(0.1, 0.32, 0.14, 0.03), color: C.dark, x: reel.x + 0.02, y: 1.05, z: reel.z - 0.14 });
-    // Soap dispenser on the near left column.
-    parts.push({ geometry: rbox(0.3, 0.46, 0.2, 0.05), color: C.pink, x: -hx + 0.02, y: 1.3, z: hz - 0.28 });
-    parts.push({ geometry: rbox(0.32, 0.08, 0.22, 0.03), color: C.white, x: -hx + 0.02, y: 1.57, z: hz - 0.28 });
-    // Bucket with a sponge in the corner.
-    parts.push({ geometry: cylinder(0.26, 0.42, 12), color: C.yellow, x: hx - 0.55, y: 0.25, z: length / 2 - 0.6 });
-    parts.push({ geometry: cylinder(0.2, 0.05, 12), color: '#bfe9ff', x: hx - 0.55, y: 0.46, z: length / 2 - 0.6 });
-    parts.push({ geometry: rbox(0.3, 0.14, 0.2, 0.05), color: C.pink, x: hx - 0.5, y: 0.52, z: length / 2 - 0.55, ry: 0.4 });
-    return parts;
-  });
-  return withSign(body, length, label, '#2f80d1');
 }
 
 /** Dryer: blue canopy, blower housings either side, an overhead blower bar and a towel rack. */

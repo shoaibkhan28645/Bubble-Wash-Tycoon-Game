@@ -99,6 +99,8 @@ export class Traffic {
     const size = kind === 'bay' ? this.layout.bay : kind === 'garage' ? this.layout.garage : this.layout.station;
     const padding = kind === 'bay' ? TUNING.wash.zonePadding : TUNING.stations.zonePadding;
     const station = new Station(padId, kind, at, size, padding, this.labels);
+    // Washers stand inside the bay, between the car and its outer wall.
+    if (kind === 'bay') station.side = { x: at.x + (at.x <= 0 ? -1.3 : 1.3), z: at.z + 0.6 };
     if (kind === 'bay') this.bays.push(station);
     else {
       this.finishing.push(station);

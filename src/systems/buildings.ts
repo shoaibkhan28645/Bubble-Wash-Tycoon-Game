@@ -3,7 +3,8 @@ import type { LocationLayout, Rect } from '../core/config';
 import { benchModel, hoseModel, registerModel, shelfModel, signModel, truckModel, vendingModel } from '../render/models/props';
 import { dispenserModel, forecourtModel, laneSide } from '../render/models/fuel';
 import { martModel, MART_TILL_Z } from '../render/models/mart';
-import { bayModel, dryerModel, garageModel, waxModel } from '../render/models/stations';
+import { dryerModel, garageModel, waxModel } from '../render/models/stations';
+import { washBayModel } from '../render/models/washBay';
 import { TunnelModel } from '../render/models/tunnel';
 import { withShadows } from '../render/stage';
 
@@ -86,7 +87,7 @@ export class Buildings {
   }
 
   private model(id: string): Object3D | null {
-    if (id.startsWith('bay')) return bayModel(this.layout.bay.width, this.layout.bay.length, `BAY ${id.slice(3)}`);
+    if (id.startsWith('bay')) return washBayModel(`BAY ${id.slice(3)}`);
     if (id === 'hose') return hoseModel();
     if (id === 'register') return registerModel();
     if (id === 'soap') return shelfModel();
