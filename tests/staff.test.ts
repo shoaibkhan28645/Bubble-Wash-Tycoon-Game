@@ -5,6 +5,7 @@ import { newGame } from '../src/core/gameState';
 import type { Car } from '../src/systems/cars';
 import { SOLID } from '../src/systems/buildings';
 import { Carrier } from '../src/systems/carry';
+import { bayWorkSpot } from '../src/systems/traffic';
 import { Forecourt } from '../src/systems/forecourt';
 import { NavGrid } from '../src/systems/nav';
 import { pickStation, planRunner } from '../src/systems/staffPlan';
@@ -43,12 +44,20 @@ describe('staff pathfinding', () => {
   const nav = new NavGrid(LOCATION1.walk, obstacles, 0.45);
   const shelfSpot = { x: LOCATION1.pads.soap!.x, z: LOCATION1.pads.soap!.z + 1 };
 
+  const bay1 = bayWorkSpot(LOCATION1.pads.bay1!);
+  const bay2 = bayWorkSpot(LOCATION1.pads.bay2!);
+
   it('goes around the shelf when coming from bay 1 (used to walk into it and stop)', () => {
-    expect(walk(nav, { x: -3.9, z: -3 }, shelfSpot, obstacles)).toBe(true);
+    expect(walk(nav, bay1, shelfSpot, obstacles)).toBe(true);
+  });
+
+  it('walks into a bay through its open end, never through its walls', () => {
+    expect(walk(nav, LOCATION1.staffSpots.washer!, bay1, obstacles)).toBe(true);
+    expect(walk(nav, bay1, bay2, obstacles)).toBe(true);
   });
 
   it('goes around the register between the shelf and bay 2', () => {
-    expect(walk(nav, shelfSpot, { x: 3.9, z: -3 }, obstacles)).toBe(true);
+    expect(walk(nav, shelfSpot, bay2, obstacles)).toBe(true);
     expect(walk(nav, { x: 0, z: 9 }, { x: 0, z: 3 }, obstacles)).toBe(true);
   });
 
@@ -57,7 +66,7 @@ describe('staff pathfinding', () => {
     forecourt.addPump('pump1');
     forecourt.addPump('pump2');
     const pumpSides = forecourt.pumps.map((p) => p.side!);
-    const spots = [shelfSpot, { x: -3.9, z: -3 }, { x: 3.9, z: -3 }, ...pumpSides, ...Object.values(LOCATION1.staffSpots)];
+    const spots = [shelfSpot, bay1, bay2, ...pumpSides, ...Object.values(LOCATION1.staffSpots)];
     for (const a of spots) for (const b of spots) expect(walk(nav, a, b, obstacles)).toBe(true);
   });
 

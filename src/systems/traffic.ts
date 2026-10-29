@@ -19,6 +19,11 @@ import { Tunnel } from './tunnel';
 
 export { bill, type Paid } from './till';
 
+/** Where a washer stands to work a hand wash bay: inside it, between the car and the outer wall. */
+export function bayWorkSpot(at: Point): Point {
+  return { x: at.x + (at.x <= 0 ? -1.2 : 1.2), z: at.z + 0.6 };
+}
+
 const BUBBLE_SECONDS = 0.07;
 
 
@@ -100,7 +105,7 @@ export class Traffic {
     const padding = kind === 'bay' ? TUNING.wash.zonePadding : TUNING.stations.zonePadding;
     const station = new Station(padId, kind, at, size, padding, this.labels);
     // Washers stand inside the bay, between the car and its outer wall.
-    if (kind === 'bay') station.side = { x: at.x + (at.x <= 0 ? -1.3 : 1.3), z: at.z + 0.6 };
+    if (kind === 'bay') station.side = bayWorkSpot(at);
     if (kind === 'bay') this.bays.push(station);
     else {
       this.finishing.push(station);

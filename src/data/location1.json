@@ -89,7 +89,7 @@
     "garage": { "x": 9.8, "z": 15.4 }
   },
   "staffSpots": {
-    "washer": { "x": -4.3, "z": -3 },
+    "washer": { "x": -5, "z": 1.3 },
     "attendant": { "x": -3, "z": -20.2 },
     "clerk": { "x": 9, "z": -21.65 },
     "runner": { "x": -2.8, "z": 8.6 },

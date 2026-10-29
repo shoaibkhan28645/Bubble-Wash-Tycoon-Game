@@ -10,12 +10,22 @@ import { withShadows } from '../render/stage';
 
 const REVEAL_SECONDS = 0.45;
 
+/** A wash bay's walls (art/blender/wash_bay.py, in the game's axes). */
+const BAY_WALLS: [number, number, number?, number?][] = [
+  [0.2, 2.48, -2.0, 0.1],
+  [0.2, 2.48, 2.0, 0.1],
+  [0.22, 0.42, -1.95, 1.55],
+];
+
 /**
  * What the player can't walk through, per building: boxes of half width,
  * half depth and an offset from where it's built (the Mini-Mart is the shop
  * and its till out front).
  */
 export const SOLID: Record<string, [number, number, number?, number?][]> = {
+  // Hand wash bays: the two side walls (cars and people go in and out at the ends) and the coin panel.
+  bay1: BAY_WALLS,
+  bay2: BAY_WALLS,
   hose: [[0.45, 0.45]],
   register: [[1, 0.45]],
   soap: [[1.1, 0.4]],
