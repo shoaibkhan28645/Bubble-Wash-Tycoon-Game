@@ -722,3 +722,35 @@ body {
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
+
+/* Points to the next thing to do when it's off screen */
+.edge-pointer {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 46px;
+  height: 46px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: #ffd24a;
+  box-shadow: 0 2px 0 rgba(0, 0, 0, 0.2);
+  pointer-events: none;
+  z-index: 3;
+}
+
+.edge-pointer[hidden] {
+  display: none;
+}
+
+.edge-pointer span {
+  color: #2d3440;
+  font: 900 24px/1 system-ui, sans-serif;
+  animation: edge-nudge 0.8s ease-in-out infinite;
+}
+
+@keyframes edge-nudge {
+  50% {
+    translate: 5px 0;
+  }
+}

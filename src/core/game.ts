@@ -36,11 +36,14 @@ import { FuelHoses } from '../render/models/fuel';
 import { ConstructionSites } from '../render/models/site';
 import { takeFinished } from '../systems/construction';
 import { createMart } from './shops';
+import { EdgePointer } from '../ui/edgePointer';
 
 /** Width of the side button column plus its margins, in CSS pixels. */
 const SIDE_BAR_PX = 64;
 /** Height of the cash and stars bar at the top (the forecourt across the road sits just under it). */
 const HUD_PX = 56;
+/** How far past the built area the following camera may look, in metres. */
+const CAMERA_MARGIN = 2.5;
 
 export interface Game {
   readonly stage: Stage;
@@ -167,20 +170,23 @@ export function createGame(
     void saves.saveNow();
   });
 
-  /** Where the player may walk: the lot and across the road, limited to what the camera shows. */
+  /** Where the player may walk: the lot and across the road, as far as it's built so far. */
   let walkable: Rect = layout.walk;
   const refitView = (instant = false): void => {
-    const view = activeRect();
-    rig.setRect(view, instant);
+    const area = activeRect();
+    // The camera may look a little past the edge, so the player is never right at the screen's edge.
+    const margin = CAMERA_MARGIN;
+    rig.setArea({ minX: area.minX - margin, maxX: area.maxX + margin, minZ: area.minZ - margin, maxZ: area.maxZ + margin });
     walkable = {
-      minX: Math.max(layout.walk.minX, view.minX),
-      maxX: Math.min(layout.walk.maxX, view.maxX),
-      minZ: Math.max(layout.walk.minZ, view.minZ),
-      maxZ: Math.min(layout.walk.maxZ, view.maxZ),
+      minX: Math.max(layout.walk.minX, area.minX),
+      maxX: Math.min(layout.walk.maxX, area.maxX),
+      minZ: Math.max(layout.walk.minZ, area.minZ),
+      maxZ: Math.min(layout.walk.maxZ, area.maxZ),
     };
+    if (instant) rig.snap(player.position);
   };
 
-  /** Everything built plus the next pad must stay on screen. */
+  /** Everything built plus the next pad: where the player can go, and the camera can show. */
   const activeRect = (): Rect => {
     const rect = { ...layout.cameraBase };
     const grow = (r: Rect) => {
@@ -210,13 +216,14 @@ export function createGame(
   const fitSideBar = () => {
     rig.setRightInset(SIDE_BAR_PX, stage.size.width);
     rig.setTopInset(HUD_PX, stage.size.height);
+    rig.refit();
   };
   fitSideBar();
   pads.update(0, player.position);
   refitView(true);
   stage.onResize(() => {
     fitSideBar();
-    rig.refit(true);
+    rig.snap(player.position);
   });
 
   /** Who is working each station this frame: the player, staff, or both (the faster counts). */
@@ -229,6 +236,7 @@ export function createGame(
     if (carrier === playerCarry) flag('supplied');
   });
   const hand = new GuideHand(labels);
+  const pointer = new EdgePointer(root);
   const hoses = new FuelHoses(stage.scene, layout);
   const washSounds = new WashSounds(sound);
   const meta = createMeta({ root, state, saves, sound, traffic, pads, supplies });
@@ -267,7 +275,8 @@ export function createGame(
     hoses.update(traffic.forecourt.pumps);
     washSounds.update(dt, player.scrubbing);
     if (cash.update(player.position)) flag('collected');
-    hand.point(tutorialActive(state) ? guideTarget(state, guideView()) : null);
+    const guide = tutorialActive(state) ? guideTarget(state, guideView()) : null;
+    hand.point(guide);
     floaters.update(dt);
     buildTimer -= dt;
     if (buildTimer <= 0) {
@@ -291,10 +300,14 @@ export function createGame(
       lastPadRect = padRect;
       refitView();
     }
-    rig.update(dt);
+    rig.update(dt, player.position);
     blobShadows.update();
     stage.render();
     labels.update(stage.camera, stage.size.width, stage.size.height);
+    // Off screen, the tutorial's next step or a pad the player can now afford gets an arrow at the edge.
+    const next = pads.next;
+    const goal = guide ?? (next && state.cash >= next.owed ? next.at : null);
+    pointer.update(stage.camera, stage.size.width, stage.size.height, goal, { top: HUD_PX, right: SIDE_BAR_PX });
     hud.update(dt, state.cash, state.stars, state.gems);
     for (const ticker of tickers) ticker(dt);
   });
