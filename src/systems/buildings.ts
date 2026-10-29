@@ -3,7 +3,8 @@ import type { LocationLayout, Rect } from '../core/config';
 import { benchModel, hoseModel, registerModel, shelfModel, signModel, truckModel, vendingModel } from '../render/models/props';
 import { dispenserModel, forecourtModel, laneSide } from '../render/models/fuel';
 import { martModel, MART_TILL_Z } from '../render/models/mart';
-import { dryerModel, garageModel, waxModel } from '../render/models/stations';
+import { DryerModel } from '../render/models/dryer';
+import { garageModel, waxModel } from '../render/models/stations';
 import { washBayModel } from '../render/models/washBay';
 import { TunnelModel } from '../render/models/tunnel';
 import { withShadows } from '../render/stage';
@@ -40,6 +41,13 @@ export const SOLID: Record<string, [number, number, number?, number?][]> = {
   ],
   truck: [[2.2, 1.1]],
   // The pump island and the price sign by the road.
+  // The dryer's blower towers, its towel rack and laundry basket.
+  dryer: [
+    [0.38, 0.85, -1.95, 0],
+    [0.38, 0.85, 1.95, 0],
+    [0.25, 0.4, -2.65, 1.25],
+    [0.27, 0.27, -2.65, 0.35],
+  ],
   pump1: [
     [1.7, 0.5],
     [0.35, 0.25, -5.9, 4.6],
@@ -62,6 +70,8 @@ export class Buildings {
   private readonly solids: Rect[] = [];
   /** The brush tunnel, once built (its brushes animate). */
   tunnel: TunnelModel | null = null;
+  /** The dryer, once built (its fan spins). */
+  dryer: DryerModel | null = null;
 
   constructor(
     private readonly scene: Scene,
@@ -87,9 +97,10 @@ export class Buildings {
     return this.solids;
   }
 
-  /** `tunnelBusy`: a car is in the tunnel, so the brushes spin fast. Returns true while a building is popping in. */
-  update(dt: number, tunnelBusy = false): boolean {
-    this.tunnel?.update(dt, tunnelBusy);
+  /** `busy`: a car in the tunnel (its brushes spin fast), at the dryer (its fan blasts). Returns true while a building is popping in. */
+  update(dt: number, busy: { tunnel: boolean; dryer: boolean } = { tunnel: false, dryer: false }): boolean {
+    this.tunnel?.update(dt, busy.tunnel);
+    this.dryer?.update(dt, busy.dryer);
     let growing = false;
     for (const b of this.built) {
       if (b.age >= REVEAL_SECONDS) continue;
@@ -110,7 +121,10 @@ export class Buildings {
     if (id === 'pump2') return dispenserModel(laneSide(this.layout, id));
     if (id === 'mart') return martModel();
     const { width, length } = this.layout.station;
-    if (id === 'dryer') return dryerModel(width, length);
+    if (id === 'dryer') {
+      this.dryer = new DryerModel();
+      return this.dryer.root;
+    }
     if (id === 'wax') return waxModel(width, length);
     if (id === 'vending') return vendingModel();
     if (id === 'sign') return signModel();

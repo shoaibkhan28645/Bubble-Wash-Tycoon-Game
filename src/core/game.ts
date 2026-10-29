@@ -292,7 +292,7 @@ export function createGame(
       state.autoRate = income.perMinute(clock.now);
     }
     // The shadow map only changes while a new building pops in.
-    if (buildings.update(dt, traffic.tunnelBusy)) stage.refreshShadows();
+    if (buildings.update(dt, { tunnel: traffic.tunnelBusy, dryer: traffic.dryerBusy })) stage.refreshShadows();
     effects.update(dt);
     saves.update(dt);
     meta.update(dt);

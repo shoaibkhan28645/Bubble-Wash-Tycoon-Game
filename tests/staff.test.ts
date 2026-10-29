@@ -66,7 +66,9 @@ describe('staff pathfinding', () => {
     forecourt.addPump('pump1');
     forecourt.addPump('pump2');
     const pumpSides = forecourt.pumps.map((p) => p.side!);
-    const spots = [shelfSpot, bay1, bay2, ...pumpSides, ...Object.values(LOCATION1.staffSpots)];
+    const dryer = LOCATION1.pads.dryer!;
+    const dryerSide = { x: dryer.x - 1.35, z: dryer.z + 2.2 };
+    const spots = [shelfSpot, bay1, bay2, dryerSide, ...pumpSides, ...Object.values(LOCATION1.staffSpots)];
     for (const a of spots) for (const b of spots) expect(walk(nav, a, b, obstacles)).toBe(true);
   });
 

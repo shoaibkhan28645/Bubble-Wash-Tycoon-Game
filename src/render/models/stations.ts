@@ -1,8 +1,8 @@
-// Wash stations: dryer, waxing and the detailing garage. All share the
-// kit's tiled pad, columns and striped canopy. (The hand wash bays and the
-// brush tunnel are Blender models: washBay.ts, tunnel.ts.)
+// Wash stations: waxing and the detailing garage. Both share the kit's
+// tiled pad, columns and striped canopy. (The hand wash bays, brush tunnel
+// and dryer are Blender models: washBay.ts, tunnel.ts, dryer.ts.)
 import { Group, Mesh, TorusGeometry, type BufferGeometry } from 'three';
-import { box, cylinder, mergeParts, rbox, sphere, toyMaterial, type Part } from './build';
+import { cylinder, mergeParts, rbox, sphere, toyMaterial, type Part } from './build';
 import { C, canopy, plate, signFrame, washPad } from './kit';
 
 const geometries = new Map<string, BufferGeometry>();
@@ -24,28 +24,6 @@ function withSign(body: Mesh, length: number, text: string, color: string, width
   sign.position.set(0, 4.0, -(length / 2 - 0.2) + 0.065);
   group.add(body, sign);
   return group;
-}
-
-/** Dryer: blue canopy, blower housings either side, an overhead blower bar and a towel rack. */
-export function dryerModel(width: number, length: number): Group {
-  const body = merged(`dryer:${width}:${length}`, () => {
-    const hx = width / 2 + 0.1;
-    const parts = [...washPad(width, length, '#d6e8f5', '#b8cfe0'), ...canopy(width, length, C.blue), ...signFrame(-(length / 2 - 0.2), 1.9)];
-    for (const sx of [-1, 1]) {
-      parts.push({ geometry: rbox(0.5, 1.5, 1.2, 0.12), color: '#dce9f5', x: sx * (hx - 0.05), y: 1.25 });
-      parts.push({ geometry: cylinder(0.36, 0.1, 16), color: C.dark, x: sx * (hx - 0.32), y: 1.35, rz: Math.PI / 2 });
-      parts.push({ geometry: cylinder(0.24, 0.12, 16), color: C.steel, x: sx * (hx - 0.34), y: 1.35, rz: Math.PI / 2 });
-    }
-    // Overhead blower bar with its slot.
-    parts.push({ geometry: rbox(width - 0.1, 0.38, 0.6, 0.12), color: '#dce9f5', y: 2.65 });
-    parts.push({ geometry: box(width - 0.5, 0.06, 0.18), color: C.dark, y: 2.44 });
-    // Towel rack on the worker's side.
-    const rack = { x: -width / 2 - 0.6, z: length / 2 - 0.55 };
-    parts.push({ geometry: rbox(0.12, 1.1, 0.9, 0.04), color: C.white, ...rack, y: 0.55 });
-    [C.pink, C.mint, C.yellow].forEach((color, i) => parts.push({ geometry: rbox(0.4, 0.12, 0.7, 0.05), color, ...rack, y: 0.3 + i * 0.28 }));
-    return parts;
-  });
-  return withSign(body, length, 'DRYER', '#2f80d1');
 }
 
 /** Waxing: golden canopy, buffer pads either side, a spray arch and a cart of wax tins. */
