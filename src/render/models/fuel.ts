@@ -1,21 +1,25 @@
 // The fuel forecourt across the road: its own paving with the lanes marked
-// out, a striped canopy, the pump island between the two lanes with a
-// dispenser for each, and hoses that reach over to the car being filled.
+// out, the canopy, island and pumps (Blender models), and hoses that reach
+// over to the car being filled.
 import { CatmullRomCurve3, Group, Mesh, MeshLambertMaterial, PlaneGeometry, TubeGeometry, Vector3, type BufferGeometry, type Object3D } from 'three';
 import { PADS, type LocationLayout, type Point, type Rect } from '../../core/config';
 import type { Station } from '../../systems/stations';
-import { box, cylinder, mergeParts, rbox, sphere, toyMaterial, type Part } from './build';
-import { C, column, plate, stripedBeam } from './kit';
+import { asset } from '../assets';
+import { box, mergeParts, toyMaterial, type Part } from './build';
+import { plate } from './kit';
 
-const CANOPY = { width: 6, length: 6.4, height: 3.6 };
-const HALF_ISLAND = 1.4;
 const LANE = 2.7;
 const CONCRETE = '#d9d2c4';
 const ASPHALT = '#646b77';
 const HOSE_COLOR = '#2d3440';
+/** The canopy sign's front face (art/blender/fuel.py, in the game's axes). */
+const SIGN = { y: 4.97, z: -2.94 };
+/** Each lane's pump stands this far along the island from its middle; its nozzle holster sits at NOZZLE from the pump. */
+const PUMP_X = 0.45;
+const NOZZLE = { x: 0.22, y: 0.86, z: 0.3 };
 
-let forecourtGeometry: BufferGeometry | null = null;
-const dispenserGeometries = new Map<number, BufferGeometry>();
+let pavingGeometry: BufferGeometry | null = null;
+const glassMaterial = new MeshLambertMaterial({ vertexColors: true, transparent: true, opacity: 0.22, depthWrite: false });
 
 /** Which side of the island (-1 towards the far side, +1 towards the road) a pump's lane runs. */
 export function laneSide(layout: LocationLayout, pumpId: string): -1 | 1 {
@@ -24,28 +28,37 @@ export function laneSide(layout: LocationLayout, pumpId: string): -1 | 1 {
   return island && at && at.z < island.z ? -1 : 1;
 }
 
-/** Paving, island, canopy and the first pump's dispenser, centred on the island (`layout.buildAt`). */
+/** A Blender model with the game's materials: the toy colours, see-through glass. */
+function blenderModel(id: string): Object3D {
+  const model = asset(id).scene.clone(true);
+  model.traverse((node) => {
+    if (node instanceof Mesh) node.material = node.name.endsWith('_glass') ? glassMaterial : toyMaterial;
+  });
+  return model;
+}
+
+/**
+ * The forecourt, centred on the island (`layout.buildAt`): the paving (drawn
+ * here to fit the layout) and the canopy, island and price sign modelled in
+ * Blender (art/blender/fuel.py), with the first pump.
+ */
 export function forecourtModel(layout: LocationLayout, firstPump: string): Group {
-  forecourtGeometry ??= mergeParts([...pavingParts(layout, firstPump), ...islandParts()]);
+  pavingGeometry ??= mergeParts(pavingParts(layout, firstPump));
   const group = new Group();
-  const sign = plate('FUEL', 2, 0.7, '#ff5c6c', false);
-  sign.position.set(0, CANOPY.height + 0.75, -CANOPY.length / 2 + 0.065);
-  group.add(new Mesh(forecourtGeometry, toyMaterial), sign, dispenserModel(laneSide(layout, firstPump)));
+  const sign = plate('FUEL', 1.9, 0.58, '#ff5c6c', false);
+  sign.position.set(0, SIGN.y, SIGN.z);
+  group.add(new Mesh(pavingGeometry, toyMaterial), blenderModel('building:fuel-canopy'), sign, dispenserModel(laneSide(layout, firstPump)));
   return group;
 }
 
-/** The pump for the lane on one side of the island, placed on the island. */
-export function dispenserModel(side: -1 | 1): Mesh {
-  let geometry = dispenserGeometries.get(side);
-  if (!geometry) {
-    geometry = mergeParts(dispenserParts(side));
-    dispenserGeometries.set(side, geometry);
-  }
-  return new Mesh(geometry, toyMaterial);
+/** The pump for the lane on one side of the island, standing on the island and facing its lane. */
+export function dispenserModel(side: -1 | 1): Object3D {
+  const pump = blenderModel('building:fuel-pump');
+  pump.position.x = side * PUMP_X;
+  // Modelled facing the road side (+z); the far lane's pump turns round.
+  if (side < 0) pump.rotation.y = Math.PI;
+  return pump;
 }
-
-/** Where a lane's dispenser stands along the island, so the two don't overlap. */
-const dispenserX = (side: number) => side * 0.45;
 
 const flat = (r: Rect, color: string, y: number): Part => ({
   geometry: new PlaneGeometry(r.maxX - r.minX, r.maxZ - r.minZ),
@@ -87,45 +100,6 @@ function pavingParts(layout: LocationLayout, firstPump: string): Part[] {
   return parts;
 }
 
-function islandParts(): Part[] {
-  const { width, length, height } = CANOPY;
-  const hz = length / 2;
-  // The island: a raised kerb with yellow ends and a bollard at each end.
-  const parts: Part[] = [
-    { geometry: rbox(HALF_ISLAND * 2, 0.22, 0.9, 0.06), color: C.white, y: 0.11 },
-    { geometry: rbox(HALF_ISLAND * 2 + 0.04, 0.06, 0.94, 0.03), color: C.kerb, y: 0.03 },
-  ];
-  for (const sx of [-1, 1]) {
-    parts.push({ geometry: rbox(0.3, 0.24, 0.92, 0.06), color: C.yellow, x: sx * (HALF_ISLAND - 0.15), y: 0.12 });
-    parts.push({ geometry: cylinder(0.09, 0.8, 10), color: C.yellow, x: sx * (HALF_ISLAND + 0.2), y: 0.6 });
-    parts.push({ geometry: sphere(0.1, 8), color: C.yellow, x: sx * (HALF_ISLAND + 0.2), y: 1.02 });
-  }
-  // Two columns on the island hold up the canopy; its edge is candy-striped all round.
-  for (const sx of [-1, 1]) parts.push(...column(sx * 1.05, 0, C.red, height - 0.2));
-  for (const sz of [-1, 1]) parts.push(...stripedBeam(width, height + 0.1, sz * hz, C.red, false, 0, 11));
-  for (const sx of [-1, 1]) parts.push(...stripedBeam(length - 0.44, height + 0.1, 0, C.red, true, sx * (width / 2 - 0.22), 11));
-  // No roof: from the camera's angle a roof over the island hides the car in the back lane.
-  // Beams from the columns to the striped edge, and the sign's posts on the far edge.
-  for (const sx of [-1, 1]) parts.push({ geometry: rbox(0.22, 0.22, length - 0.4, 0.06), color: C.white, x: sx * 1.05, y: height + 0.05 });
-  for (const sx of [-1, 1]) parts.push({ geometry: rbox(0.1, 0.5, 0.1, 0.03), color: C.white, x: sx * 0.7, y: height + 0.55, z: -hz });
-  return parts;
-}
-
-function dispenserParts(side: -1 | 1): Part[] {
-  const x = dispenserX(side);
-  const face = side * 0.27;
-  return [
-    // Body with a red hood and a dark screen facing its lane.
-    { geometry: rbox(0.75, 1.3, 0.5, 0.08), color: C.white, x, y: 0.87 },
-    { geometry: rbox(0.8, 0.24, 0.54, 0.06), color: C.red, x, y: 1.6 },
-    { geometry: rbox(0.5, 0.32, 0.06, 0.02), color: C.dark, x, y: 1.2, z: face },
-    { geometry: box(0.36, 0.08, 0.07), color: '#7ee0c3', x, y: 1.27, z: face },
-    // Price buttons and the holster with its green nozzle.
-    ...[-0.12, 0, 0.12].map((dx) => ({ geometry: box(0.08, 0.05, 0.06), color: C.yellow, x: x + dx, y: 0.95, z: face })),
-    { geometry: rbox(0.16, 0.22, 0.1, 0.03), color: '#3fae5a', x: x + 0.22, y: 0.62, z: face + side * 0.04 },
-  ];
-}
-
 const nozzleGeometry = box(0.14, 0.12, 0.2);
 
 /**
@@ -158,7 +132,7 @@ export class FuelHoses {
   private attach(pump: Station, car: NonNullable<Station['car']>): void {
     const island: Point = this.layout.buildAt[pump.id] ?? pump.at;
     const side = laneSide(this.layout, pump.id);
-    const from = new Vector3(island.x + dispenserX(side) + 0.22, 1.05, island.z + side * 0.32);
+    const from = new Vector3(island.x + side * (PUMP_X + NOZZLE.x), NOZZLE.y, island.z + side * NOZZLE.z);
     // Arcing over to the back of the car: the filler cap on the island side
     // would be out of sight behind the car in the lane nearer the road.
     const heading = car.model.mesh.rotation.y;

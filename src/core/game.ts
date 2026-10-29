@@ -44,6 +44,8 @@ const SIDE_BAR_PX = 64;
 const HUD_PX = 56;
 /** How far past the built area the following camera may look, in metres. */
 const CAMERA_MARGIN = 2.5;
+/** More at the back: tall things there (the canopy's sign, the tunnel's) rise up the screen past their footprint. */
+const CAMERA_BACK_MARGIN = 6;
 
 export interface Game {
   readonly stage: Stage;
@@ -176,7 +178,7 @@ export function createGame(
     const area = activeRect();
     // The camera may look a little past the edge, so the player is never right at the screen's edge.
     const margin = CAMERA_MARGIN;
-    rig.setArea({ minX: area.minX - margin, maxX: area.maxX + margin, minZ: area.minZ - margin, maxZ: area.maxZ + margin });
+    rig.setArea({ minX: area.minX - margin, maxX: area.maxX + margin, minZ: area.minZ - CAMERA_BACK_MARGIN, maxZ: area.maxZ + margin });
     walkable = {
       minX: Math.max(layout.walk.minX, area.minX),
       maxX: Math.min(layout.walk.maxX, area.maxX),

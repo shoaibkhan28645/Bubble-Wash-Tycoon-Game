@@ -39,7 +39,11 @@ export const SOLID: Record<string, [number, number, number?, number?][]> = {
     [0.3, 0.45, -2.42, -1.6],
   ],
   truck: [[2.2, 1.1]],
-  pump1: [[1.7, 0.5]],
+  // The pump island and the price sign by the road.
+  pump1: [
+    [1.7, 0.5],
+    [0.35, 0.25, -5.9, 4.6],
+  ],
   mart: [
     [2.45, 1.85],
     [1.15, 0.35, 0, MART_TILL_Z],

@@ -71,6 +71,11 @@ export class Station {
     return this.car?.state === 'waiting';
   }
 
+  /** Moves the progress ring (e.g. so side-by-side pumps' rings don't overlap). */
+  moveRing(x: number, y: number, z: number): void {
+    this.label?.at.set(x, y, z);
+  }
+
   /** Shows the progress ring (and an "empty supply" warning, or that the driver is losing patience) over the station. */
   showProgress(visible: boolean, fraction: number, outOfSupply: boolean, hurry = false): void {
     if (!this.label || !this.ring) return;

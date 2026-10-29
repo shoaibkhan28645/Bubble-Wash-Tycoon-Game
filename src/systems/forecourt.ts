@@ -33,6 +33,8 @@ export class Forecourt {
     const island = this.layout.buildAt[id] ?? at;
     const back = Math.sign(this.layout.forecourt.entryX - island.x);
     pump.side = { x: island.x + back * ISLAND_END, z: island.z + Math.sign(at.z - island.z) * 0.2 };
+    // Each lane's fuel gauge over its own end of the car, so the two never overlap on screen.
+    pump.moveRing(at.x + Math.sign(at.z - island.z) * 1.1, 1.9, at.z);
     this.pumps.push(pump);
   }
 
