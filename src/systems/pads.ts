@@ -5,6 +5,7 @@ import type { Particles } from '../render/effects/particles';
 import type { SoundManager } from '../audio/sound';
 import { PadModel } from '../render/models/padModel';
 import type { Label, WorldLabels } from '../ui/worldLabels';
+import { startBuild } from './construction';
 import { formatCash, padDrain } from './economy';
 
 const COIN_SECONDS = 0.07;
@@ -22,7 +23,9 @@ interface ActivePad {
 
 /**
  * Unlock pads, shown one at a time in the GDD's order. Standing on the pad
- * drains cash into it; partial payments are kept (and saved).
+ * drains cash into it; partial payments are kept (and saved). Bigger
+ * buildings then go under construction for a while (`buildSeconds`), and
+ * the next pad shows meanwhile.
  */
 export class PadSystem {
   private current: ActivePad | null = null;
@@ -40,6 +43,8 @@ export class PadSystem {
     private readonly sound: SoundManager,
     private readonly labels: WorldLabels,
     private readonly onBuilt: (id: string) => void,
+    /** A paid-for pad went under construction. */
+    private readonly onConstruction: (id: string) => void,
   ) {}
 
   /** The pad on show now, for the camera to keep in view. */
@@ -79,9 +84,16 @@ export class PadSystem {
     this.build();
   }
 
-  /** Next pad in order that isn't built and has a place on this lot. */
+  /** Next pad in order that isn't built (or being built) and has a place on this lot. */
   private nextPad(): PadDef | undefined {
-    return PADS.find((pad) => !this.state.unlocked.includes(pad.id) && this.layout.pads[pad.id]);
+    return PADS.find((pad) => !this.state.unlocked.includes(pad.id) && !this.state.building[pad.id] && this.layout.pads[pad.id]);
+  }
+
+  /** A building's construction is done: it opens, with the usual fanfare. */
+  finishConstruction(id: string): void {
+    const def = PADS.find((pad) => pad.id === id);
+    const at = this.layout.buildAt[id] ?? this.layout.pads[id];
+    if (def && at && !this.state.unlocked.includes(id)) this.complete(def, at, false);
   }
 
   update(dt: number, player: Point): void {
@@ -118,6 +130,7 @@ export class PadSystem {
       !!at &&
       this.state.unlocked.includes(PREVIEW.after) &&
       !this.state.unlocked.includes(PREVIEW.pad) &&
+      !this.state.building[PREVIEW.pad] &&
       this.current?.def.id !== PREVIEW.pad;
     if (want && !this.preview && def && at) {
       const model = new PadModel(2.3, 0x9aa3ad);
@@ -195,10 +208,18 @@ export class PadSystem {
     pad.model.dispose();
     this.labels.remove(pad.label);
     this.current = null;
+    if (pad.def.buildSeconds) {
+      delete this.state.padPaid[pad.def.id];
+      startBuild(this.state, pad.def.id, pad.def.buildSeconds, Date.now());
+      this.sound.play('upgrade');
+      this.waitTimer = this.tuning.revealDelay;
+      this.onConstruction(pad.def.id);
+      return;
+    }
     this.complete(pad.def, pad.at);
   }
 
-  private complete(def: PadDef, at: Point): void {
+  private complete(def: PadDef, at: Point, revealNext = true): void {
     this.state.unlocked.push(def.id);
     delete this.state.padPaid[def.id];
     if (def.cost > 0) {
@@ -206,7 +227,7 @@ export class PadSystem {
       this.effects.burst('confetti', new Vector3(at.x, 1.2, at.z), 40, 7, 1.5);
       this.sound.play('build');
     }
-    this.waitTimer = this.tuning.revealDelay;
+    if (revealNext) this.waitTimer = this.tuning.revealDelay;
     this.onBuilt(def.id);
   }
 }

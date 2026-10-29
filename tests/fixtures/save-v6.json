@@ -1,0 +1,71 @@
+{
+  "version": 6,
+  "savedAt": 1793400000000,
+  "cash": 5400,
+  "gems": 35,
+  "location": 1,
+  "unlocked": [
+    "bay1",
+    "hose",
+    "register",
+    "bay2",
+    "soap",
+    "washer",
+    "dryer",
+    "runner"
+  ],
+  "levels": {
+    "bay1.speed": 3
+  },
+  "staff": [],
+  "padPaid": {},
+  "piles": {
+    "register": 80
+  },
+  "stars": 4.1,
+  "autoRate": 90,
+  "supplies": {
+    "shelf.soap": 8,
+    "bay1.soap": 12,
+    "dryer.towel": 20
+  },
+  "flags": [
+    "washed",
+    "collected",
+    "supplied"
+  ],
+  "playSeconds": 900,
+  "daily": {
+    "date": "2026-10-28",
+    "missions": [
+      "wash",
+      "tips",
+      "earn"
+    ],
+    "goals": [
+      30,
+      8,
+      1900
+    ],
+    "progress": [
+      12,
+      8,
+      400
+    ],
+    "claimed": [
+      false,
+      true,
+      false
+    ],
+    "loginDay": 3,
+    "loginDate": "2026-10-28",
+    "carOfDayDate": ""
+  },
+  "boostSeconds": 75,
+  "building": {
+    "tunnel": {
+      "endsAt": 1793300000000,
+      "halved": true
+    }
+  }
+}

@@ -25,11 +25,16 @@ const sizes = new Map(
 
 const html = readFileSync(join(DIST, 'index.html'), 'utf8');
 const referenced = [...html.matchAll(/(?:src|href)="\.\/([^"]+)"/g)].map((m) => m[1]);
-// Car of the Day models load later, one a day, so they don't count towards the start.
+// Car of the Day models load later, one a day, and the shoppers with the Mini-Mart: they don't count towards the start.
 const daily = JSON.parse(readFileSync('src/data/daily.json', 'utf8'));
 const cars = JSON.parse(readFileSync('src/data/cars.json', 'utf8'));
 const atStart = new Set([...cars.map((c) => c.model), 'delivery']);
-const lazy = new Set(daily.carOfDay.cars.map((c) => `models/cars/${c.model}.glb`).filter((f) => !atStart.has(f.slice(12, -4))));
+const characters = JSON.parse(readFileSync('src/data/characters.json', 'utf8'));
+const lazy = new Set([
+  ...daily.carOfDay.cars.map((c) => `models/cars/${c.model}.glb`).filter((f) => !atStart.has(f.slice(12, -4))),
+  // Mini-Mart shoppers load once the shop is paid for.
+  ...characters.shoppers.map((c) => `models/people/character-${c}.glb`),
+]);
 const models = [...sizes.keys()].filter((f) => f.startsWith('models/') && !f.endsWith('.md') && !lazy.has(f));
 const sounds = [...sizes.keys()].filter((f) => f.startsWith('audio/') && f.endsWith('.mp3'));
 const initial = ['index.html', ...referenced, ...models, ...sounds].filter((f) => sizes.has(f));
@@ -38,7 +43,7 @@ const sum = (names, key) => names.reduce((total, n) => total + sizes.get(n)[key]
 const all = [...sizes.keys()];
 
 console.log(`Initial: ${kib(sum(initial, 'gz'))} gzip (${kib(sum(initial, 'raw'))} raw), ${initial.length} files`);
-console.log(`Loaded later (Car of the Day): ${kib(sum([...lazy].filter((f) => sizes.has(f)), 'gz'))} gzip, ${lazy.size} files`);
+console.log(`Loaded later (Car of the Day, shoppers): ${kib(sum([...lazy].filter((f) => sizes.has(f)), 'gz'))} gzip, ${lazy.size} files`);
 console.log(`dist total: ${kib(sum(all, 'raw'))} raw, ${all.length} files`);
 // Budgets (Tech Guide): fail the command if one is broken.
 const INITIAL_BUDGET = 15 * 1024 * 1024;

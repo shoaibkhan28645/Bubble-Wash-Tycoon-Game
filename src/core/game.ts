@@ -33,6 +33,9 @@ import { createMeta } from './meta';
 import { WashSounds } from '../audio/washSounds';
 import { blobShadows } from '../render/models/actors';
 import { FuelHoses } from '../render/models/fuel';
+import { ConstructionSites } from '../render/models/site';
+import { takeFinished } from '../systems/construction';
+import { createMart } from './shops';
 
 /** Width of the side button column plus its margins, in CSS pixels. */
 const SIDE_BAR_PX = 64;
@@ -96,11 +99,23 @@ export function createGame(
     state.flags.push(name);
     void saves.saveNow();
   };
-  const traffic = new Traffic(new CarPool(stage.scene), layout, state, cash, effects, sound, labels, floaters, (paid) => {
-    if (paid.automated) income.add(clock.now, paid.amount);
-    else flag('washed');
-    meta.onPaid(paid);
-  });
+  const { mart, loadShoppers } = createMart({ scene: stage.scene, layout, state, labels, floaters, sound });
+  const traffic = new Traffic(
+    new CarPool(stage.scene),
+    layout,
+    state,
+    cash,
+    effects,
+    sound,
+    labels,
+    floaters,
+    (paid) => {
+      if (paid.automated) income.add(clock.now, paid.amount);
+      else flag('washed');
+      meta.onPaid(paid);
+    },
+    mart,
+  );
 
   const staff = new StaffSystem(stage.scene, layout, state, labels, cash);
 
@@ -111,15 +126,40 @@ export function createGame(
   };
   for (const id of state.unlocked) addBuilt(id, false);
 
-  const pads = new PadSystem(stage.scene, layout, TUNING.pads, state, effects, sound, labels, (id) => {
-    addBuilt(id, true);
-    refitView();
-    void saves.saveNow();
-    if (PADS.find((p) => p.id === id)?.effects.endOfContent) {
-      flag('ended');
-      showEndScreen(root, () => meta.screenClosed());
+  const sites = new ConstructionSites(stage.scene, labels, layout);
+  for (const id of Object.keys(state.building)) sites.show(id);
+  const pads = new PadSystem(
+    stage.scene,
+    layout,
+    TUNING.pads,
+    state,
+    effects,
+    sound,
+    labels,
+    (id) => {
+      addBuilt(id, true);
+      refitView();
+      void saves.saveNow();
+      if (PADS.find((p) => p.id === id)?.effects.endOfContent) {
+        flag('ended');
+        showEndScreen(root, () => meta.screenClosed());
+      }
+    },
+    (id) => {
+      sites.show(id);
+      stage.refreshShadows();
+      if (id === 'mart') loadShoppers();
+      refitView();
+      void saves.saveNow();
+    },
+  );
+  /** Buildings whose construction finished (also while the game was closed) open now. */
+  const finishBuilds = (): void => {
+    for (const id of takeFinished(state, Date.now())) {
+      sites.remove(id);
+      pads.finishConstruction(id);
     }
-  });
+  };
 
   const panel = new UpgradePanel(root, (key) => upgrades.buy(key), () => {});
   const upgrades = new UpgradePads(stage.scene, layout, state, panel, labels, sound, effects, () => {
@@ -154,6 +194,10 @@ export function createGame(
       if (at) grow({ minX: at.x - 1.5, maxX: at.x + 1.5, minZ: at.z - 1.5, maxZ: at.z + 1.5 });
       const area = layout.areas[id];
       if (area) grow(area);
+    }
+    for (const id of Object.keys(state.building)) {
+      const site = layout.sites[id];
+      if (site) grow({ minX: site.x - site.width / 2, maxX: site.x + site.width / 2, minZ: site.z - site.depth / 2, maxZ: site.z + site.depth / 2 });
     }
     const next = pads.footprint;
     if (next) grow(next);
@@ -209,6 +253,7 @@ export function createGame(
 
   let lastPadRect = '';
   let rateTimer = 0;
+  let buildTimer = 0;
   const loop = new Loop((dt) => {
     clock.advance(dt);
     state.playSeconds += dt;
@@ -224,6 +269,12 @@ export function createGame(
     if (cash.update(player.position)) flag('collected');
     hand.point(tutorialActive(state) ? guideTarget(state, guideView()) : null);
     floaters.update(dt);
+    buildTimer -= dt;
+    if (buildTimer <= 0) {
+      buildTimer = 0.5;
+      finishBuilds();
+    }
+    sites.update(state, Date.now());
     rateTimer += dt;
     if (rateTimer >= 5) {
       rateTimer = 0;
@@ -235,7 +286,7 @@ export function createGame(
     saves.update(dt);
     meta.update(dt);
 
-    const padRect = JSON.stringify(pads.footprint) + upgrades.footprints().length;
+    const padRect = JSON.stringify(pads.footprint) + upgrades.footprints().length + Object.keys(state.building).join();
     if (padRect !== lastPadRect) {
       lastPadRect = padRect;
       refitView();

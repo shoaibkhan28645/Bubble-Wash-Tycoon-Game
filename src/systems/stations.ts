@@ -3,7 +3,7 @@ import type { Point, Rect } from '../core/config';
 import type { Label, WorldLabels } from '../ui/worldLabels';
 import type { Car } from './cars';
 
-export type StationKind = 'bay' | 'dryer' | 'wax' | 'garage' | 'tunnel' | 'pump';
+export type StationKind = 'bay' | 'dryer' | 'wax' | 'garage' | 'tunnel' | 'pump' | 'counter';
 
 /**
  * Bays: the ring floats above the arch; pumps: over the car, as its fuel

@@ -93,7 +93,8 @@ export function openDialog(root: HTMLElement, options: DialogOptions): { close: 
 /** "Watch an ad, or pay gems, or not now": resolves with the player's choice. */
 export function offer(
   root: HTMLElement,
-  options: { icon: string; title: string; body: string; gems: number; haveGems: number },
+  /** `noAd`: only gems are on offer (the ad was already used). */
+  options: { icon: string; title: string; body: string; gems: number; haveGems: number; noAd?: boolean },
 ): Promise<'ad' | 'gems' | null> {
   return new Promise((resolve) => {
     let choice: 'ad' | 'gems' | null = null;
@@ -102,7 +103,7 @@ export function offer(
       title: options.title,
       body: options.body,
       buttons: [
-        { label: `📺 ${t('watchAd')}`, kind: 'ad', onTap: () => void (choice = 'ad') },
+        ...(options.noAd ? [] : [{ label: `📺 ${t('watchAd')}`, kind: 'ad' as const, onTap: () => void (choice = 'ad') }]),
         { label: `💎 ${options.gems}`, kind: 'gems', disabled: options.haveGems < options.gems, onTap: () => void (choice = 'gems') },
         { label: t('notNow'), kind: 'plain', onTap: () => {} },
       ],

@@ -18,12 +18,28 @@
   "garage": { "width": 3.6, "length": 4.2 },
   "pump": { "width": 3.6, "length": 2.4 },
   "forecourt": { "entryX": 4.6, "exitX": -5, "waitZ": -19.6, "leaveX": -40 },
+  "mart": {
+    "counter": { "x": 9, "z": -20.6 },
+    "zone": { "minX": 7.7, "maxX": 10.3, "minZ": -22.3, "maxZ": -19 },
+    "queue": [
+      { "x": 9, "z": -19.6 },
+      { "x": 7.9, "z": -19.6 },
+      { "x": 6.8, "z": -19.6 }
+    ]
+  },
   "buildAt": {
     "pump1": { "x": -0.5, "z": -23.75 },
-    "pump2": { "x": -0.5, "z": -23.75 }
+    "pump2": { "x": -0.5, "z": -23.75 },
+    "mart": { "x": 9, "z": -24.2 }
+  },
+  "sites": {
+    "mart": { "x": 9, "z": -23.5, "width": 5, "depth": 5.2 },
+    "tunnel": { "x": 7.4, "z": -7.6, "width": 3.8, "depth": 8.8 },
+    "garage": { "x": 7.4, "z": 15.4, "width": 4.4, "depth": 5 }
   },
   "areas": {
-    "pump1": { "minX": -6.6, "maxX": 6.2, "minZ": -29, "maxZ": -17 }
+    "pump1": { "minX": -6.6, "maxX": 6.2, "minZ": -29, "maxZ": -17 },
+    "mart": { "minX": 6.2, "maxX": 11.6, "minZ": -27, "maxZ": -17 }
   },
   "queueGap": 4.3,
   "piles": {
@@ -43,8 +59,10 @@
     "soap": { "x": -4.4, "z": 7.8 },
     "washer": { "x": -5.4, "z": 3.4 },
     "attendant": { "x": -3.6, "z": -27.9 },
+    "mart": { "x": 9, "z": -23.2 },
     "dryer": { "x": 7.4, "z": 5.8 },
     "runner": { "x": -3.6, "z": 10.8 },
+    "clerk": { "x": 8.4, "z": -28 },
     "bench": { "x": -5.4, "z": -8.6 },
     "pump2": { "x": -0.5, "z": -25.5 },
     "dryerStaff": { "x": 3.4, "z": 9.2 },
@@ -62,6 +80,7 @@
     "bay1": { "x": -5.4, "z": -2.7 },
     "bay2": { "x": 5.2, "z": -2.7 },
     "pump1": { "x": 3, "z": -27.7 },
+    "mart": { "x": 10.6, "z": -19.3 },
     "dryer": { "x": 9.8, "z": 5.8 },
     "wax": { "x": 9.8, "z": 10.4 },
     "soap": { "x": -6.4, "z": 10.4 },
@@ -72,6 +91,7 @@
   "staffSpots": {
     "washer": { "x": -4.3, "z": -3 },
     "attendant": { "x": -3, "z": -20.2 },
+    "clerk": { "x": 9, "z": -21.65 },
     "runner": { "x": -2.8, "z": 8.6 },
     "dryerStaff": { "x": 5.2, "z": 8.1 },
     "cashier": { "x": 1.8, "z": 4.2 },

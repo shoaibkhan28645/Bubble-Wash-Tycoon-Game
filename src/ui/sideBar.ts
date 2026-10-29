@@ -12,9 +12,11 @@ export interface SideView {
   refill: boolean;
   /** The next pad is within reach of a rewarded finish. */
   finish: boolean;
+  /** Seconds left on the building going up soonest (0 = nothing being built). */
+  build: number;
 }
 
-export type SideAction = 'calendar' | 'missions' | 'speed' | 'convoy' | 'refill' | 'finish';
+export type SideAction = 'calendar' | 'missions' | 'speed' | 'convoy' | 'refill' | 'finish' | 'build';
 
 interface SideButton {
   el: HTMLButtonElement;
@@ -22,9 +24,10 @@ interface SideButton {
   shown: string;
 }
 
-const ICONS: Record<SideAction, string> = { calendar: '🎁', missions: '📋', speed: '⚡', convoy: '👑', refill: '🧴', finish: '🏗️' };
+const ICONS: Record<SideAction, string> = { calendar: '🎁', missions: '📋', speed: '⚡', convoy: '👑', refill: '🧴', finish: '🏗️', build: '🚧' };
 
-const clock = (seconds: number) => `${Math.floor(seconds / 60)}:${String(Math.floor(seconds % 60)).padStart(2, '0')}`;
+const clock = (seconds: number) =>
+  seconds >= 3600 ? `${Math.floor(seconds / 3600)}h${String(Math.floor((seconds % 3600) / 60)).padStart(2, '0')}` : `${Math.floor(seconds / 60)}:${String(Math.floor(seconds % 60)).padStart(2, '0')}`;
 
 /**
  * Round buttons down the right edge: daily rewards and missions, the
@@ -62,6 +65,7 @@ export class SideBar {
     this.set('convoy', true, view.convoyWait > 0 ? clock(view.convoyWait) : '📺', false, view.convoyWait > 0);
     this.set('refill', view.refill, '📺', false);
     this.set('finish', view.finish, '📺', false);
+    this.set('build', view.build > 0, clock(view.build), false);
   }
 
   /** visible, badge text, highlighted (pulsing), and greyed out (still tappable for info). */

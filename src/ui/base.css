@@ -710,3 +710,15 @@ body {
 .is-paused *::after {
   animation-play-state: paused !important;
 }
+
+/* Countdown over a building site */
+.site-label {
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: #ffd24a;
+  box-shadow: 0 2px 0 rgba(0, 0, 0, 0.18);
+  color: #2d3440;
+  font: 800 15px/1.2 system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}

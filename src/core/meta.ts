@@ -1,12 +1,13 @@
 // Everything around the core loop: rewarded boosts, the daily calendar and
 // missions, the Car of the Day, and the ads that go with screen changes.
 import * as platform from '../platform/youtube';
-import { ADS, DAILY, type CarDef } from './config';
+import { ADS, DAILY, padById, type CarDef } from './config';
 import type { GameState } from './gameState';
 import type { SaveManager } from './save';
 import type { SoundManager } from '../audio/sound';
 import { hasModel, loadModel } from '../render/assets';
 import { Ads } from '../systems/ads';
+import { finishGems, formatClock, halveBuild, secondsLeft, soonestBuild } from '../systems/construction';
 import { addProgress, carOfDay, claimable, claimCalendar, claimMission, localDate, rollDay } from '../systems/daily';
 import { tutorialActive } from '../systems/guide';
 import type { PadSystem } from '../systems/pads';
@@ -58,20 +59,20 @@ export function createMeta(deps: {
   const save = () => void saves.saveNow();
   setUiSound((name) => sound.play(name));
 
-  /** Pays for a reward with a rewarded ad or gems, as the player chose. True if earned. */
-  const earn = async (rewardId: string, icon: string, title: string, body: string, gems: number): Promise<boolean> => {
-    if (dialogOpen || ads.busy) return false;
+  /** Pays for a reward with a rewarded ad or gems, as the player chose: how it was earned, or null. */
+  const earn = async (rewardId: string, icon: string, title: string, body: string, gems: number, noAd = false): Promise<'ad' | 'gems' | null> => {
+    if (dialogOpen || ads.busy) return null;
     dialogOpen = true;
-    const choice = await offer(root, { icon, title, body, gems, haveGems: state.gems });
+    const choice = await offer(root, { icon, title, body, gems, haveGems: state.gems, noAd });
     dialogOpen = false;
     if (choice === 'gems' && state.gems >= gems) {
       state.gems -= gems;
-      return true;
+      return 'gems';
     }
-    if (choice !== 'ad') return false;
+    if (choice !== 'ad') return null;
     const ok = await ads.rewarded(rewardId);
     if (!ok) toast(root, t('adFailed'));
-    return ok;
+    return ok ? 'ad' : null;
   };
 
   const rewards: Record<Exclude<SideAction, 'calendar' | 'missions'>, () => Promise<void>> = {
@@ -92,6 +93,20 @@ export function createMeta(deps: {
     refill: async () => {
       if (!(await earn('instant-supply', '🧴', t('refillTitle'), t('refillBody'), ADS.refill.gems))) return;
       supplies.fillAll();
+      sound.play('reward');
+      save();
+    },
+    build: async () => {
+      const next = soonestBuild(state);
+      if (!next) return;
+      const left = secondsLeft(next.build, Date.now());
+      const title = t('buildTitle', { name: padById(next.id)?.name ?? next.id });
+      const body = t(next.build.halved ? 'buildBodyHalved' : 'buildBody', { time: formatClock(left) });
+      const how = await earn('halve-build', '🚧', title, body, finishGems(left), next.build.halved);
+      if (!how) return;
+      // The ad halves what's left (from now, after it played); gems finish it.
+      if (how === 'ad') halveBuild(next.build, Date.now());
+      else next.build.endsAt = Date.now();
       sound.play('reward');
       save();
     },
@@ -191,6 +206,10 @@ export function createMeta(deps: {
         convoyWait: Math.max(0, convoyReadyAt - sessionSeconds),
         refill: sessionSeconds < refillUntil,
         finish: pads.nearlyAffordable(ADS.finishPad.fraction),
+        build: (() => {
+          const next = soonestBuild(state);
+          return next ? Math.max(1, secondsLeft(next.build, Date.now())) : 0;
+        })(),
       });
     },
     onPaid(paid) {
@@ -201,6 +220,7 @@ export function createMeta(deps: {
         return;
       }
       if (car.served.includes('fuel')) progress('fuel');
+      if (car.served.includes('snack')) progress('snack');
       if (car.served.length > 1) progress('combo');
       if (!car.served.includes('wash')) return;
       progress('wash');

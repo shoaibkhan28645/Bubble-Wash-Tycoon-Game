@@ -19,7 +19,7 @@ import type { CarDef } from '../../core/config';
 import { asset, mergedModel } from '../assets';
 import { addMud, type MudUniforms } from '../mud';
 import { GRAPHICS } from '../graphics';
-import { cylinder, mergeParts, rbox, toyMaterial, type Part } from './build';
+import { box, cylinder, mergeParts, rbox, toyMaterial, type Part } from './build';
 
 /** Mini Characters are 0.8 units tall; this makes them about car-roof height. */
 const PERSON_SCALE = 2;
@@ -108,7 +108,7 @@ export function blobShadow(width: number, length: number): Object3D {
 
 type Pose = 'idle' | 'walk' | 'sprint' | 'scrub';
 /** What a person holds while working. */
-export type Tool = 'sponge' | 'towel' | 'polisher' | 'nozzle';
+export type Tool = 'sponge' | 'towel' | 'polisher' | 'nozzle' | 'bag';
 
 const TOOL_PARTS: Record<Tool, Part[]> = {
   sponge: [{ geometry: rbox(0.13, 0.07, 0.09, 0.03), color: '#ffd24a' }],
@@ -116,6 +116,10 @@ const TOOL_PARTS: Record<Tool, Part[]> = {
   polisher: [
     { geometry: cylinder(0.08, 0.04, 12), color: '#fff3c4', y: -0.03 },
     { geometry: rbox(0.06, 0.07, 0.06, 0.02), color: '#3b4a5e', y: 0.02 },
+  ],
+  bag: [
+    { geometry: rbox(0.2, 0.24, 0.12, 0.03), color: '#d9a866', y: -0.06 },
+    { geometry: box(0.16, 0.04, 0.02), color: '#ff5fa8', y: -0.02, z: 0.065 },
   ],
   nozzle: [
     { geometry: rbox(0.06, 0.12, 0.09, 0.02), color: '#3fae5a' },
@@ -133,6 +137,8 @@ export class PersonAvatar {
   private readonly tool: Mesh | null = null;
   private readonly gestureAction: AnimationAction | null = null;
   private gestureLeft = 0;
+  /** Shows the tool all the time, e.g. a shopping bag being carried. */
+  holding = false;
 
   constructor(character: string, tool: Tool | null = null) {
     const { scene, animations } = asset(`person:${character}`);
@@ -182,7 +188,7 @@ export class PersonAvatar {
       this.gestureLeft = 0;
       this.play(speed > 0.75 ? 'sprint' : speed > 0.05 ? 'walk' : scrubbing ? 'scrub' : 'idle');
     }
-    if (this.tool) this.tool.visible = scrubbing && speed <= 0.05;
+    if (this.tool) this.tool.visible = this.holding || (scrubbing && speed <= 0.05);
     this.mixer.update(dt);
   }
 

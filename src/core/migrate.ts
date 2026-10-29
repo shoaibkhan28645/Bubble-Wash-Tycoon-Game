@@ -1,7 +1,7 @@
-import { newDaily, newGame, type DailyState, type GameState } from './gameState';
+import { newDaily, newGame, type Build, type DailyState, type GameState } from './gameState';
 
 /** Bump when the save shape changes, and add a migration for the old version. */
-export const SAVE_VERSION = 5;
+export const SAVE_VERSION = 6;
 
 type SaveObject = Record<string, unknown>;
 export type Migration = (save: SaveObject) => SaveObject;
@@ -16,6 +16,8 @@ export const MIGRATIONS: Readonly<Record<number, Migration>> = {
   3: (save) => ({ ...save, flags: ['washed', 'collected', 'supplied'], playSeconds: 3600 }),
   // v5: login calendar, daily missions, Car of the Day and the speed boost.
   4: (save) => ({ ...save, daily: newDaily(), boostSeconds: 0 }),
+  // v6: construction timers.
+  5: (save) => ({ ...save, building: {} }),
 };
 
 /**
@@ -60,7 +62,7 @@ export function migrate(
 }
 
 export function serialize(state: GameState): string {
-  const { cash, gems, location, unlocked, levels, staff, padPaid, piles, stars, autoRate, supplies, flags, savedAt } = state;
+  const { cash, gems, location, unlocked, levels, staff, padPaid, building, piles, stars, autoRate, supplies, flags, savedAt } = state;
   return JSON.stringify({
     version: SAVE_VERSION,
     savedAt,
@@ -71,6 +73,7 @@ export function serialize(state: GameState): string {
     levels,
     staff,
     padPaid,
+    building,
     piles,
     stars: Math.round(stars * 100) / 100,
     autoRate: Math.round(autoRate * 100) / 100,
@@ -92,6 +95,7 @@ function sanitize(save: SaveObject): GameState {
     levels: levelMap(save.levels),
     staff: stringList(save.staff),
     padPaid: amountMap(save.padPaid),
+    building: buildMap(save.building),
     piles: amountMap(save.piles),
     stars: Math.min(5, Math.max(1, nonNegative(save.stars, fresh.stars))),
     autoRate: nonNegative(save.autoRate, fresh.autoRate),
@@ -150,6 +154,15 @@ function levelMap(value: unknown): Record<string, number> {
     if (typeof level === 'number' && Number.isInteger(level) && level >= 0) levels[id] = level;
   }
   return levels;
+}
+
+function buildMap(value: unknown): Record<string, Build> {
+  const builds: Record<string, Build> = {};
+  if (!isObject(value)) return builds;
+  for (const [id, build] of Object.entries(value)) {
+    if (isObject(build) && typeof build.endsAt === 'number' && Number.isFinite(build.endsAt)) builds[id] = { endsAt: build.endsAt, halved: build.halved === true };
+  }
+  return builds;
 }
 
 function amountMap(value: unknown): Record<string, number> {

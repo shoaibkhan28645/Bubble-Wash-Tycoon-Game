@@ -48,6 +48,8 @@ export class Arrivals {
     private readonly state: GameState,
     private readonly lanes: () => Lane[],
     private readonly forecourt: Forecourt,
+    /** The Mini-Mart is selling (snacks can be on a ticket). */
+    private readonly snacks: () => boolean,
     private readonly sound: SoundManager,
   ) {
     const vip = TUNING.vip;
@@ -69,14 +71,15 @@ export class Arrivals {
     const types = this.availableCars();
     const def = types[Math.floor(Math.random() * types.length)];
     if (!def) return;
-    let needs = rollTicket((need) => need === 'wash' || this.forecourt.pumps.length > 0, Math.random);
+    const canServe = (need: Need) => need === 'wash' || (need === 'fuel' && this.forecourt.pumps.length > 0) || (need === 'snack' && this.snacks());
+    let needs = rollTicket(canServe, Math.random);
     if (needs[0] === 'fuel') {
       if (this.forecourt.hasRoom) {
         this.addFuelCar(def, needs);
         this.spawnTimer = 0;
         return;
       }
-      // Forecourt full: a car that also wants a wash comes just for that.
+      // Forecourt full: a car that also wants a wash comes just for that (snacks are only sold at the pumps).
       if (!needs.includes('wash')) return;
       needs = ['wash'];
     }

@@ -55,6 +55,8 @@ export interface PadEffects {
   station?: string;
   /** A fuel pump (its own lane on the forecourt by the road). */
   pump?: string;
+  /** The Mini-Mart: drivers at the pumps walk over to buy snacks. */
+  mart?: boolean;
   vending?: boolean;
   patienceBonus?: number;
   arrivalBonus?: number;
@@ -67,6 +69,8 @@ export interface PadDef {
   cost: number;
   targetMinute: number;
   adds: string;
+  /** Seconds of construction after it's paid for (real time, also while away); instant if absent. */
+  buildSeconds?: number;
   effects: PadEffects;
 }
 
@@ -112,6 +116,10 @@ export interface LocationLayout {
    * free pump), drive along their pump's lane, and back out to the road at exitX.
    */
   forecourt: { entryX: number; exitX: number; waitZ: number; leaveX: number };
+  /** The Mini-Mart's till (where drivers are served, and the zone where a worker serves them) and where drivers line up. */
+  mart: { counter: Point; zone: Rect; queue: Point[] };
+  /** Building sites (scaffolding) for pads with a construction timer: centre and size. */
+  sites: Record<string, { x: number; z: number; width: number; depth: number }>;
   /** Where a pad's building stands, if not on the pad itself (the pump island between two lanes). */
   buildAt: Record<string, Point>;
   /** Ground a built pad covers beyond its own spot (the forecourt): kept flat and clear, and in view once built. */

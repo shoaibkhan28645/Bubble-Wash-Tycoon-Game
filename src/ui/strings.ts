@@ -18,6 +18,9 @@ const EN = {
   convoyBody: 'Five golden VIP cars arrive, each paying 5× the best car.',
   refillTitle: 'Instant delivery',
   refillBody: 'Every station gets filled up with supplies right now.',
+  buildTitle: 'Building: {name}',
+  buildBody: '{time} to go. Watch an ad to halve the wait, or finish it now with gems.',
+  buildBodyHalved: '{time} to go. Finish it now with gems.',
   finishTitle: 'Finish it now',
   finishBody: 'Pay what you have and the rest is on us: {pad} gets built now.',
   calendarTitle: 'Daily rewards',
@@ -39,9 +42,9 @@ const EN = {
   m_vip: 'Serve {n} golden VIPs',
   m_monster: 'Wash {n} monster trucks',
   m_detail: 'Detail {n} cars',
-  m_snack: 'Sell {n} snacks',
   m_fuel: 'Fill up {n} cars',
-  m_combo: 'Serve {n} fuel + wash combos',
+  m_combo: 'Serve {n} combos',
+  m_snack: 'Sell {n} snacks at the Mini-Mart',
 } as const;
 
 export type StringKey = keyof typeof EN;

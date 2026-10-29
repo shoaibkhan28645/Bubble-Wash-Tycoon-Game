@@ -16,9 +16,10 @@ const silent = { play: () => {} } as unknown as SoundManager;
 
 /** Every solid prop from buildings.ts, where it's built (the whole lot built). */
 function solids(): Rect[] {
-  return Object.entries(SOLID).flatMap(([id, [hw, hd]]) => {
+  return Object.entries(SOLID).flatMap(([id, boxes]) => {
     const at = LOCATION1.buildAt[id] ?? LOCATION1.pads[id];
-    return at ? [{ minX: at.x - hw, maxX: at.x + hw, minZ: at.z - hd, maxZ: at.z + hd }] : [];
+    if (!at) return [];
+    return boxes.map(([hw, hd, dx = 0, dz = 0]) => ({ minX: at.x + dx - hw, maxX: at.x + dx + hw, minZ: at.z + dz - hd, maxZ: at.z + dz + hd }));
   });
 }
 

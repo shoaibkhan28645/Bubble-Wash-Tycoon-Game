@@ -21,13 +21,14 @@ const ROLES = {
   manager: 'manager',
   garage: 'detailer',
   attendant: 'attendant',
+  clerk: 'clerk',
 } as const;
 export type Role = keyof typeof ROLES;
 
 /**
  * Stations each role works: the washer both bays, the dryer staff the dryer
  * and wax, the detailer the garage (and wax when the garage is empty), the
- * attendant the fuel pumps.
+ * attendant the fuel pumps and the clerk the Mini-Mart's till.
  */
 const WORKS: Record<Role, StationKind[]> = {
   washer: ['bay'],
@@ -38,6 +39,7 @@ const WORKS: Record<Role, StationKind[]> = {
   manager: [],
   garage: ['garage', 'wax'],
   attendant: ['pump'],
+  clerk: ['counter'],
 };
 
 /** What each worker holds while working a station. */

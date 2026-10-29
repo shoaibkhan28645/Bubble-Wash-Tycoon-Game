@@ -83,11 +83,12 @@ export async function loadAssets(onProgress: (fraction: number) => void): Promis
   );
 }
 
-/** Loads one more model after the start (the Car of the Day), unless it's already here. */
+/** Loads one more model after the start (the Car of the Day, the shoppers), unless it's already here. */
 export async function loadModel(id: string, path: string): Promise<void> {
   if (assets.has(id)) return;
   const gltf = await new GLTFLoader().loadAsync(import.meta.env.BASE_URL + path);
   prepare(gltf.scene);
+  if (id.startsWith('person:')) mergeSkinnedParts(gltf.scene);
   assets.set(id, { scene: gltf.scene, animations: gltf.animations });
 }
 

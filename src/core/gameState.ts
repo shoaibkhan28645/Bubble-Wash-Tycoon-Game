@@ -15,6 +15,12 @@ export interface DailyState {
   carOfDayDate: string;
 }
 
+/** A pad under construction: when it's done (wall-clock ms), and whether the ad already halved it. */
+export interface Build {
+  endsAt: number;
+  halved: boolean;
+}
+
 export function newDaily(): DailyState {
   return { date: '', missions: [], goals: [], progress: [], claimed: [], loginDay: 0, loginDate: '', carOfDayDate: '' };
 }
@@ -36,6 +42,8 @@ export interface GameState {
   staff: string[];
   /** Cash already paid into unlock pads that aren't finished yet, by pad id. */
   padPaid: Record<string, number>;
+  /** Paid-for pads still being built, by pad id. */
+  building: Record<string, Build>;
   /** Uncollected cash in each pile, by pile id. */
   piles: Record<string, number>;
   /** Star rating, 1–5 (sets how often cars arrive). */
@@ -64,6 +72,7 @@ export function newGame(): GameState {
     levels: {},
     staff: [],
     padPaid: {},
+    building: {},
     piles: {},
     stars: 3,
     autoRate: 0,

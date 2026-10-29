@@ -18,7 +18,7 @@
     { "id": "vip", "goal": 2, "growth": 1, "gems": 8, "requires": "bay2" },
     { "id": "monster", "goal": 3, "growth": 1, "gems": 10, "requires": "tunnel" },
     { "id": "detail", "goal": 4, "growth": 1.02, "gems": 8, "requires": "garage" },
-    { "id": "snack", "goal": 10, "growth": 1.03, "gems": 5, "requires": "vending" },
+    { "id": "snack", "goal": 6, "growth": 1.04, "gems": 5, "requires": "mart" },
     { "id": "fuel", "goal": 8, "growth": 1.06, "gems": 5, "requires": "pump1" },
     { "id": "combo", "goal": 5, "growth": 1.05, "gems": 6, "requires": "pump1" }
   ],

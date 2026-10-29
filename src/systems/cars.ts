@@ -47,6 +47,8 @@ export class Car {
   snacked = false;
   /** Seconds spent waiting in line. */
   waited = 0;
+  /** Its driver is away at the Mini-Mart (the car waits at the pump until they're back). */
+  shopping = false;
   /** What it came for (its ticket), in visiting order, and what it has had so far. */
   needs: Need[] = ['wash'];
   served: Need[] = [];
@@ -97,6 +99,7 @@ export class Car {
     this.station = null;
     this.needs = needs;
     this.served = [];
+    this.shopping = false;
     this.model.mesh.scale.setScalar(1);
     this.model.setType(def);
     // Cars that only want fuel arrive clean: no mud means no wash wanted.

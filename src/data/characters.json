@@ -8,6 +8,8 @@
     "valet": "male-a",
     "manager": "male-d",
     "detailer": "female-e",
-    "attendant": "male-b"
-  }
+    "attendant": "male-b",
+    "clerk": "female-f"
+  },
+  "shoppers": ["female-a", "male-e"]
 }

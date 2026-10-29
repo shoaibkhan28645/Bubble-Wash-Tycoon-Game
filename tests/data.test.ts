@@ -7,8 +7,8 @@ const modelFiles = Object.keys(import.meta.glob('../public/models/**/*.glb')).ma
 const padIds = PADS.map((p) => p.id);
 
 describe('pads.json', () => {
-  it('has the 22 town-1 pads in order, from the free bay to the truck', () => {
-    expect(PADS).toHaveLength(22);
+  it('has the 24 town-1 pads in order, from the free bay to the truck', () => {
+    expect(PADS).toHaveLength(24);
     expect(PADS[0]).toMatchObject({ id: 'bay1', cost: 0 });
     expect(PADS.at(-1)).toMatchObject({ id: 'truck', cost: 25000, effects: { endOfContent: true } });
   });

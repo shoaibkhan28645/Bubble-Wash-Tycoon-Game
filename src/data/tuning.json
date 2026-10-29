@@ -7,17 +7,22 @@
     "garage": { "seconds": 4, "supply": null, "chance": 0.5 },
     "tunnel": { "seconds": 7, "supply": "soap", "capacity": 3, "queueSpots": 1, "zonePadding": 1.6 },
     "pump": { "seconds": 2.6, "supply": null, "queueSpots": 1, "zonePadding": 0.5 },
+    "counter": { "seconds": 2.2, "supply": null },
     "zonePadding": 1,
     "supplyCapacity": 6,
     "usesPerItem": 4
   },
   "cars": { "speed": 8, "spawnSeconds": 4.5, "queueSpots": 2, "leaveDelay": 0.35 },
+  "construction": { "gemSeconds": 120 },
+  "snack": { "payFactor": 0.5, "walkSpeed": 2.6 },
   "fuel": { "payFactor": 0.8, "patienceRefill": 0.5, "washWaitSeconds": 4 },
   "tickets": {
     "kinds": [
-      { "needs": ["wash"], "weight": 55 },
-      { "needs": ["fuel"], "weight": 20 },
-      { "needs": ["fuel", "wash"], "weight": 25 }
+      { "needs": ["wash"], "weight": 50 },
+      { "needs": ["fuel"], "weight": 16 },
+      { "needs": ["fuel", "wash"], "weight": 20 },
+      { "needs": ["fuel", "snack"], "weight": 8 },
+      { "needs": ["fuel", "snack", "wash"], "weight": 6 }
     ],
     "combo": [1, 1, 1.2, 1.5, 2]
   },

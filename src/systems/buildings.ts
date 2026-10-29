@@ -2,22 +2,31 @@ import { Group, type Object3D, type Scene } from 'three';
 import type { LocationLayout, Rect } from '../core/config';
 import { benchModel, hoseModel, registerModel, shelfModel, signModel, truckModel, vendingModel } from '../render/models/props';
 import { dispenserModel, forecourtModel, laneSide } from '../render/models/fuel';
+import { martModel, MART_TILL_Z } from '../render/models/mart';
 import { bayModel, dryerModel, garageModel, TunnelModel, waxModel } from '../render/models/stations';
 import { withShadows } from '../render/stage';
 
 const REVEAL_SECONDS = 0.45;
 
-/** Footprints (half width, half depth) of props the player can't walk through. */
-export const SOLID: Record<string, [number, number]> = {
-  hose: [0.45, 0.45],
-  register: [1, 0.45],
-  soap: [1.1, 0.4],
-  bench: [1.1, 0.35],
-  vending: [0.65, 0.45],
-  sign: [0.35, 0.35],
-  tunnel: [1.8, 4.2],
-  truck: [2.2, 1.1],
-  pump1: [1.7, 0.5],
+/**
+ * What the player can't walk through, per building: boxes of half width,
+ * half depth and an offset from where it's built (the Mini-Mart is the shop
+ * and its till out front).
+ */
+export const SOLID: Record<string, [number, number, number?, number?][]> = {
+  hose: [[0.45, 0.45]],
+  register: [[1, 0.45]],
+  soap: [[1.1, 0.4]],
+  bench: [[1.1, 0.35]],
+  vending: [[0.65, 0.45]],
+  sign: [[0.35, 0.35]],
+  tunnel: [[1.8, 4.2]],
+  truck: [[2.2, 1.1]],
+  pump1: [[1.7, 0.5]],
+  mart: [
+    [2.45, 1.85],
+    [1.15, 0.35, 0, MART_TILL_Z],
+  ],
 };
 
 interface Building {
@@ -48,8 +57,9 @@ export class Buildings {
     this.scene.add(withShadows(mesh));
     this.built.push({ id, mesh, age: animate ? 0 : REVEAL_SECONDS });
     if (!animate) mesh.scale.setScalar(1);
-    const solid = SOLID[id];
-    if (solid) this.solids.push({ minX: at.x - solid[0], maxX: at.x + solid[0], minZ: at.z - solid[1], maxZ: at.z + solid[1] });
+    for (const [hw, hd, dx = 0, dz = 0] of SOLID[id] ?? []) {
+      this.solids.push({ minX: at.x + dx - hw, maxX: at.x + dx + hw, minZ: at.z + dz - hd, maxZ: at.z + dz + hd });
+    }
   }
 
   obstacles(): readonly Rect[] {
@@ -77,6 +87,7 @@ export class Buildings {
     if (id === 'bench') return benchModel();
     if (id === 'pump1') return forecourtModel(this.layout, id);
     if (id === 'pump2') return dispenserModel(laneSide(this.layout, id));
+    if (id === 'mart') return martModel();
     const { width, length } = this.layout.station;
     if (id === 'dryer') return dryerModel(width, length);
     if (id === 'wax') return waxModel(width, length);

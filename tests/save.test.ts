@@ -45,6 +45,7 @@ describe('parseSave', () => {
       levels: { 'bay1.speed': 2, broken: -1, half: 1.5, word: 'x' },
       staff: 'washer',
       padPaid: { hose: 20, bad: -3, word: 'x' },
+      building: { mart: { endsAt: 5000, halved: 'yes' }, tunnel: { endsAt: 'soon' }, garage: 3 },
       piles: [5],
       savedAt: Number.NaN,
       daily: { date: 'yesterday', missions: ['wash'], goals: [], progress: [1], claimed: [true], loginDay: 99 },
@@ -58,6 +59,7 @@ describe('parseSave', () => {
       levels: { 'bay1.speed': 2 },
       staff: [],
       padPaid: { hose: 20 },
+      building: { mart: { endsAt: 5000, halved: false } },
       piles: {},
       stars: 3,
       autoRate: 0,
@@ -76,6 +78,7 @@ describe('parseSave', () => {
     expect(Object.keys(saved).sort()).toEqual([
       'autoRate',
       'boostSeconds',
+      'building',
       'cash',
       'daily',
       'flags',
