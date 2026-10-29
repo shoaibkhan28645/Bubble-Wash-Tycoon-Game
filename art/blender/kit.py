@@ -28,6 +28,7 @@ PALETTE = {
     'lilac': '#b79cff',
     'red': '#ff5c6c',
     'kerb': '#c3cad4',
+    'wood': '#c98a52',
     'steel': '#8d98a7',
     'dark': '#3b4a5e',
     'concrete': '#cfd6de',

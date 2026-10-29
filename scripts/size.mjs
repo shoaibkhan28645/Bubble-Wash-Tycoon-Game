@@ -28,7 +28,7 @@ const referenced = [...html.matchAll(/(?:src|href)="\.\/([^"]+)"/g)].map((m) => 
 // Car of the Day models load later, one a day, and the shoppers with the Mini-Mart: they don't count towards the start.
 const daily = JSON.parse(readFileSync('src/data/daily.json', 'utf8'));
 const cars = JSON.parse(readFileSync('src/data/cars.json', 'utf8'));
-const atStart = new Set([...cars.map((c) => c.model), 'delivery']);
+const atStart = new Set(cars.map((c) => c.model));
 const characters = JSON.parse(readFileSync('src/data/characters.json', 'utf8'));
 const lazy = new Set([
   ...daily.carOfDay.cars.map((c) => `models/cars/${c.model}.glb`).filter((f) => !atStart.has(f.slice(12, -4))),

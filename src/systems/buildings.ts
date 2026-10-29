@@ -1,4 +1,4 @@
-import { Group, type Object3D, type Scene } from 'three';
+import type { Object3D, Scene } from 'three';
 import type { LocationLayout, Rect } from '../core/config';
 import { benchModel, hoseModel, registerModel, shelfModel, signModel, truckModel, vendingModel } from '../render/models/props';
 import { dispenserModel, forecourtModel, laneSide } from '../render/models/fuel';
@@ -157,12 +157,7 @@ export class Buildings {
       this.tunnel = new TunnelModel();
       return this.tunnel.root;
     }
-    if (id === 'truck') {
-      // Wrapped so the pop-in animation doesn't overwrite the truck's own scale.
-      const group = new Group();
-      group.add(truckModel());
-      return group;
-    }
+    if (id === 'truck') return truckModel();
     return null;
   }
 }
