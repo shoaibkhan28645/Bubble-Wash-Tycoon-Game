@@ -15,6 +15,8 @@ export interface GuideView {
   /** The bay lowest on soap, if one is nearly out. */
   lowBay: Point | null;
   carryingSoap: boolean;
+  /** The car at the first fuel pump, if it's waiting to be filled up. */
+  fuelCar: Point | null;
 }
 
 /** The tutorial ends once the first washer is hired (GDD minute 6: "automation, the hook"). */
@@ -25,7 +27,8 @@ export function tutorialActive(state: GameState): boolean {
 /**
  * Where the pointing hand should go (GDD: a pointing hand and an arrow are
  * the only tutorial). Wash the first car, collect the cash, keep the first
- * bay stocked with soap, then build each pad once it's affordable.
+ * bay stocked with soap, fill up the first car at the pump, then build each
+ * pad once it's affordable.
  */
 export function guideTarget(state: GameState, view: GuideView): Point | null {
   if (!tutorialActive(state)) return null;
@@ -33,6 +36,7 @@ export function guideTarget(state: GameState, view: GuideView): Point | null {
   if (!has('washed')) return view.firstCar;
   if (!has('collected')) return view.pile;
   if (!has('supplied') && view.lowBay) return view.carryingSoap ? view.lowBay : view.shelf;
+  if (!has('fueled') && view.fuelCar) return view.fuelCar;
   if (view.pad && state.cash >= view.pad.owed) return view.pad.at;
   return null;
 }

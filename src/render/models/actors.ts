@@ -108,7 +108,7 @@ export function blobShadow(width: number, length: number): Object3D {
 
 type Pose = 'idle' | 'walk' | 'sprint' | 'scrub';
 /** What a person holds while working. */
-export type Tool = 'sponge' | 'towel' | 'polisher';
+export type Tool = 'sponge' | 'towel' | 'polisher' | 'nozzle';
 
 const TOOL_PARTS: Record<Tool, Part[]> = {
   sponge: [{ geometry: rbox(0.13, 0.07, 0.09, 0.03), color: '#ffd24a' }],
@@ -116,6 +116,10 @@ const TOOL_PARTS: Record<Tool, Part[]> = {
   polisher: [
     { geometry: cylinder(0.08, 0.04, 12), color: '#fff3c4', y: -0.03 },
     { geometry: rbox(0.06, 0.07, 0.06, 0.02), color: '#3b4a5e', y: 0.02 },
+  ],
+  nozzle: [
+    { geometry: rbox(0.06, 0.12, 0.09, 0.02), color: '#3fae5a' },
+    { geometry: cylinder(0.018, 0.14, 6), color: '#3b4a5e', y: -0.04, z: 0.09, rx: Math.PI / 2 },
   ],
 };
 const toolGeometries = new Map<Tool, BufferGeometry>();

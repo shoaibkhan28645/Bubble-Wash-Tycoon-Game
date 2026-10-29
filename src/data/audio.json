@@ -18,6 +18,8 @@
     "squeak": { "synth": "squeak", "volume": 0.18, "gap": 0.12 },
     "spray": { "synth": "spray", "volume": 0.2, "gap": 0.4 },
     "pop": { "synth": "pop", "volume": 0.25, "gap": 0.05 },
-    "honk": { "synth": "honk", "volume": 0.3, "gap": 0.6 }
+    "honk": { "synth": "honk", "volume": 0.3, "gap": 0.6 },
+    "glug": { "synth": "glug", "volume": 0.3, "gap": 0.45 },
+    "fueled": { "files": ["drop"], "synth": "beep", "volume": 0.3, "gap": 0.3 }
   }
 }

@@ -5,7 +5,7 @@ import { DAILY, type DayCarDef, type MissionDef } from '../core/config';
 import type { GameState } from '../core/gameState';
 
 /** Things that count towards missions. */
-export type MissionKind = 'wash' | 'handWash' | 'earn' | 'tips' | 'upgrade' | 'vip' | 'monster' | 'detail' | 'snack';
+export type MissionKind = 'wash' | 'handWash' | 'earn' | 'tips' | 'upgrade' | 'vip' | 'monster' | 'detail' | 'snack' | 'fuel' | 'combo';
 
 /** The player's local date as YYYY-MM-DD (the Tech Guide: today's local date in the save). */
 export function localDate(now: Date): string {

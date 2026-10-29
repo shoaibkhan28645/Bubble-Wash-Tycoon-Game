@@ -1,9 +1,22 @@
 import { PADS, TUNING, UPGRADES, stageById, type CarDef, type Dirt, type StageDef, type UpgradeKind } from '../core/config';
+import { comboMultiplier, type Need } from './tickets';
 
 /** Price of one wash: base pay × (1 + stage bonuses) × quality. */
 export function carPay(car: CarDef, stages: readonly StageDef[], quality = 1): number {
+  return ticketPay(car, stages, ['wash'], quality);
+}
+
+/**
+ * What a car's ticket comes to: the wash (base pay with its stage bonuses)
+ * plus fuel (a share of base pay), times quality, times the combo bonus for
+ * several needs served in one visit.
+ */
+export function ticketPay(car: CarDef, stages: readonly StageDef[], served: readonly Need[], quality = 1): number {
+  const base = car.basePay * (car.payMultiplier ?? 1);
   const bonus = stages.reduce((sum, stage) => sum + stage.payBonus, 0);
-  return Math.round(car.basePay * (car.payMultiplier ?? 1) * (1 + bonus) * quality);
+  const wash = served.includes('wash') ? base * (1 + bonus) : 0;
+  const fuel = served.includes('fuel') ? base * TUNING.fuel.payFactor : 0;
+  return Math.round((wash + fuel) * quality * comboMultiplier(served.length));
 }
 
 /** Seconds of hand scrubbing a car needs. */
@@ -118,7 +131,7 @@ export function jobSeconds(
   byPlayer: boolean,
 ): number {
   const speed = levelFactor(UPGRADES.kinds.speed, state.levels[`${stationId}.speed`] ?? 0);
-  if (kind === 'dryer' || kind === 'wax' || kind === 'garage') return TUNING.stations[kind].seconds * speed;
+  if (kind === 'dryer' || kind === 'wax' || kind === 'garage' || kind === 'pump') return TUNING.stations[kind].seconds * speed;
   const scrub = byPlayer ? levelFactor(UPGRADES.kinds.scrub, state.levels['player.scrub'] ?? 0) : 1;
   return washSeconds(dirt, builtStages(state.unlocked, 'bay'), TUNING.wash) * speed * scrub;
 }

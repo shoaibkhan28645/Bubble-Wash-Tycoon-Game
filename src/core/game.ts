@@ -32,9 +32,12 @@ import { PadSystem } from '../systems/pads';
 import { createMeta } from './meta';
 import { WashSounds } from '../audio/washSounds';
 import { blobShadows } from '../render/models/actors';
+import { FuelHoses } from '../render/models/fuel';
 
 /** Width of the side button column plus its margins, in CSS pixels. */
 const SIDE_BAR_PX = 64;
+/** Height of the cash and stars bar at the top (the forecourt across the road sits just under it). */
+const HUD_PX = 56;
 
 export interface Game {
   readonly stage: Stage;
@@ -64,7 +67,7 @@ export function createGame(
 ): Game {
   const layout = LOCATION1;
   const stage = createStage(root);
-  stage.shadowArea({ ...layout.lot, minZ: layout.roadZ - 3 });
+  stage.shadowArea({ ...layout.lot, minZ: layout.walk.minZ });
   const clock = new GameClock();
   const tickers: ((dt: number) => void)[] = [];
   const rig = new CameraRig(stage.camera);
@@ -124,16 +127,16 @@ export function createGame(
     void saves.saveNow();
   });
 
-  /** Where the player may walk: the lot, limited to what the camera shows. */
-  let walkable: Rect = layout.lot;
+  /** Where the player may walk: the lot and across the road, limited to what the camera shows. */
+  let walkable: Rect = layout.walk;
   const refitView = (instant = false): void => {
     const view = activeRect();
     rig.setRect(view, instant);
     walkable = {
-      minX: Math.max(layout.lot.minX, view.minX),
-      maxX: Math.min(layout.lot.maxX, view.maxX),
-      minZ: Math.max(layout.lot.minZ, view.minZ),
-      maxZ: Math.min(layout.lot.maxZ, view.maxZ),
+      minX: Math.max(layout.walk.minX, view.minX),
+      maxX: Math.min(layout.walk.maxX, view.maxX),
+      minZ: Math.max(layout.walk.minZ, view.minZ),
+      maxZ: Math.min(layout.walk.maxZ, view.maxZ),
     };
   };
 
@@ -149,6 +152,8 @@ export function createGame(
     for (const id of state.unlocked) {
       const at = layout.pads[id];
       if (at) grow({ minX: at.x - 1.5, maxX: at.x + 1.5, minZ: at.z - 1.5, maxZ: at.z + 1.5 });
+      const area = layout.areas[id];
+      if (area) grow(area);
     }
     const next = pads.footprint;
     if (next) grow(next);
@@ -158,7 +163,10 @@ export function createGame(
 
   // Builds the free first bay before the first frame.
   // The side buttons take a strip on the right; the lot is framed beside them.
-  const fitSideBar = () => rig.setRightInset(SIDE_BAR_PX, stage.size.width);
+  const fitSideBar = () => {
+    rig.setRightInset(SIDE_BAR_PX, stage.size.width);
+    rig.setTopInset(HUD_PX, stage.size.height);
+  };
   fitSideBar();
   pads.update(0, player.position);
   refitView(true);
@@ -177,6 +185,7 @@ export function createGame(
     if (carrier === playerCarry) flag('supplied');
   });
   const hand = new GuideHand(labels);
+  const hoses = new FuelHoses(stage.scene, layout);
   const washSounds = new WashSounds(sound);
   const meta = createMeta({ root, state, saves, sound, traffic, pads, supplies });
 
@@ -185,6 +194,8 @@ export function createGame(
     const first = traffic.bays[0]?.car;
     const perItem = TUNING.stations.usesPerItem;
     const low = traffic.bays.find((b) => b.supply === 'soap' && (state.supplies[`${b.id}.soap`] ?? 0) <= perItem);
+    const pumpCar = traffic.forecourt.pumps[0]?.car;
+    if (pumpCar?.manual && pumpCar.served.includes('fuel')) flag('fueled');
     return {
       firstCar: first && (first.state === 'waiting' || first.state === 'entering') ? first.position : null,
       pile: cash.fullestPile()?.at ?? null,
@@ -192,6 +203,7 @@ export function createGame(
       shelf: state.unlocked.includes('soap') ? (layout.pads.soap ?? null) : null,
       lowBay: low?.at ?? null,
       carryingSoap: playerCarry.count('soap') > 0,
+      fuelCar: pumpCar?.state === 'waiting' ? pumpCar.position : null,
     };
   };
 
@@ -207,6 +219,7 @@ export function createGame(
     supplies.update(dt, [playerCarry, ...staff.carriers()]);
     playerCarry.update(dt, player.isMoving);
     player.scrubbing = traffic.update(dt, work, supplies);
+    hoses.update(traffic.forecourt.pumps);
     washSounds.update(dt, player.scrubbing);
     if (cash.update(player.position)) flag('collected');
     hand.point(tutorialActive(state) ? guideTarget(state, guideView()) : null);

@@ -9,8 +9,9 @@ const up = new Vector3();
 /**
  * Where to put a fixed-angle camera so a ground rectangle (and things up to
  * `height` tall on it) fills the screen without being cut off, at any aspect.
- * `ndcLimit` < 1 leaves a margin at the screen edges; `insetRight` (in
- * normalised screen units, 0–2) keeps a strip on the right free for buttons.
+ * `ndcLimit` < 1 leaves a margin at the screen edges; `insetRight` and
+ * `insetTop` (in normalised screen units, 0–2) keep strips on the right and
+ * at the top free for the buttons and the cash and stars.
  */
 export function fitCameraToRect(
   fovDeg: number,
@@ -20,9 +21,12 @@ export function fitCameraToRect(
   height: number,
   ndcLimit = 0.92,
   insetRight = 0,
+  insetTop = 0,
 ): { target: Vector3; distance: number } {
   const left = -ndcLimit;
   const rightEdge = ndcLimit - insetRight;
+  const bottom = -ndcLimit;
+  const topEdge = ndcLimit - insetTop;
   probe.fov = fovDeg;
   probe.aspect = aspect;
   probe.near = 0.1;
@@ -41,7 +45,7 @@ export function fitCameraToRect(
     let hi = 2000;
     for (let step = 0; step < 40; step++) {
       const mid = (lo + hi) / 2;
-      if (bounds(target, viewDir, mid).fits(left, rightEdge, ndcLimit)) hi = mid;
+      if (bounds(target, viewDir, mid).fits(left, rightEdge, bottom, topEdge)) hi = mid;
       else lo = mid;
     }
     distance = hi;
@@ -51,7 +55,7 @@ export function fitCameraToRect(
     up.setFromMatrixColumn(probe.matrixWorld, 1);
     target
       .addScaledVector(right, ((b.minX + b.maxX) / 2 - (left + rightEdge) / 2) * halfH * aspect)
-      .addScaledVector(up, ((b.minY + b.maxY) / 2) * halfH);
+      .addScaledVector(up, ((b.minY + b.maxY) / 2 - (bottom + topEdge) / 2) * halfH);
   }
   return { target, distance };
 }
@@ -79,6 +83,6 @@ function bounds(target: Vector3, viewDir: Vector3, distance: number) {
     maxX,
     minY,
     maxY,
-    fits: (x0: number, x1: number, limitY: number) => !behind && minX >= x0 && maxX <= x1 && minY >= -limitY && maxY <= limitY,
+    fits: (x0: number, x1: number, y0: number, y1: number) => !behind && minX >= x0 && maxX <= x1 && minY >= y0 && maxY <= y1,
   };
 }

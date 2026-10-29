@@ -44,13 +44,14 @@ function ground(layout: LocationLayout): Mesh {
   const colors = new Float32Array(pos.count * 3);
   const c = new Color();
   const { lot, roadZ } = layout;
+  const areas = Object.values(layout.areas);
   for (let i = 0; i < pos.count; i++) {
     const x = pos.getX(i);
     const z = pos.getZ(i);
     const n = wobble(x, z);
     c.copy(GRASS_A).lerp(GRASS_B, 0.5 + n * 0.5);
     colors.set([c.r, c.g, c.b], i * 3);
-    const flat = inside(x, z, lot, 1.5) || Math.abs(z - roadZ) < 4;
+    const flat = inside(x, z, lot, 1.5) || Math.abs(z - roadZ) < 4 || areas.some((a) => inside(x, z, a, 1.5));
     pos.setY(i, flat ? -0.02 : Math.max(0, n) * 0.25 - 0.02);
   }
   geometry.setAttribute('color', new Float32BufferAttribute(colors, 3));
@@ -140,8 +141,12 @@ function scenery(layout: LocationLayout): Group {
   const rand = seeded(7);
   const { lot, roadZ, exitZ, earlyExitZ } = layout;
   const onExit = (z: number, margin: number) => Math.abs(z - exitZ) < 2 + margin || Math.abs(z - earlyExitZ) < 2 + margin;
+  const areas = Object.values(layout.areas);
   const blocked = (x: number, z: number, margin: number) =>
-    inside(x, z, lot, margin) || Math.abs(z - roadZ) < 3.6 + margin || (x > lot.maxX - 1 && onExit(z, margin));
+    inside(x, z, lot, margin) ||
+    Math.abs(z - roadZ) < 3.6 + margin ||
+    (x > lot.maxX - 1 && onExit(z, margin)) ||
+    areas.some((a) => inside(x, z, a, margin));
   const kinds: { id: string; count: number; scale: [number, number]; margin: number; near?: number }[] = [
     { id: 'nature:tree_oak', count: 14, scale: [2.6, 3.4], margin: 1.6 },
     { id: 'nature:tree_default', count: 12, scale: [2.4, 3.2], margin: 1.6 },
@@ -173,7 +178,12 @@ function scenery(layout: LocationLayout): Group {
   }
   // A row of trees along the far side of the road.
   const row: { x: number; z: number; s: number; r: number }[] = [];
-  for (let x = -26; x <= 26; x += 3.2 + rand() * 1.5) row.push({ x, z: roadZ - 4.6 - rand() * 1.5, s: 2.6 + rand() * 0.8, r: rand() * 6 });
+  for (let x = -26; x <= 26; x += 3.2 + rand() * 1.5) {
+    const z = roadZ - 4.6 - rand() * 1.5;
+    const s = 2.6 + rand() * 0.8;
+    const r = rand() * 6;
+    if (!areas.some((a) => inside(x, z, a, 1.2))) row.push({ x, z, s, r });
+  }
   group.add(scatter('nature:tree_oak', row));
   return group;
 }

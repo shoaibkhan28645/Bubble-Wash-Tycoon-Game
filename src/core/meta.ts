@@ -200,6 +200,9 @@ export function createMeta(deps: {
         progress('snack');
         return;
       }
+      if (car.served.includes('fuel')) progress('fuel');
+      if (car.served.length > 1) progress('combo');
+      if (!car.served.includes('wash')) return;
       progress('wash');
       if (!paid.automated) progress('handWash');
       if (paid.tip > 0) progress('tips');

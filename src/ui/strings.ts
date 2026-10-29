@@ -40,6 +40,8 @@ const EN = {
   m_monster: 'Wash {n} monster trucks',
   m_detail: 'Detail {n} cars',
   m_snack: 'Sell {n} snacks',
+  m_fuel: 'Fill up {n} cars',
+  m_combo: 'Serve {n} fuel + wash combos',
 } as const;
 
 export type StringKey = keyof typeof EN;

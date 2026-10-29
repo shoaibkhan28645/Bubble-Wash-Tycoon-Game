@@ -4,7 +4,9 @@ import type { SoundManager } from '../audio/sound';
 import type { Car, CarPool } from './cars';
 import { queueSpots, spawnSeconds } from './economy';
 import { canUse, pickRebalance } from './lanes';
+import type { Forecourt } from './forecourt';
 import type { Station } from './stations';
+import { rollTicket, type Need } from './tickets';
 import { Tunnel } from './tunnel';
 
 /** A wash lane cars line up for: a hand-wash bay or the tunnel. */
@@ -26,8 +28,8 @@ export function unlockedSum(state: GameState, pick: (effects: (typeof PADS)[numb
 
 /**
  * Cars arriving: a new one when the arrival timer says (stars and the sign
- * speed it up), the golden VIP every few minutes, and the valet moving cars
- * from a long line to an idle lane.
+ * speed it up), with a ticket of what it wants; the golden VIP every few
+ * minutes; and the valet moving cars from a long line to an idle lane.
  */
 export class Arrivals {
   /** Where the valet is needed (a car it just moved), if anywhere. */
@@ -45,6 +47,7 @@ export class Arrivals {
     private readonly layout: LocationLayout,
     private readonly state: GameState,
     private readonly lanes: () => Lane[],
+    private readonly forecourt: Forecourt,
     private readonly sound: SoundManager,
   ) {
     const vip = TUNING.vip;
@@ -66,7 +69,18 @@ export class Arrivals {
     const types = this.availableCars();
     const def = types[Math.floor(Math.random() * types.length)];
     if (!def) return;
-    const lane = this.laneFor(def, false);
+    let needs = rollTicket((need) => need === 'wash' || this.forecourt.pumps.length > 0, Math.random);
+    if (needs[0] === 'fuel') {
+      if (this.forecourt.hasRoom) {
+        this.addFuelCar(def, needs);
+        this.spawnTimer = 0;
+        return;
+      }
+      // Forecourt full: a car that also wants a wash comes just for that.
+      if (!needs.includes('wash')) return;
+      needs = ['wash'];
+    }
+    const lane = this.washLaneFor(def, false);
     if (!lane) return;
     this.addCar(def, def, lane, lane.queue.length);
     this.spawnTimer = 0;
@@ -99,7 +113,7 @@ export class Arrivals {
   private addVip(): boolean {
     const vip = CARS.find((c) => c.vip);
     const best = this.bestCar();
-    const lane = vip && this.laneFor(vip, true);
+    const lane = vip && this.washLaneFor(vip, true);
     if (!vip || !best || !lane) return false;
     const car = this.addCar(vip, { ...vip, basePay: best.basePay }, lane, 0);
     car.wantsDetail = true;
@@ -110,7 +124,7 @@ export class Arrivals {
   /** The Car of the Day: joins the shortest bay line and pays its multiplier on the best regular car. Returns false if there's no room. */
   addSpecial(def: CarDef, patience: number): boolean {
     const best = this.bestCar();
-    const lane = best && this.laneFor(def, false);
+    const lane = best && this.washLaneFor(def, false);
     if (!best || !lane) return false;
     const car = this.addCar(def, { ...def, basePay: best.basePay }, lane, lane.queue.length);
     car.patienceMax = car.patience = patience;
@@ -123,20 +137,37 @@ export class Arrivals {
     return this.availableCars().reduce<CarDef | null>((a, b) => (!a || b.basePay > a.basePay ? b : a), null);
   }
 
-  private addCar(def: CarDef, payDef: CarDef, lane: Lane, index: number): Car {
+  /** Where cars drive in along the road: the near side. */
+  get roadIn(): number {
+    return this.layout.roadZ + this.layout.roadLane;
+  }
+
+  /** A car in off the road at `turnX`, to `goal`, with its patience and wishes set. */
+  private newCar(def: CarDef, payDef: CarDef, turnX: number, goal: Point, needs: Need[]): Car {
     const car = this.pool.acquire();
-    const road = { x: this.layout.spawnX, z: this.layout.roadZ };
-    car.spawn(def, road, { x: lane.at.x, z: this.layout.roadZ }, slotOf(lane, index, this.layout), payDef);
+    const road = { x: this.layout.spawnX, z: this.roadIn };
+    car.spawn(def, road, [{ x: turnX, z: this.roadIn }], goal, payDef, needs);
     car.patienceMax = def.patience * (1 + unlockedSum(this.state, (e) => e.patienceBonus));
     car.patience = car.patienceMax;
     car.wantsDetail = Math.random() < TUNING.stations.garage.chance;
+    return car;
+  }
+
+  /** A car that wants fuel (first): in at the forecourt entry, to wait for a pump. */
+  private addFuelCar(def: CarDef, needs: Need[]): void {
+    const spot = this.forecourt.waitSpot;
+    this.forecourt.line.push(this.newCar(def, def, spot.x, spot, needs));
+  }
+
+  private addCar(def: CarDef, payDef: CarDef, lane: Lane, index: number): Car {
+    const car = this.newCar(def, payDef, lane.at.x, slotOf(lane, index, this.layout), ['wash']);
     lane.queue.splice(index, 0, car);
     lane.queue.forEach((c, i) => c !== car && c.driveTo(slotOf(lane, i, this.layout)));
     return car;
   }
 
-  /** Least-busy lane this car may use that has room (a VIP may squeeze into a full line). */
-  private laneFor(def: CarDef, vip: boolean): Lane | null {
+  /** Least-busy wash lane this car may use that has room (a VIP may squeeze into a full line). */
+  washLaneFor(def: CarDef, vip: boolean): Lane | null {
     const car = { def, vip };
     let best: Lane | null = null;
     let bestLoad = Infinity;

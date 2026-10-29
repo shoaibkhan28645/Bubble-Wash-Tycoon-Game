@@ -1,9 +1,11 @@
 {
   "name": "Dusty Roadside Lot",
   "lot": { "minX": -7.5, "maxX": 11, "minZ": -13.5, "maxZ": 20.2 },
+  "walk": { "minX": -7.5, "maxX": 11, "minZ": -29, "maxZ": 20.2 },
   "cameraBase": { "minX": -6.6, "maxX": 1.2, "minZ": -15.5, "maxZ": 6 },
   "roadZ": -15.5,
-  "spawnX": -14,
+  "spawnX": -34,
+  "roadLane": 0.85,
   "collectZ": 2.1,
   "finishX": 7.4,
   "exitZ": 19,
@@ -14,24 +16,37 @@
   "station": { "width": 3.2, "length": 3.8 },
   "tunnel": { "width": 3.2, "length": 8.4 },
   "garage": { "width": 3.6, "length": 4.2 },
+  "pump": { "width": 3.6, "length": 2.4 },
+  "forecourt": { "entryX": 4.6, "exitX": -5, "waitZ": -19.6, "leaveX": -40 },
+  "buildAt": {
+    "pump1": { "x": -0.5, "z": -23.75 },
+    "pump2": { "x": -0.5, "z": -23.75 }
+  },
+  "areas": {
+    "pump1": { "minX": -6.6, "maxX": 6.2, "minZ": -29, "maxZ": -17 }
+  },
   "queueGap": 4.3,
   "piles": {
     "bay1": { "x": -5.2, "z": -0.2 },
     "bay2": { "x": 5, "z": -0.2 },
     "register": { "x": 0, "z": 4.4 },
     "vending": { "x": -6.1, "z": -11 },
-    "tunnel": { "x": 5, "z": -5 }
+    "tunnel": { "x": 5, "z": -5 },
+    "fuel": { "x": 1, "z": -19.9 }
   },
   "pads": {
     "bay1": { "x": -2.2, "z": -3 },
     "hose": { "x": -5.3, "z": -5.4 },
     "register": { "x": 0, "z": 6.2 },
     "bay2": { "x": 2.2, "z": -3 },
+    "pump1": { "x": -0.5, "z": -22 },
     "soap": { "x": -4.4, "z": 7.8 },
     "washer": { "x": -5.4, "z": 3.4 },
+    "attendant": { "x": -3.6, "z": -27.9 },
     "dryer": { "x": 7.4, "z": 5.8 },
     "runner": { "x": -3.6, "z": 10.8 },
     "bench": { "x": -5.4, "z": -8.6 },
+    "pump2": { "x": -0.5, "z": -25.5 },
     "dryerStaff": { "x": 3.4, "z": 9.2 },
     "wax": { "x": 7.4, "z": 10.4 },
     "vending": { "x": -6.1, "z": -12.4 },
@@ -46,6 +61,7 @@
   "upgradePads": {
     "bay1": { "x": -5.4, "z": -2.7 },
     "bay2": { "x": 5.2, "z": -2.7 },
+    "pump1": { "x": 3, "z": -27.7 },
     "dryer": { "x": 9.8, "z": 5.8 },
     "wax": { "x": 9.8, "z": 10.4 },
     "soap": { "x": -6.4, "z": 10.4 },
@@ -55,6 +71,7 @@
   },
   "staffSpots": {
     "washer": { "x": -4.3, "z": -3 },
+    "attendant": { "x": -3, "z": -20.2 },
     "runner": { "x": -2.8, "z": 8.6 },
     "dryerStaff": { "x": 5.2, "z": 8.1 },
     "cashier": { "x": 1.8, "z": 4.2 },

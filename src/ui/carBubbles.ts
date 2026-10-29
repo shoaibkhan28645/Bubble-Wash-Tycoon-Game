@@ -1,6 +1,7 @@
 import { Vector3 } from 'three';
 import { TUNING } from '../core/config';
 import type { Car } from '../systems/cars';
+import { NEED_ICONS, type Need } from '../systems/tickets';
 import type { Label, WorldLabels } from './worldLabels';
 
 const BUBBLE_HEIGHT = 2.6;
@@ -9,15 +10,17 @@ const BUBBLE_HEIGHT = 2.6;
 export type Mood = 'happy' | 'waiting' | 'grumpy' | 'angry';
 const FACES: Record<Mood, string> = { happy: '😊', waiting: '😐', grumpy: '😠', angry: '😡' };
 
-/** Emoji bubble with a patience bar, floating over a car. */
+/** Emoji bubble with a patience bar and the car's ticket (what it wants, ticked off as it gets it), floating over a car. */
 export class CarBubble {
   readonly at = new Vector3();
   private readonly el: HTMLElement;
   private readonly face: HTMLElement;
   private readonly fill: HTMLElement;
+  private readonly needs: HTMLElement;
   private readonly label: Label;
   private shown = '';
   private fillShown = -1;
+  private needsShown = '';
 
   constructor(labels: WorldLabels) {
     this.el = document.createElement('div');
@@ -29,9 +32,28 @@ export class CarBubble {
     this.fill = document.createElement('span');
     this.fill.className = 'patience-fill';
     bar.appendChild(this.fill);
-    this.el.append(this.face, bar);
+    this.needs = document.createElement('span');
+    this.needs.className = 'car-needs';
+    this.el.append(this.needs, this.face, bar);
     this.label = labels.add(this.el, this.at);
     this.label.visible = false;
+  }
+
+  /** Need icons for a ticket; ones already served are ticked. A plain wash (most cars) shows none. */
+  ticket(needs: readonly Need[], served: readonly Need[]): void {
+    const plain = needs.length === 1 && needs[0] === 'wash';
+    const key = plain ? '' : `${needs.join()}|${served.join()}`;
+    if (key === this.needsShown) return;
+    this.needsShown = key;
+    this.needs.replaceChildren();
+    if (!key) return;
+    for (const need of needs) {
+      const icon = document.createElement('span');
+      icon.className = 'need';
+      icon.textContent = NEED_ICONS[need];
+      if (served.includes(need)) icon.dataset.done = '';
+      this.needs.appendChild(icon);
+    }
   }
 
   /** `badge`: a crown for the golden VIP, a star for the Car of the Day. */
@@ -81,6 +103,7 @@ export class CarMoods {
       const rules = TUNING.customers;
       const mood: Mood = left > rules.moodHappy ? 'happy' : left > rules.moodGrumpy ? 'waiting' : 'grumpy';
       const p = car.position;
+      bubble.ticket(car.needs, car.served);
       bubble.show(beside ? p.x + car.def.size[0] / 2 + 0.9 : p.x, BUBBLE_HEIGHT, p.z, left, mood, car.vip ? 'vip' : car.special ? 'special' : '');
       now.add(car);
     }
@@ -101,7 +124,7 @@ export class Floaters {
 
   constructor(private readonly labels: WorldLabels) {}
 
-  show(text: string, at: Vector3, kind: 'cash' | 'tip' | 'star' = 'cash'): void {
+  show(text: string, at: Vector3, kind: 'cash' | 'tip' | 'star' | 'combo' = 'cash'): void {
     const el = document.createElement('div');
     el.className = `floater floater-${kind}`;
     el.textContent = text;

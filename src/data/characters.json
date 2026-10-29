@@ -7,6 +7,7 @@
     "cashier": "female-d",
     "valet": "male-a",
     "manager": "male-d",
-    "detailer": "female-e"
+    "detailer": "female-e",
+    "attendant": "male-b"
   }
 }

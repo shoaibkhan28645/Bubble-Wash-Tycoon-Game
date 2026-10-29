@@ -2,6 +2,7 @@ import type { Scene } from 'three';
 import type { CarDef, Point, Rect, StageDef } from '../core/config';
 import { CarModel } from '../render/models/actors';
 import type { Station } from './stations';
+import type { Need } from './tickets';
 
 /**
  * arriving → queued → entering → waiting (needs service) → done (service
@@ -46,9 +47,12 @@ export class Car {
   snacked = false;
   /** Seconds spent waiting in line. */
   waited = 0;
+  /** What it came for (its ticket), in visiting order, and what it has had so far. */
+  needs: Need[] = ['wash'];
+  served: Need[] = [];
   private path: Point[] = [];
-  /** The turn from the road into the lane, until the car has passed it. */
-  private turn: Point | null = null;
+  /** Waypoints on the way to its lane (the turn off the road), until passed. */
+  private approach: Point[] = [];
   private heading = 0;
 
   constructor(readonly model: CarModel) {}
@@ -69,7 +73,12 @@ export class Car {
     return { minX: x - hw, maxX: x + hw, minZ: z - hl, maxZ: z + hl };
   }
 
-  spawn(def: CarDef, at: Point, turn: Point, goal: Point, payDef: CarDef = def): void {
+  /** Wants this but hasn't had it yet. */
+  wants(need: Need): boolean {
+    return this.needs.includes(need) && !this.served.includes(need);
+  }
+
+  spawn(def: CarDef, at: Point, approach: Point[], goal: Point, payDef: CarDef = def, needs: Need[] = ['wash']): void {
     this.def = def;
     this.payDef = payDef;
     this.vip = !!def.vip;
@@ -86,24 +95,39 @@ export class Car {
     this.manual = false;
     this.supplied = false;
     this.station = null;
+    this.needs = needs;
+    this.served = [];
     this.model.mesh.scale.setScalar(1);
     this.model.setType(def);
-    this.model.setClean(def.dirt, 0);
+    // Cars that only want fuel arrive clean: no mud means no wash wanted.
+    this.model.setClean(def.dirt, needs.includes('wash') ? 0 : 1);
     this.model.mesh.position.set(at.x, 0, at.z);
     this.model.mesh.visible = true;
-    this.heading = Math.atan2(turn.x - at.x, turn.z - at.z);
-    this.turn = turn;
-    this.path = [turn, goal];
+    const first = approach[0] ?? goal;
+    this.heading = Math.atan2(first.x - at.x, first.z - at.z);
+    this.route(approach, goal);
   }
 
-  /** New destination down the lane, keeping the road turn if not yet taken. */
+  /** Drive these waypoints, then to a spot in a line (which can still move up with driveTo). */
+  route(approach: Point[], goal: Point): void {
+    this.approach = [...approach];
+    this.path = [...this.approach, goal];
+  }
+
+  /** Carry on along the way in still to drive, then through these waypoints to a new goal. */
+  then(points: Point[], goal: Point): void {
+    this.approach.push(...points);
+    this.path = [...this.approach, goal];
+  }
+
+  /** New destination down the lane, keeping the way in if not yet driven. */
   driveTo(goal: Point): void {
-    this.path = this.turn ? [this.turn, goal] : [goal];
+    this.path = [...this.approach, goal];
   }
 
   /** Drive a fixed route (leaving the lot). */
   follow(points: Point[]): void {
-    this.turn = null;
+    this.approach = [];
     this.path = [...points];
   }
 
@@ -119,7 +143,7 @@ export class Car {
     if (dist <= step) {
       p.x = next.x;
       p.z = next.z;
-      if (next === this.turn) this.turn = null;
+      if (next === this.approach[0]) this.approach.shift();
       this.path.shift();
     } else {
       p.x += (dx / dist) * step;

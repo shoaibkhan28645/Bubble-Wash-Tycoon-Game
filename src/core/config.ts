@@ -53,6 +53,8 @@ export interface PadEffects {
   staff?: string;
   /** A station this pad adds: dryer, wax and garage (after the bays), or the tunnel. */
   station?: string;
+  /** A fuel pump (its own lane on the forecourt by the road). */
+  pump?: string;
   vending?: boolean;
   patienceBonus?: number;
   arrivalBonus?: number;
@@ -81,10 +83,15 @@ export interface StageDef {
 
 export interface LocationLayout {
   name: string;
+  /** The paved car wash lot. */
   lot: Rect;
+  /** Where people can walk: the lot, the road and the forecourt across it. */
+  walk: Rect;
   cameraBase: Rect;
   roadZ: number;
   spawnX: number;
+  /** Cars drive on the near side of the road coming in, the far side going away. */
+  roadLane: number;
   /** Lane below the bays that carries washed cars to the finishing lane. */
   collectZ: number;
   /** Finishing lane (dryer, wax) runs down at this x. */
@@ -99,6 +106,16 @@ export interface LocationLayout {
   station: { width: number; length: number };
   tunnel: { width: number; length: number };
   garage: { width: number; length: number };
+  pump: { width: number; length: number };
+  /**
+   * Fuel, across the road: cars turn in at entryX (waiting at waitZ for a
+   * free pump), drive along their pump's lane, and back out to the road at exitX.
+   */
+  forecourt: { entryX: number; exitX: number; waitZ: number; leaveX: number };
+  /** Where a pad's building stands, if not on the pad itself (the pump island between two lanes). */
+  buildAt: Record<string, Point>;
+  /** Ground a built pad covers beyond its own spot (the forecourt): kept flat and clear, and in view once built. */
+  areas: Record<string, Rect>;
   queueGap: number;
   piles: Record<string, Point>;
   pads: Record<string, Point>;

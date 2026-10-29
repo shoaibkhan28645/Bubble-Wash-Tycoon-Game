@@ -7,10 +7,18 @@ const modelFiles = Object.keys(import.meta.glob('../public/models/**/*.glb')).ma
 const padIds = PADS.map((p) => p.id);
 
 describe('pads.json', () => {
-  it('has the 19 location-1 pads in GDD order, ending with the truck', () => {
-    expect(PADS).toHaveLength(19);
+  it('has the 22 town-1 pads in order, from the free bay to the truck', () => {
+    expect(PADS).toHaveLength(22);
     expect(PADS[0]).toMatchObject({ id: 'bay1', cost: 0 });
-    expect(PADS[18]).toMatchObject({ id: 'truck', cost: 25000, effects: { endOfContent: true } });
+    expect(PADS.at(-1)).toMatchObject({ id: 'truck', cost: 25000, effects: { endOfContent: true } });
+  });
+
+  it('the fuel pump comes in the first ten minutes, before the first washer', () => {
+    const at = (id: string) => padIds.indexOf(id);
+    expect(PADS[at('pump1')]!.targetMinute).toBeLessThan(10);
+    expect(at('pump1')).toBeLessThan(at('washer'));
+    expect(at('attendant')).toBeGreaterThan(at('pump1'));
+    expect(at('pump2')).toBeGreaterThan(at('pump1'));
   });
 
   it('costs and target times only go up', () => {
@@ -48,6 +56,11 @@ describe('location1.json', () => {
   it('places pads that exist, starting with the free first bay', () => {
     for (const id of Object.keys(LOCATION1.pads)) expect(padIds).toContain(id);
     expect(LOCATION1.pads.bay1).toBeDefined();
+  });
+
+  it('every pump has its island and the forecourt a cash pile', () => {
+    for (const pad of PADS) if (pad.effects.pump) expect(LOCATION1.buildAt[pad.id], pad.id).toBeDefined();
+    expect(LOCATION1.piles.fuel).toBeDefined();
   });
 
   it('has a cash pile for every bay and the register', () => {

@@ -66,8 +66,9 @@ export function planRunner(
   return { kind: 'home' };
 }
 
-/** Where a worker stands beside a station: the side nearer the middle of the lot. */
+/** Where a worker stands beside a station: its own spot, else the side nearer the middle of the lot. */
 export function sideOf(station: Station, gap: number): Point {
+  if (station.side) return station.side;
   const left = station.at.x <= 0 || station.kind !== 'bay';
   const x = left ? station.zone.minX + gap : station.zone.maxX - gap;
   return { x, z: station.at.z };

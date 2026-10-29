@@ -11,13 +11,21 @@ import { upgradeCost } from './economy';
 const TITLES: Record<string, string> = {
   bay1: 'Hand wash bay 1',
   bay2: 'Hand wash bay 2',
+  pump1: 'Fuel pumps',
   dryer: 'Dryer station',
   wax: 'Waxing station',
   soap: 'Supply shelf',
   staffRoom: 'Staff room',
 };
-/** Staff targets get their role in front of the upgrade name. */
-const STAFF_NAMES: Record<string, string> = { washer: 'Washer', runner: 'Runner', dryerStaff: 'Dryer' };
+/** Staff targets get their role in front of the upgrade name; the pumps (one panel for both) their number. */
+const STAFF_NAMES: Record<string, string> = {
+  washer: 'Washer',
+  runner: 'Runner',
+  dryerStaff: 'Dryer',
+  attendant: 'Attendant',
+  pump1: 'Pump 1',
+  pump2: 'Pump 2',
+};
 /** The staff room opens once the register is built (minute 2). */
 const STAFF_ROOM_AFTER = 'register';
 

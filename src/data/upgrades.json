@@ -92,7 +92,10 @@
     "garage": 4,
     "cashier": 2,
     "valet": 2.2,
-    "manager": 1
+    "manager": 1,
+    "pump1": 1.2,
+    "pump2": 1.6,
+    "attendant": 1.2
   },
   "panels": {
     "bay1": [
@@ -106,6 +109,13 @@
       "bay2.speed",
       "bay2.quality",
       "bay2.queue"
+    ],
+    "pump1": [
+      "pump1.speed",
+      "pump1.quality",
+      "pump2.speed",
+      "pump2.quality",
+      "attendant.staffSpeed"
     ],
     "dryer": [
       "dryer.speed",

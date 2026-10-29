@@ -5,6 +5,7 @@ import { newGame } from '../src/core/gameState';
 import type { Car } from '../src/systems/cars';
 import { SOLID } from '../src/systems/buildings';
 import { Carrier } from '../src/systems/carry';
+import { Forecourt } from '../src/systems/forecourt';
 import { NavGrid } from '../src/systems/nav';
 import { pickStation, planRunner } from '../src/systems/staffPlan';
 import { Station } from '../src/systems/stations';
@@ -13,10 +14,10 @@ import type { SoundManager } from '../src/audio/sound';
 
 const silent = { play: () => {} } as unknown as SoundManager;
 
-/** Every solid prop from buildings.ts, at its pad (the whole lot built). */
+/** Every solid prop from buildings.ts, where it's built (the whole lot built). */
 function solids(): Rect[] {
   return Object.entries(SOLID).flatMap(([id, [hw, hd]]) => {
-    const at = LOCATION1.pads[id];
+    const at = LOCATION1.buildAt[id] ?? LOCATION1.pads[id];
     return at ? [{ minX: at.x - hw, maxX: at.x + hw, minZ: at.z - hd, maxZ: at.z + hd }] : [];
   });
 }
@@ -38,7 +39,7 @@ function walk(nav: NavGrid, from: Point, to: Point, obstacles: Rect[]): boolean 
 
 describe('staff pathfinding', () => {
   const obstacles = solids();
-  const nav = new NavGrid(LOCATION1.lot, obstacles, 0.45);
+  const nav = new NavGrid(LOCATION1.walk, obstacles, 0.45);
   const shelfSpot = { x: LOCATION1.pads.soap!.x, z: LOCATION1.pads.soap!.z + 1 };
 
   it('goes around the shelf when coming from bay 1 (used to walk into it and stop)', () => {
@@ -51,7 +52,11 @@ describe('staff pathfinding', () => {
   });
 
   it('reaches every station side and home spot from everywhere it works', () => {
-    const spots = [shelfSpot, { x: -3.9, z: -3 }, { x: 3.9, z: -3 }, ...Object.values(LOCATION1.staffSpots)];
+    const forecourt = new Forecourt(LOCATION1, null);
+    forecourt.addPump('pump1');
+    forecourt.addPump('pump2');
+    const pumpSides = forecourt.pumps.map((p) => p.side!);
+    const spots = [shelfSpot, { x: -3.9, z: -3 }, { x: 3.9, z: -3 }, ...pumpSides, ...Object.values(LOCATION1.staffSpots)];
     for (const a of spots) for (const b of spots) expect(walk(nav, a, b, obstacles)).toBe(true);
   });
 

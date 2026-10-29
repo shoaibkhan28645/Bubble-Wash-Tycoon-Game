@@ -1,6 +1,7 @@
 import { Group, type Object3D, type Scene } from 'three';
 import type { LocationLayout, Rect } from '../core/config';
 import { benchModel, hoseModel, registerModel, shelfModel, signModel, truckModel, vendingModel } from '../render/models/props';
+import { dispenserModel, forecourtModel, laneSide } from '../render/models/fuel';
 import { bayModel, dryerModel, garageModel, TunnelModel, waxModel } from '../render/models/stations';
 import { withShadows } from '../render/stage';
 
@@ -16,6 +17,7 @@ export const SOLID: Record<string, [number, number]> = {
   sign: [0.35, 0.35],
   tunnel: [1.8, 4.2],
   truck: [2.2, 1.1],
+  pump1: [1.7, 0.5],
 };
 
 interface Building {
@@ -39,7 +41,7 @@ export class Buildings {
   /** Shows the model for a pad id (no-op for pads without a model, e.g. staff). */
   show(id: string, animate: boolean): void {
     const mesh = this.model(id);
-    const at = this.layout.pads[id];
+    const at = this.layout.buildAt[id] ?? this.layout.pads[id];
     if (!mesh || !at) return;
     mesh.position.set(at.x, 0, at.z);
     mesh.name = `building:${id}`;
@@ -73,6 +75,8 @@ export class Buildings {
     if (id === 'register') return registerModel();
     if (id === 'soap') return shelfModel();
     if (id === 'bench') return benchModel();
+    if (id === 'pump1') return forecourtModel(this.layout, id);
+    if (id === 'pump2') return dispenserModel(laneSide(this.layout, id));
     const { width, length } = this.layout.station;
     if (id === 'dryer') return dryerModel(width, length);
     if (id === 'wax') return waxModel(width, length);

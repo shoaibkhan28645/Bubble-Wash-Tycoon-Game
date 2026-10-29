@@ -20,12 +20,14 @@ const ROLES = {
   valet: 'valet',
   manager: 'manager',
   garage: 'detailer',
+  attendant: 'attendant',
 } as const;
 export type Role = keyof typeof ROLES;
 
 /**
  * Stations each role works: the washer both bays, the dryer staff the dryer
- * and wax, the detailer the garage (and wax when the garage is empty).
+ * and wax, the detailer the garage (and wax when the garage is empty), the
+ * attendant the fuel pumps.
  */
 const WORKS: Record<Role, StationKind[]> = {
   washer: ['bay'],
@@ -35,10 +37,11 @@ const WORKS: Record<Role, StationKind[]> = {
   valet: [],
   manager: [],
   garage: ['garage', 'wax'],
+  attendant: ['pump'],
 };
 
 /** What each worker holds while working a station. */
-const TOOLS: Partial<Record<Role, Tool>> = { washer: 'sponge', dryerStaff: 'towel', garage: 'polisher' };
+const TOOLS: Partial<Record<Role, Tool>> = { washer: 'sponge', dryerStaff: 'towel', garage: 'polisher', attendant: 'nozzle' };
 
 const ARRIVE = 0.2;
 const PICK_UP_SECONDS = 0.7;
@@ -157,7 +160,7 @@ export class StaffSystem {
     private readonly labels: WorldLabels,
     private readonly cash: CashSystem,
   ) {
-    this.nav = new NavGrid(layout.lot, [], RADIUS);
+    this.nav = new NavGrid(layout.walk, [], RADIUS);
   }
 
   /** Hires the helper a built pad provides; they appear on the pad and walk to work. */
@@ -272,7 +275,7 @@ export class StaffSystem {
     const key = obstacles.map((o) => `${o.minX},${o.minZ}`).join('|');
     if (key === this.navKey) return;
     this.navKey = key;
-    this.nav = new NavGrid(this.layout.lot, obstacles, RADIUS);
+    this.nav = new NavGrid(this.layout.walk, obstacles, RADIUS);
   }
 
   private home(role: Role): Point {

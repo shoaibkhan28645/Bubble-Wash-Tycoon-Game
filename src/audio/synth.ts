@@ -1,7 +1,8 @@
 // Sound effects made in code where the CC0 packs have nothing that fits:
-// sponge squeaks, water spray, bubble pops, a car horn and a till bell.
+// sponge squeaks, water spray, bubble pops, a car horn, a till bell, fuel
+// glugging into a tank and the pump's beep.
 
-export type SynthSound = 'squeak' | 'spray' | 'pop' | 'honk' | 'bell';
+export type SynthSound = 'squeak' | 'spray' | 'pop' | 'honk' | 'bell' | 'glug' | 'beep';
 
 /** Small seeded random generator, so every run sounds the same. */
 function seeded(seed: number): () => number {
@@ -82,6 +83,38 @@ function bell(sampleRate: number): Float32Array {
   });
 }
 
+/** Fuel running into a tank: three low gulps, each a falling bubbly blip over a soft rush. */
+function glug(sampleRate: number, variant: number): Float32Array {
+  const rand = seeded(11 + variant);
+  let phase = 0;
+  let low = 0;
+  const gulps = [0, 0.11, 0.21].map((at, i) => [at, 210 + variant * 25 - i * 18] as const);
+  return render(sampleRate, 0.34, (t) => {
+    low += 0.08 * (rand() * 2 - 1 - low);
+    let freq = 160;
+    let env = 0;
+    for (const [at, f] of gulps) {
+      const u = t - at;
+      if (u < 0 || u > 0.1) continue;
+      freq = f * (1 - u * 2.4);
+      env = Math.sin((Math.PI * u) / 0.1);
+    }
+    phase += (2 * Math.PI * freq) / sampleRate;
+    return Math.sin(phase) * env * 0.55 + low * 0.5 * Math.min(1, t / 0.03) * Math.exp(-t * 4);
+  });
+}
+
+/** The pump's "done" beep: two quick tones from a little digital display. */
+function beep(sampleRate: number): Float32Array {
+  return render(sampleRate, 0.26, (t) => {
+    const freq = t < 0.1 ? 1320 : 1760;
+    const u = t < 0.1 ? t : t - 0.13;
+    const on = u >= 0 && u < 0.1 ? Math.min(1, u / 0.005, (0.1 - u) / 0.01) : 0;
+    // Softened square: a pure sine sounds too sweet for a machine.
+    return Math.tanh(2.5 * Math.sin(2 * Math.PI * freq * t)) * on * 0.35;
+  });
+}
+
 /** Every made-in-code sound, with its variants. */
 export function renderSynth(sampleRate: number): Record<SynthSound, Float32Array[]> {
   return {
@@ -90,5 +123,7 @@ export function renderSynth(sampleRate: number): Record<SynthSound, Float32Array
     pop: [pop(sampleRate)],
     honk: [honk(sampleRate)],
     bell: [bell(sampleRate)],
+    glug: [0, 1].map((v) => glug(sampleRate, v)),
+    beep: [beep(sampleRate)],
   };
 }

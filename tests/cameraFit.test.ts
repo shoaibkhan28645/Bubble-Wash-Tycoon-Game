@@ -63,3 +63,20 @@ describe('fitCameraToRect with a strip kept clear on the right', () => {
     expect(Math.min(...xs)).toBeGreaterThanOrEqual(-LIMIT - 1e-6);
   });
 });
+
+describe('fitCameraToRect with a strip kept clear at the top', () => {
+  it.each(ASPECTS)('keeps the lot below the cash and stars at aspect %f', (aspect) => {
+    const inset = 0.25;
+    const rect = LOCATION1.walk;
+    const { target, distance } = fitCameraToRect(FOV, aspect, VIEW_DIR, rect, HEIGHT, LIMIT, 0, inset);
+    const camera = new PerspectiveCamera(FOV, aspect, 0.1, 5000);
+    camera.position.copy(target).addScaledVector(VIEW_DIR, distance);
+    camera.lookAt(target);
+    camera.updateMatrixWorld();
+    const ys: number[] = [];
+    for (const x of [rect.minX, rect.maxX])
+      for (const y of [0, HEIGHT]) for (const z of [rect.minZ, rect.maxZ]) ys.push(new Vector3(x, y, z).project(camera).y);
+    expect(Math.max(...ys)).toBeLessThanOrEqual(LIMIT - inset + 1e-6);
+    expect(Math.min(...ys)).toBeGreaterThanOrEqual(-LIMIT - 1e-6);
+  });
+});

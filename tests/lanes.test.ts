@@ -82,7 +82,7 @@ describe('after the wash', () => {
 
 describe('pay', () => {
   const car = (payDef = def('sedan'), patience = 0) =>
-    ({ payDef, stages: [stage('prerinse')], quality: 1, patience, patienceMax: 50 }) as Parameters<typeof bill>[0];
+    ({ payDef, stages: [stage('prerinse')], served: ['wash'], quality: 1, patience, patienceMax: 50 }) as Parameters<typeof bill>[0];
 
   it('base pay, plus a tip only when served before half patience is used', () => {
     expect(bill(car())).toEqual({ pay: 15, tip: 0 });
@@ -97,6 +97,17 @@ describe('pay', () => {
   it('detailing doubles the pay', () => {
     const detailed = { ...car(), stages: [stage('prerinse'), stage('detail')] };
     expect(bill(detailed).pay).toBe(30);
+  });
+
+  it('fuel pays a share of base pay; fuel and a wash together pay the combo bonus', () => {
+    const fuel = TUNING.fuel.payFactor;
+    expect(bill({ ...car(), stages: [], served: ['fuel'] }).pay).toBe(Math.round(15 * fuel));
+    const combo = TUNING.tickets.combo[2]!;
+    expect(bill({ ...car(), served: ['fuel', 'wash'] }).pay).toBe(Math.round(15 * (1 + fuel) * combo));
+  });
+
+  it('a car that got nothing pays nothing', () => {
+    expect(bill({ ...car(), served: [] }).pay).toBe(0);
   });
 });
 
@@ -192,6 +203,7 @@ describe('tutorial hand', () => {
     shelf: at(4),
     lowBay: at(5),
     carryingSoap: false,
+    fuelCar: null,
   };
 
   it('points at the car, then the cash, then the soap, then an affordable pad', () => {
@@ -209,6 +221,15 @@ describe('tutorial hand', () => {
     expect(guideTarget(state, view)).toEqual(at(3));
   });
 
+  it('points at the first car at the fuel pump until the player has filled one up', () => {
+    const state = newGame();
+    state.flags.push('washed', 'collected', 'supplied');
+    state.cash = 50;
+    expect(guideTarget(state, { ...view, fuelCar: at(6) })).toEqual(at(6));
+    state.flags.push('fueled');
+    expect(guideTarget(state, { ...view, fuelCar: at(6) })).toEqual(at(3));
+  });
+
   it('goes away once the first washer is hired', () => {
     const state = newGame();
     state.unlocked.push('washer');
@@ -218,7 +239,7 @@ describe('tutorial hand', () => {
 });
 
 describe('location 1 has room for everything', () => {
-  it('all 19 pads have a place on the lot', () => {
+  it('every pad has a place on the lot', () => {
     for (const pad of PADS) expect(LOCATION1.pads[pad.id], pad.id).toBeDefined();
   });
 });

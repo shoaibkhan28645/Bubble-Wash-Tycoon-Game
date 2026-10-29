@@ -74,6 +74,20 @@ body {
   pointer-events: none;
 }
 
+.loading-title {
+  margin: 0;
+  font: 900 30px/1.1 system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  color: #2f80d1;
+  text-align: center;
+  text-shadow:
+    0 3px 0 #fff,
+    0 0 6px #fff;
+}
+
+.loading-title span {
+  color: #ff5fa8;
+}
+
 .loading-bubbles {
   display: flex;
   gap: 12px;
@@ -352,6 +366,72 @@ body {
 
 .floater-star {
   font-size: 26px;
+}
+
+.floater-combo {
+  color: #ff5fa8;
+  font-size: 17px;
+  letter-spacing: 0.5px;
+}
+
+/* A car's ticket: one icon per need, ticked off once served */
+.car-needs {
+  display: flex;
+  gap: 1px;
+}
+
+.car-needs:empty {
+  display: none;
+}
+
+.need {
+  position: relative;
+  font-size: 13px;
+  line-height: 1;
+}
+
+.need[data-done] {
+  opacity: 0.45;
+}
+
+.need[data-done]::after {
+  content: '✓';
+  position: absolute;
+  right: -3px;
+  bottom: -3px;
+  color: #3fae5a;
+  font: 900 11px/1 system-ui, sans-serif;
+  text-shadow: 0 0 2px #fff, 0 0 2px #fff;
+}
+
+/* Pump rings are the car's fuel gauge (small: the forecourt is across the road, further away) */
+.wash-ring[data-kind='pump'] {
+  position: relative;
+  width: 28px;
+  height: 28px;
+}
+
+.wash-ring[data-kind='pump']::after {
+  content: '⛽';
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-size: 13px;
+  line-height: 1;
+}
+
+.wash-ring[data-kind='pump'] .ring-fill {
+  stroke: #ffb800;
+}
+
+/* The driver at the pump is losing patience */
+.wash-ring.ring-hurry {
+  animation: bubble-shake 0.5s ease-in-out infinite;
+}
+
+.wash-ring.ring-hurry .ring-track {
+  fill: rgba(255, 92, 108, 0.55);
 }
 
 /* Station out of supplies: the ring turns into a red warning */

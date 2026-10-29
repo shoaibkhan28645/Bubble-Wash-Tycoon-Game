@@ -3,21 +3,25 @@ import type { Point, Rect } from '../core/config';
 import type { Label, WorldLabels } from '../ui/worldLabels';
 import type { Car } from './cars';
 
-export type StationKind = 'bay' | 'dryer' | 'wax' | 'garage' | 'tunnel';
+export type StationKind = 'bay' | 'dryer' | 'wax' | 'garage' | 'tunnel' | 'pump';
 
 /**
- * Bays: the ring floats above the arch. Dryer and wax are stacked down one
- * lane, so their rings sit beside them on the left, clear of each other.
+ * Bays: the ring floats above the arch; pumps: over the car, as its fuel
+ * gauge. Dryer and wax are stacked down one lane, so their rings sit beside
+ * them on the left, clear of each other.
  */
 function ringSpot(kind: StationKind, at: Point, width: number): Vector3 {
-  return kind === 'bay' ? new Vector3(at.x, 3.4, at.z) : new Vector3(at.x - width / 2 - 0.8, 1.8, at.z);
+  if (kind === 'bay') return new Vector3(at.x, 3.4, at.z);
+  if (kind === 'pump') return new Vector3(at.x, 1.9, at.z);
+  return new Vector3(at.x - width / 2 - 0.8, 1.8, at.z);
 }
 // Progress ring: track plus a fill whose dash length follows --p (0..100).
 const RING_SVG = `<svg viewBox="0 0 36 36" aria-hidden="true"><circle cx="18" cy="18" r="14" class="ring-track"/><circle cx="18" cy="18" r="14" class="ring-fill" pathLength="100"/></svg>`;
 
 /**
- * A place where cars get one kind of service: a hand-wash bay (with a line
- * of waiting cars), the dryer, or the waxing station. One car at a time.
+ * A place where cars get one kind of service: a hand-wash bay or a fuel
+ * pump (each with a line of waiting cars), the dryer, or the waxing
+ * station. One car at a time.
  */
 export class Station {
   /** The car parked here, or driving in. */
@@ -28,6 +32,8 @@ export class Station {
   readonly zone: Rect;
   /** Supply this station uses up per car (soap, towel, wax), or null. */
   supply: string | null = null;
+  /** Where a worker stands to work here, if not beside the zone's edge (at the pump, by the island). */
+  side: Point | null = null;
   private readonly ring: HTMLElement | null = null;
   private readonly label: Label | null = null;
 
@@ -49,6 +55,7 @@ export class Station {
     if (!labels) return;
     this.ring = document.createElement('div');
     this.ring.className = 'wash-ring';
+    this.ring.dataset.kind = kind;
     this.ring.innerHTML = RING_SVG;
     this.label = labels.add(this.ring, ringSpot(kind, at, size.width));
     this.label.visible = false;
@@ -64,12 +71,13 @@ export class Station {
     return this.car?.state === 'waiting';
   }
 
-  /** Shows the progress ring (and an "empty supply" warning) over the station. */
-  showProgress(visible: boolean, fraction: number, outOfSupply: boolean): void {
+  /** Shows the progress ring (and an "empty supply" warning, or that the driver is losing patience) over the station. */
+  showProgress(visible: boolean, fraction: number, outOfSupply: boolean, hurry = false): void {
     if (!this.label || !this.ring) return;
     this.label.visible = visible;
     this.ring.style.setProperty('--p', `${Math.round(fraction * 100)}`);
     this.ring.classList.toggle('ring-empty', outOfSupply);
+    this.ring.classList.toggle('ring-hurry', hurry);
     if (outOfSupply) this.ring.dataset.supply = this.supply ?? '';
   }
 }
