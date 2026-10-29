@@ -46,6 +46,8 @@ function manifest(): Record<string, string> {
   const files: Record<string, string> = {};
   for (const car of CARS) files[`car:${car.model}`] = `models/cars/${car.model}.glb`;
   files['car:delivery'] = 'models/cars/delivery.glb';
+  // Buildings modelled in Blender (art/blender).
+  files['building:tunnel'] = 'models/buildings/tunnel.glb';
   for (const person of [CHARACTERS.player, ...Object.values(CHARACTERS.staff)]) {
     files[`person:${person}`] = `models/people/character-${person}.glb`;
   }

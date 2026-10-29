@@ -3,7 +3,8 @@ import type { LocationLayout, Rect } from '../core/config';
 import { benchModel, hoseModel, registerModel, shelfModel, signModel, truckModel, vendingModel } from '../render/models/props';
 import { dispenserModel, forecourtModel, laneSide } from '../render/models/fuel';
 import { martModel, MART_TILL_Z } from '../render/models/mart';
-import { bayModel, dryerModel, garageModel, TunnelModel, waxModel } from '../render/models/stations';
+import { bayModel, dryerModel, garageModel, waxModel } from '../render/models/stations';
+import { TunnelModel } from '../render/models/tunnel';
 import { withShadows } from '../render/stage';
 
 const REVEAL_SECONDS = 0.45;
@@ -20,7 +21,12 @@ export const SOLID: Record<string, [number, number, number?, number?][]> = {
   bench: [[1.1, 0.35]],
   vending: [[0.65, 0.45]],
   sign: [[0.35, 0.35]],
-  tunnel: [[1.8, 4.2]],
+  // The tunnel, its water tank and its control box.
+  tunnel: [
+    [2.1, 4.3],
+    [0.5, 0.5, 2.62, 2.6],
+    [0.3, 0.45, -2.42, -1.6],
+  ],
   truck: [[2.2, 1.1]],
   pump1: [[1.7, 0.5]],
   mart: [
@@ -95,7 +101,7 @@ export class Buildings {
     if (id === 'sign') return signModel();
     if (id === 'garage') return garageModel(this.layout.garage.width, this.layout.garage.length);
     if (id === 'tunnel') {
-      this.tunnel = new TunnelModel(this.layout.tunnel.width, this.layout.tunnel.length);
+      this.tunnel = new TunnelModel();
       return this.tunnel.root;
     }
     if (id === 'truck') {

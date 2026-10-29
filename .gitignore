@@ -7,3 +7,4 @@ dist/
 # Kept local only, never committed
 CLAUDE.md
 docs/
+__pycache__/

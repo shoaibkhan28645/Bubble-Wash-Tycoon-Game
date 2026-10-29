@@ -1,8 +1,9 @@
-// Wash stations: hand bays, dryer, waxing, detailing garage and the brush
-// tunnel. All share the kit's tiled pad, columns and striped canopy.
-import { Group, Mesh, MeshLambertMaterial, TorusGeometry, type BufferGeometry } from 'three';
+// Wash stations: hand bays, dryer, waxing and the detailing garage. All
+// share the kit's tiled pad, columns and striped canopy. (The brush tunnel
+// is a Blender model: tunnel.ts.)
+import { Group, Mesh, TorusGeometry, type BufferGeometry } from 'three';
 import { box, cylinder, mergeParts, rbox, sphere, toyMaterial, type Part } from './build';
-import { C, canopy, column, plate, signFrame, stripedBeam, washPad } from './kit';
+import { C, canopy, plate, signFrame, washPad } from './kit';
 
 const geometries = new Map<string, BufferGeometry>();
 
@@ -116,76 +117,4 @@ export function garageModel(width: number, length: number): Group {
     return parts;
   });
   return withSign(body, length, 'DETAILING', '#9a7cf0', 2.3);
-}
-
-/** Automatic brush tunnel: walls with windows, striped arches, curtains at the entrance and spinning brushes. */
-export class TunnelModel {
-  readonly root = new Group();
-  private readonly brushes: Mesh[] = [];
-
-  constructor(width: number, length: number) {
-    const hx = width / 2 + 0.1;
-    const hz = length / 2 - 0.2;
-    const body = merged(`tunnel:${width}:${length}`, () => {
-      const parts: Part[] = [{ geometry: box(width + 0.2, 0.04, length), color: '#9aa5b3', y: 0.02 }];
-      for (const sx of [-0.5, 0.5]) parts.push({ geometry: rbox(0.18, 0.12, length - 0.4, 0.04), color: C.steel, x: sx, y: 0.08 });
-      // Side walls with a window band and a coloured trim.
-      for (const sx of [-1, 1]) {
-        parts.push({ geometry: rbox(0.24, 1.0, length - 0.5, 0.06), color: C.white, x: sx * hx, y: 0.5 });
-        parts.push({ geometry: rbox(0.2, 0.7, length - 0.5, 0.04), color: '#bfe3f7', x: sx * hx, y: 1.35 });
-        parts.push({ geometry: rbox(0.28, 0.14, length - 0.5, 0.04), color: C.pink, x: sx * hx, y: 1.75 });
-      }
-      const arches = 4;
-      for (let i = 0; i < arches; i++) {
-        const z = -hz + (i * 2 * hz) / (arches - 1);
-        for (const sx of [-1, 1]) parts.push(...column(sx * hx, z, i % 2 ? C.pink : C.blue));
-        parts.push(...stripedBeam(width + 0.8, 3.18, z, i % 2 ? C.pink : C.blue));
-      }
-      for (const sx of [-1, 1]) parts.push({ geometry: rbox(0.22, 0.24, length - 0.2, 0.06), color: C.white, x: sx * hx, y: 3.05 });
-      // Curtain strips at the entrance.
-      const strips = 9;
-      for (let i = 0; i < strips; i++) {
-        const x = -width / 2 + 0.25 + (i * (width - 0.5)) / (strips - 1);
-        parts.push({ geometry: rbox(0.22, 1.3, 0.04, 0.02), color: [C.blue, C.pink, C.yellow][i % 3]!, x, y: 2.25, z: -hz + 0.1 });
-      }
-      parts.push(...signFrame(-hz, 2.4));
-      return parts;
-    });
-    const sign = plate('TUNNEL', 2.3, 0.66, '#ff6fb0');
-    sign.position.set(0, 4.0, -hz + 0.065);
-    this.root.add(body, sign);
-
-    // Two pairs of fluffy side brushes and an overhead roller.
-    const brushMaterial = new MeshLambertMaterial({ vertexColors: true });
-    const side = mergeParts([
-      { geometry: cylinder(0.12, 2.3, 8), color: C.steel, y: 1.25 },
-      ...[0.45, 0.85, 1.25, 1.65, 2.05].map((y, i) => ({ geometry: cylinder(0.42, 0.34, 8), color: i % 2 ? C.pink : C.blue, y })),
-    ]);
-    for (const z of [-length / 4, length / 4]) {
-      for (const sx of [-1, 1]) {
-        const brush = new Mesh(side, brushMaterial);
-        brush.position.set(sx * (width / 2 - 0.45), 0, z);
-        this.brushes.push(brush);
-        this.root.add(brush);
-      }
-    }
-    const roller = new Mesh(
-      mergeParts([
-        { geometry: cylinder(0.1, width - 0.4, 8), color: C.steel, rz: Math.PI / 2 },
-        ...[-0.9, -0.3, 0.3, 0.9].map((x, i) => ({ geometry: cylinder(0.36, 0.5, 8), color: i % 2 ? C.mint : C.yellow, x, rz: Math.PI / 2 })),
-      ]),
-      brushMaterial,
-    );
-    roller.position.set(0, 2.2, 0);
-    this.brushes.push(roller);
-    this.root.add(roller);
-  }
-
-  update(dt: number, busy: boolean): void {
-    const speed = busy ? 9 : 1.5;
-    for (const brush of this.brushes) {
-      if (brush.position.y > 1) brush.rotation.x += dt * speed;
-      else brush.rotation.y += dt * speed * (brush.position.x > 0 ? 1 : -1);
-    }
-  }
 }
