@@ -106,8 +106,8 @@ export class Traffic {
     const station = new Station(padId, kind, at, size, padding, this.labels);
     // Washers stand inside the bay, between the car and its outer wall.
     if (kind === 'bay') station.side = bayWorkSpot(at);
-    // At the dryer, by the car's back end on the way out (its towers fill the sides).
-    if (kind === 'dryer') station.side = { x: at.x - 1.35, z: at.z + 2.2 };
+    // At the dryer and wax station, by the car's back end on the way out (their towers fill the sides).
+    if (kind === 'dryer' || kind === 'wax') station.side = { x: at.x - 1.35, z: at.z + 2.2 };
     if (kind === 'bay') this.bays.push(station);
     else {
       this.finishing.push(station);
@@ -130,9 +130,9 @@ export class Traffic {
     return (this.tunnel?.inside.length ?? 0) > 0;
   }
 
-  /** A car is being dried (the dryer's fan blasts). */
-  get dryerBusy(): boolean {
-    return this.finishing.some((s) => s.kind === 'dryer' && s.car?.state === 'waiting');
+  /** A car is being served at a finishing station of this kind (the dryer's fan blasts, the wax pads buff). */
+  busy(kind: StationKind): boolean {
+    return this.finishing.some((s) => s.kind === kind && s.car?.state === 'waiting');
   }
 
   update(dt: number, work: (station: Station) => Work, supplies: SupplyCheck): boolean {

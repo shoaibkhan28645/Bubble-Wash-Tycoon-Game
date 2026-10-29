@@ -4,7 +4,8 @@ import { benchModel, hoseModel, registerModel, shelfModel, signModel, truckModel
 import { dispenserModel, forecourtModel, laneSide } from '../render/models/fuel';
 import { martModel, MART_TILL_Z } from '../render/models/mart';
 import { DryerModel } from '../render/models/dryer';
-import { garageModel, waxModel } from '../render/models/stations';
+import { garageModel } from '../render/models/stations';
+import { WaxModel } from '../render/models/wax';
 import { washBayModel } from '../render/models/washBay';
 import { TunnelModel } from '../render/models/tunnel';
 import { withShadows } from '../render/stage';
@@ -48,6 +49,12 @@ export const SOLID: Record<string, [number, number, number?, number?][]> = {
     [0.25, 0.4, -2.65, 1.25],
     [0.27, 0.27, -2.65, 0.35],
   ],
+  // The wax station's towers and its cart.
+  wax: [
+    [0.36, 0.66, -1.95, 0],
+    [0.36, 0.66, 1.95, 0],
+    [0.32, 0.42, -2.6, 1.2],
+  ],
   pump1: [
     [1.7, 0.5],
     [0.35, 0.25, -5.9, 4.6],
@@ -72,6 +79,8 @@ export class Buildings {
   tunnel: TunnelModel | null = null;
   /** The dryer, once built (its fan spins). */
   dryer: DryerModel | null = null;
+  /** The wax station, once built (its pads spin). */
+  wax: WaxModel | null = null;
 
   constructor(
     private readonly scene: Scene,
@@ -97,10 +106,15 @@ export class Buildings {
     return this.solids;
   }
 
-  /** `busy`: a car in the tunnel (its brushes spin fast), at the dryer (its fan blasts). Returns true while a building is popping in. */
-  update(dt: number, busy: { tunnel: boolean; dryer: boolean } = { tunnel: false, dryer: false }): boolean {
+  /**
+   * `busy`: a car in the tunnel (its brushes spin fast), at the dryer (its
+   * fan blasts), at the wax station (its pads buff). Returns true while a
+   * building is popping in.
+   */
+  update(dt: number, busy: { tunnel: boolean; dryer: boolean; wax: boolean } = { tunnel: false, dryer: false, wax: false }): boolean {
     this.tunnel?.update(dt, busy.tunnel);
     this.dryer?.update(dt, busy.dryer);
+    this.wax?.update(dt, busy.wax);
     let growing = false;
     for (const b of this.built) {
       if (b.age >= REVEAL_SECONDS) continue;
@@ -120,12 +134,14 @@ export class Buildings {
     if (id === 'pump1') return forecourtModel(this.layout, id);
     if (id === 'pump2') return dispenserModel(laneSide(this.layout, id));
     if (id === 'mart') return martModel();
-    const { width, length } = this.layout.station;
     if (id === 'dryer') {
       this.dryer = new DryerModel();
       return this.dryer.root;
     }
-    if (id === 'wax') return waxModel(width, length);
+    if (id === 'wax') {
+      this.wax = new WaxModel();
+      return this.wax.root;
+    }
     if (id === 'vending') return vendingModel();
     if (id === 'sign') return signModel();
     if (id === 'garage') return garageModel(this.layout.garage.width, this.layout.garage.length);
