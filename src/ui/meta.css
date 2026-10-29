@@ -382,3 +382,158 @@
     display: none;
   }
 }
+
+/* Town goals bar, under the cash counter (beside it on wide screens). */
+.goals-bar {
+  position: absolute;
+  top: calc(env(safe-area-inset-top) + 58px);
+  left: calc(env(safe-area-inset-left) + 10px);
+  max-width: calc(100% - 92px);
+  min-height: 34px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px 8px 8px;
+  border: 0;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.94);
+  box-shadow: 0 2px 0 rgba(0, 0, 0, 0.12);
+  color: #2d3440;
+  font: 800 14px/1.1 system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  text-align: left;
+  overflow: hidden;
+  z-index: 5;
+}
+
+.goals-bar[hidden] {
+  display: none;
+}
+
+.goals-flag {
+  font-size: 18px;
+}
+
+.goals-count {
+  flex: none;
+  color: #2f80d1;
+}
+
+.goals-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.goals-track {
+  position: absolute;
+  left: 10px;
+  right: 10px;
+  bottom: 3px;
+  height: 4px;
+  border-radius: 2px;
+  background: #e6ebf1;
+}
+
+.goals-fill {
+  display: block;
+  height: 100%;
+  border-radius: 2px;
+  background: #5cc45c;
+}
+
+.goals-hot {
+  animation: side-pulse 1.1s ease-in-out infinite;
+  background: #fff3c4;
+}
+
+.goals-stars {
+  font: 900 15px/1.2 system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  color: #b07a00;
+  text-align: center;
+}
+
+@media (orientation: landscape) {
+  .goals-bar {
+    top: calc(env(safe-area-inset-top) + 10px);
+    max-width: max(120px, calc(50% - 190px));
+  }
+}
+
+@media (orientation: portrait) {
+  .toast {
+    top: calc(env(safe-area-inset-top) + 100px);
+  }
+}
+
+/* Contracts board */
+.contract-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+  text-align: left;
+}
+
+.contract-card {
+  display: grid;
+  grid-template-columns: 40px 1fr auto;
+  gap: 4px 8px;
+  align-items: center;
+  padding: 8px 10px;
+  border-radius: 14px;
+  background: #f3f6fa;
+}
+
+.contract-empty {
+  display: block;
+  padding: 14px 10px;
+  color: #6b7280;
+  font: 700 14px/1.3 system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  text-align: center;
+}
+
+.contract-icon {
+  grid-row: span 2;
+  font-size: 30px;
+  text-align: center;
+}
+
+.contract-client {
+  font: 700 12px/1.2 system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  color: #6b7280;
+}
+
+.contract-time {
+  align-self: start;
+  font: 700 12px/1.2 system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  color: #6b7280;
+  white-space: nowrap;
+}
+
+.contract-foot {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.contract-reward {
+  font: 900 16px/1.2 system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+}
+
+.contract-buttons {
+  display: flex;
+  gap: 6px;
+}
+
+.contract-double {
+  background: #ffb800;
+  box-shadow: 0 3px 0 #d18f00;
+}
+
+.contract-label .side-badge {
+  position: static;
+  margin-left: 4px;
+}

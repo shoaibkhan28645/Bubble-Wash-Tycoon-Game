@@ -1,0 +1,19 @@
+{
+  "slots": 3,
+  "refillMinutes": 10,
+  "cashGrowth": 1.12,
+  "kinds": [
+    { "id": "taxi", "client": "City Taxi Co.", "icon": "🚕", "task": "wash:sedan", "goal": 8, "minutes": 60, "cash": 30, "requires": "bay2" },
+    { "id": "rentals", "client": "Sunny Car Rentals", "icon": "🔑", "task": "wash", "goal": 25, "minutes": 90, "cash": 18 },
+    { "id": "builders", "client": "Rocky Builders", "icon": "🏗️", "task": "wash:pickup", "goal": 8, "minutes": 60, "cash": 40, "requires": "soap" },
+    { "id": "couriers", "client": "Speedy Couriers", "icon": "📦", "task": "fuel", "goal": 12, "minutes": 60, "cash": 25, "requires": "pump1" },
+    { "id": "roadtrip", "client": "Road Trip Club", "icon": "🗺️", "task": "combo", "goal": 10, "minutes": 60, "gems": 12, "requires": "pump1" },
+    { "id": "snacks", "client": "Snack Attack Club", "icon": "🍿", "task": "snack", "goal": 12, "minutes": 60, "gems": 10, "requires": "mart" },
+    { "id": "rangers", "client": "Park Rangers", "icon": "🌲", "task": "wash:suv", "goal": 8, "minutes": 90, "cash": 45, "requires": "dryer" },
+    { "id": "school", "client": "Maple School Run", "icon": "🚐", "task": "wash:minivan", "goal": 6, "minutes": 120, "cash": 60, "requires": "bench" },
+    { "id": "racers", "client": "Turbo Racing Team", "icon": "🏎️", "task": "wash:sports", "goal": 6, "minutes": 120, "cash": 80, "requires": "wax" },
+    { "id": "shine", "client": "Glossy Magazine", "icon": "✨", "task": "wax", "goal": 15, "minutes": 120, "gems": 15, "requires": "wax" },
+    { "id": "rally", "client": "Mud Rally League", "icon": "🛻", "task": "wash:monster", "goal": 4, "minutes": 180, "gems": 20, "requires": "tunnel" },
+    { "id": "limo", "client": "Star Limo Hire", "icon": "🎩", "task": "detail", "goal": 8, "minutes": 240, "cash": 120, "requires": "garage" }
+  ]
+}

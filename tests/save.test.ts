@@ -68,6 +68,10 @@ describe('parseSave', () => {
       playSeconds: 0,
       daily: { ...newDaily(), loginDay: 6 },
       boostSeconds: 0,
+      contracts: { slots: [], doubledDate: '' },
+      goals: { done: [], claimed: [] },
+      counts: {},
+      franchiseStars: 0,
       savedAt: 0,
     });
   });
@@ -80,9 +84,13 @@ describe('parseSave', () => {
       'boostSeconds',
       'building',
       'cash',
+      'contracts',
+      'counts',
       'daily',
       'flags',
+      'franchiseStars',
       'gems',
+      'goals',
       'levels',
       'location',
       'padPaid',
@@ -151,6 +159,32 @@ describe('old saves', () => {
     const { state } = parseSave(fixtures['./fixtures/save-v5.json']!);
     expect(state.daily).toMatchObject({ date: '2026-10-28', progress: [12, 8, 400], claimed: [false, true, false], loginDay: 3 });
     expect(state.boostSeconds).toBe(75);
+  });
+
+  it('gives players from before v7 an empty contracts board and no goals yet', () => {
+    const { state } = parseSave(fixtures['./fixtures/save-v6.json']!);
+    expect(state.contracts).toEqual({ slots: [], doubledDate: '' });
+    expect(state.goals).toEqual({ done: [], claimed: [] });
+    expect(state).toMatchObject({ counts: {}, franchiseStars: 0 });
+    expect(state.building.tunnel).toEqual({ endsAt: 1793300000000, halved: true });
+  });
+
+  it('keeps the contracts board, goals, counts and franchise stars', () => {
+    const { state } = parseSave(fixtures['./fixtures/save-v7.json']!);
+    expect(state.contracts.slots.map((s) => s.kind)).toEqual(['taxi', '', 'snacks']);
+    expect(state.contracts.slots[0]).toMatchObject({ goal: 8, progress: 3, cash: 1300 });
+    expect(state.contracts.doubledDate).toBe('2026-10-28');
+    expect(state.goals).toEqual({ done: ['fuel', 'mart'], claimed: ['fuel'] });
+    expect(state).toMatchObject({ counts: { combo: 14, contract: 1 }, franchiseStars: 1 });
+  });
+
+  it('turns a broken contract into an empty slot', () => {
+    const { state } = parseSave(JSON.stringify({ version: 7, contracts: { slots: [null, { kind: 'taxi', goal: 'x' }], doubledDate: 'soon' } }));
+    expect(state.contracts.slots).toEqual([
+      { kind: '', goal: 0, progress: 0, endsAt: 0, cash: 0, gems: 0 },
+      { kind: 'taxi', goal: 0, progress: 0, endsAt: 0, cash: 0, gems: 0 },
+    ]);
+    expect(state.contracts.doubledDate).toBe('');
   });
 
   it('clamps stars to 1–5', () => {

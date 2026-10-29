@@ -9,6 +9,8 @@ import charactersJson from '../data/characters.json';
 import upgradesJson from '../data/upgrades.json';
 import dailyJson from '../data/daily.json';
 import adsJson from '../data/ads.json';
+import contractsJson from '../data/contracts.json';
+import goalsJson from '../data/goals.json';
 
 export type Dirt = 'dusty' | 'muddy' | 'swamp';
 
@@ -60,6 +62,10 @@ export interface PadEffects {
   vending?: boolean;
   patienceBonus?: number;
   arrivalBonus?: number;
+  /** Added to every bill, e.g. 0.2 = +20% (the landmark). */
+  payBonus?: number;
+  /** The contracts board. */
+  contracts?: boolean;
   endOfContent?: boolean;
 }
 
@@ -71,6 +77,8 @@ export interface PadDef {
   adds: string;
   /** Seconds of construction after it's paid for (real time, also while away); instant if absent. */
   buildSeconds?: number;
+  /** Only offered once every town goal is done (the truck to the next town). */
+  afterGoals?: boolean;
   effects: PadEffects;
 }
 
@@ -91,6 +99,8 @@ export interface LocationLayout {
   lot: Rect;
   /** Where people can walk: the lot, the road and the forecourt across it. */
   walk: Rect;
+  /** Ground inside `walk` the player can't go (the grass beside the lot, when the walk reaches round it). */
+  blocked: Rect[];
   cameraBase: Rect;
   roadZ: number;
   spawnX: number;
@@ -186,6 +196,46 @@ export interface DailyData {
   carOfDay: { afterSeconds: number; payMultiplier: number; patience: number; cars: DayCarDef[] };
 }
 
+/** A fleet contract template: `goal` of one task before the time runs out, for cash (per unit, grown with the lot) or gems. */
+export interface ContractDef {
+  id: string;
+  client: string;
+  icon: string;
+  /** What counts: wash, wash:<car id>, fuel, snack, combo, wax, detail. */
+  task: string;
+  goal: number;
+  minutes: number;
+  cash?: number;
+  gems?: number;
+  /** Only offered once this pad is built. */
+  requires?: string;
+}
+
+export interface ContractsData {
+  slots: number;
+  /** An empty slot gets a new contract this long after the last one was claimed or ran out. */
+  refillMinutes: number;
+  /** Cash rewards grow by this much per pad built. */
+  cashGrowth: number;
+  kinds: ContractDef[];
+}
+
+/** A town goal: a pad built, a lifetime count reached, or a star rating. */
+export interface GoalDef {
+  id: string;
+  built?: string;
+  count?: string;
+  goal?: number;
+  stars?: number;
+  gems: number;
+}
+
+export interface GoalsData {
+  /** Franchise stars each goal earns when claimed. */
+  franchiseStars: number;
+  goals: GoalDef[];
+}
+
 export const CARS = carsJson as CarDef[];
 /** In unlock order. */
 export const PADS = padsJson as PadDef[];
@@ -198,6 +248,8 @@ export const UPGRADES = upgradesJson as UpgradesData;
 export const DAILY = dailyJson as DailyData;
 /** Rewarded ad rewards (and their gem prices) and interstitial limits. */
 export const ADS = adsJson;
+export const CONTRACTS = contractsJson as ContractsData;
+export const GOALS = goalsJson as GoalsData;
 
 export function padById(id: string): PadDef | undefined {
   return PADS.find((pad) => pad.id === id);

@@ -21,6 +21,29 @@ export interface Build {
   halved: boolean;
 }
 
+/** A contract on the board; `kind` is '' while the slot waits for a new one (until `endsAt`). */
+export interface Contract {
+  kind: string;
+  goal: number;
+  progress: number;
+  /** Wall-clock ms: when the contract runs out, or when an empty slot gets a new one. */
+  endsAt: number;
+  cash: number;
+  gems: number;
+}
+
+export interface ContractsState {
+  slots: Contract[];
+  /** Local date the once-a-day ad last doubled a contract's reward. */
+  doubledDate: string;
+}
+
+/** The town's goals: reached (they stay reached) and claimed. */
+export interface GoalsState {
+  done: string[];
+  claimed: string[];
+}
+
 export function newDaily(): DailyState {
   return { date: '', missions: [], goals: [], progress: [], claimed: [], loginDay: 0, loginDate: '', carOfDayDate: '' };
 }
@@ -59,6 +82,12 @@ export interface GameState {
   daily: DailyState;
   /** Seconds of 2× wash speed left (a rewarded ad boost). */
   boostSeconds: number;
+  contracts: ContractsState;
+  goals: GoalsState;
+  /** Lifetime counts the goals look at: "combo", "contract". */
+  counts: Record<string, number>;
+  /** Earned by town goals; they'll open travel and the franchise perks. */
+  franchiseStars: number;
   /** Wall-clock ms of the last save (0 = never saved). Used for offline earnings. */
   savedAt: number;
 }
@@ -81,6 +110,10 @@ export function newGame(): GameState {
     playSeconds: 0,
     daily: newDaily(),
     boostSeconds: 0,
+    contracts: { slots: [], doubledDate: '' },
+    goals: { done: [], claimed: [] },
+    counts: {},
+    franchiseStars: 0,
     savedAt: 0,
   };
 }

@@ -1,14 +1,15 @@
 // The balancing JSON must match the GDD tables and fit together.
 import { describe, expect, it } from 'vitest';
-import { CARS, CHARACTERS, DAILY, LOCATION1, PADS, STAGES } from '../src/core/config';
+import { CARS, CHARACTERS, CONTRACTS, DAILY, GOALS, LOCATION1, PADS, STAGES, padById } from '../src/core/config';
+import { t, type StringKey } from '../src/ui/strings';
 
 const modelFiles = Object.keys(import.meta.glob('../public/models/**/*.glb')).map((f) => f.replace('../public/', ''));
 
 const padIds = PADS.map((p) => p.id);
 
 describe('pads.json', () => {
-  it('has the 24 town-1 pads in order, from the free bay to the truck', () => {
-    expect(PADS).toHaveLength(24);
+  it('has the 26 town-1 pads in order, from the free bay to the truck', () => {
+    expect(PADS).toHaveLength(26);
     expect(PADS[0]).toMatchObject({ id: 'bay1', cost: 0 });
     expect(PADS.at(-1)).toMatchObject({ id: 'truck', cost: 25000, effects: { endOfContent: true } });
   });
@@ -70,6 +71,10 @@ describe('location1.json', () => {
     expect(LOCATION1.piles.register).toBeDefined();
   });
 
+  it("puts the walk's edges on the staff grid's half-metre cells, so work spots stay in free cells", () => {
+    for (const edge of [LOCATION1.walk.minX, LOCATION1.walk.minZ]) expect(Number.isInteger(edge * 2)).toBe(true);
+  });
+
   it('keeps pads apart so the player never stands on two', () => {
     const spots = Object.entries(LOCATION1.pads).filter(([id]) => !id.startsWith('bay'));
     for (let i = 0; i < spots.length; i++)
@@ -88,5 +93,50 @@ describe('models', () => {
     for (const person of [CHARACTERS.player, ...Object.values(CHARACTERS.staff)]) {
       expect(modelFiles).toContain(`models/people/character-${person}.glb`);
     }
+  });
+});
+
+describe('contracts.json and goals.json', () => {
+  it('every contract needs a real pad and counts something the game counts, with text for it', () => {
+    const tasks = ['wash', 'fuel', 'snack', 'combo', 'wax', 'detail', ...CARS.filter((c) => !c.vip).map((c) => `wash:${c.id}`)];
+    for (const def of CONTRACTS.kinds) {
+      if (def.requires) expect(padIds).toContain(def.requires);
+      expect(tasks).toContain(def.task);
+      expect(t(`task_${def.task}` as StringKey, { n: 1 })).not.toContain('task_');
+      expect(!!def.cash !== !!def.gems, def.id).toBe(true);
+      expect(def.minutes).toBeGreaterThanOrEqual(30);
+      expect(def.minutes).toBeLessThanOrEqual(240);
+    }
+    expect(new Set(CONTRACTS.kinds.map((d) => d.id)).size).toBe(CONTRACTS.kinds.length);
+  });
+
+  it('a car type is only asked for once it can arrive', () => {
+    for (const def of CONTRACTS.kinds) {
+      const car = CARS.find((c) => def.task === `wash:${c.id}`);
+      if (!car?.unlockedBy || car.unlockedBy === 'bay1') continue;
+      expect(padIds.indexOf(def.requires ?? 'bay1'), def.id).toBeGreaterThanOrEqual(padIds.indexOf(car.unlockedBy));
+    }
+  });
+
+  it('the board can always fill its slots with contracts that need no more than the board', () => {
+    const board = padIds.indexOf('board');
+    const early = CONTRACTS.kinds.filter((d) => !d.requires || padIds.indexOf(d.requires) < board);
+    expect(early.length).toBeGreaterThanOrEqual(CONTRACTS.slots);
+  });
+
+  it('has five to eight town goals, each with text, on real pads and counts', () => {
+    expect(GOALS.goals.length).toBeGreaterThanOrEqual(5);
+    expect(GOALS.goals.length).toBeLessThanOrEqual(8);
+    for (const goal of GOALS.goals) {
+      expect(t(`goal_${goal.id}` as StringKey)).not.toContain('goal_');
+      if (goal.built) expect(padIds).toContain(goal.built);
+      if (goal.count) expect(['combo', 'contract']).toContain(goal.count);
+    }
+    // The last goal is the landmark, and the truck waits for every goal.
+    expect(GOALS.goals.at(-1)?.built).toBe('landmark');
+    expect(PADS.find((p) => p.id === 'truck')?.afterGoals).toBe(true);
+    expect(padById('landmark')?.buildSeconds).toBeGreaterThanOrEqual(4 * 3600);
+    expect(padById('landmark')?.buildSeconds).toBeLessThanOrEqual(8 * 3600);
+    expect(LOCATION1.sites.landmark).toBeDefined();
   });
 });

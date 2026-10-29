@@ -1,7 +1,7 @@
-import { newDaily, newGame, type Build, type DailyState, type GameState } from './gameState';
+import { newDaily, newGame, type Build, type Contract, type ContractsState, type DailyState, type GameState } from './gameState';
 
 /** Bump when the save shape changes, and add a migration for the old version. */
-export const SAVE_VERSION = 6;
+export const SAVE_VERSION = 7;
 
 type SaveObject = Record<string, unknown>;
 export type Migration = (save: SaveObject) => SaveObject;
@@ -18,6 +18,8 @@ export const MIGRATIONS: Readonly<Record<number, Migration>> = {
   4: (save) => ({ ...save, daily: newDaily(), boostSeconds: 0 }),
   // v6: construction timers.
   5: (save) => ({ ...save, building: {} }),
+  // v7: contracts board, town goals, lifetime counts and franchise stars.
+  6: (save) => ({ ...save, contracts: { slots: [], doubledDate: '' }, goals: { done: [], claimed: [] }, counts: {}, franchiseStars: 0 }),
 };
 
 /**
@@ -82,6 +84,10 @@ export function serialize(state: GameState): string {
     playSeconds: Math.floor(state.playSeconds),
     daily: state.daily,
     boostSeconds: Math.ceil(state.boostSeconds),
+    contracts: state.contracts,
+    goals: state.goals,
+    counts: state.counts,
+    franchiseStars: state.franchiseStars,
   });
 }
 
@@ -104,6 +110,13 @@ function sanitize(save: SaveObject): GameState {
     playSeconds: nonNegative(save.playSeconds, fresh.playSeconds),
     daily: dailyState(save.daily),
     boostSeconds: nonNegative(save.boostSeconds, fresh.boostSeconds),
+    contracts: contractsState(save.contracts),
+    goals: {
+      done: stringList(isObject(save.goals) ? save.goals.done : []),
+      claimed: stringList(isObject(save.goals) ? save.goals.claimed : []),
+    },
+    counts: levelMap(save.counts),
+    franchiseStars: Math.floor(nonNegative(save.franchiseStars, fresh.franchiseStars)),
     savedAt: nonNegative(save.savedAt, fresh.savedAt),
   };
 }
@@ -131,6 +144,27 @@ function dailyState(value: unknown): DailyState {
     loginDay: Math.min(6, Math.floor(nonNegative(value.loginDay, 0))),
     loginDate: date(value.loginDate),
     carOfDayDate: date(value.carOfDayDate),
+  };
+}
+
+/** Board slots with readable numbers; anything odd becomes an empty slot that fills straight away. */
+function contractsState(value: unknown): ContractsState {
+  if (!isObject(value)) return { slots: [], doubledDate: '' };
+  const slots = Array.isArray(value.slots) ? value.slots : [];
+  const slot = (v: unknown): Contract => {
+    if (!isObject(v) || typeof v.kind !== 'string') return { kind: '', goal: 0, progress: 0, endsAt: 0, cash: 0, gems: 0 };
+    return {
+      kind: v.kind,
+      goal: nonNegative(v.goal, 0),
+      progress: nonNegative(v.progress, 0),
+      endsAt: nonNegative(v.endsAt, 0),
+      cash: nonNegative(v.cash, 0),
+      gems: Math.floor(nonNegative(v.gems, 0)),
+    };
+  };
+  return {
+    slots: slots.map(slot),
+    doubledDate: typeof value.doubledDate === 'string' && DATE.test(value.doubledDate) ? value.doubledDate : '',
   };
 }
 

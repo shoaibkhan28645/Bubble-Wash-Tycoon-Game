@@ -15,13 +15,14 @@ import type { SoundManager } from '../src/audio/sound';
 
 const silent = { play: () => {} } as unknown as SoundManager;
 
-/** Every solid prop from buildings.ts, where it's built (the whole lot built). */
+/** Every solid prop from buildings.ts, where it's built (the whole lot built), and the grass beside the lot. */
 function solids(): Rect[] {
-  return Object.entries(SOLID).flatMap(([id, boxes]) => {
+  const props = Object.entries(SOLID).flatMap(([id, boxes]) => {
     const at = LOCATION1.buildAt[id] ?? LOCATION1.pads[id];
     if (!at) return [];
     return boxes.map(([hw, hd, dx = 0, dz = 0]) => ({ minX: at.x + dx - hw, maxX: at.x + dx + hw, minZ: at.z + dz - hd, maxZ: at.z + dz + hd }));
   });
+  return [...props, ...LOCATION1.blocked];
 }
 
 /** Walks a path like the staff do and reports whether the target was reached without entering a prop. */

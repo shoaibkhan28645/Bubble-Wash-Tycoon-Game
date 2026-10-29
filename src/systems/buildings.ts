@@ -1,6 +1,6 @@
 import type { Object3D, Scene } from 'three';
 import type { LocationLayout, Rect } from '../core/config';
-import { benchModel, hoseModel, registerModel, shelfModel, signModel, truckModel, vendingModel } from '../render/models/props';
+import { benchModel, boardModel, hoseModel, registerModel, shelfModel, signModel, truckModel, vendingModel } from '../render/models/props';
 import { dispenserModel, forecourtModel, laneSide } from '../render/models/fuel';
 import { martModel, MART_TILL_Z } from '../render/models/mart';
 import { DryerModel } from '../render/models/dryer';
@@ -8,6 +8,7 @@ import { detailingModel } from '../render/models/detailing';
 import { WaxModel } from '../render/models/wax';
 import { washBayModel } from '../render/models/washBay';
 import { TunnelModel } from '../render/models/tunnel';
+import { LandmarkModel } from '../render/models/landmark';
 import { withShadows } from '../render/stage';
 
 const REVEAL_SECONDS = 0.45;
@@ -41,6 +42,10 @@ export const SOLID: Record<string, [number, number, number?, number?][]> = {
     [0.3, 0.45, -2.42, -1.6],
   ],
   truck: [[2.2, 1.1]],
+  // The contracts board's posts (the board is between them, up high).
+  board: [[1.15, 0.2]],
+  // The Duck Fountain's basin.
+  landmark: [[2.2, 2.2]],
   // The pump island and the price sign by the road.
   // The dryer's blower towers, its towel rack and laundry basket.
   dryer: [
@@ -89,6 +94,8 @@ export class Buildings {
   dryer: DryerModel | null = null;
   /** The wax station, once built (its pads spin). */
   wax: WaxModel | null = null;
+  /** The town's landmark, once built (its duck bobs). */
+  landmark: LandmarkModel | null = null;
 
   constructor(
     private readonly scene: Scene,
@@ -123,6 +130,7 @@ export class Buildings {
     this.tunnel?.update(dt, busy.tunnel);
     this.dryer?.update(dt, busy.dryer);
     this.wax?.update(dt, busy.wax);
+    this.landmark?.update(dt);
     let growing = false;
     for (const b of this.built) {
       if (b.age >= REVEAL_SECONDS) continue;
@@ -158,6 +166,11 @@ export class Buildings {
       return this.tunnel.root;
     }
     if (id === 'truck') return truckModel();
+    if (id === 'board') return boardModel();
+    if (id === 'landmark') {
+      this.landmark = new LandmarkModel();
+      return this.landmark.root;
+    }
     return null;
   }
 }

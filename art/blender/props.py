@@ -1,8 +1,8 @@
 """The small props, all in one file as separately named models (each with
 its origin at its own base): the garden hose reel, the pay kiosk, the
-supply shelf, the waiting bench, the vending machine, the roadside sign
-and the moving truck to the next town. Fronts face -Y (the camera); the
-truck drives towards +X. The game writes the signs' words.
+supply shelf, the waiting bench, the vending machine, the roadside sign,
+the moving truck to the next town and the contracts board. Fronts face -Y
+(the camera); the truck drives towards +X. The game writes the signs' words.
 
 Usage: python art/blender/props.py <out.glb> [preview.png]
 """
@@ -148,10 +148,30 @@ for dx in (-1.6, -0.4, 1.5):
         p.append(kit.cylinder(0.18, 0.32, (X + dx, sy * 0.9, 0.36), 'steel', verts=10, rot=(math.pi / 2, 0, 0)))
 finish(p, 'prop_truck', X)
 
+# Contracts board: a cork board in a wooden frame on two posts under a little
+# pitched roof, three contracts pinned up, and a header for the name.
+X = 16.0
+p = []
+for sx in (-1, 1):
+    p.append(kit.box((0.36, 0.36, 0.1), (X + sx * 1.0, 0, 0.05), 'kerb', bevel=0.03))
+    p.append(kit.box((0.14, 0.14, 2.75), (X + sx * 1.0, 0, 1.42), 'wood', bevel=0.03))
+p.append(kit.box((2.1, 0.14, 1.3), (X, 0, 1.55), 'wood', bevel=0.04))
+p.append(kit.box((1.9, 0.18, 1.1), (X, 0, 1.55), '#e0b07a', bevel=0.02))
+for dx, tilt, paper, pin in ((-0.6, 0.07, 'white', 'red'), (0.0, -0.05, '#fff3b0', 'blue'), (0.6, 0.09, '#ffd6ec', 'mint')):
+    p.append(kit.box((0.5, 0.02, 0.68), (X + dx, -0.1, 1.5), paper, bevel=0.0, rot=(0, tilt, 0)))
+    for i in range(3):
+        p.append(kit.box((0.3, 0.02, 0.04), (X + dx - 0.02, -0.115, 1.6 - i * 0.12), '#b8c2cf', bevel=0.0, rot=(0, tilt, 0)))
+    p.append(kit.sphere(0.055, (X + dx, -0.13, 1.79), pin, segments=8))
+p.append(kit.box((1.7, 0.12, 0.38), (X, -0.02, 2.42), 'deepblue', bevel=0.06))
+for sy in (-1, 1):
+    p.append(kit.box((2.5, 0.5, 0.08), (X, sy * 0.2, 2.8), 'hotpink', bevel=0.03, rot=(sy * 0.5, 0, 0)))
+p.append(kit.cylinder(0.06, 2.55, (X, 0, 2.92), 'white', verts=8, rot=(0, math.pi / 2, 0)))
+finish(p, 'prop_board', X)
+
 toy = kit.toy_material('toy')
 for obj in props:
     kit.use_material(obj, toy)
 print('triangles', {o.name: kit.triangles([o]) for o in props})
 kit.export(props + bases, sys.argv[1] if len(sys.argv) > 1 else 'props.glb')
 if len(sys.argv) > 2:
-    print(kit.preview(sys.argv[2], look_at=(2.0, 0, 1.5), distance=30, size=(1280, 640), angles=((0.4, -1, 0.9),)))
+    print(kit.preview(sys.argv[2], look_at=(4.5, 0, 1.5), distance=38, size=(1280, 640), angles=((0.4, -1, 0.9),)))

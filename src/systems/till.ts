@@ -8,6 +8,7 @@ import type { CashSystem } from './cash';
 import { nextStars, ticketPay, tipFor, type Outcome } from './economy';
 import type { Station } from './stations';
 import { comboMultiplier } from './tickets';
+import { unlockedSum } from './arrivals';
 
 /** What a car pays at checkout: everything on its ticket it got, its quality, the combo bonus, and a tip if it didn't wait long. */
 export function bill(car: Pick<Car, 'payDef' | 'stages' | 'served' | 'quality' | 'patience' | 'patienceMax'>): { pay: number; tip: number } {
@@ -41,7 +42,7 @@ export class Till {
 
   /** Pays for everything on the ticket the car got (a combo for several), plus a tip if it didn't wait long. */
   checkout(car: Car, last: Station): void {
-    const { pay, tip } = bill(car);
+    const { pay, tip } = this.bill(car);
     const pileId = last.kind === 'pump' ? 'fuel' : this.state.unlocked.includes('register') ? 'register' : last.id;
     const at = this.pay(pileId, pay + tip, last.at);
     this.floaters.show(`+$${pay}`, new Vector3(at.x, 1.2, at.z), car.vip ? 'tip' : 'cash');
@@ -55,7 +56,7 @@ export class Till {
   /** A car that ran out of patience still pays for what it got (its fuel), at the forecourt. */
   payServed(car: Car): void {
     if (car.served.length === 0) return;
-    const pay = bill(car).pay;
+    const pay = this.bill(car).pay;
     const at = this.pay('fuel', pay, car.position);
     this.floaters.show(`+$${pay}`, new Vector3(at.x, 1.2, at.z), 'cash');
     this.onPaid({ amount: pay, tip: 0, automated: !car.manual, at, car });
@@ -66,6 +67,13 @@ export class Till {
     this.cash.add('vending', TUNING.vending.pay);
     this.floaters.show(`+$${TUNING.vending.pay} 🥤`, new Vector3(at.x, 2.2, at.z), 'tip');
     this.onPaid({ amount: TUNING.vending.pay, tip: 0, automated: true, at });
+  }
+
+  /** The bill, with the lot's bonus on every bill (the landmark). */
+  private bill(car: Car): { pay: number; tip: number } {
+    const { pay, tip } = bill(car);
+    const bonus = unlockedSum(this.state, (e) => e.payBonus);
+    return bonus > 0 ? { pay: Math.round(pay * (1 + bonus)), tip } : { pay, tip };
   }
 
   rate(outcome: Outcome): void {

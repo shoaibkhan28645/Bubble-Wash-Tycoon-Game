@@ -7,6 +7,7 @@ import { PadModel } from '../render/models/padModel';
 import type { Label, WorldLabels } from '../ui/worldLabels';
 import { startBuild } from './construction';
 import { formatCash, padDrain } from './economy';
+import { allGoalsDone } from './townGoals';
 
 const COIN_SECONDS = 0.07;
 /** GDD minute 10: the big tunnel pad is shown early, locked, as the next big goal (once the dryer exists). */
@@ -84,9 +85,10 @@ export class PadSystem {
     this.build();
   }
 
-  /** Next pad in order that isn't built (or being built) and has a place on this lot. */
+  /** Next pad in order that isn't built (or being built) and has a place on this lot; the truck waits for the town goals. */
   private nextPad(): PadDef | undefined {
-    return PADS.find((pad) => !this.state.unlocked.includes(pad.id) && !this.state.building[pad.id] && this.layout.pads[pad.id]);
+    const pad = PADS.find((p) => !this.state.unlocked.includes(p.id) && !this.state.building[p.id] && this.layout.pads[p.id]);
+    return pad?.afterGoals && !allGoalsDone(this.state) ? undefined : pad;
   }
 
   /** A building's construction is done: it opens, with the usual fanfare. */

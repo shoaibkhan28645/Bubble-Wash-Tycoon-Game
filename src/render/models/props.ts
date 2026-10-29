@@ -1,6 +1,6 @@
 // Props around the lot, modelled in Blender (art/blender/props.py), all in
 // one file: hose reel, pay kiosk, supply shelf, bench, vending machine,
-// roadside sign and the moving truck to the next town.
+// roadside sign, the moving truck to the next town and the contracts board.
 import { Group, Mesh, type Object3D } from 'three';
 import { asset } from '../assets';
 import { toyMaterial } from './build';
@@ -54,3 +54,6 @@ export function signModel(): Object3D {
   }
   return group;
 }
+
+/** Contracts board: three contracts pinned up under a little roof (its name floats over the spot in front). */
+export const boardModel = (): Object3D => prop('prop_board');

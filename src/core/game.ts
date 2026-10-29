@@ -37,11 +37,14 @@ import { ConstructionSites } from '../render/models/site';
 import { takeFinished } from '../systems/construction';
 import { createMart } from './shops';
 import { EdgePointer } from '../ui/edgePointer';
+import { createTown } from './town';
 
 /** Width of the side button column plus its margins, in CSS pixels. */
 const SIDE_BAR_PX = 64;
 /** Height of the cash and stars bar at the top (the forecourt across the road sits just under it). */
 const HUD_PX = 56;
+/** On a tall screen the town goals bar sits under it. */
+const GOALS_BAR_PX = 40;
 /** How far past the built area the following camera may look, in metres. */
 const CAMERA_MARGIN = 2.5;
 /** More at the back: tall things there (the canopy's sign, the tunnel's) rise up the screen past their footprint. */
@@ -118,6 +121,7 @@ export function createGame(
       if (paid.automated) income.add(clock.now, paid.amount);
       else flag('washed');
       meta.onPaid(paid);
+      town.onPaid(paid);
     },
     mart,
   );
@@ -215,9 +219,10 @@ export function createGame(
 
   // Builds the free first bay before the first frame.
   // The side buttons take a strip on the right; the lot is framed beside them.
+  const hudPx = () => (stage.size.height > stage.size.width ? HUD_PX + GOALS_BAR_PX : HUD_PX);
   const fitSideBar = () => {
     rig.setRightInset(SIDE_BAR_PX, stage.size.width);
-    rig.setTopInset(HUD_PX, stage.size.height);
+    rig.setTopInset(hudPx(), stage.size.height);
     rig.refit();
   };
   fitSideBar();
@@ -242,6 +247,16 @@ export function createGame(
   const hoses = new FuelHoses(stage.scene, layout);
   const washSounds = new WashSounds(sound);
   const meta = createMeta({ root, state, saves, sound, traffic, pads, supplies });
+  const town = createTown({
+    root,
+    scene: stage.scene,
+    layout,
+    state,
+    labels,
+    sound,
+    save: () => void saves.saveNow(),
+    rewarded: (id) => meta.rewarded(id),
+  });
 
   /** What the tutorial hand can point at this frame. */
   const guideView = (): GuideView => {
@@ -267,7 +282,7 @@ export function createGame(
   const loop = new Loop((dt) => {
     clock.advance(dt);
     state.playSeconds += dt;
-    player.update(dt, input.read(), [...buildings.obstacles(), ...traffic.obstacles()], walkable);
+    player.update(dt, input.read(), [...buildings.obstacles(), ...layout.blocked, ...traffic.obstacles()], walkable);
     pads.update(dt, player.position);
     upgrades.update(dt, player.position);
     staff.update(dt, traffic.all(), supplies, buildings.obstacles(), (station) => insideRect(player.position, station.zone), traffic.valetCall);
@@ -297,6 +312,7 @@ export function createGame(
     effects.update(dt);
     saves.update(dt);
     meta.update(dt);
+    town.update(dt, player.position);
 
     const padRect = JSON.stringify(pads.footprint) + upgrades.footprints().length + Object.keys(state.building).join();
     if (padRect !== lastPadRect) {
@@ -310,7 +326,7 @@ export function createGame(
     // Off screen, the tutorial's next step or a pad the player can now afford gets an arrow at the edge.
     const next = pads.next;
     const goal = guide ?? (next && state.cash >= next.owed ? next.at : null);
-    pointer.update(stage.camera, stage.size.width, stage.size.height, goal, { top: HUD_PX, right: SIDE_BAR_PX });
+    pointer.update(stage.camera, stage.size.width, stage.size.height, goal, { top: hudPx(), right: SIDE_BAR_PX });
     hud.update(dt, state.cash, state.stars, state.gems);
     for (const ticker of tickers) ticker(dt);
   });

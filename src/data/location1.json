@@ -1,7 +1,8 @@
 {
   "name": "Dusty Roadside Lot",
   "lot": { "minX": -7.5, "maxX": 11, "minZ": -13.5, "maxZ": 20.2 },
-  "walk": { "minX": -7.5, "maxX": 11, "minZ": -29, "maxZ": 20.2 },
+  "walk": { "minX": -14.5, "maxX": 11, "minZ": -29, "maxZ": 20.2 },
+  "blocked": [{ "minX": -30, "maxX": -7.5, "minZ": -13.5, "maxZ": 30 }],
   "cameraBase": { "minX": -6.6, "maxX": 1.2, "minZ": -15.5, "maxZ": 6 },
   "roadZ": -15.5,
   "spawnX": -34,
@@ -35,11 +36,13 @@
   "sites": {
     "mart": { "x": 9, "z": -23.5, "width": 5, "depth": 5.2 },
     "tunnel": { "x": 7.4, "z": -7.6, "width": 3.8, "depth": 8.8 },
-    "garage": { "x": 7.4, "z": 15.4, "width": 4.4, "depth": 5 }
+    "garage": { "x": 7.4, "z": 15.4, "width": 4.4, "depth": 5 },
+    "landmark": { "x": -11.2, "z": -23, "width": 6.8, "depth": 6.8 }
   },
   "areas": {
     "pump1": { "minX": -6.6, "maxX": 6.2, "minZ": -29, "maxZ": -17 },
-    "mart": { "minX": 6.2, "maxX": 11.6, "minZ": -27, "maxZ": -17 }
+    "mart": { "minX": 6.2, "maxX": 11.6, "minZ": -27, "maxZ": -17 },
+    "landmark": { "minX": -14.5, "maxX": -6.6, "minZ": -27, "maxZ": -17 }
   },
   "queueGap": 4.3,
   "piles": {
@@ -67,6 +70,7 @@
     "pump2": { "x": -0.5, "z": -25.5 },
     "dryerStaff": { "x": 3.4, "z": 9.2 },
     "wax": { "x": 7.4, "z": 10.4 },
+    "board": { "x": -5.6, "z": 14.4 },
     "vending": { "x": -6.1, "z": -12.4 },
     "sign": { "x": 4.5, "z": -12.4 },
     "tunnel": { "x": 7.4, "z": -7.6 },
@@ -74,6 +78,7 @@
     "valet": { "x": -2.2, "z": 13.8 },
     "manager": { "x": 3.4, "z": 13.4 },
     "garage": { "x": 7.4, "z": 15.4 },
+    "landmark": { "x": -11.2, "z": -21.4 },
     "truck": { "x": -1.6, "z": 17.8 }
   },
   "upgradePads": {

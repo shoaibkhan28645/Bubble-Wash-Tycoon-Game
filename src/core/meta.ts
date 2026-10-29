@@ -33,6 +33,8 @@ export interface Meta {
   welcomeBack(earned: { cash: number; seconds: number }): void;
   /** A screen was closed (end of content): an interstitial may play. */
   screenClosed(): void;
+  /** Plays a rewarded ad for a button the player tapped; true if watched to the end. */
+  rewarded(rewardId: string): Promise<boolean>;
 }
 
 export function createMeta(deps: {
@@ -256,5 +258,6 @@ export function createMeta(deps: {
     screenClosed() {
       void ads.betweenScreens();
     },
+    rewarded: (rewardId) => ads.rewarded(rewardId),
   };
 }
