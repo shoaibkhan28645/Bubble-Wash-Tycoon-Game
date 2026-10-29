@@ -15,12 +15,22 @@ import kit  # noqa: E402
 
 kit.reset()
 props = []
+bases = []
 
 
 def finish(parts, name, x):
-    obj = kit.join(parts, name)
+    # The mesh sits in a named empty at the prop's base: shrinking the file
+    # (quantizing) moves and scales the mesh's own node, so the game places
+    # the empty and leaves the mesh's node as it is.
+    obj = kit.join(parts, name + '_mesh')
     kit.set_origin(obj, (x, 0, 0))
+    base = kit.bpy.data.objects.new(name, None)
+    kit.bpy.context.scene.collection.objects.link(base)
+    base.location = (x, 0, 0)
+    obj.location = (0, 0, 0)
+    obj.parent = base
     props.append(obj)
+    bases.append(base)
 
 
 # Garden hose: a wheeled reel cart with a coiled yellow hose, a spray gun and a puddle.
@@ -142,6 +152,6 @@ toy = kit.toy_material('toy')
 for obj in props:
     kit.use_material(obj, toy)
 print('triangles', {o.name: kit.triangles([o]) for o in props})
-kit.export(props, sys.argv[1] if len(sys.argv) > 1 else 'props.glb')
+kit.export(props + bases, sys.argv[1] if len(sys.argv) > 1 else 'props.glb')
 if len(sys.argv) > 2:
-    print(kit.preview(sys.argv[2], look_at=(1.5, 0, 1.5), distance=26, size=(1280, 640), angles=((0.4, -1, 0.9),)))
+    print(kit.preview(sys.argv[2], look_at=(2.0, 0, 1.5), distance=30, size=(1280, 640), angles=((0.4, -1, 0.9),)))

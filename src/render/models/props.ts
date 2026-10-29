@@ -6,7 +6,7 @@ import { asset } from '../assets';
 import { toyMaterial } from './build';
 import { plate } from './kit';
 
-/** One prop out of the shared file, standing on its own base at the origin. */
+/** One prop out of the shared file, standing on its own base at the origin (the mesh inside keeps its own node, which quantizing moved). */
 function prop(name: string): Object3D {
   const source = asset('building:props').scene.getObjectByName(name);
   if (!source) throw new Error(`No prop called ${name}`);
