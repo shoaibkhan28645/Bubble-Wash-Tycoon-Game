@@ -108,6 +108,8 @@ export class Traffic {
     if (kind === 'bay') station.side = bayWorkSpot(at);
     // At the dryer and wax station, by the car's back end on the way out (their towers fill the sides).
     if (kind === 'dryer' || kind === 'wax') station.side = { x: at.x - 1.35, z: at.z + 2.2 };
+    // In the garage, beside the car between the lift post and the way out.
+    if (kind === 'garage') station.side = { x: at.x - 1.3, z: at.z + 1.2 };
     if (kind === 'bay') this.bays.push(station);
     else {
       this.finishing.push(station);

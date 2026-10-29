@@ -4,7 +4,7 @@ import { benchModel, hoseModel, registerModel, shelfModel, signModel, truckModel
 import { dispenserModel, forecourtModel, laneSide } from '../render/models/fuel';
 import { martModel, MART_TILL_Z } from '../render/models/mart';
 import { DryerModel } from '../render/models/dryer';
-import { garageModel } from '../render/models/stations';
+import { detailingModel } from '../render/models/detailing';
 import { WaxModel } from '../render/models/wax';
 import { washBayModel } from '../render/models/washBay';
 import { TunnelModel } from '../render/models/tunnel';
@@ -54,6 +54,14 @@ export const SOLID: Record<string, [number, number, number?, number?][]> = {
     [0.36, 0.66, -1.95, 0],
     [0.36, 0.66, 1.95, 0],
     [0.32, 0.42, -2.6, 1.2],
+  ],
+  // The detailing garage's walls, and its tool chest, tyre stack and vacuum outside.
+  garage: [
+    [0.14, 2.05, -2.0, 0],
+    [0.14, 2.05, 2.0, 0],
+    [0.27, 0.42, -2.55, -0.5],
+    [0.4, 0.4, -2.55, 1.3],
+    [0.3, 0.3, 2.55, 1.3],
   ],
   pump1: [
     [1.7, 0.5],
@@ -144,7 +152,7 @@ export class Buildings {
     }
     if (id === 'vending') return vendingModel();
     if (id === 'sign') return signModel();
-    if (id === 'garage') return garageModel(this.layout.garage.width, this.layout.garage.length);
+    if (id === 'garage') return detailingModel();
     if (id === 'tunnel') {
       this.tunnel = new TunnelModel();
       return this.tunnel.root;
