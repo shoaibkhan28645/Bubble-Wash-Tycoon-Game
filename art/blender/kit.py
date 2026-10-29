@@ -95,6 +95,12 @@ def cylinder(radius, depth, at, col, verts=16, bevel=0.0, rot=(0, 0, 0)):
     return _finish(bpy.context.object, col, bevel, 1, rot)
 
 
+def cone(radius_bottom, radius_top, depth, at, col, verts=16, rot=(0, 0, 0)):
+    """A tapered cylinder (a cup, a lampshade)."""
+    bpy.ops.mesh.primitive_cone_add(vertices=verts, radius1=radius_bottom, radius2=radius_top, depth=depth, location=at)
+    return _finish(bpy.context.object, col, rot=rot)
+
+
 def sphere(radius, at, col, segments=12):
     bpy.ops.mesh.primitive_uv_sphere_add(segments=segments, ring_count=max(4, segments // 2), radius=radius, location=at)
     return _finish(bpy.context.object, col)
