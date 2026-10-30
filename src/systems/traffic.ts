@@ -1,5 +1,5 @@
 import { Vector3 } from 'three';
-import { PADS, TUNING, UPGRADES, type LocationLayout, type Point, type Rect } from '../core/config';
+import { PADS, TUNING, UPGRADES, type LocationLayout, type Point } from '../core/config';
 import type { GameState } from '../core/gameState';
 import type { Particles } from '../render/effects/particles';
 import type { SoundManager } from '../audio/sound';
@@ -122,11 +122,6 @@ export class Traffic {
   all(): Station[] {
     const counter = this.mart.isOpen ? [this.mart.counter] : [];
     return [...this.bays, ...(this.tunnel ? [this.tunnel] : []), ...this.finishing, ...this.forecourt.pumps, ...counter];
-  }
-
-  /** Parked cars block the player. */
-  obstacles(): Rect[] {
-    return [...this.bays, ...this.finishing, ...this.forecourt.pumps].flatMap((s) => (s.car && s.car.state !== 'entering' ? [s.car.footprint] : []));
   }
 
   /** A car is in the tunnel (its brushes spin fast). */

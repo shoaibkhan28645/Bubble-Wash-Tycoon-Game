@@ -102,6 +102,11 @@ export class Mart {
     car.shopping = false;
   }
 
+  /** Where the shoppers are walking (cars wait for people in front of them). */
+  positions(): Point[] {
+    return this.shoppers.map((s) => s.at);
+  }
+
   /** People out and about (for the play-test bot). */
   get count(): number {
     return this.shoppers.length;

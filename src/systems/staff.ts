@@ -8,6 +8,7 @@ import { levelFactor, levelStep } from './economy';
 import { NavGrid } from './nav';
 import { pickStation, planRunner, sideOf } from './staffPlan';
 import { insideRect, type Station, type StationKind } from './stations';
+import { carAhead } from './roadRules';
 import type { Supplies } from './supplies';
 import type { CashSystem } from './cash';
 
@@ -52,7 +53,8 @@ const RADIUS = 0.45;
 const SIDE = 0.9;
 /** Re-plan the route this often, in case the way changed. */
 const REPLAN_SECONDS = 1.5;
-
+/** Kept waiting by a car this long, a helper finds a way round it. */
+const CAR_WAIT_SECONDS = 1.5;
 /** One hired helper: walks a planned route, works a station or carries supplies, takes coffee breaks. */
 class Helper {
   readonly avatar: PersonAvatar;
@@ -68,6 +70,8 @@ class Helper {
   hold = 0;
   private path: Point[] = [];
   private pathFor: Point | null = null;
+  /** Seconds kept waiting by a car in the way. */
+  private held = 0;
   private replan = 0;
   private heading = 0;
   private readonly bubble: Label | null;
@@ -95,9 +99,24 @@ class Helper {
     return { x: this.avatar.root.position.x, z: this.avatar.root.position.z };
   }
 
-  /** Follows a route around obstacles to the target; returns true once there. */
-  walk(dt: number, speed: number, nav: NavGrid): boolean {
+  /**
+   * Follows a route around obstacles to the target; returns true once there.
+   * Waits for a car in the way, and after a while finds a way round it.
+   */
+  walk(dt: number, speed: number, nav: NavGrid, cars: readonly Rect[], aroundCars: (from: Point, to: Point) => Point[]): boolean {
     const p = this.avatar.root.position;
+    const ahead = this.path[0];
+    if (ahead && carAhead(this.position, ahead, cars)) {
+      this.held += dt;
+      if (this.held > CAR_WAIT_SECONDS) {
+        this.held = 0;
+        this.path = aroundCars(this.position, this.target);
+        this.pathFor = { ...this.target };
+        this.replan = REPLAN_SECONDS;
+      }
+      return false;
+    }
+    this.held = 0;
     const left = Math.hypot(this.target.x - p.x, this.target.z - p.z);
     if (left <= ARRIVE) {
       // Close enough to count as there, but still step onto the spot itself: a work
@@ -185,6 +204,11 @@ export class StaffSystem {
     this.helpers.push(helper);
   }
 
+  /** Where everyone is (cars wait for people in front of them). */
+  positions(): Point[] {
+    return this.helpers.map((h) => h.position);
+  }
+
   carriers(): Carrier[] {
     return this.helpers.flatMap((h) => (h.carrier ? [h.carrier] : []));
   }
@@ -204,8 +228,15 @@ export class StaffSystem {
     playerAt: (station: Station) => boolean,
     /** Where the valet is needed (a car just moved to another line), if anywhere. */
     valetCall: Point | null,
+    /** Every car's footprint: helpers wait for them, or go round. */
+    cars: readonly Rect[] = [],
   ): void {
     this.refreshNav(obstacles);
+    let withCars: NavGrid | null = null;
+    const aroundCars = (from: Point, to: Point): Point[] => {
+      withCars ??= new NavGrid(this.layout.walk, [...obstacles, ...fixedSolids(this.layout), ...cars], RADIUS);
+      return withCars.findPath(from, to);
+    };
     // Golden VIPs are the player's to serve, until the manager is hired.
     const manager = this.state.unlocked.includes('manager');
     for (const helper of this.helpers) {
@@ -226,7 +257,7 @@ export class StaffSystem {
         helper.assigned = pickStation(stations, WORKS[helper.role], helper.assigned, skip);
         helper.target = helper.assigned ? sideOf(helper.assigned, SIDE) : this.home(helper.role);
       }
-      const there = helper.walk(dt, speed, this.nav);
+      const there = helper.walk(dt, speed, this.nav, cars, aroundCars);
       // Work starts as soon as the helper is beside the station, even before the exact spot.
       const station = helper.assigned;
       helper.working = station && insideRect(helper.position, station.zone) ? station : null;

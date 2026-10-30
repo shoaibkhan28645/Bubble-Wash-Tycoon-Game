@@ -4,6 +4,9 @@ import type { WorldLabels } from '../ui/worldLabels';
 import type { Car } from './cars';
 import { Station } from './stations';
 
+/** Between the cars waiting for the tunnel, middle to middle. */
+const SLOT_GAP = 4.6;
+
 /**
  * Automatic brush tunnel (GDD: runs itself on a conveyor, 3 in a line). Cars
  * drive to the entrance, then the conveyor carries them through; the next
@@ -38,9 +41,9 @@ export class Tunnel extends Station {
     return false;
   }
 
-  /** Where a waiting car parks before the entrance. */
+  /** Where a waiting car parks before the entrance (room for a monster truck at the entrance). */
   slot(index: number): Point {
-    return { x: this.at.x, z: this.entry.z - 3.4 * (index + 1) };
+    return { x: this.at.x, z: this.entry.z - SLOT_GAP * (index + 1) };
   }
 
   /**

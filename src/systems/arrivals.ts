@@ -14,6 +14,8 @@ export type Lane = Station | Tunnel;
 
 /** The valet walks to a car it moved, then back to its spot after this long. */
 const VALET_CALL_SECONDS = 4;
+/** A new car only comes on where the road is clear this far either side. */
+const SPAWN_ROOM = 6;
 
 /** Where the `index`-th waiting car parks in a lane's line. */
 export function slotOf(lane: Lane, index: number, layout: LocationLayout): Point {
@@ -67,7 +69,7 @@ export class Arrivals {
     const signBonus = unlockedSum(this.state, (e) => e.arrivalBonus);
     const interval = spawnSeconds(TUNING.cars.spawnSeconds, this.state.stars, TUNING.stars.arrivalPerStar, signBonus);
     this.spawnTimer = Math.min(interval, this.spawnTimer + dt);
-    if (this.spawnTimer < interval) return;
+    if (this.spawnTimer < interval || !this.roadClear()) return;
     const types = this.availableCars();
     const def = types[Math.floor(Math.random() * types.length)];
     if (!def) return;
@@ -134,6 +136,7 @@ export class Arrivals {
 
   /** A golden VIP at the front of a bay line. Pays 5× (its payMultiplier) the best regular car on the lot. */
   private addVip(): boolean {
+    if (!this.roadClear()) return false;
     const vip = CARS.find((c) => c.vip);
     const best = this.bestCar();
     const lane = vip && this.washLaneFor(vip, true);
@@ -146,6 +149,7 @@ export class Arrivals {
 
   /** The Car of the Day: joins the shortest bay line and pays its multiplier on the best regular car. Returns false if there's no room. */
   addSpecial(def: CarDef, patience: number): boolean {
+    if (!this.roadClear()) return false;
     const best = this.bestCar();
     const lane = best && this.washLaneFor(def, false);
     if (!best || !lane) return false;
@@ -158,6 +162,13 @@ export class Arrivals {
 
   private bestCar(): CarDef | null {
     return this.availableCars().reduce<CarDef | null>((a, b) => (!a || b.basePay > a.basePay ? b : a), null);
+  }
+
+  /** No car where a new one comes on along the road (passing traffic uses the lane too). */
+  private roadClear(): boolean {
+    const { spawnX } = this.layout;
+    const z = this.roadIn;
+    return ![...this.pool.active].some((car) => Math.abs(car.position.z - z) < 1.2 && Math.abs(car.position.x - spawnX) < SPAWN_ROOM);
   }
 
   /** Where cars drive in along the road: the near side. */

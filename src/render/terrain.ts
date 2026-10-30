@@ -249,6 +249,8 @@ function scenery(layout: LocationLayout): Group {
       const x = (rand() - 0.5) * 50;
       const z = lot.minZ - 12 + rand() * (lot.maxZ - lot.minZ + 26);
       if (blocked(x, z, kind.margin)) continue;
+      // Nothing solid where people walk (small plants are fine to brush past).
+      if (kind.margin >= 1 && inside(x, z, layout.walk, kind.margin)) continue;
       if (kind.near && !inside(x, z, lot, kind.near)) continue;
       items.push({ x, z, s: kind.scale[0] + rand() * (kind.scale[1] - kind.scale[0]), r: rand() * Math.PI * 2 });
     }
@@ -260,7 +262,7 @@ function scenery(layout: LocationLayout): Group {
     const z = roadZ - 4.6 - rand() * 1.5;
     const s = 2.6 + rand() * 0.8;
     const r = rand() * 6;
-    if (!areas.some((a) => inside(x, z, a, 1.2)) && !blocked(x, z, 0)) row.push({ x, z, s, r });
+    if (!areas.some((a) => inside(x, z, a, 1.2)) && !blocked(x, z, 0) && !inside(x, z, layout.walk, 1)) row.push({ x, z, s, r });
   }
   for (const t of layout.streetTrees) row.push({ x: t.x, z: t.z, s: 2.6 + rand() * 0.6, r: rand() * 6 });
   group.add(scatter('nature:tree_oak', row));

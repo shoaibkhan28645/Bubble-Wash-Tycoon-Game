@@ -1,9 +1,10 @@
 // People out for a stroll (no business at the car wash): they walk the
 // pavements along routes from the layout, cross at the zebra crossings,
 // sometimes stop to look in a shop window, and leave at the far end.
-import { TUNING, type Point } from '../core/config';
+import { TUNING, type Point, type Rect } from '../core/config';
 import { between } from './economy';
 import type { Walker } from './mart';
+import { carAhead } from './roadRules';
 
 type Spot = Point & { look?: number };
 
@@ -16,7 +17,12 @@ interface Stroller {
   pauseLeft: number;
   speed: number;
   passed: number;
+  /** Seconds kept waiting by a car in the way. */
+  held: number;
 }
+
+/** Kept waiting by a car this long, someone out walking squeezes past. */
+const CAR_WAIT_SECONDS = 3;
 
 export class Pedestrians {
   private readonly strollers: Stroller[] = [];
@@ -31,6 +37,8 @@ export class Pedestrians {
     /** A person to show (null in tests: nobody is drawn, but the walking still happens). */
     private readonly makeWalker: () => Walker,
     private readonly rand: () => number = Math.random,
+    /** Every car's footprint: people wait for a car in their way. */
+    private readonly cars: () => readonly Rect[] = () => [],
   ) {}
 
   /** Where everyone is (passing cars stop for people on the road). */
@@ -85,6 +93,7 @@ export class Pedestrians {
       pauseLeft: between(t.pauseSeconds, this.rand),
       speed: between(t.walkSpeed, this.rand),
       passed: 0,
+      held: 0,
     });
   }
 
@@ -95,6 +104,13 @@ export class Pedestrians {
       s.walker.update(dt, 0, false);
       return;
     }
+    const ahead = s.path[0];
+    if (ahead && s.held < CAR_WAIT_SECONDS && carAhead(s.at, ahead, this.cars())) {
+      s.held += dt;
+      s.walker.update(dt, 0, false);
+      return;
+    }
+    s.held = 0;
     let budget = s.speed * dt;
     while (budget > 0 && s.path.length > 0) {
       const next = s.path[0]!;

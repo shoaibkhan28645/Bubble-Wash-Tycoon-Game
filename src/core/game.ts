@@ -1,6 +1,6 @@
 import { Loop } from './loop';
 import { GameClock } from './clock';
-import { LOCATION1, PADS, TUNING, UPGRADES, fixedSolids } from './config';
+import { LOCATION1, PADS, TUNING, UPGRADES, fixedSolids, type Rect } from './config';
 import type { GameState } from './gameState';
 import type { Lifecycle } from './lifecycle';
 import type { SaveManager } from './save';
@@ -13,7 +13,8 @@ import { Hud } from '../ui/hud';
 import { WorldLabels } from '../ui/worldLabels';
 import { Input } from '../systems/input';
 import { Player } from '../systems/player';
-import { CarPool } from '../systems/cars';
+import { Car, CarPool } from '../systems/cars';
+import { RoadRules } from '../systems/roadRules';
 import { CashSystem } from '../systems/cash';
 import { Traffic, type Paid, type Work } from '../systems/traffic';
 import { insideRect, type Station } from '../systems/stations';
@@ -110,9 +111,12 @@ export function createGame(
     onboarding?.onPaid(paid);
   };
   const traffic = new Traffic(pool, layout, state, cash, effects, sound, labels, floaters, onPaid, mart);
-  const street = createStreetLife(stage.scene, layout, pool);
+  /** Every car's footprint this frame: nobody walks through a car, parked or moving. */
+  let carRects: Rect[] = [];
+  const street = createStreetLife(stage.scene, layout, pool, () => carRects);
 
   const staff = new StaffSystem(stage.scene, layout, state, labels, cash);
+  Car.rules = new RoadRules(() => pool.active, () => [player.position, ...staff.positions(), ...mart.positions(), ...street.people()]);
 
   const addBuilt = (id: string, animate: boolean): void => {
     buildings.show(id, animate);
@@ -206,10 +210,11 @@ export function createGame(
   const loop = new Loop((dt) => {
     clock.advance(dt);
     state.playSeconds += dt;
-    player.update(dt, input.read(), [...buildings.obstacles(), ...fixed, ...traffic.obstacles()], view.walkable);
+    carRects = [...pool.active].filter((car) => car.model.mesh.visible && car.state !== 'angry').map((car) => car.footprint);
+    player.update(dt, input.read(), [...buildings.obstacles(), ...fixed, ...carRects], view.walkable);
     pads.update(dt, player.position);
     upgrades.update(dt, player.position);
-    staff.update(dt, traffic.all(), supplies, buildings.obstacles(), (station) => insideRect(player.position, station.zone), traffic.valetCall);
+    staff.update(dt, traffic.all(), supplies, buildings.obstacles(), (station) => insideRect(player.position, station.zone), traffic.valetCall, carRects);
     supplies.update(dt, [playerCarry, ...staff.carriers()]);
     playerCarry.update(dt, player.isMoving);
     player.scrubbing = traffic.update(dt, work, supplies);

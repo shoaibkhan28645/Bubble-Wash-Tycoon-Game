@@ -47,9 +47,21 @@ export class Journeys {
     if (front?.state === 'done') done.push({ car: front, from: this.lot.tunnel! });
     let first: Car | undefined;
     for (const { car, from } of done) {
-      if (nextStop(this.lot.finishing, from, car.wantsDetail) === next && (!first || car.timer > first.timer)) first = car;
+      if (nextStop(this.lot.finishing, from, car.wantsDetail) === next && this.wayClear(from, next) && (!first || car.timer > first.timer)) first = car;
     }
     return first;
+  }
+
+  /**
+   * The finishing lane runs through every station: a car skipping one (the
+   * tunnel's cars skip the dryer) can only set off once nobody is in the
+   * stations on its way, or it would end up waiting behind a car that is
+   * itself waiting for the station it just claimed.
+   */
+  private wayClear(from: Station, next: Station): boolean {
+    const stations = this.lot.finishing;
+    const start = stations.indexOf(from) + 1;
+    return stations.slice(start, stations.indexOf(next)).every((s) => !s.car);
   }
 
   /** After a short pause, go to the next free station, or pay and leave. */
@@ -72,7 +84,7 @@ export class Journeys {
     const next = nextStop(this.lot.finishing, from, car.wantsDetail);
     if (next) {
       // Wait here until the next station is free and it's this car's turn.
-      if (next.car || this.firstInLine(next) !== car) return;
+      if (next.car || !this.wayClear(from, next) || this.firstInLine(next) !== car) return;
       this.leave(from, car);
       next.car = car;
       car.station = next;

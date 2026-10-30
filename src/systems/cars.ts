@@ -57,6 +57,9 @@ export class Car {
   private approach: Point[] = [];
   private heading = 0;
 
+  /** Who has to wait for whom on the road; none in tests. */
+  static rules: { blocked(car: Car, dt: number): boolean } | null = null;
+
   constructor(readonly model: CarModel) {}
 
   get position(): Point {
@@ -70,9 +73,21 @@ export class Car {
   /** Footprint for blocking the player while parked. */
   get footprint(): Rect {
     const { x, z } = this.position;
-    const hw = this.def.size[0] / 2;
-    const hl = this.def.size[2] / 2;
+    // Long along whichever way it faces (cars at the pumps face along the road).
+    const along = Math.abs(Math.sin(this.heading)) > Math.SQRT1_2;
+    const hw = this.def.size[along ? 2 : 0] / 2;
+    const hl = this.def.size[along ? 0 : 2] / 2;
     return { minX: x - hw, maxX: x + hw, minZ: z - hl, maxZ: z + hl };
+  }
+
+  /** Which way it faces (radians, 0 = +z). */
+  get facing(): number {
+    return this.heading;
+  }
+
+  /** The next point it's driving to, if it's on the move. */
+  get nextPoint(): Point | null {
+    return this.path[0] ?? null;
   }
 
   /** Wants this but hasn't had it yet. */
@@ -136,6 +151,11 @@ export class Car {
 
   update(dt: number, speed: number): void {
     const next = this.path[0];
+    // Something in the way: wait for it to clear (the road rules decide).
+    if (next && Car.rules?.blocked(this, dt)) {
+      this.model.animate(dt, false);
+      return;
+    }
     this.model.animate(dt, !!next);
     if (!next) return;
     const p = this.model.mesh.position;

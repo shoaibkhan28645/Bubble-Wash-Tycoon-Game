@@ -280,11 +280,13 @@ export const GOALS = goalsJson as GoalsData;
 
 /** Half the gap in the lot's side hedge where each driveway goes out (art: render/terrain.ts). */
 const DRIVEWAY_GAP = 1.75;
+/** Half the width of a street tree's trunk. */
+const TRUNK = 0.35;
 
 /**
  * Ground nobody walks through, whatever is built: off the lot, the flower
- * beds, town pieces set on the lot, and the hedge along the side street
- * (open at the driveways).
+ * beds, town pieces set on the lot, the hedge along the side street (open
+ * at the driveways) and the street trees.
  */
 export function fixedSolids(layout: LocationLayout): Rect[] {
   const town = layout.town.flatMap((p) => (p.solid ? [{ minX: p.x - p.solid[0], maxX: p.x + p.solid[0], minZ: p.z - p.solid[1], maxZ: p.z + p.solid[1] }] : []));
@@ -295,7 +297,8 @@ export function fixedSolids(layout: LocationLayout): Rect[] {
     if (z - DRIVEWAY_GAP > from) hedge.push({ minX: lot.maxX + 0.1, maxX: lot.maxX + 0.8, minZ: from, maxZ: z - DRIVEWAY_GAP });
     from = z + DRIVEWAY_GAP;
   }
-  return [...layout.blocked, ...layout.planters, ...town, ...hedge];
+  const trees = layout.streetTrees.map((t) => ({ minX: t.x - TRUNK, maxX: t.x + TRUNK, minZ: t.z - TRUNK, maxZ: t.z + TRUNK }));
+  return [...layout.blocked, ...layout.planters, ...town, ...hedge, ...trees];
 }
 
 export function padById(id: string): PadDef | undefined {
