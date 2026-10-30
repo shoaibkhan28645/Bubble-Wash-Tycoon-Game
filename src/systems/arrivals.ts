@@ -73,6 +73,11 @@ export class Arrivals {
     if (!def) return;
     const canServe = (need: Need) => need === 'wash' || (need === 'fuel' && this.forecourt.pumps.length > 0) || (need === 'snack' && this.snacks());
     let needs = rollTicket(canServe, Math.random);
+    // GDD Onboarding: once the fuel pump opens, the next car wants fuel and a wash, to show the combo.
+    if (this.forecourt.pumps.length > 0 && !this.state.flags.includes('firstCombo')) {
+      this.state.flags.push('firstCombo');
+      needs = ['fuel', 'wash'];
+    }
     if (needs[0] === 'fuel') {
       if (this.forecourt.hasRoom) {
         this.addFuelCar(def, needs);
@@ -87,6 +92,21 @@ export class Arrivals {
     if (!lane) return;
     this.addCar(def, def, lane, lane.queue.length);
     this.spawnTimer = 0;
+  }
+
+  /**
+   * A new game opens on a muddy car already in the first bay, ready to wash
+   * (GDD Onboarding: the best moment first, no waiting). It waits as long as
+   * it takes.
+   */
+  parkFirstCar(): void {
+    const lane = this.lanes()[0];
+    const def = this.availableCars()[0];
+    if (!lane || lane instanceof Tunnel || !def || lane.car || lane.queue.length > 0) return;
+    const car = this.pool.acquire();
+    car.spawn({ ...def, dirt: 'muddy' }, lane.at, [], lane.at, def);
+    car.patienceMax = car.patience = TUNING.onboarding.firstCarPatience;
+    lane.queue.push(car);
   }
 
   /** Golden VIP (GDD): first at 5:00 of play, then every 3–5 minutes; goes to the front of a bay line. */

@@ -9,7 +9,7 @@ import { hasModel, loadModel } from '../render/assets';
 import { Ads } from '../systems/ads';
 import { finishGems, formatClock, halveBuild, secondsLeft, soonestBuild } from '../systems/construction';
 import { addProgress, carOfDay, claimable, claimCalendar, claimMission, localDate, rollDay } from '../systems/daily';
-import { tutorialActive } from '../systems/guide';
+import { sideButtonOpen, tutorialActive } from '../systems/guide';
 import type { PadSystem } from '../systems/pads';
 import type { Supplies } from '../systems/supplies';
 import type { Paid, Traffic } from '../systems/traffic';
@@ -172,8 +172,11 @@ export function createMeta(deps: {
     save();
   };
 
+  const available = (action: SideAction): boolean => sideButtonOpen(state, action);
+
   const progress = (kind: Parameters<typeof addProgress>[1], amount = 1): void => {
-    if (addProgress(state, kind, amount).length === 0) return;
+    // Missions open with the Mini-Mart; until then they count quietly.
+    if (addProgress(state, kind, amount).length === 0 || !available('missions')) return;
     toast(root, `✅ ${t('missionDone')}`);
     sound.play('mission');
   };
@@ -208,6 +211,7 @@ export function createMeta(deps: {
         convoyWait: Math.max(0, convoyReadyAt - sessionSeconds),
         refill: sessionSeconds < refillUntil,
         finish: pads.nearlyAffordable(ADS.finishPad.fraction),
+        available,
         build: (() => {
           const next = soonestBuild(state);
           return next ? Math.max(1, secondsLeft(next.build, Date.now())) : 0;

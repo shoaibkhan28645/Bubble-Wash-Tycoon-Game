@@ -679,6 +679,18 @@ body {
 }
 
 /* The tutorial's pointing hand */
+/* Above the hand, which is centred on the same point. */
+.guide-words {
+  margin-top: -46px;
+  padding: 4px 10px;
+  border-radius: 12px;
+  background: rgba(45, 52, 64, 0.88);
+  color: #fff;
+  font: 800 14px/1.2 system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  text-align: center;
+  white-space: nowrap;
+}
+
 .guide-hand {
   font-size: 40px;
   line-height: 1;

@@ -14,6 +14,8 @@ export interface SideView {
   finish: boolean;
   /** Seconds left on the building going up soonest (0 = nothing being built). */
   build: number;
+  /** Whether the player has got far enough for this button (GDD Onboarding: they appear one by one). */
+  available: (action: SideAction) => boolean;
 }
 
 export type SideAction = 'calendar' | 'missions' | 'speed' | 'convoy' | 'refill' | 'finish' | 'build';
@@ -22,7 +24,11 @@ interface SideButton {
   el: HTMLButtonElement;
   badge: HTMLElement;
   shown: string;
+  visible: boolean;
 }
+
+/** A button that has just appeared glows this long. */
+const NEW_GLOW_MS = 4000;
 
 const ICONS: Record<SideAction, string> = { calendar: '🎁', missions: '📋', speed: '⚡', convoy: '👑', refill: '🧴', finish: '🏗️', build: '🚧' };
 
@@ -37,6 +43,8 @@ const clock = (seconds: number) =>
  */
 export class SideBar {
   private readonly buttons = new Map<SideAction, SideButton>();
+  /** The first update only sets up what's there; buttons that appear later glow. */
+  private started = false;
 
   constructor(root: HTMLElement, onTap: (action: SideAction) => void) {
     const bar = document.createElement('div');
@@ -53,19 +61,21 @@ export class SideBar {
       el.appendChild(badge);
       el.addEventListener('click', () => onTap(action));
       bar.appendChild(el);
-      this.buttons.set(action, { el, badge, shown: '' });
+      this.buttons.set(action, { el, badge, shown: '', visible: false });
     }
     root.appendChild(bar);
   }
 
   update(view: SideView): void {
-    this.set('calendar', true, view.calendar ? '!' : '', view.calendar);
-    this.set('missions', true, view.missions ? String(view.missions) : '', view.missions > 0);
-    this.set('speed', true, view.speedLeft > 0 ? clock(view.speedLeft) : '📺', view.speedLeft > 0);
-    this.set('convoy', true, view.convoyWait > 0 ? clock(view.convoyWait) : '📺', false, view.convoyWait > 0);
-    this.set('refill', view.refill, '📺', false);
-    this.set('finish', view.finish, '📺', false);
-    this.set('build', view.build > 0, clock(view.build), false);
+    const open = view.available;
+    this.set('calendar', open('calendar'), view.calendar ? '!' : '', view.calendar);
+    this.set('missions', open('missions'), view.missions ? String(view.missions) : '', view.missions > 0);
+    this.set('speed', open('speed'), view.speedLeft > 0 ? clock(view.speedLeft) : '📺', view.speedLeft > 0);
+    this.set('convoy', open('convoy'), view.convoyWait > 0 ? clock(view.convoyWait) : '📺', false, view.convoyWait > 0);
+    this.set('refill', view.refill && open('refill'), '📺', false);
+    this.set('finish', view.finish && open('finish'), '📺', false);
+    this.set('build', view.build > 0 && open('build'), clock(view.build), false);
+    this.started = true;
   }
 
   /** visible, badge text, highlighted (pulsing), and greyed out (still tappable for info). */
@@ -75,6 +85,12 @@ export class SideBar {
     if (key === b.shown) return;
     b.shown = key;
     b.el.hidden = !visible;
+    // Newly unlocked (not just a pop-up offer like refill): it glows for a moment.
+    if (visible && !b.visible && this.started && action !== 'refill' && action !== 'finish' && action !== 'build') {
+      b.el.classList.add('side-new');
+      setTimeout(() => b.el.classList.remove('side-new'), NEW_GLOW_MS);
+    }
+    b.visible = visible;
     b.badge.textContent = badge;
     b.badge.hidden = !badge;
     b.el.classList.toggle('side-hot', hot);

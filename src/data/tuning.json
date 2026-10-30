@@ -38,6 +38,12 @@
   "vip": { "firstSeconds": 300, "minSeconds": 180, "maxSeconds": 300 },
   "valet": { "checkSeconds": 1 },
   "guide": { "height": 3.2 },
+  "onboarding": {
+    "firstCarPatience": 600,
+    "adsAfterSeconds": 300,
+    "upgradesAfter": "bay2",
+    "sideButtons": { "calendar": "washer", "missions": "mart", "speed": "bay2", "convoy": "dryer" }
+  },
   "pads": { "fillSeconds": 2, "minDrainPerSecond": 20, "radius": 1.15, "revealDelay": 0.6, "upgradeRadius": 0.9 },
   "supplies": { "shelfCapacity": 8, "restockSeconds": 3, "carryBase": 3, "handSeconds": 0.15, "reach": 1.6 },
   "staff": { "workRate": 0.85, "walkSpeed": 4, "workSeconds": 45, "breakSeconds": 8 },

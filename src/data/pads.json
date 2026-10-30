@@ -7,7 +7,7 @@
   { "id": "soap", "name": "Soap shelf", "cost": 400, "targetMinute": 4, "adds": "Foam stage, +50% pay, carrying", "effects": { "stage": "foam" } },
   { "id": "washer", "name": "Washer", "cost": 800, "targetMinute": 6, "adds": "Runs bay 1 alone", "effects": { "staff": "washer" } },
   { "id": "attendant", "name": "Fuel attendant", "cost": 900, "targetMinute": 7, "adds": "Runs the fuel pumps", "effects": { "staff": "attendant" } },
-  { "id": "mart", "name": "Mini-Mart", "cost": 950, "targetMinute": 7.5, "adds": "Drivers at the pumps buy snacks", "buildSeconds": 300, "effects": { "mart": true } },
+  { "id": "mart", "name": "Mini-Mart", "cost": 950, "targetMinute": 7.5, "adds": "Drivers at the pumps buy snacks", "buildSeconds": 30, "effects": { "mart": true } },
   { "id": "dryer", "name": "Dryer station", "cost": 1000, "targetMinute": 8, "adds": "Dry stage, +30% pay, SUVs arrive", "effects": { "stage": "dry", "station": "dryer" } },
   { "id": "runner", "name": "Runner", "cost": 1200, "targetMinute": 11, "adds": "Carries supplies", "effects": { "staff": "runner" } },
   { "id": "clerk", "name": "Shop clerk", "cost": 1350, "targetMinute": 12, "adds": "Runs the Mini-Mart till", "effects": { "staff": "clerk" } },

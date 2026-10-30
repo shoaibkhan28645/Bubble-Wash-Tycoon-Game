@@ -121,8 +121,9 @@ export class UpgradePads {
     return target === 'player' || this.state.unlocked.includes(target);
   }
 
-  /** Shows a pad once its station is built (the staff room after the register). */
+  /** Shows a pad once its station is built (the staff room after the register), none until the second bay (one thing at a time). */
   private showAvailable(): void {
+    if (!this.state.unlocked.includes(TUNING.onboarding.upgradesAfter)) return;
     for (const id of Object.keys(this.layout.upgradePads)) {
       if (this.pads.has(id)) continue;
       const needs = id === 'staffRoom' ? STAFF_ROOM_AFTER : id;

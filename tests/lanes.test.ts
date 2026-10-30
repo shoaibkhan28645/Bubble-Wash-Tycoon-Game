@@ -5,7 +5,8 @@ import { CARS, LOCATION1, PADS, STAGES, TUNING } from '../src/core/config';
 import { newGame } from '../src/core/gameState';
 import type { Car } from '../src/systems/cars';
 import { jobSeconds } from '../src/systems/economy';
-import { guideTarget, tutorialActive, type GuideView } from '../src/systems/guide';
+import { guideTarget, sideButtonOpen, tutorialActive, type GuideView } from '../src/systems/guide';
+import { t } from '../src/ui/strings';
 import { canUse, nextStop, pickRebalance, type Lane } from '../src/systems/lanes';
 import { bill } from '../src/systems/traffic';
 import { Tunnel } from '../src/systems/tunnel';
@@ -204,30 +205,47 @@ describe('tutorial hand', () => {
     lowBay: at(5),
     carryingSoap: false,
     fuelCar: null,
+    upgrade: null,
   };
+  const where = (state: ReturnType<typeof newGame>, v: GuideView) => guideTarget(state, v)?.at ?? null;
 
   it('points at the car, then the cash, then the soap, then an affordable pad', () => {
     const state = newGame();
-    expect(guideTarget(state, view)).toEqual(at(1));
+    expect(guideTarget(state, view)).toEqual({ at: at(1), text: 'guideWash' });
     state.flags.push('washed');
-    expect(guideTarget(state, view)).toEqual(at(2));
+    expect(where(state, view)).toEqual(at(2));
     state.flags.push('collected');
-    expect(guideTarget(state, view)).toEqual(at(4));
-    expect(guideTarget(state, { ...view, carryingSoap: true })).toEqual(at(5));
+    expect(where(state, view)).toEqual(at(4));
+    expect(where(state, { ...view, carryingSoap: true })).toEqual(at(5));
     state.flags.push('supplied');
     state.cash = 10;
     expect(guideTarget(state, view)).toBeNull();
     state.cash = 50;
-    expect(guideTarget(state, view)).toEqual(at(3));
+    expect(guideTarget(state, view)).toEqual({ at: at(3), text: 'guideBuild' });
   });
 
   it('points at the first car at the fuel pump until the player has filled one up', () => {
     const state = newGame();
     state.flags.push('washed', 'collected', 'supplied');
     state.cash = 50;
-    expect(guideTarget(state, { ...view, fuelCar: at(6) })).toEqual(at(6));
+    expect(where(state, { ...view, fuelCar: at(6) })).toEqual(at(6));
     state.flags.push('fueled');
-    expect(guideTarget(state, { ...view, fuelCar: at(6) })).toEqual(at(3));
+    expect(where(state, { ...view, fuelCar: at(6) })).toEqual(at(3));
+  });
+
+  it('shows the first upgrade once it is offered, until one is bought', () => {
+    const state = newGame();
+    state.flags.push('washed', 'collected', 'supplied', 'fueled');
+    state.cash = 50;
+    expect(guideTarget(state, { ...view, upgrade: at(7) })).toEqual({ at: at(7), text: 'guideUpgrade' });
+    state.flags.push('upgraded');
+    expect(where(state, { ...view, upgrade: at(7) })).toEqual(at(3));
+  });
+
+  it('says at most eight words at each step', () => {
+    for (const key of ['guideWash', 'guideCash', 'guideShelf', 'guideSoapBay', 'guideFuel', 'guideUpgrade', 'guideBuild'] as const) {
+      expect(t(key).split(' ').length).toBeLessThanOrEqual(8);
+    }
   });
 
   it('goes away once the first washer is hired', () => {
@@ -241,5 +259,32 @@ describe('tutorial hand', () => {
 describe('location 1 has room for everything', () => {
   it('every pad has a place on the lot', () => {
     for (const pad of PADS) expect(LOCATION1.pads[pad.id], pad.id).toBeDefined();
+  });
+});
+
+describe('side buttons', () => {
+  it('appear one by one: nothing at the start, ads only after the first minutes', () => {
+    const state = newGame();
+    state.unlocked.push('bay1');
+    for (const action of ['calendar', 'missions', 'speed', 'convoy', 'refill', 'finish', 'build']) expect(sideButtonOpen(state, action), action).toBe(false);
+    // Refill, finish-it-now and the build timer have no pad to wait for, only the no-ads time.
+    state.playSeconds = TUNING.onboarding.adsAfterSeconds;
+    expect(sideButtonOpen(state, 'refill')).toBe(true);
+    expect(sideButtonOpen(state, 'speed')).toBe(false);
+    state.unlocked.push('bay2', 'washer');
+    expect(sideButtonOpen(state, 'speed')).toBe(true);
+    expect(sideButtonOpen(state, 'calendar')).toBe(true);
+    expect(sideButtonOpen(state, 'missions')).toBe(false);
+    state.unlocked.push('mart', 'dryer');
+    expect(sideButtonOpen(state, 'missions')).toBe(true);
+    expect(sideButtonOpen(state, 'convoy')).toBe(true);
+  });
+
+  it('keep ad buttons hidden in the first minutes even when their pad is built', () => {
+    const state = newGame();
+    state.unlocked.push('bay1', 'bay2', 'dryer');
+    state.playSeconds = TUNING.onboarding.adsAfterSeconds - 1;
+    expect(sideButtonOpen(state, 'speed')).toBe(false);
+    expect(sideButtonOpen(state, 'convoy')).toBe(false);
   });
 });

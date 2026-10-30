@@ -1,6 +1,6 @@
 import { Loop } from './loop';
 import { GameClock } from './clock';
-import { LOCATION1, PADS, TUNING, UPGRADES, type Rect } from './config';
+import { LOCATION1, PADS, TUNING, UPGRADES } from './config';
 import type { GameState } from './gameState';
 import type { Lifecycle } from './lifecycle';
 import type { SaveManager } from './save';
@@ -24,7 +24,6 @@ import { Supplies } from '../systems/supplies';
 import { StaffSystem } from '../systems/staff';
 import { UpgradePads } from '../systems/upgrades';
 import { UpgradePanel } from '../ui/upgradePanel';
-import { GuideHand, guideTarget, tutorialActive, type GuideView } from '../systems/guide';
 import { showEndScreen } from '../ui/endScreen';
 import { levelStep } from '../systems/economy';
 import { Buildings } from '../systems/buildings';
@@ -38,17 +37,8 @@ import { takeFinished } from '../systems/construction';
 import { createMart } from './shops';
 import { EdgePointer } from '../ui/edgePointer';
 import { createTown } from './town';
-
-/** Width of the side button column plus its margins, in CSS pixels. */
-const SIDE_BAR_PX = 64;
-/** Height of the cash and stars bar at the top (the forecourt across the road sits just under it). */
-const HUD_PX = 56;
-/** On a tall screen the town goals bar sits under it. */
-const GOALS_BAR_PX = 40;
-/** How far past the built area the following camera may look, in metres. */
-const CAMERA_MARGIN = 2.5;
-/** More at the back: tall things there (the canopy's sign, the tunnel's) rise up the screen past their footprint. */
-const CAMERA_BACK_MARGIN = 6;
+import { createOnboarding, type Onboarding } from './onboarding';
+import { LotView, SIDE_BAR_PX } from './view';
 
 export interface Game {
   readonly stage: Stage;
@@ -107,6 +97,8 @@ export function createGame(
     state.flags.push(name);
     void saves.saveNow();
   };
+  /** Set up once the free first bay is built (before the first frame). */
+  let onboarding: Onboarding | null = null;
   const { mart, loadShoppers } = createMart({ scene: stage.scene, layout, state, labels, floaters, sound });
   const traffic = new Traffic(
     new CarPool(stage.scene),
@@ -122,6 +114,7 @@ export function createGame(
       else flag('washed');
       meta.onPaid(paid);
       town.onPaid(paid);
+      onboarding?.onPaid(paid);
     },
     mart,
   );
@@ -147,7 +140,8 @@ export function createGame(
     labels,
     (id) => {
       addBuilt(id, true);
-      refitView();
+      view.refit();
+      onboarding?.onBuilt(id);
       void saves.saveNow();
       if (PADS.find((p) => p.id === id)?.effects.endOfContent) {
         flag('ended');
@@ -158,7 +152,7 @@ export function createGame(
       sites.show(id);
       stage.refreshShadows();
       if (id === 'mart') loadShoppers();
-      refitView();
+      view.refit();
       void saves.saveNow();
     },
   );
@@ -173,63 +167,17 @@ export function createGame(
   const panel = new UpgradePanel(root, (key) => upgrades.buy(key), () => {});
   const upgrades = new UpgradePads(stage.scene, layout, state, panel, labels, sound, effects, () => {
     meta.onUpgrade();
+    flag('upgraded');
     void saves.saveNow();
   });
 
-  /** Where the player may walk: the lot and across the road, as far as it's built so far. */
-  let walkable: Rect = layout.walk;
-  const refitView = (instant = false): void => {
-    const area = activeRect();
-    // The camera may look a little past the edge, so the player is never right at the screen's edge.
-    const margin = CAMERA_MARGIN;
-    rig.setArea({ minX: area.minX - margin, maxX: area.maxX + margin, minZ: area.minZ - CAMERA_BACK_MARGIN, maxZ: area.maxZ + margin });
-    walkable = {
-      minX: Math.max(layout.walk.minX, area.minX),
-      maxX: Math.min(layout.walk.maxX, area.maxX),
-      minZ: Math.max(layout.walk.minZ, area.minZ),
-      maxZ: Math.min(layout.walk.maxZ, area.maxZ),
-    };
-    if (instant) rig.snap(player.position);
-  };
-
-  /** Everything built plus the next pad: where the player can go, and the camera can show. */
-  const activeRect = (): Rect => {
-    const rect = { ...layout.cameraBase };
-    const grow = (r: Rect) => {
-      rect.minX = Math.min(rect.minX, r.minX);
-      rect.maxX = Math.max(rect.maxX, r.maxX);
-      rect.minZ = Math.min(rect.minZ, r.minZ);
-      rect.maxZ = Math.max(rect.maxZ, r.maxZ);
-    };
-    for (const id of state.unlocked) {
-      const at = layout.pads[id];
-      if (at) grow({ minX: at.x - 1.5, maxX: at.x + 1.5, minZ: at.z - 1.5, maxZ: at.z + 1.5 });
-      const area = layout.areas[id];
-      if (area) grow(area);
-    }
-    for (const id of Object.keys(state.building)) {
-      const site = layout.sites[id];
-      if (site) grow({ minX: site.x - site.width / 2, maxX: site.x + site.width / 2, minZ: site.z - site.depth / 2, maxZ: site.z + site.depth / 2 });
-    }
-    const next = pads.footprint;
-    if (next) grow(next);
-    for (const footprint of upgrades.footprints()) grow(footprint);
-    return rect;
-  };
-
+  const view = new LotView(stage, rig, layout, state, () => [...(pads.footprint ? [pads.footprint] : []), ...upgrades.footprints()]);
+  view.fitScreen();
   // Builds the free first bay before the first frame.
-  // The side buttons take a strip on the right; the lot is framed beside them.
-  const hudPx = () => (stage.size.height > stage.size.width ? HUD_PX + GOALS_BAR_PX : HUD_PX);
-  const fitSideBar = () => {
-    rig.setRightInset(SIDE_BAR_PX, stage.size.width);
-    rig.setTopInset(hudPx(), stage.size.height);
-    rig.refit();
-  };
-  fitSideBar();
   pads.update(0, player.position);
-  refitView(true);
+  view.refit(player.position);
   stage.onResize(() => {
-    fitSideBar();
+    view.fitScreen();
     rig.snap(player.position);
   });
 
@@ -242,7 +190,6 @@ export function createGame(
   const supplies = new Supplies(state, layout, () => traffic.all(), sound, labels, (carrier) => {
     if (carrier === playerCarry) flag('supplied');
   });
-  const hand = new GuideHand(labels);
   const pointer = new EdgePointer(root);
   const hoses = new FuelHoses(stage.scene, layout);
   const washSounds = new WashSounds(sound);
@@ -258,31 +205,14 @@ export function createGame(
     rewarded: (id) => meta.rewarded(id),
   });
 
-  /** What the tutorial hand can point at this frame. */
-  const guideView = (): GuideView => {
-    const first = traffic.bays[0]?.car;
-    const perItem = TUNING.stations.usesPerItem;
-    const low = traffic.bays.find((b) => b.supply === 'soap' && (state.supplies[`${b.id}.soap`] ?? 0) <= perItem);
-    const pumpCar = traffic.forecourt.pumps[0]?.car;
-    if (pumpCar?.manual && pumpCar.served.includes('fuel')) flag('fueled');
-    return {
-      firstCar: first && (first.state === 'waiting' || first.state === 'entering') ? first.position : null,
-      pile: cash.fullestPile()?.at ?? null,
-      pad: pads.next,
-      shelf: state.unlocked.includes('soap') ? (layout.pads.soap ?? null) : null,
-      lowBay: low?.at ?? null,
-      carryingSoap: playerCarry.count('soap') > 0,
-      fuelCar: pumpCar?.state === 'waiting' ? pumpCar.position : null,
-    };
-  };
+  onboarding = createOnboarding({ root, labels, layout, state, traffic, cash, pads, playerCarry, flag });
 
-  let lastPadRect = '';
   let rateTimer = 0;
   let buildTimer = 0;
   const loop = new Loop((dt) => {
     clock.advance(dt);
     state.playSeconds += dt;
-    player.update(dt, input.read(), [...buildings.obstacles(), ...layout.blocked, ...traffic.obstacles()], walkable);
+    player.update(dt, input.read(), [...buildings.obstacles(), ...layout.blocked, ...traffic.obstacles()], view.walkable);
     pads.update(dt, player.position);
     upgrades.update(dt, player.position);
     staff.update(dt, traffic.all(), supplies, buildings.obstacles(), (station) => insideRect(player.position, station.zone), traffic.valetCall);
@@ -292,8 +222,7 @@ export function createGame(
     hoses.update(traffic.forecourt.pumps);
     washSounds.update(dt, player.scrubbing);
     if (cash.update(player.position)) flag('collected');
-    const guide = tutorialActive(state) ? guideTarget(state, guideView()) : null;
-    hand.point(guide);
+    const guide = onboarding?.update() ?? null;
     floaters.update(dt);
     buildTimer -= dt;
     if (buildTimer <= 0) {
@@ -313,20 +242,14 @@ export function createGame(
     saves.update(dt);
     meta.update(dt);
     town.update(dt, player.position);
-
-    const padRect = JSON.stringify(pads.footprint) + upgrades.footprints().length + Object.keys(state.building).join();
-    if (padRect !== lastPadRect) {
-      lastPadRect = padRect;
-      refitView();
-    }
-    rig.update(dt, player.position);
+    view.update(dt, player.position);
     blobShadows.update();
     stage.render();
     labels.update(stage.camera, stage.size.width, stage.size.height);
     // Off screen, the tutorial's next step or a pad the player can now afford gets an arrow at the edge.
     const next = pads.next;
-    const goal = guide ?? (next && state.cash >= next.owed ? next.at : null);
-    pointer.update(stage.camera, stage.size.width, stage.size.height, goal, { top: hudPx(), right: SIDE_BAR_PX });
+    const goal = guide?.at ?? (next && state.cash >= next.owed ? next.at : null);
+    pointer.update(stage.camera, stage.size.width, stage.size.height, goal, { top: view.topInset, right: SIDE_BAR_PX });
     hud.update(dt, state.cash, state.stars, state.gems);
     for (const ticker of tickers) ticker(dt);
   });
