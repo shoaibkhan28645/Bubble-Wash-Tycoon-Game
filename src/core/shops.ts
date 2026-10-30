@@ -3,7 +3,7 @@ import { CHARACTERS, type LocationLayout } from './config';
 import type { GameState } from './gameState';
 import type { SoundManager } from '../audio/sound';
 import * as platform from '../platform/youtube';
-import { loadModel } from '../render/assets';
+import { loadPeople } from '../render/assets';
 import { PersonAvatar } from '../render/models/person';
 import { Mart } from '../systems/mart';
 import type { Floaters } from '../ui/carBubbles';
@@ -37,7 +37,7 @@ export function createMart(deps: {
   });
   const loadShoppers = (): void => {
     if (mart.ready) return;
-    Promise.all(shoppers.map((c) => loadModel(`person:${c}`, `models/people/character-${c}.glb`)))
+    loadPeople(shoppers)
       .then(() => (mart.ready = true))
       .catch((error) => platform.logWarning(error));
   };

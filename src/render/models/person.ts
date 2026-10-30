@@ -1,6 +1,6 @@
-// People: the hero (art/blender/hero.py) and the Kenney Mini Characters,
-// each with its model's own animations.
-import { AnimationMixer, LoopOnce, Mesh, Group, type AnimationAction, type BufferGeometry, type Object3D } from 'three';
+// People: the hero (art/blender/hero.py) and the staff and townspeople
+// (art/blender/people.py), all on one skeleton with the same animations.
+import { AnimationMixer, LoopOnce, Mesh, Group, Vector3, type AnimationAction, type BufferGeometry, type Object3D } from 'three';
 import { clone as cloneSkinned } from 'three/addons/utils/SkeletonUtils.js';
 import { CHARACTERS } from '../../core/config';
 import { asset } from '../assets';
@@ -8,12 +8,16 @@ import { blobShadow } from './actors';
 import { box, cylinder, mergeParts, rbox, toyMaterial, type Part } from './build';
 import { footfalls, pickGait, type GaitPose, type Gaits } from './gait';
 
-/** Mini Characters are 0.8 units tall; this makes them about car-roof height. */
+/** The models are about 0.78 units tall; this makes people about car-roof height. */
 const PERSON_SCALE = 2;
 /** The hero's tool: along the hand bone, out from the palm, and its size in the hand. */
 const HAND_TOOL = [0.035, -0.03, 0.6] as const;
-/** Slower than this (metres a second) and a person with gaits stands still. */
+/** Slower than this (metres a second) and a person stands still. */
 const STANDING = 0.15;
+/** How quickly a person's measured ground speed follows the real one (per second). */
+const SPEED_SMOOTHING = 12;
+/** Further than this in one frame is a jump to a new spot, not a stride. */
+const TELEPORT = 1.5;
 /** How quickly the body leans into a start, a stop or a turn (per second). */
 const LEAN_RATE = 8;
 
@@ -38,18 +42,22 @@ const TOOL_PARTS: Record<Tool, Part[]> = {
   ],
 };
 const toolGeometries = new Map<Tool, BufferGeometry>();
-const GAITS = CHARACTERS.gaits as Record<string, Gaits>;
+const GAITS = CHARACTERS.gaits as Gaits;
+const HEIGHTS = CHARACTERS.heights as Record<string, number>;
 
 /** A person with its model's animations. */
 export class PersonAvatar {
   readonly root = new Group();
-  /** A foot just landed (people with gaits only: the hero). */
+  /** A foot just landed. */
   onStep: ((gait: GaitPose) => void) | null = null;
   private readonly model: Object3D;
   private readonly mixer: AnimationMixer;
   private readonly actions = new Map<Pose, AnimationAction>();
-  /** Ground speeds of the walk, jog and sprint clips, when the model has them. */
-  private readonly gaits: Gaits | null;
+  /** Ground speeds of the walk, jog and sprint clips at this person's height. */
+  private readonly gaits: Gaits;
+  private readonly last = new Vector3();
+  private placed = false;
+  private measured = 0;
   private current: AnimationAction | undefined;
   private gait: GaitPose | null = null;
   private phase = 0;
@@ -63,9 +71,11 @@ export class PersonAvatar {
   constructor(character: string, tool: Tool | null = null) {
     const { scene, animations } = asset(`person:${character}`);
     const model = cloneSkinned(scene);
-    model.scale.setScalar(PERSON_SCALE);
+    const height = HEIGHTS[character] ?? 1;
+    model.scale.setScalar(PERSON_SCALE * height);
     this.model = model;
-    this.gaits = GAITS[character] ?? null;
+    // A shorter person takes shorter strides.
+    this.gaits = Object.fromEntries(Object.entries(GAITS).map(([gait, speed]) => [gait, speed * height]));
     // People keep their soft blob shadow: real ones would draw every
     // animated character a second time each frame.
     this.root.name = 'person';
@@ -76,10 +86,8 @@ export class PersonAvatar {
       const clip = animations.find((a) => a.name === name);
       if (clip) this.actions.set(pose, this.mixer.clipAction(clip));
     }
-    // A tool in the right hand, shown while working (the hero has a hand
-    // bone; Kenney people hold it at the end of the arm).
-    const palm = model.getObjectByName('hand-right');
-    const hand = palm ?? model.getObjectByName('arm-right');
+    // A tool in the right hand, shown while working.
+    const hand = model.getObjectByName('hand-right');
     if (tool && hand) {
       let geometry = toolGeometries.get(tool);
       if (!geometry) {
@@ -87,12 +95,8 @@ export class PersonAvatar {
         toolGeometries.set(tool, geometry);
       }
       this.tool = new Mesh(geometry, toyMaterial);
-      if (palm) {
-        this.tool.position.set(0, HAND_TOOL[0], HAND_TOOL[1]);
-        this.tool.scale.setScalar(HAND_TOOL[2]);
-      } else {
-        this.tool.position.set(0, -0.21, 0.03);
-      }
+      this.tool.position.set(0, HAND_TOOL[0], HAND_TOOL[1]);
+      this.tool.scale.setScalar(HAND_TOOL[2]);
       this.tool.visible = false;
       hand.add(this.tool);
     }
@@ -118,26 +122,25 @@ export class PersonAvatar {
   }
 
   /**
-   * speed: 0 idle, up to 1 full speed. groundSpeed: metres a second really
-   * covered; a person with gaits picks walk, jog or sprint from it and plays
-   * it at the matching rate, so its feet don't skid. Scrubbing shows when standing still.
+   * Picks walk, jog or sprint from the ground really covered (metres a
+   * second; measured from the person's own movement unless given) and plays
+   * it at the matching rate, so the feet don't skid. Scrubbing shows when standing still.
    */
-  update(dt: number, speed: number, scrubbing: boolean, groundSpeed?: number): void {
-    const paced = this.gaits && groundSpeed !== undefined;
-    const moving = paced ? groundSpeed > STANDING : speed > 0.05;
+  update(dt: number, scrubbing = false, groundSpeed?: number): void {
+    const speed = groundSpeed ?? this.measure(dt);
+    const moving = speed > STANDING;
     this.gestureLeft -= dt;
     if (this.gestureLeft <= 0 || moving) {
       this.gestureLeft = 0;
-      if (moving && paced) {
-        const { pose, rate } = pickGait(this.gaits!, groundSpeed, this.gait);
+      if (moving) {
+        const { pose, rate } = pickGait(this.gaits, speed, this.gait);
         this.play(pose);
         this.gait = pose;
         if (this.current) this.current.timeScale = rate;
       } else {
+        // Standing (or pushing against a wall): no running on the spot.
         this.gait = null;
-        // Paced people stand their ground against a wall instead of running on the spot.
-        const pose: Pose = !moving ? (scrubbing ? 'scrub' : 'idle') : speed > 0.75 ? 'sprint' : 'walk';
-        this.play(pose);
+        this.play(scrubbing ? 'scrub' : 'idle');
         if (this.current) this.current.timeScale = 1;
       }
     }
@@ -149,6 +152,19 @@ export class PersonAvatar {
     lean.forward += (lean.wantForward - lean.forward) * k;
     lean.side += (lean.wantSide - lean.side) * k;
     this.model.rotation.set(lean.forward, 0, lean.side);
+  }
+
+  /** Metres a second the person has moved lately (smoothed; a jump to a new spot doesn't count). */
+  private measure(dt: number): number {
+    const at = this.root.position;
+    if (this.placed && dt > 0) {
+      const moved = at.distanceTo(this.last);
+      const now = moved > TELEPORT ? 0 : moved / dt;
+      this.measured += (now - this.measured) * Math.min(1, dt * SPEED_SMOOTHING);
+    }
+    this.last.copy(at);
+    this.placed = true;
+    return this.measured;
   }
 
   private countSteps(): void {

@@ -1,5 +1,6 @@
-// Loads the Kenney CC0 models (public/models) before the game starts and
-// turns them into cheap, mergeable pieces.
+// Loads the models (public/models: Blender-made buildings, cars and people,
+// Kenney CC0 nature) before the game starts and turns them into cheap,
+// mergeable pieces.
 import {
   BufferAttribute,
   BufferGeometry,
@@ -17,8 +18,9 @@ import {
   type AnimationClip,
   type Object3D,
 } from 'three';
-import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { GLTFLoader, type GLTF } from 'three/addons/loaders/GLTFLoader.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+import { clone as cloneSkinned } from 'three/addons/utils/SkeletonUtils.js';
 import { CHARACTERS } from '../core/config';
 
 export interface ModelAsset {
@@ -62,9 +64,8 @@ function manifest(): Record<string, string> {
   files['building:landmark'] = 'models/buildings/landmark.glb';
   files['building:town-shops'] = 'models/buildings/town-shops.glb';
   files['building:town-homes'] = 'models/buildings/town-homes.glb';
-  for (const person of [CHARACTERS.player, ...Object.values(CHARACTERS.staff)]) {
-    files[`person:${person}`] = `models/people/character-${person}.glb`;
-  }
+  // The hero and the staff (art/blender/people.py); townspeople load later (loadPeople).
+  for (const file of peopleFiles([CHARACTERS.player, ...Object.values(CHARACTERS.staff)])) files[`people:${file}`] = peoplePath(file);
   for (const name of SCENERY) files[`nature:${name}`] = `models/nature/${name}.glb`;
   return files;
 }
@@ -78,7 +79,7 @@ interface Merged {
 const assets = new Map<string, ModelAsset>();
 const mergedCache = new Map<string, Merged>();
 const lambertCache = new Map<Material, MeshLambertMaterial>();
-/** Every Car Kit and Mini Characters model points at the same colour texture; keep one copy per image. */
+/** Kenney models point at shared colour textures; keep one copy per image. */
 const textures = new Map<unknown, Texture>();
 
 /** Loads everything in the manifest; `onProgress` gets 0..1. */
@@ -92,8 +93,8 @@ export async function loadAssets(onProgress: (fraction: number) => void): Promis
     entries.map(async ([id, path]) => {
       const gltf = await loader.loadAsync(import.meta.env.BASE_URL + path);
       prepare(gltf.scene);
-      if (id.startsWith('person:')) mergeSkinnedParts(gltf.scene);
-      assets.set(id, { scene: gltf.scene, animations: gltf.animations });
+      if (id.startsWith('people:')) registerPeople(gltf);
+      else assets.set(id, { scene: gltf.scene, animations: gltf.animations });
       onProgress(++done / entries.length);
     }),
   );
@@ -104,8 +105,51 @@ export async function loadModel(id: string, path: string): Promise<void> {
   if (assets.has(id)) return;
   const gltf = await new GLTFLoader().loadAsync(import.meta.env.BASE_URL + path);
   prepare(gltf.scene);
-  if (id.startsWith('person:')) mergeSkinnedParts(gltf.scene);
   assets.set(id, { scene: gltf.scene, animations: gltf.animations });
+}
+
+const PEOPLE_FILES = CHARACTERS.files as Record<string, string[]>;
+
+/** The people files holding these people. */
+function peopleFiles(people: readonly string[]): string[] {
+  return Object.keys(PEOPLE_FILES).filter((file) => people.some((p) => PEOPLE_FILES[file]!.includes(p)));
+}
+
+function peoplePath(file: string): string {
+  return `models/people/${file}.glb`;
+}
+
+/** Loads the files holding these people after the start (shoppers, people out walking), unless they're already here. */
+export async function loadPeople(people: readonly string[]): Promise<void> {
+  const files = peopleFiles(people.filter((p) => !assets.has(`person:${p}`)));
+  await Promise.all(
+    files.map(async (file) => {
+      const gltf = await new GLTFLoader().loadAsync(import.meta.env.BASE_URL + peoplePath(file));
+      prepare(gltf.scene);
+      registerPeople(gltf);
+    }),
+  );
+}
+
+/**
+ * A people file holds several people (skinned meshes named person-<id>) on
+ * one shared skeleton, with the animations stored once: each becomes its own
+ * `person:<id>` model, sharing the geometry and the clips.
+ */
+function registerPeople(gltf: GLTF): void {
+  const names: string[] = [];
+  gltf.scene.traverse((node) => {
+    if (node instanceof SkinnedMesh && node.name.startsWith('person-')) names.push(node.name);
+  });
+  for (const name of names) {
+    const scene = cloneSkinned(gltf.scene) as Group;
+    const others: Object3D[] = [];
+    scene.traverse((node) => {
+      if (node instanceof SkinnedMesh && node.name !== name) others.push(node);
+    });
+    for (const node of others) node.removeFromParent();
+    assets.set(`person:${name.slice('person-'.length)}`, { scene, animations: gltf.animations });
+  }
 }
 
 export function hasModel(id: string): boolean {
@@ -116,36 +160,6 @@ export function asset(id: string): ModelAsset {
   const found = assets.get(id);
   if (!found) throw new Error(`Model not loaded: ${id}`);
   return found;
-}
-
-/**
- * Mini Characters come as a body and a head, two skinned meshes on the same
- * bones with the same material and bind pose: joined, each person is one
- * draw call instead of two.
- */
-function mergeSkinnedParts(scene: Object3D): void {
-  const parts: SkinnedMesh[] = [];
-  scene.traverse((node) => {
-    if (node instanceof SkinnedMesh) parts.push(node);
-  });
-  const [first, ...rest] = parts;
-  if (!first || rest.length === 0) return;
-  const sameRig = rest.every(
-    (p) =>
-      p.material === first.material &&
-      p.skeleton.bones.length === first.skeleton.bones.length &&
-      p.skeleton.bones.every((bone, i) => bone === first.skeleton.bones[i]) &&
-      p.bindMatrix.equals(first.bindMatrix),
-  );
-  if (!sameRig) return;
-  const merged = mergeGeometries(parts.map((p) => p.geometry as BufferGeometry));
-  if (!merged) return;
-  first.geometry.dispose();
-  first.geometry = merged;
-  for (const part of rest) {
-    part.removeFromParent();
-    part.geometry.dispose();
-  }
 }
 
 /** The first texture seen for an image; later copies of it are dropped. */

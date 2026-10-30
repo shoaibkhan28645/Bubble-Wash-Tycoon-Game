@@ -245,7 +245,7 @@ export class StaffSystem {
         playerAt(station) || (!manager && !!station.car?.vip) || this.helpers.some((o) => o !== helper && o.assigned === station);
       const speed = TUNING.staff.walkSpeed / levelFactor(UPGRADES.kinds.staffSpeed, this.level(`${helper.role}.staffSpeed`));
       if (this.takeBreak(dt, helper)) {
-        helper.avatar.update(dt, 0, false);
+        helper.avatar.update(dt);
         continue;
       }
       if (helper.role === 'runner') this.planRun(helper, stations, supplies);
@@ -264,7 +264,7 @@ export class StaffSystem {
       if (helper.working && there) helper.face(helper.working.at);
       if (!there || helper.working || helper.role === 'runner') helper.worked += dt;
       helper.carrier?.update(dt, !there);
-      helper.avatar.update(dt, there ? 0 : 0.5, !!helper.working?.needsWork);
+      helper.avatar.update(dt, !!helper.working?.needsWork);
     }
   }
 

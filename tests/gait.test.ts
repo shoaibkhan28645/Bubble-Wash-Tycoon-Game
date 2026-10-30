@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { CHARACTERS, TUNING } from '../src/core/config';
 import { footfalls, pickGait, type Gaits } from '../src/render/models/gait';
 
-const HERO = (CHARACTERS.gaits as Record<string, Gaits>).hero!;
+const HERO = CHARACTERS.gaits as Gaits;
 
 describe('gaits', () => {
   it('walks slowly, jogs in between and sprints at full speed', () => {

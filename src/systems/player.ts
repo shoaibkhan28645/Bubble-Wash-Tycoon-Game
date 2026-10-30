@@ -92,7 +92,7 @@ export class Player {
     this.moving = strength > 0 || this.groundSpeed > 0.2;
 
     // The hero's walk, jog and sprint, played to match the ground covered.
-    this.avatar.update(dt, strength, this.scrubbing, this.groundSpeed);
+    this.avatar.update(dt, this.scrubbing, this.groundSpeed);
     this.mesh.rotation.y = this.heading;
   }
 }

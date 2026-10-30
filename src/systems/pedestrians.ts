@@ -101,13 +101,13 @@ export class Pedestrians {
     // Stopped to look in a window (facing it, across the pavement).
     if (s.passed === s.pauseAfter && s.pauseLeft > 0) {
       s.pauseLeft -= dt;
-      s.walker.update(dt, 0, false);
+      s.walker.update(dt);
       return;
     }
     const ahead = s.path[0];
     if (ahead && s.held < CAR_WAIT_SECONDS && carAhead(s.at, ahead, this.cars())) {
       s.held += dt;
-      s.walker.update(dt, 0, false);
+      s.walker.update(dt);
       return;
     }
     s.held = 0;
@@ -134,7 +134,7 @@ export class Pedestrians {
       }
     }
     s.walker.root.position.set(s.at.x, 0, s.at.z);
-    s.walker.update(dt, 0.45, false);
+    s.walker.update(dt);
     if (s.path.length === 0) {
       s.walker.root.visible = false;
       s.walker.holding = false;

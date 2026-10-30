@@ -48,7 +48,7 @@ describe('pedestrians', () => {
     const w = walker();
     const keep = new Pedestrians([[{ x: 0, z: 0 }, { x: 2, z: 0, look: Math.PI }, { x: 10, z: 0 }]], () => w, () => 0);
     keep.update(0.01);
-    for (let t = 0; t < 2; t += 0.1) keep.update(0.1);
+    for (let t = 0; t < 3; t += 0.1) keep.update(0.1);
     expect(w.root.position.x).toBe(2);
     expect(w.root.rotation.y).toBe(Math.PI);
   });

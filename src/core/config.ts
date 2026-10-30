@@ -269,7 +269,7 @@ export const PADS = padsJson as PadDef[];
 export const STAGES = stagesJson as StageDef[];
 export const TUNING: Tuning = tuningJson;
 export const LOCATION1 = location1Json as LocationLayout;
-/** Which Kenney Mini Character plays each role. */
+/** Who plays each role, which people file holds whom, and how fast each gait walks (art/blender/people.py). */
 export const CHARACTERS = charactersJson;
 export const UPGRADES = upgradesJson as UpgradesData;
 export const DAILY = dailyJson as DailyData;

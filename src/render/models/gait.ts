@@ -1,6 +1,6 @@
 // Matching a character's walk to the ground it really covers, so its feet
-// stay planted: the hero's walk, jog and sprint were each made for one ground
-// speed (art/blender/hero_anim.py), and play faster or slower to match.
+// stay planted: everyone's walk, jog and sprint were each made for one ground
+// speed (art/blender/person_anim.py), and play faster or slower to match.
 
 export type GaitPose = 'walk' | 'jog' | 'sprint';
 /** Ground speed (metres a second, in the game) each gait clip was made for. */

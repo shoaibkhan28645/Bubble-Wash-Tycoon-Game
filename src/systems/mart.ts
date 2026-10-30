@@ -7,7 +7,7 @@ import { Station } from './stations';
 export interface Walker {
   readonly root: { position: { x: number; z: number; set(x: number, y: number, z: number): unknown }; rotation: { y: number }; visible: boolean };
   holding: boolean;
-  update(dt: number, speed: number, scrubbing: boolean): void;
+  update(dt: number, scrubbing?: boolean): void;
 }
 
 type ShopperState = 'going' | 'queued' | 'returning';
@@ -177,7 +177,7 @@ export class Mart {
     }
     shopper.walker?.root.position.set(shopper.at.x, 0, shopper.at.z);
     if (moving && shopper.path.length === 0) this.arrive(shopper);
-    shopper.walker?.update(dt, shopper.path.length > 0 ? 0.5 : 0, false);
+    shopper.walker?.update(dt);
   }
 
   private arrive(shopper: Shopper): void {

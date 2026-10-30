@@ -4,7 +4,7 @@
 import { TUNING, type LocationLayout, type Point, type Rect } from './config';
 import type { Scene } from 'three';
 import * as platform from '../platform/youtube';
-import { hasModel, loadModel } from '../render/assets';
+import { loadPeople } from '../render/assets';
 import { PersonAvatar } from '../render/models/person';
 import type { CarPool } from '../systems/cars';
 import { PassingTraffic } from '../systems/passing';
@@ -30,7 +30,7 @@ export function createStreetLife(scene: Scene, layout: LocationLayout, pool: Car
     cars,
   );
   let ready = false;
-  Promise.all(characters.filter((c) => !hasModel(`person:${c}`)).map((c) => loadModel(`person:${c}`, `models/people/character-${c}.glb`)))
+  loadPeople(characters)
     .then(() => (ready = true))
     .catch((error) => platform.logWarning(error));
   const inTheWay = (): Point[] => [...[...pool.active].map((car) => car.position), ...people.positions()];

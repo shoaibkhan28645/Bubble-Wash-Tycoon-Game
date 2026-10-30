@@ -1,10 +1,10 @@
-"""The hero's animations, with planted feet.
+"""The people's animations (everyone shares them), with planted feet.
 
 The legs are posed by two-bone IK: each gait says where each ankle is on
 every frame (flat on the ground and sliding back at an even speed while the
 foot carries weight, then lifted and swung forward), and the thigh and shin
 turns are solved to put it there. So a foot never skids, provided the game
-moves the hero at the gait's ground speed (GAITS: the game plays each gait
+moves the person at the gait's ground speed (GAITS: the game plays each gait
 faster or slower to match, see src/data/characters.json).
 
 Bone X turns, in degrees: thighs, shins and upper arms + swing back,
@@ -13,12 +13,12 @@ forward. 'lift' moves the hips up, 'fwd' forward, 'sway' sideways.
 """
 import math
 
-import hero_model as m
+import person_body as m
 
 LT = m.HIP - m.KNEE
 LS = m.KNEE - m.ANKLE
 BALL = 0.055  # ankle to the ball of the foot, where the heel lifts from
-PERSON_SCALE = 2  # the game shows the hero at twice the model's size
+PERSON_SCALE = 2  # the game shows people at twice the model's size
 
 
 def smooth(x):
@@ -111,7 +111,7 @@ def gait_pose(g, arm_swing, elbow, lean, twist):
     return posed
 
 
-WALK = Gait(stride=0.15, duty=0.6, seconds=0.6, lift=0.026, toe_off=24, heel=14, drop=0.01, bounce=0.005)
+WALK = Gait(stride=0.19, duty=0.6, seconds=0.56, lift=0.028, toe_off=26, heel=14, drop=0.02, bounce=0.005)
 JOG = Gait(stride=0.19, duty=0.42, seconds=0.42, lift=0.06, toe_off=32, heel=8, drop=0.022, bounce=0.008, run=True)
 SPRINT = Gait(stride=0.23, duty=0.3, seconds=0.31, lift=0.1, toe_off=40, heel=4, drop=0.032, bounce=0.011, run=True)
 GAITS = {'walk': WALK, 'jog': JOG, 'sprint': SPRINT}

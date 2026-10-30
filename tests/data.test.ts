@@ -1,10 +1,11 @@
 // The balancing JSON must match the GDD tables and fit together.
 import { describe, expect, it } from 'vitest';
-import { CARS, CHARACTERS, CONTRACTS, DAILY, GOALS, LOCATION1, PADS, STAGES, padById } from '../src/core/config';
+import { CARS, CHARACTERS, CONTRACTS, DAILY, GOALS, LOCATION1, PADS, STAGES, TUNING, padById } from '../src/core/config';
 import { t, type StringKey } from '../src/ui/strings';
 
 /** The Blender car files as text (their JSON part names every model). */
 const carFiles = import.meta.glob<string>('../public/models/cars/*.glb', { query: '?raw', import: 'default', eager: true });
+const peopleFiles = import.meta.glob<string>('../public/models/people/*.glb', { query: '?raw', import: 'default', eager: true });
 const modelFiles = Object.keys(import.meta.glob('../public/models/**/*.glb')).map((f) => f.replace('../public/', ''));
 
 const padIds = PADS.map((p) => p.id);
@@ -92,10 +93,17 @@ describe('models', () => {
   it('every car and character in the data has a model file', () => {
     // The Blender car files, and every car's model in one of them (by node name).
     for (const file of ['cars-small', 'cars-large', 'cars-special']) expect(modelFiles).toContain(`models/cars/${file}.glb`);
-    const files = Object.values(carFiles).join('');
-    for (const car of [...CARS, ...DAILY.carOfDay.cars]) expect(files.includes(`"name":"${car.model}"`), car.id).toBe(true);
-    for (const person of [CHARACTERS.player, ...Object.values(CHARACTERS.staff)]) {
-      expect(modelFiles).toContain(`models/people/character-${person}.glb`);
+    const cars = Object.values(carFiles).join('');
+    for (const car of [...CARS, ...DAILY.carOfDay.cars]) expect(cars.includes(`"name":"${car.model}"`), car.id).toBe(true);
+    // Every person in the data is in a people file (by node name), and every file is there.
+    const files = CHARACTERS.files as Record<string, string[]>;
+    const listed = Object.values(files).flat();
+    for (const person of [CHARACTERS.player, ...Object.values(CHARACTERS.staff), ...CHARACTERS.shoppers, ...TUNING.streetLife.characters]) {
+      expect(listed, person).toContain(person);
+    }
+    for (const [file, people] of Object.entries(files)) {
+      expect(modelFiles).toContain(`models/people/${file}.glb`);
+      for (const person of people) expect(peopleFiles[`../public/models/people/${file}.glb`]!.includes(`"name":"person-${person}"`), person).toBe(true);
     }
   });
 });
