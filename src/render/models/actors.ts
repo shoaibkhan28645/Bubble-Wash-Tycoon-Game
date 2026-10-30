@@ -23,6 +23,8 @@ import { box, cylinder, mergeParts, rbox, toyMaterial, type Part } from './build
 
 /** Mini Characters are 0.8 units tall; this makes them about car-roof height. */
 const PERSON_SCALE = 2;
+/** The hero's tool: along the hand bone, out from the palm, and its size in the hand. */
+const HAND_TOOL = [0.035, -0.03, 0.6] as const;
 
 const MUD: Record<string, string> = { dusty: '#a4825c', muddy: '#7a5a3a', swamp: '#5a6636' };
 /** Mud threshold on a dirty car (lower = more mud): see mud.ts. */
@@ -154,8 +156,10 @@ export class PersonAvatar {
       const clip = animations.find((a) => a.name === name);
       if (clip) this.actions.set(pose, this.mixer.clipAction(clip));
     }
-    // A tool in the right hand, shown while working.
-    const hand = model.getObjectByName('arm-right');
+    // A tool in the right hand, shown while working (the hero has a hand
+    // bone; Kenney people hold it at the end of the arm).
+    const palm = model.getObjectByName('hand-right');
+    const hand = palm ?? model.getObjectByName('arm-right');
     if (tool && hand) {
       let geometry = toolGeometries.get(tool);
       if (!geometry) {
@@ -163,7 +167,12 @@ export class PersonAvatar {
         toolGeometries.set(tool, geometry);
       }
       this.tool = new Mesh(geometry, toyMaterial);
-      this.tool.position.set(0, -0.21, 0.03);
+      if (palm) {
+        this.tool.position.set(0, HAND_TOOL[0], HAND_TOOL[1]);
+        this.tool.scale.setScalar(HAND_TOOL[2]);
+      } else {
+        this.tool.position.set(0, -0.21, 0.03);
+      }
       this.tool.visible = false;
       hand.add(this.tool);
     }
