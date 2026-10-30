@@ -5,7 +5,7 @@ import { TUNING, type LocationLayout, type Point, type Rect } from './config';
 import type { Scene } from 'three';
 import * as platform from '../platform/youtube';
 import { hasModel, loadModel } from '../render/assets';
-import { PersonAvatar } from '../render/models/actors';
+import { PersonAvatar } from '../render/models/person';
 import type { CarPool } from '../systems/cars';
 import { PassingTraffic } from '../systems/passing';
 import { Pedestrians } from '../systems/pedestrians';

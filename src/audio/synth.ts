@@ -1,8 +1,8 @@
 // Sound effects made in code where the CC0 packs have nothing that fits:
 // sponge squeaks, water spray, bubble pops, a car horn, a till bell, fuel
-// glugging into a tank and the pump's beep.
+// glugging into a tank, the pump's beep and the hero's footsteps.
 
-export type SynthSound = 'squeak' | 'spray' | 'pop' | 'honk' | 'bell' | 'glug' | 'beep';
+export type SynthSound = 'squeak' | 'spray' | 'pop' | 'honk' | 'bell' | 'glug' | 'beep' | 'step';
 
 /** Small seeded random generator, so every run sounds the same. */
 function seeded(seed: number): () => number {
@@ -115,6 +115,21 @@ function beep(sampleRate: number): Float32Array {
   });
 }
 
+/** A rubber boot landing on wet paving: a soft low thud with a short, dull scuff. */
+function step(sampleRate: number, variant: number): Float32Array {
+  const rand = seeded(31 + variant);
+  const pitch = 92 + variant * 13;
+  let low = 0;
+  let phase = 0;
+  return render(sampleRate, 0.1, (t) => {
+    low += 0.16 * (rand() * 2 - 1 - low);
+    const scuff = low * Math.exp(-t * 60) * 1.8;
+    phase += (2 * Math.PI * pitch * (1 - t * 2.5)) / sampleRate;
+    const thud = Math.sin(phase) * Math.exp(-t * 42) * Math.min(1, t / 0.002);
+    return (thud * 0.8 + scuff) * 0.7;
+  });
+}
+
 /** Every made-in-code sound, with its variants. */
 export function renderSynth(sampleRate: number): Record<SynthSound, Float32Array[]> {
   return {
@@ -125,5 +140,6 @@ export function renderSynth(sampleRate: number): Record<SynthSound, Float32Array
     bell: [bell(sampleRate)],
     glug: [0, 1].map((v) => glug(sampleRate, v)),
     beep: [beep(sampleRate)],
+    step: [0, 1, 2, 3].map((v) => step(sampleRate, v)),
   };
 }

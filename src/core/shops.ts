@@ -4,7 +4,7 @@ import type { GameState } from './gameState';
 import type { SoundManager } from '../audio/sound';
 import * as platform from '../platform/youtube';
 import { loadModel } from '../render/assets';
-import { PersonAvatar } from '../render/models/actors';
+import { PersonAvatar } from '../render/models/person';
 import { Mart } from '../systems/mart';
 import type { Floaters } from '../ui/carBubbles';
 import type { WorldLabels } from '../ui/worldLabels';

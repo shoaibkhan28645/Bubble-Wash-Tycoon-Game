@@ -1,8 +1,5 @@
-// People from the Kenney Mini Characters pack; cars modelled in Blender (art/blender/cars.py).
+// Soft blob shadows, and the cars modelled in Blender (art/blender/cars.py); people are in person.ts.
 import {
-  AnimationMixer,
-  LoopOnce,
-  type BufferGeometry,
   CanvasTexture,
   Group,
   InstancedMesh,
@@ -12,19 +9,11 @@ import {
   Object3D,
   PlaneGeometry,
   Scene,
-  type AnimationAction,
 } from 'three';
-import { clone as cloneSkinned } from 'three/addons/utils/SkeletonUtils.js';
 import type { CarDef } from '../../core/config';
-import { asset, carGeometry } from '../assets';
+import { carGeometry } from '../assets';
 import { addMud, type MudUniforms } from '../mud';
 import { GRAPHICS } from '../graphics';
-import { box, cylinder, mergeParts, rbox, toyMaterial, type Part } from './build';
-
-/** Mini Characters are 0.8 units tall; this makes them about car-roof height. */
-const PERSON_SCALE = 2;
-/** The hero's tool: along the hand bone, out from the palm, and its size in the hand. */
-const HAND_TOOL = [0.035, -0.03, 0.6] as const;
 
 const MUD: Record<string, string> = { dusty: '#a4825c', muddy: '#7a5a3a', swamp: '#5a6636' };
 /** Mud threshold on a dirty car (lower = more mud): see mud.ts. */
@@ -106,108 +95,6 @@ export function blobShadow(width: number, length: number): Object3D {
   marker.position.y = 0.03;
   blobShadows.add(marker);
   return marker;
-}
-
-type Pose = 'idle' | 'walk' | 'sprint' | 'scrub';
-/** What a person holds while working. */
-export type Tool = 'sponge' | 'towel' | 'polisher' | 'nozzle' | 'bag';
-
-const TOOL_PARTS: Record<Tool, Part[]> = {
-  sponge: [{ geometry: rbox(0.13, 0.07, 0.09, 0.03), color: '#ffd24a' }],
-  towel: [{ geometry: rbox(0.16, 0.03, 0.12, 0.012), color: '#7ee0c3' }],
-  polisher: [
-    { geometry: cylinder(0.08, 0.04, 12), color: '#fff3c4', y: -0.03 },
-    { geometry: rbox(0.06, 0.07, 0.06, 0.02), color: '#3b4a5e', y: 0.02 },
-  ],
-  bag: [
-    { geometry: rbox(0.2, 0.24, 0.12, 0.03), color: '#d9a866', y: -0.06 },
-    { geometry: box(0.16, 0.04, 0.02), color: '#ff5fa8', y: -0.02, z: 0.065 },
-  ],
-  nozzle: [
-    { geometry: rbox(0.06, 0.12, 0.09, 0.02), color: '#3fae5a' },
-    { geometry: cylinder(0.018, 0.14, 6), color: '#3b4a5e', y: -0.04, z: 0.09, rx: Math.PI / 2 },
-  ],
-};
-const toolGeometries = new Map<Tool, BufferGeometry>();
-
-/** A person (Kenney Mini Characters) with the pack's own animations. */
-export class PersonAvatar {
-  readonly root = new Group();
-  private readonly mixer: AnimationMixer;
-  private readonly actions = new Map<Pose, AnimationAction>();
-  private current: AnimationAction | undefined;
-  private readonly tool: Mesh | null = null;
-  private readonly gestureAction: AnimationAction | null = null;
-  private gestureLeft = 0;
-  /** Shows the tool all the time, e.g. a shopping bag being carried. */
-  holding = false;
-
-  constructor(character: string, tool: Tool | null = null) {
-    const { scene, animations } = asset(`person:${character}`);
-    const model = cloneSkinned(scene);
-    model.scale.setScalar(PERSON_SCALE);
-    // People keep their soft blob shadow: real ones would draw every
-    // animated character a second time each frame.
-    this.root.name = 'person';
-    this.root.add(model, blobShadow(1.2, 1.2));
-    this.mixer = new AnimationMixer(model);
-    const clips: Record<Pose, string> = { idle: 'idle', walk: 'walk', sprint: 'sprint', scrub: 'interact-right' };
-    for (const [pose, name] of Object.entries(clips) as [Pose, string][]) {
-      const clip = animations.find((a) => a.name === name);
-      if (clip) this.actions.set(pose, this.mixer.clipAction(clip));
-    }
-    // A tool in the right hand, shown while working (the hero has a hand
-    // bone; Kenney people hold it at the end of the arm).
-    const palm = model.getObjectByName('hand-right');
-    const hand = palm ?? model.getObjectByName('arm-right');
-    if (tool && hand) {
-      let geometry = toolGeometries.get(tool);
-      if (!geometry) {
-        geometry = mergeParts(TOOL_PARTS[tool]);
-        toolGeometries.set(tool, geometry);
-      }
-      this.tool = new Mesh(geometry, toyMaterial);
-      if (palm) {
-        this.tool.position.set(0, HAND_TOOL[0], HAND_TOOL[1]);
-        this.tool.scale.setScalar(HAND_TOOL[2]);
-      } else {
-        this.tool.position.set(0, -0.21, 0.03);
-      }
-      this.tool.visible = false;
-      hand.add(this.tool);
-    }
-    const pick = animations.find((a) => a.name === 'pick-up');
-    if (pick) this.gestureAction = this.mixer.clipAction(pick).setLoop(LoopOnce, 1);
-    this.play('idle');
-  }
-
-  /** Bend down and pick something up (cash, supplies); walking cancels it. */
-  pickUp(): void {
-    if (!this.gestureAction || this.gestureLeft > 0) return;
-    this.current?.fadeOut(0.1);
-    this.gestureAction.reset().fadeIn(0.1).play();
-    this.current = this.gestureAction;
-    this.gestureLeft = this.gestureAction.getClip().duration;
-  }
-
-  /** speed: 0 idle, up to 1 full speed. Scrubbing shows when standing still. */
-  update(dt: number, speed: number, scrubbing: boolean): void {
-    this.gestureLeft -= dt;
-    if (this.gestureLeft <= 0 || speed > 0.05) {
-      this.gestureLeft = 0;
-      this.play(speed > 0.75 ? 'sprint' : speed > 0.05 ? 'walk' : scrubbing ? 'scrub' : 'idle');
-    }
-    if (this.tool) this.tool.visible = this.holding || (scrubbing && speed <= 0.05);
-    this.mixer.update(dt);
-  }
-
-  private play(pose: Pose): void {
-    const next = this.actions.get(pose);
-    if (!next || next === this.current) return;
-    next.reset().fadeIn(0.15).play();
-    this.current?.fadeOut(0.15);
-    this.current = next;
-  }
 }
 
 /** Paints for a car that doesn't list its own: a common silver. */

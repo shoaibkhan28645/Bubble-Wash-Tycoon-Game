@@ -1,7 +1,7 @@
 import { Vector3, type Scene } from 'three';
 import { CHARACTERS, TUNING, UPGRADES, fixedSolids, type LocationLayout, type Point, type Rect } from '../core/config';
 import type { GameState } from '../core/gameState';
-import { PersonAvatar, type Tool } from '../render/models/actors';
+import { PersonAvatar, type Tool } from '../render/models/person';
 import type { Label, WorldLabels } from '../ui/worldLabels';
 import { Carrier } from './carry';
 import { levelFactor, levelStep } from './economy';

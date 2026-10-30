@@ -1,5 +1,6 @@
 {
   "player": "hero",
+  "gaits": { "hero": { "walk": 0.83, "jog": 2.15, "sprint": 4.95 } },
   "staff": {
     "washer": "male-f",
     "runner": "female-b",

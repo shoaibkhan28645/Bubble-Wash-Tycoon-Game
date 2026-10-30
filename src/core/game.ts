@@ -84,6 +84,7 @@ export function createGame(
   stage.scene.add(terrain(layout, bayIds.map((id) => layout.pads[id]!.x), layout.pads.tunnel?.x ?? null));
   const level = (key: string) => state.levels[key] ?? 0;
   const player = new Player(stage.scene, layout.playerStart, TUNING.player, () => 1 + levelStep(UPGRADES.kinds.walk, level('player.walk')));
+  player.onFootstep(() => sound.play('step'));
   const playerCarry = new Carrier(
     player.mesh,
     () => player.position,

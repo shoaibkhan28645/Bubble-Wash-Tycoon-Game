@@ -13,8 +13,10 @@ SHOTS = [
     ('walk', 0.0, (1, -0.25, 0.15)),
     ('walk', 0.25, (1, -0.25, 0.15)),
     ('walk', 0.5, (0.5, -1, 0.3)),
+    ('jog', 0.2, (1, -0.25, 0.15)),
     ('sprint', 0.0, (1, -0.25, 0.15)),
-    ('sprint', 0.25, (0.5, -1, 0.3)),
+    ('sprint', 0.15, (1, -0.25, 0.15)),
+    ('sprint', 0.4, (0.5, -1, 0.3)),
     ('interact-right', 0.25, (0.3, -1, 0.35)),
     ('interact-right', 0.75, (-0.6, -1, 0.35)),
     ('pick-up', 0.5, (1, -0.6, 0.3)),
@@ -53,8 +55,8 @@ def stills(out, rig, lengths, fps):
         for track in rig.animation_data.nla_tracks:
             track.mute = track.name != name
         scene.frame_set(1 + round(phase * lengths[name] * fps))
-        target = Vector((0, 0, 0.59 if kind == 'face' else 0.37))
-        distance = 0.75 if kind == 'face' else 2.3
+        target = Vector((0, 0, 0.67 if kind == 'face' else 0.4))
+        distance = 0.7 if kind == 'face' else 1.7
         cam.location = target + Vector(direction).normalized() * distance
         cam.rotation_euler = (target - cam.location).to_track_quat('-Z', 'Y').to_euler()
         scene.render.filepath = str(out / f'{i:02d}-{name}-{phase}{"-" + kind if kind else ""}.png')
