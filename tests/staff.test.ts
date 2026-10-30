@@ -22,7 +22,7 @@ function solids(): Rect[] {
     if (!at) return [];
     return boxes.map(([hw, hd, dx = 0, dz = 0]) => ({ minX: at.x + dx - hw, maxX: at.x + dx + hw, minZ: at.z + dz - hd, maxZ: at.z + dz + hd }));
   });
-  return [...props, ...LOCATION1.blocked];
+  return [...props, ...LOCATION1.blocked, ...LOCATION1.planters];
 }
 
 /** Walks a path like the staff do and reports whether the target was reached without entering a prop. */
@@ -59,7 +59,7 @@ describe('staff pathfinding', () => {
 
   it('goes around the register between the shelf and bay 2', () => {
     expect(walk(nav, shelfSpot, bay2, obstacles)).toBe(true);
-    expect(walk(nav, { x: 0, z: 9 }, { x: 0, z: 3 }, obstacles)).toBe(true);
+    expect(walk(nav, { x: -1.4, z: 9.5 }, { x: -1.4, z: 4.5 }, obstacles)).toBe(true);
   });
 
   it('reaches every station side and home spot from everywhere it works', () => {
@@ -86,6 +86,20 @@ describe('staff pathfinding', () => {
       const z0 = pump.zone;
       expect(Math.min(x - z0.minX, z0.maxX - x, z - z0.minZ, z0.maxZ - z), pump.id).toBeGreaterThan(0.3);
     }
+  });
+
+  it('the player can reach every unlock pad (before its own building is there) and every upgrade pad', () => {
+    const start = LOCATION1.playerStart;
+    const without = (id: string) => {
+      const at = LOCATION1.buildAt[id] ?? LOCATION1.pads[id]!;
+      const own = (SOLID[id] ?? []).map(([hw, hd, dx = 0, dz = 0]) => `${at.x + dx - hw},${at.z + dz - hd}`);
+      return obstacles.filter((o) => !own.includes(`${o.minX},${o.minZ}`));
+    };
+    for (const [id, at] of Object.entries(LOCATION1.pads)) {
+      const others = without(id);
+      expect(walk(new NavGrid(LOCATION1.walk, others, 0.45), start, at, others), id).toBe(true);
+    }
+    for (const [id, at] of Object.entries(LOCATION1.upgradePads)) expect(walk(nav, start, at, obstacles), `upgrade ${id}`).toBe(true);
   });
 
   it('a clear line is one straight step', () => {

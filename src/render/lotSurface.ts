@@ -25,7 +25,7 @@ function seeded(seed: number): () => number {
  * joints, asphalt driveways with edge lines and arrows, wet patches by the
  * wash bays and a few oil stains.
  */
-export function lotSurface(layout: LocationLayout, bayXs: number[]): Mesh {
+export function lotSurface(layout: LocationLayout, bayXs: number[], tunnelX: number | null): Mesh {
   const { lot, roadZ, collectZ, finishX, exitZ, earlyExitZ } = layout;
   const width = lot.maxX - lot.minX;
   const depth = lot.maxZ - lot.minZ;
@@ -43,13 +43,14 @@ export function lotSurface(layout: LocationLayout, bayXs: number[]): Mesh {
   const v = (z: number) => (z - lot.minZ) * sy;
   const rect = (x0: number, z0: number, x1: number, z1: number) => ctx.fillRect(u(x0), v(z0), (x1 - x0) * sx, (z1 - z0) * sy);
 
-  // Driveways: down through each bay, across to the finishing lane, down it and out.
+  // Driveways: down through each bay and the tunnel, across to the finishing lane, down it and out.
   const top = Math.min(roadZ, lot.minZ);
   const half = LANE / 2;
-  const lanes: [number, number, number, number][] = bayXs.map((x) => [x - half, top, x + half, collectZ + half]);
+  const downXs = tunnelX === null ? bayXs : [...bayXs, tunnelX];
+  const lanes: [number, number, number, number][] = downXs.map((x) => [x - half, top, x + half, collectZ + half]);
   const left = Math.min(...bayXs) - half;
   lanes.push([left, collectZ - half, finishX + half, collectZ + half]);
-  lanes.push([finishX - half, top, finishX + half, exitZ + half]);
+  lanes.push([finishX - half, collectZ - half, finishX + half, exitZ + half]);
   for (const z of [earlyExitZ, exitZ]) lanes.push([finishX - half, z - half, lot.maxX, z + half]);
   // Concrete slabs with joints, asphalt on the driveways, both with grain.
   const joints = (from: number, to: number, toPx: (m: number) => number, size: number) => {
@@ -69,13 +70,15 @@ export function lotSurface(layout: LocationLayout, bayXs: number[]): Mesh {
 
   // Edge lines along the long driveways.
   ctx.fillStyle = PAINT;
-  for (const x of [...bayXs, finishX]) {
-    for (const side of [-1, 1]) rect(x + side * (half - 0.12) - 0.05, top + 1.2, x + side * (half - 0.12) + 0.05, (x === finishX ? exitZ : collectZ) - half);
+  for (const x of downXs) {
+    for (const side of [-1, 1]) rect(x + side * (half - 0.12) - 0.05, top + 1.2, x + side * (half - 0.12) + 0.05, collectZ - half);
   }
+  for (const side of [-1, 1]) rect(finishX + side * (half - 0.12) - 0.05, collectZ + half, finishX + side * (half - 0.12) + 0.05, exitZ - half);
   // Arrows showing which way to drive.
-  for (const x of bayXs) arrow(ctx, u(x), v(collectZ - 1.6), 0, PX);
-  arrow(ctx, u(finishX), v(-11), 0, PX);
+  for (const x of downXs) arrow(ctx, u(x), v(collectZ - 1.6), 0, PX);
+  if (tunnelX !== null) arrow(ctx, u(tunnelX), v(-11), 0, PX);
   arrow(ctx, u(finishX - 3.2), v(collectZ), -Math.PI / 2, PX);
+  arrow(ctx, u(finishX), v(collectZ + 2.4), 0, PX);
   for (const z of [earlyExitZ, exitZ]) arrow(ctx, u(lot.maxX - 1.6), v(z), -Math.PI / 2, PX);
   // Yellow stop bars where cars wait to enter a bay.
   ctx.fillStyle = YELLOW;

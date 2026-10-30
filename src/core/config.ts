@@ -101,6 +101,8 @@ export interface LocationLayout {
   walk: Rect;
   /** Ground inside `walk` the player can't go (the grass beside the lot, when the walk reaches round it). */
   blocked: Rect[];
+  /** Raised flower beds on the lot (solid), some with trees. */
+  planters: (Rect & { trees: number })[];
   cameraBase: Rect;
   roadZ: number;
   spawnX: number;
@@ -110,11 +112,14 @@ export interface LocationLayout {
   collectZ: number;
   /** Finishing lane (dryer, wax) runs down at this x. */
   finishX: number;
-  /** Cars leave the lot along this z, out to exitX (from the garage). */
+  /** Cars leave the lot along this z (from the garage) onto the side street. */
   exitZ: number;
   /** Cars that skip the garage turn out here, just after the waxing station. */
   earlyExitZ: number;
-  exitX: number;
+  /** The side street east of the lot (its middle): cars drive up it back to the main road. */
+  sideStreetX: number;
+  /** And away along the main road, out of sight here. */
+  leaveX: number;
   playerStart: Point;
   bay: { width: number; length: number };
   station: { width: number; length: number };

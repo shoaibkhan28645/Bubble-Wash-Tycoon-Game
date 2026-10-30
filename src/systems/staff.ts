@@ -171,7 +171,7 @@ export class StaffSystem {
     private readonly labels: WorldLabels,
     private readonly cash: CashSystem,
   ) {
-    this.nav = new NavGrid(layout.walk, layout.blocked, RADIUS);
+    this.nav = new NavGrid(layout.walk, [...layout.blocked, ...layout.planters], RADIUS);
   }
 
   /** Hires the helper a built pad provides; they appear on the pad and walk to work. */
@@ -286,7 +286,7 @@ export class StaffSystem {
     const key = obstacles.map((o) => `${o.minX},${o.minZ}`).join('|');
     if (key === this.navKey) return;
     this.navKey = key;
-    this.nav = new NavGrid(this.layout.walk, [...obstacles, ...this.layout.blocked], RADIUS);
+    this.nav = new NavGrid(this.layout.walk, [...obstacles, ...this.layout.blocked, ...this.layout.planters], RADIUS);
   }
 
   private home(role: Role): Point {

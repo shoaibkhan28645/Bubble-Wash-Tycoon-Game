@@ -1,4 +1,4 @@
-import { TUNING, type LocationLayout } from '../core/config';
+import { TUNING, type LocationLayout, type Point } from '../core/config';
 import type { CarMoods } from '../ui/carBubbles';
 import { slotOf, type Arrivals, type Lane } from './arrivals';
 import type { Car } from './cars';
@@ -61,8 +61,9 @@ export class Journeys {
       return;
     }
     const lane = this.layout.finishX;
+    // From a bay or the tunnel: down to the lane across the lot, then along it to the finishing lane.
     const toLane =
-      from.kind === 'bay'
+      from.kind === 'bay' || from.kind === 'tunnel'
         ? [
             { x: from.at.x, z: this.layout.collectZ },
             { x: lane, z: this.layout.collectZ },
@@ -86,7 +87,7 @@ export class Journeys {
     this.moods.hide(car);
     car.state = 'leaving';
     const exitZ = from.kind === 'garage' ? this.layout.exitZ : this.layout.earlyExitZ;
-    car.follow([...toLane, { x: lane, z: exitZ }, { x: this.layout.exitX, z: exitZ }]);
+    car.follow([...toLane, { x: lane, z: exitZ }, ...this.awayRoute(exitZ)]);
     this.departures.driveOff(car);
   }
 
@@ -107,6 +108,18 @@ export class Journeys {
     this.till.checkout(car, from);
     this.moods.hide(car);
     this.departures.driveOff(car);
+  }
+
+  /** Out of the lot onto the side street, up it (keeping right) and away along the main road. */
+  private awayRoute(exitZ: number): Point[] {
+    const { sideStreetX, roadZ, roadLane, leaveX } = this.layout;
+    const x = sideStreetX + roadLane;
+    const z = roadZ + roadLane;
+    return [
+      { x, z: exitZ },
+      { x, z },
+      { x: leaveX, z },
+    ];
   }
 
   private leave(from: Station, car: Car): void {

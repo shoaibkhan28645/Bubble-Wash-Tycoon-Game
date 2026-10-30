@@ -79,7 +79,7 @@ export function createGame(
   blobShadows.attach(stage.scene);
 
   const bayIds = PADS.filter((pad) => pad.effects.bay).map((pad) => pad.effects.bay!);
-  stage.scene.add(terrain(layout, bayIds.map((id) => layout.pads[id]!.x)));
+  stage.scene.add(terrain(layout, bayIds.map((id) => layout.pads[id]!.x), layout.pads.tunnel?.x ?? null));
   const level = (key: string) => state.levels[key] ?? 0;
   const player = new Player(stage.scene, layout.playerStart, TUNING.player, () => 1 + levelStep(UPGRADES.kinds.walk, level('player.walk')));
   const playerCarry = new Carrier(
@@ -212,7 +212,7 @@ export function createGame(
   const loop = new Loop((dt) => {
     clock.advance(dt);
     state.playSeconds += dt;
-    player.update(dt, input.read(), [...buildings.obstacles(), ...layout.blocked, ...traffic.obstacles()], view.walkable);
+    player.update(dt, input.read(), [...buildings.obstacles(), ...layout.blocked, ...layout.planters, ...traffic.obstacles()], view.walkable);
     pads.update(dt, player.position);
     upgrades.update(dt, player.position);
     staff.update(dt, traffic.all(), supplies, buildings.obstacles(), (station) => insideRect(player.position, station.zone), traffic.valetCall);

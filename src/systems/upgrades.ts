@@ -16,6 +16,9 @@ const TITLES: Record<string, string> = {
   wax: 'Waxing station',
   soap: 'Supply shelf',
   staffRoom: 'Staff room',
+  tunnel: 'Brush tunnel',
+  garage: 'Detailing garage',
+  mart: 'Mini-Mart',
 };
 /** Staff targets get their role in front of the upgrade name; the pumps (one panel for both) their number. */
 const STAFF_NAMES: Record<string, string> = {
