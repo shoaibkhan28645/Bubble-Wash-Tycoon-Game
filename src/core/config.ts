@@ -39,11 +39,11 @@ export interface CarDef {
   vip?: boolean;
   /** The Car of the Day (a one-a-day special visitor). */
   special?: boolean;
-  /** Car Kit model name (public/models/cars/<model>.glb). */
+  /** Model name in the Blender car files (art/blender/cars.py). */
   model: string;
   scale: number;
-  /** Optional colour multiplied over the model (the golden VIP). */
-  tint?: string;
+  /** Real paint colours it comes in, one picked for each visit (the golden VIP: gold). */
+  paints?: string[];
   /** Width, height, length in world units, after scaling. */
   size: [number, number, number];
 }
@@ -210,7 +210,7 @@ export interface DayCarDef {
   id: string;
   name: string;
   model: string;
-  tint?: string;
+  paints?: string[];
   scale: number;
   size: [number, number, number];
 }

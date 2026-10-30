@@ -131,7 +131,7 @@ function car(x: number, z: number, next: Point | null, facing = 0, extra: Record
 describe('road rules', () => {
   it('a car waits for a car in front of it, not one behind or beside it', () => {
     const me = car(0, 0, { x: 0, z: 10 });
-    const front = car(0, 3.5, null);
+    const front = car(0, 3.2, null);
     const behind = car(0, -3.5, null);
     const beside = car(3, 1, null);
     expect(new RoadRules(() => [me, front], () => []).blocked(me, 0.1)).toBe(true);
@@ -149,7 +149,7 @@ describe('road rules', () => {
 
   it('two cars nose to nose: after a while one eases past, so nothing stays stuck', () => {
     const a = car(0, 0, { x: 0, z: 10 });
-    const b = car(0, 3.4, { x: 0, z: -10 }, Math.PI);
+    const b = car(0, 3.2, { x: 0, z: -10 }, Math.PI);
     const rules = new RoadRules(() => [a, b], () => []);
     let waited = 0;
     while (rules.blocked(a, 0.1)) waited += 0.1;
@@ -159,7 +159,7 @@ describe('road rules', () => {
 
   it('a car standing still (queued, at a station) is always waited for, never driven through', () => {
     const me = car(0, 0, { x: 0, z: 10 });
-    const parked = car(0, 3.4, null);
+    const parked = car(0, 3.2, null);
     const rules = new RoadRules(() => [me, parked], () => []);
     for (let i = 0; i < 200; i++) expect(rules.blocked(me, 0.1)).toBe(true);
   });

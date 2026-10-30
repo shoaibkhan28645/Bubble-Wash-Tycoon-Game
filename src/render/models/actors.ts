@@ -1,14 +1,14 @@
-// Player and car models from the Kenney packs (Mini Characters, Car Kit).
+// People from the Kenney Mini Characters pack; cars modelled in Blender (art/blender/cars.py).
 import {
   AnimationMixer,
   LoopOnce,
   type BufferGeometry,
   CanvasTexture,
-  Color,
   Group,
   InstancedMesh,
   Mesh,
   MeshBasicMaterial,
+  MeshLambertMaterial,
   Object3D,
   PlaneGeometry,
   Scene,
@@ -16,7 +16,7 @@ import {
 } from 'three';
 import { clone as cloneSkinned } from 'three/addons/utils/SkeletonUtils.js';
 import type { CarDef } from '../../core/config';
-import { asset, mergedModel } from '../assets';
+import { asset, carGeometry } from '../assets';
 import { addMud, type MudUniforms } from '../mud';
 import { GRAPHICS } from '../graphics';
 import { box, cylinder, mergeParts, rbox, toyMaterial, type Part } from './build';
@@ -201,12 +201,16 @@ export class PersonAvatar {
   }
 }
 
-/** A pooled car: one Car Kit model (one draw call). The windows are opaque, so no visible driver. */
+/** Paints for a car that doesn't list its own: a common silver. */
+const DEFAULT_PAINTS = ['#c9ced6'];
+
+/** A pooled car: one Blender model (one draw call), painted and muddied by its own material. The windows are opaque, so no visible driver. */
 export class CarModel {
   readonly mesh = new Group();
-  private readonly body = new Mesh();
+  private readonly body = new Mesh(undefined, new MeshLambertMaterial({ vertexColors: true }));
   private readonly shadow = blobShadow(1, 1);
-  private mud: MudUniforms | null = null;
+  /** Paint, mud and foam (the mud stays off on low graphics). */
+  private readonly mud: MudUniforms;
   private wasMoving = false;
   private dip = 0;
   private dipSpeed = 0;
@@ -215,18 +219,16 @@ export class CarModel {
   constructor() {
     // Cars keep their soft blob shadow; they receive the buildings' and trees' shadows.
     this.body.receiveShadow = true;
+    this.mud = addMud(this.body.material as MeshLambertMaterial);
     this.mesh.add(this.body, this.shadow);
   }
 
+  /** The model for this kind of car (art/blender/cars.py), in one of its real paint colours. */
   setType(def: CarDef): void {
-    const { geometry, material } = mergedModel(`car:${def.model}`);
-    const own = material.clone();
-    if (def.tint) own.color = new Color(def.tint);
-    this.mud = GRAPHICS.mud ? addMud(own) : null;
-    if (this.mud) this.mud.uTop.value = def.size[1] / def.scale;
-    this.body.geometry = geometry;
-    (this.body.material as { dispose?: () => void }).dispose?.();
-    this.body.material = own;
+    this.body.geometry = carGeometry(def.model);
+    const paints = def.paints ?? DEFAULT_PAINTS;
+    this.mud.uPaint.value.set(paints[Math.floor(Math.random() * paints.length)]!);
+    this.mud.uTop.value = def.size[1];
     this.body.scale.setScalar(def.scale);
     this.shadow.scale.set(def.size[0] * 1.35, 1, def.size[2] * 1.2);
   }
@@ -245,7 +247,7 @@ export class CarModel {
 
   /** 0 = fully muddy, 1 = sparkling clean. */
   setClean(dirt: string, clean: number): void {
-    if (!this.mud) return;
+    if (!GRAPHICS.mud) clean = 1;
     this.mud.uMudColor.value.set(MUD[dirt] ?? MUD.dusty!);
     // How high the mud reaches on a dirty car: dust stays low, swamp mud covers most of it.
     const start = DIRT_START[dirt] ?? DIRT_START.dusty!;

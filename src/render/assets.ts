@@ -1,7 +1,9 @@
 // Loads the Kenney CC0 models (public/models) before the game starts and
 // turns them into cheap, mergeable pieces.
 import {
+  BufferAttribute,
   BufferGeometry,
+  Matrix4,
   Color,
   Float32BufferAttribute,
   Group,
@@ -17,7 +19,7 @@ import {
 } from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
-import { CARS, CHARACTERS } from '../core/config';
+import { CHARACTERS } from '../core/config';
 
 export interface ModelAsset {
   scene: Group;
@@ -44,7 +46,9 @@ const SCENERY = [
 /** Every model the game needs at start, by id → relative path. */
 function manifest(): Record<string, string> {
   const files: Record<string, string> = {};
-  for (const car of CARS) files[`car:${car.model}`] = `models/cars/${car.model}.glb`;
+  // Cars modelled in Blender (art/blender/cars.py); the Car of the Day specials load when first needed.
+  files['cars:small'] = 'models/cars/cars-small.glb';
+  files['cars:large'] = 'models/cars/cars-large.glb';
   // Buildings modelled in Blender (art/blender).
   files['building:tunnel'] = 'models/buildings/tunnel.glb';
   files['building:wash-bay'] = 'models/buildings/wash-bay.glb';
@@ -213,4 +217,47 @@ export function mergedModel(id: string): Merged {
   const merged = { geometry, material };
   mergedCache.set(id, merged);
   return merged;
+}
+
+/** A copy of a geometry with plain float attributes (the Blender files are quantized), so it can be moved and merged. */
+export function plain(geometry: BufferGeometry): BufferGeometry {
+  const out = new BufferGeometry();
+  for (const name of ['position', 'normal', 'color']) {
+    const a = geometry.getAttribute(name);
+    if (!a) continue;
+    const array = new Float32Array(a.count * a.itemSize);
+    for (let i = 0; i < a.count; i++) for (let k = 0; k < a.itemSize; k++) array[i * a.itemSize + k] = a.getComponent(i, k);
+    out.setAttribute(name, new BufferAttribute(array, a.itemSize));
+  }
+  if (geometry.index) out.setIndex(new BufferAttribute(Uint32Array.from(geometry.index.array), 1));
+  return out;
+}
+
+/** The car files, in the order they're searched for a model. */
+const CAR_FILES = ['cars:small', 'cars:large', 'cars:special'];
+/** The Car of the Day specials' file (loaded when first needed). */
+export const SPECIAL_CARS = { id: 'cars:special', path: 'models/cars/cars-special.glb' };
+const carGeometries = new Map<string, BufferGeometry>();
+
+/** A Blender car by name (art/blender/cars.py), as one geometry standing on its own base, nose towards +z. */
+export function carGeometry(name: string): BufferGeometry {
+  const cached = carGeometries.get(name);
+  if (cached) return cached;
+  for (const file of CAR_FILES) {
+    const base = assets.get(file)?.scene.getObjectByName(name);
+    if (!base) continue;
+    base.updateMatrixWorld(true);
+    const inverse = new Matrix4().copy(base.matrixWorld).invert();
+    const pieces: BufferGeometry[] = [];
+    base.traverse((node) => {
+      if (node instanceof Mesh) pieces.push(plain(node.geometry as BufferGeometry).applyMatrix4(new Matrix4().multiplyMatrices(inverse, node.matrixWorld)));
+    });
+    // Modelled facing -Y in Blender, which is +z here: already nose first.
+    const geometry = pieces.length === 1 ? pieces[0]! : mergeGeometries(pieces);
+    if (!geometry) break;
+    geometry.computeBoundingSphere();
+    carGeometries.set(name, geometry);
+    return geometry;
+  }
+  throw new Error(`No car model called ${name}`);
 }

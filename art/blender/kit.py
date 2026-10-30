@@ -108,6 +108,26 @@ def prism(size, at, col, bevel=0.0):
     return _finish(obj, col, bevel)
 
 
+def profile(points, width, x, col, bevel=0.0, segments=1):
+    """A side profile (a list of (y, z) points going round, in the YZ plane)
+    pushed out `width` across X, centred on `x`: car bodies and glass."""
+    mesh = bpy.data.meshes.new('profile')
+    obj = bpy.data.objects.new('profile', mesh)
+    bpy.context.scene.collection.objects.link(obj)
+    bm = bmesh.new()
+    face = bm.faces.new([bm.verts.new((x - width / 2, y, z)) for y, z in points])
+    ext = bmesh.ops.extrude_face_region(bm, geom=[face])
+    moved = [e for e in ext['geom'] if isinstance(e, bmesh.types.BMVert)]
+    bmesh.ops.translate(bm, vec=(width, 0, 0), verts=moved)
+    bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
+    bm.to_mesh(mesh)
+    bm.free()
+    bpy.ops.object.select_all(action='DESELECT')
+    obj.select_set(True)
+    bpy.context.view_layer.objects.active = obj
+    return _finish(obj, col, bevel, segments)
+
+
 def cylinder(radius, depth, at, col, verts=16, bevel=0.0, rot=(0, 0, 0)):
     bpy.ops.mesh.primitive_cylinder_add(vertices=verts, radius=radius, depth=depth, location=at)
     return _finish(bpy.context.object, col, bevel, 1, rot)

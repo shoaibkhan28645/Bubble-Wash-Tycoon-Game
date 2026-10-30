@@ -7,7 +7,7 @@ import { insideRect } from './stations';
 import type { Car } from './cars';
 
 /** Room kept to the car in front, and to a person, in metres. */
-const CAR_GAP = 0.6;
+const CAR_GAP = 0.35;
 const PERSON_GAP = 0.5;
 /** A person's half width. */
 const PERSON = 0.3;

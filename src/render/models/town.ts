@@ -2,29 +2,15 @@
 // Street, homes with gardens, street lamps, the bus stop and café tables,
 // placed from the layout and merged into a few meshes by area, with
 // each shop's name painted on its sign board.
-import { BufferAttribute, BufferGeometry, Group, Matrix4, Mesh, type Object3D } from 'three';
+import { BufferGeometry, Group, Matrix4, Mesh, type Object3D } from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import type { LocationLayout, TownPiece } from '../../core/config';
-import { asset } from '../assets';
+import { asset, plain } from '../assets';
 import { toyMaterial } from './build';
 import { plate } from './kit';
 
 /** The shop sign board's front, from the shop's middle (art/blender/town.py). */
 const SIGN = { y: 3.55, z: 2.66, width: 3.4, height: 0.6 };
-
-/** A copy of a geometry with plain float attributes (the files are quantized), so it can be moved and merged. */
-function plain(geometry: BufferGeometry): BufferGeometry {
-  const out = new BufferGeometry();
-  for (const name of ['position', 'normal', 'color']) {
-    const a = geometry.getAttribute(name);
-    if (!a) continue;
-    const array = new Float32Array(a.count * a.itemSize);
-    for (let i = 0; i < a.count; i++) for (let k = 0; k < a.itemSize; k++) array[i * a.itemSize + k] = a.getComponent(i, k);
-    out.setAttribute(name, new BufferAttribute(array, a.itemSize));
-  }
-  if (geometry.index) out.setIndex(new BufferAttribute(Uint32Array.from(geometry.index.array), 1));
-  return out;
-}
 
 /** The named model, from the homes, shops or props file. */
 function source(name: string): Object3D {

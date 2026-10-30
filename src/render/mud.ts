@@ -9,6 +9,8 @@ export interface MudUniforms {
   uTop: { value: number };
   /** Soap foam, 0..1: builds up while washing, rinsed off at the end. */
   uFoam: { value: number };
+  /** The car's paint, for the parts modelled in the paint key colour (magenta). */
+  uPaint: { value: Color };
 }
 
 // Cheap 3D value noise, so the mud breaks up in blotches instead of fading evenly.
@@ -18,6 +20,7 @@ uniform float uClean;
 uniform vec3 uMudColor;
 uniform float uTop;
 uniform float uFoam;
+uniform vec3 uPaint;
 float mudHash(vec3 p) { return fract(sin(dot(p, vec3(17.1, 113.5, 71.7))) * 43758.5453); }
 float mudNoise(vec3 p) {
   vec3 i = floor(p);
@@ -31,9 +34,11 @@ float mudNoise(vec3 p) {
 `;
 
 /**
- * Mud-to-shine: mud splashed up from the wheels, thickest low down, in
- * blotches and drips so the car's paint still shows on top. It dissolves as
- * `uClean` rises. A dull film over the rest of the paint goes too.
+ * The car's paint and mud-to-shine. Parts modelled in the paint key colour
+ * (magenta, art/blender/cars.py) take the car's own paint. Then mud splashed
+ * up from the wheels, thickest low down, in blotches and drips so the paint
+ * still shows on top; it dissolves as `uClean` rises. A dull film over the
+ * rest of the paint goes too.
  */
 export function addMud(material: MeshLambertMaterial): MudUniforms {
   const uniforms: MudUniforms = {
@@ -41,6 +46,7 @@ export function addMud(material: MeshLambertMaterial): MudUniforms {
     uMudColor: { value: new Color('#8a6a48') },
     uTop: { value: 1 },
     uFoam: { value: 0 },
+    uPaint: { value: new Color('#c9ced6') },
   };
   material.onBeforeCompile = (shader) => {
     Object.assign(shader.uniforms, uniforms);
@@ -50,8 +56,11 @@ export function addMud(material: MeshLambertMaterial): MudUniforms {
     shader.fragmentShader = shader.fragmentShader
       .replace('#include <common>', `#include <common>\n${NOISE}`)
       .replace(
-        '#include <map_fragment>',
-        `#include <map_fragment>
+        '#include <color_fragment>',
+        `#include <color_fragment>
+        #ifdef USE_COLOR
+        if (vColor.r > 0.9 && vColor.g < 0.1 && vColor.b > 0.9) diffuseColor.rgb = uPaint;
+        #endif
         float mudLow = 1.0 - clamp(vMudPos.y / uTop, 0.0, 1.0);
         float mudDrip = mudNoise(vec3(vMudPos.x * 9.0, vMudPos.y * 1.3, vMudPos.z * 9.0));
         float mudN = mudNoise(vMudPos * 2.6) * 0.55 + mudNoise(vMudPos * 8.0) * 0.2 + mudDrip * 0.25;
