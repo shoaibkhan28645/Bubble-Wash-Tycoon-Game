@@ -98,7 +98,16 @@ class Helper {
   /** Follows a route around obstacles to the target; returns true once there. */
   walk(dt: number, speed: number, nav: NavGrid): boolean {
     const p = this.avatar.root.position;
-    if (Math.hypot(this.target.x - p.x, this.target.z - p.z) <= ARRIVE) return true;
+    const left = Math.hypot(this.target.x - p.x, this.target.z - p.z);
+    if (left <= ARRIVE) {
+      // Close enough to count as there, but still step onto the spot itself: a work
+      // spot can sit just inside a station's edge, and stopping short left the
+      // attendant standing outside the pump's zone, never working.
+      const step = Math.min(1, (speed * dt) / Math.max(left, 1e-6));
+      p.x += (this.target.x - p.x) * step;
+      p.z += (this.target.z - p.z) * step;
+      return true;
+    }
     this.replan -= dt;
     const moved = !this.pathFor || Math.hypot(this.pathFor.x - this.target.x, this.pathFor.z - this.target.z) > 0.3;
     if (moved || this.replan <= 0 || this.path.length === 0) {

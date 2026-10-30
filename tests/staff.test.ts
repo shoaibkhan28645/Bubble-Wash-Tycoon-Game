@@ -77,6 +77,17 @@ describe('staff pathfinding', () => {
     for (const a of spots) for (const b of spots) expect(walk(nav, a, b, obstacles)).toBe(true);
   });
 
+  it("puts every work spot well inside its station's zone, so a worker who stops close to it still works", () => {
+    const forecourt = new Forecourt(LOCATION1, null);
+    forecourt.addPump('pump1');
+    forecourt.addPump('pump2');
+    for (const pump of forecourt.pumps) {
+      const { x, z } = pump.side!;
+      const z0 = pump.zone;
+      expect(Math.min(x - z0.minX, z0.maxX - x, z - z0.minZ, z0.maxZ - z), pump.id).toBeGreaterThan(0.3);
+    }
+  });
+
   it('a clear line is one straight step', () => {
     expect(nav.findPath({ x: -6, z: 0 }, { x: -6, z: 3 })).toEqual([{ x: -6, z: 3 }]);
   });

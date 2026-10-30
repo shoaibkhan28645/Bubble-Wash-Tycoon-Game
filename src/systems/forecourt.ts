@@ -6,6 +6,8 @@ import { Station } from './stations';
 
 /** The attendant stands this far off the island's end (by the cars' filler caps), between the two lanes. */
 const ISLAND_END = 2.25;
+/** And this far towards the pump's own lane, well inside its zone (which ends a little past the island's middle). */
+const LANE_SIDE = 0.45;
 
 /**
  * The fuel forecourt across the road. Cars turn in at the entry, wait in
@@ -32,7 +34,7 @@ export class Forecourt {
     // Off the island's end towards the way in (cars' backs), just on this pump's side of it.
     const island = this.layout.buildAt[id] ?? at;
     const back = Math.sign(this.layout.forecourt.entryX - island.x);
-    pump.side = { x: island.x + back * ISLAND_END, z: island.z + Math.sign(at.z - island.z) * 0.2 };
+    pump.side = { x: island.x + back * ISLAND_END, z: island.z + Math.sign(at.z - island.z) * LANE_SIDE };
     // Each lane's fuel gauge over its own end of the car, so the two never overlap on screen.
     pump.moveRing(at.x + Math.sign(at.z - island.z) * 1.1, 1.9, at.z);
     this.pumps.push(pump);

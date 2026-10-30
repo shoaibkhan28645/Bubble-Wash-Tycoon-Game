@@ -6,7 +6,7 @@
     "wax": { "seconds": 2.6, "supply": "wax" },
     "garage": { "seconds": 4, "supply": null, "chance": 0.5 },
     "tunnel": { "seconds": 7, "supply": "soap", "capacity": 3, "queueSpots": 1, "zonePadding": 1.6 },
-    "pump": { "seconds": 2.6, "supply": null, "queueSpots": 1, "zonePadding": 0.5 },
+    "pump": { "seconds": 2.6, "supply": null, "queueSpots": 1, "zonePadding": 0.9 },
     "counter": { "seconds": 2.2, "supply": null },
     "zonePadding": 1,
     "supplyCapacity": 6,
