@@ -41,14 +41,14 @@
   "streetLife": {
     "people": 7,
     "peopleEvery": [2.5, 6],
-    "walkSpeed": [0.95, 1.35],
+    "walkSpeed": [1.2, 1.7],
     "pauseChance": 0.35,
     "pauseSeconds": [1.5, 4],
     "bagChance": 0.3,
     "cars": 4,
     "carsEvery": [4, 9],
     "roadEnd": 60,
-    "characters": ["town-a", "town-b", "town-c", "town-d", "town-e", "town-f", "town-g"]
+    "characters": ["female-a", "male-e", "male-c", "male-a", "female-d", "male-d", "female-e"]
   },
   "onboarding": {
     "firstCarPatience": 600,

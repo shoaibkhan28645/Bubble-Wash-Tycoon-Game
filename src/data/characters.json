@@ -1,28 +1,16 @@
 {
-  "player": "hero",
+  "player": "male-c",
   "staff": {
-    "washer": "washer",
-    "runner": "runner",
-    "dryer": "dryer",
-    "cashier": "cashier",
-    "valet": "valet",
-    "manager": "manager",
-    "detailer": "detailer",
-    "attendant": "attendant",
-    "clerk": "clerk"
+    "washer": "male-f",
+    "runner": "female-b",
+    "dryer": "female-c",
+    "cashier": "female-d",
+    "valet": "male-a",
+    "manager": "male-d",
+    "detailer": "female-e",
+    "attendant": "male-b",
+    "clerk": "female-f"
   },
-  "shoppers": ["town-a", "town-b"],
-  "files": {
-    "character-hero": ["hero"],
-    "people-staff-a": ["washer", "runner", "dryer"],
-    "people-staff-b": ["cashier", "valet", "manager"],
-    "people-staff-c": ["detailer", "attendant", "clerk"],
-    "people-town-a": ["town-a", "town-b", "town-c", "town-d"],
-    "people-town-b": ["town-e", "town-f", "town-g"]
-  },
-  "gaits": { "walk": 1.13, "jog": 2.15, "sprint": 4.95 },
-  "heights": {
-    "runner": 0.95, "dryer": 0.96, "cashier": 0.95, "detailer": 0.94, "clerk": 0.96, "manager": 1.03, "valet": 1.02,
-    "town-a": 0.96, "town-c": 0.98, "town-d": 0.95, "town-f": 0.94, "town-e": 1.02
-  }
+  "shoppers": ["female-a", "male-e"],
+  "gaits": { "walk": 2.4, "sprint": 3.8 }
 }

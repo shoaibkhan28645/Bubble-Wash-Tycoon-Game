@@ -2,28 +2,27 @@ import { describe, expect, it } from 'vitest';
 import { CHARACTERS, TUNING } from '../src/core/config';
 import { footfalls, pickGait, type Gaits } from '../src/render/models/gait';
 
-const HERO = CHARACTERS.gaits as Gaits;
+const PEOPLE = CHARACTERS.gaits as Gaits;
 
 describe('gaits', () => {
-  it('walks slowly, jogs in between and sprints at full speed', () => {
-    expect(pickGait(HERO, 0.8, null).pose).toBe('walk');
-    expect(pickGait(HERO, 2.2, null).pose).toBe('jog');
-    expect(pickGait(HERO, TUNING.player.speed, null).pose).toBe('sprint');
+  it('walks at a stroll and sprints at full speed', () => {
+    expect(pickGait(PEOPLE, 1.4, null).pose).toBe('walk');
+    expect(pickGait(PEOPLE, TUNING.player.speed, null).pose).toBe('sprint');
   });
 
   it('plays a gait at the rate that matches the ground covered', () => {
-    const { pose, rate } = pickGait(HERO, HERO.sprint! * 1.1, 'sprint');
+    const { pose, rate } = pickGait(PEOPLE, PEOPLE.sprint! * 1.1, 'sprint');
     expect(pose).toBe('sprint');
     expect(rate).toBeCloseTo(1.1);
-    // Full speed with the walk upgrade still fits the sprint.
-    expect(pickGait(HERO, TUNING.player.speed, null).rate).toBeLessThan(1.3);
+    // Full speed still plays the sprint at a matching rate, not a capped one.
+    expect(pickGait(PEOPLE, TUNING.player.speed, null).rate).toBeCloseTo(TUNING.player.speed / PEOPLE.sprint!);
   });
 
   it("doesn't flicker between two gaits right at the edge", () => {
-    const edge = Math.sqrt(HERO.walk! * HERO.jog!);
-    expect(pickGait(HERO, edge * 1.05, 'walk').pose).toBe('walk');
-    expect(pickGait(HERO, edge * 0.95, 'jog').pose).toBe('jog');
-    expect(pickGait(HERO, edge * 1.2, 'walk').pose).toBe('jog');
+    const edge = Math.sqrt(PEOPLE.walk! * PEOPLE.sprint!);
+    expect(pickGait(PEOPLE, edge * 1.05, 'walk').pose).toBe('walk');
+    expect(pickGait(PEOPLE, edge * 0.95, 'sprint').pose).toBe('sprint');
+    expect(pickGait(PEOPLE, edge * 1.2, 'walk').pose).toBe('sprint');
   });
 
   it('works with only some gaits', () => {

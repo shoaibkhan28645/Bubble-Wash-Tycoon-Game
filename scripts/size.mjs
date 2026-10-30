@@ -27,13 +27,13 @@ const html = readFileSync(join(DIST, 'index.html'), 'utf8');
 const referenced = [...html.matchAll(/(?:src|href)="\.\/([^"]+)"/g)].map((m) => m[1]);
 // The Car of the Day specials load later, the first time one is due, and the shoppers with the Mini-Mart: they don't count towards the start.
 const characters = JSON.parse(readFileSync('src/data/characters.json', 'utf8'));
+const tuning = JSON.parse(readFileSync('src/data/tuning.json', 'utf8'));
 const lazy = new Set([
   'models/cars/cars-special.glb',
-  // Mini-Mart shoppers load once the shop is paid for, people out walking after the start:
-  // the people files holding none of the hero and staff.
-  ...Object.entries(characters.files)
-    .filter(([, people]) => !people.some((p) => p === characters.player || Object.values(characters.staff).includes(p)))
-    .map(([file]) => `models/people/${file}.glb`),
+  // Mini-Mart shoppers load once the shop is paid for, people out walking after the start.
+  ...[...characters.shoppers, ...tuning.streetLife.characters]
+    .filter((c) => c !== characters.player && !Object.values(characters.staff).includes(c))
+    .map((c) => `models/people/character-${c}.glb`),
 ]);
 const models = [...sizes.keys()].filter((f) => f.startsWith('models/') && !f.endsWith('.md') && !lazy.has(f));
 const sounds = [...sizes.keys()].filter((f) => f.startsWith('audio/') && f.endsWith('.mp3'));

@@ -1,5 +1,5 @@
-// People: the hero (art/blender/hero.py) and the staff and townspeople
-// (art/blender/people.py), all on one skeleton with the same animations.
+// People: Kenney Mini Characters, all on the same small skeleton with the
+// pack's own animations.
 import { AnimationMixer, LoopOnce, Mesh, Group, Vector3, type AnimationAction, type BufferGeometry, type Object3D } from 'three';
 import { clone as cloneSkinned } from 'three/addons/utils/SkeletonUtils.js';
 import { CHARACTERS } from '../../core/config';
@@ -8,10 +8,10 @@ import { blobShadow } from './actors';
 import { box, cylinder, mergeParts, rbox, toyMaterial, type Part } from './build';
 import { footfalls, pickGait, type GaitPose, type Gaits } from './gait';
 
-/** The models are about 0.78 units tall; this makes people about car-roof height. */
+/** Mini Characters are 0.8 units tall; this makes them about car-roof height. */
 const PERSON_SCALE = 2;
-/** The hero's tool: along the hand bone, out from the palm, and its size in the hand. */
-const HAND_TOOL = [0.035, -0.03, 0.6] as const;
+/** Where a tool sits on the right arm bone: at the end of the arm, a little in front. */
+const HAND_TOOL = [-0.21, 0.03] as const;
 /** Slower than this (metres a second) and a person stands still. */
 const STANDING = 0.15;
 /** How quickly a person's measured ground speed follows the real one (per second). */
@@ -42,8 +42,8 @@ const TOOL_PARTS: Record<Tool, Part[]> = {
   ],
 };
 const toolGeometries = new Map<Tool, BufferGeometry>();
+/** The ground speeds the walk and sprint clips match (characters.json). */
 const GAITS = CHARACTERS.gaits as Gaits;
-const HEIGHTS = CHARACTERS.heights as Record<string, number>;
 
 /** A person with its model's animations. */
 export class PersonAvatar {
@@ -53,8 +53,6 @@ export class PersonAvatar {
   private readonly model: Object3D;
   private readonly mixer: AnimationMixer;
   private readonly actions = new Map<Pose, AnimationAction>();
-  /** Ground speeds of the walk, jog and sprint clips at this person's height. */
-  private readonly gaits: Gaits;
   private readonly last = new Vector3();
   private placed = false;
   private measured = 0;
@@ -71,11 +69,8 @@ export class PersonAvatar {
   constructor(character: string, tool: Tool | null = null) {
     const { scene, animations } = asset(`person:${character}`);
     const model = cloneSkinned(scene);
-    const height = HEIGHTS[character] ?? 1;
-    model.scale.setScalar(PERSON_SCALE * height);
+    model.scale.setScalar(PERSON_SCALE);
     this.model = model;
-    // A shorter person takes shorter strides.
-    this.gaits = Object.fromEntries(Object.entries(GAITS).map(([gait, speed]) => [gait, speed * height]));
     // People keep their soft blob shadow: real ones would draw every
     // animated character a second time each frame.
     this.root.name = 'person';
@@ -87,7 +82,7 @@ export class PersonAvatar {
       if (clip) this.actions.set(pose, this.mixer.clipAction(clip));
     }
     // A tool in the right hand, shown while working.
-    const hand = model.getObjectByName('hand-right');
+    const hand = model.getObjectByName('arm-right');
     if (tool && hand) {
       let geometry = toolGeometries.get(tool);
       if (!geometry) {
@@ -96,7 +91,6 @@ export class PersonAvatar {
       }
       this.tool = new Mesh(geometry, toyMaterial);
       this.tool.position.set(0, HAND_TOOL[0], HAND_TOOL[1]);
-      this.tool.scale.setScalar(HAND_TOOL[2]);
       this.tool.visible = false;
       hand.add(this.tool);
     }
@@ -133,7 +127,7 @@ export class PersonAvatar {
     if (this.gestureLeft <= 0 || moving) {
       this.gestureLeft = 0;
       if (moving) {
-        const { pose, rate } = pickGait(this.gaits, speed, this.gait);
+        const { pose, rate } = pickGait(GAITS, speed, this.gait);
         this.play(pose);
         this.gait = pose;
         if (this.current) this.current.timeScale = rate;
