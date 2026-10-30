@@ -1,5 +1,5 @@
 {
-  "player": { "speed": 5.5, "radius": 0.45 },
+  "player": { "speed": 4.8, "radius": 0.45 },
   "wash": { "baseSeconds": 3, "minSeconds": 0.5, "zonePadding": 0.9, "dirtMultiplier": { "dusty": 1, "muddy": 1.6, "swamp": 2.4 } },
   "stations": {
     "dryer": { "seconds": 2.2, "supply": "towel" },
@@ -14,7 +14,7 @@
   },
   "cars": { "speed": 8, "spawnSeconds": 4.5, "queueSpots": 2, "leaveDelay": 0.35, "giveWaySeconds": 3 },
   "construction": { "gemSeconds": 120 },
-  "snack": { "payFactor": 0.5, "walkSpeed": 2.6 },
+  "snack": { "payFactor": 0.5, "walkSpeed": 2.3 },
   "fuel": { "payFactor": 0.8, "patienceRefill": 0.5, "washWaitSeconds": 4 },
   "tickets": {
     "kinds": [
@@ -41,7 +41,7 @@
   "streetLife": {
     "people": 7,
     "peopleEvery": [2.5, 6],
-    "walkSpeed": [1.2, 1.7],
+    "walkSpeed": [1.05, 1.5],
     "pauseChance": 0.35,
     "pauseSeconds": [1.5, 4],
     "bagChance": 0.3,
@@ -58,6 +58,6 @@
   },
   "pads": { "fillSeconds": 2, "minDrainPerSecond": 20, "radius": 1.15, "revealDelay": 0.6, "upgradeRadius": 0.9 },
   "supplies": { "shelfCapacity": 8, "restockSeconds": 3, "carryBase": 3, "handSeconds": 0.15, "reach": 1.6 },
-  "staff": { "workRate": 0.85, "walkSpeed": 4, "workSeconds": 45, "breakSeconds": 8 },
+  "staff": { "workRate": 0.85, "walkSpeed": 3.5, "workSeconds": 45, "breakSeconds": 8 },
   "offline": { "rate": 0.5, "managerRate": 1, "capHours": [2, 4, 6, 8], "minAwaySeconds": 60, "resumeAwaySeconds": 120, "incomeWindowSeconds": 300 }
 }
