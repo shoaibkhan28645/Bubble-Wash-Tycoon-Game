@@ -48,7 +48,7 @@
     "cars": 4,
     "carsEvery": [4, 9],
     "roadEnd": 60,
-    "characters": ["female-a", "male-e", "male-a", "female-d", "male-d", "female-e"]
+    "characters": ["female-a", "male-e", "male-c", "male-a", "female-d", "male-d", "female-e"]
   },
   "onboarding": {
     "firstCarPatience": 600,

@@ -27,10 +27,12 @@ const html = readFileSync(join(DIST, 'index.html'), 'utf8');
 const referenced = [...html.matchAll(/(?:src|href)="\.\/([^"]+)"/g)].map((m) => m[1]);
 // The Car of the Day specials load later, the first time one is due, and the shoppers with the Mini-Mart: they don't count towards the start.
 const characters = JSON.parse(readFileSync('src/data/characters.json', 'utf8'));
+const tuning = JSON.parse(readFileSync('src/data/tuning.json', 'utf8'));
 const lazy = new Set([
   'models/cars/cars-special.glb',
-  // Mini-Mart shoppers load once the shop is paid for.
+  // Mini-Mart shoppers load once the shop is paid for, people out walking after the start.
   ...characters.shoppers.map((c) => `models/people/character-${c}.glb`),
+  ...tuning.streetLife.characters.filter((c) => c !== characters.player && !Object.values(characters.staff).includes(c)).map((c) => `models/people/character-${c}.glb`),
 ]);
 const models = [...sizes.keys()].filter((f) => f.startsWith('models/') && !f.endsWith('.md') && !lazy.has(f));
 const sounds = [...sizes.keys()].filter((f) => f.startsWith('audio/') && f.endsWith('.mp3'));
@@ -40,7 +42,7 @@ const sum = (names, key) => names.reduce((total, n) => total + sizes.get(n)[key]
 const all = [...sizes.keys()];
 
 console.log(`Initial: ${kib(sum(initial, 'gz'))} gzip (${kib(sum(initial, 'raw'))} raw), ${initial.length} files`);
-console.log(`Loaded later (Car of the Day, shoppers): ${kib(sum([...lazy].filter((f) => sizes.has(f)), 'gz'))} gzip, ${lazy.size} files`);
+console.log(`Loaded later (Car of the Day, shoppers, people out walking): ${kib(sum([...lazy].filter((f) => sizes.has(f)), 'gz'))} gzip, ${lazy.size} files`);
 console.log(`dist total: ${kib(sum(all, 'raw'))} raw, ${all.length} files`);
 // Budgets (Tech Guide): fail the command if one is broken.
 const INITIAL_BUDGET = 15 * 1024 * 1024;

@@ -167,16 +167,17 @@ function prepare(scene: Object3D): void {
     if (!(node instanceof Mesh)) return;
     const geometry = node.geometry as BufferGeometry;
     geometry.deleteAttribute('tangent');
-    node.material = toLambert(node.material as Material);
+    node.material = toLambert(node.material as Material, geometry.hasAttribute('color'));
   });
 }
 
-function toLambert(material: Material): MeshLambertMaterial {
+/** `vertexColors`: the Blender models are painted in vertex colours (the player, the buildings). */
+function toLambert(material: Material, vertexColors = false): MeshLambertMaterial {
   let lambert = lambertCache.get(material);
   if (lambert) return lambert;
   const source = material as MeshStandardMaterial;
   const color = RECOLOR[source.name] ? new Color(RECOLOR[source.name]) : source.color?.clone() ?? new Color(0xffffff);
-  lambert = new MeshLambertMaterial({ map: shared(source.map), color, name: source.name });
+  lambert = new MeshLambertMaterial({ map: shared(source.map), color, name: source.name, vertexColors });
   lambertCache.set(material, lambert);
   material.dispose();
   return lambert;
