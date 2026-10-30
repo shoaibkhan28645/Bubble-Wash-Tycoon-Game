@@ -136,3 +136,9 @@ export function jobSeconds(
   const scrub = byPlayer ? levelFactor(UPGRADES.kinds.scrub, state.levels['player.scrub'] ?? 0) : 1;
   return washSeconds(dirt, builtStages(state.unlocked, 'bay'), TUNING.wash) * speed * scrub;
 }
+
+/** A random number in a [low, high] range from the tuning data. */
+export function between(range: readonly number[], rand: () => number): number {
+  const [low = 0, high = low] = range;
+  return low + rand() * (high - low);
+}

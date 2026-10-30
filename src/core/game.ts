@@ -15,7 +15,7 @@ import { Input } from '../systems/input';
 import { Player } from '../systems/player';
 import { CarPool } from '../systems/cars';
 import { CashSystem } from '../systems/cash';
-import { Traffic, type Work } from '../systems/traffic';
+import { Traffic, type Paid, type Work } from '../systems/traffic';
 import { insideRect, type Station } from '../systems/stations';
 import { IncomeTracker } from '../systems/offline';
 import { Floaters } from '../ui/carBubbles';
@@ -38,6 +38,7 @@ import { createMart } from './shops';
 import { EdgePointer } from '../ui/edgePointer';
 import { createTown } from './town';
 import { createOnboarding, type Onboarding } from './onboarding';
+import { createStreetLife } from './streetLife';
 import { LotView, SIDE_BAR_PX } from './view';
 
 export interface Game {
@@ -100,24 +101,16 @@ export function createGame(
   /** Set up once the free first bay is built (before the first frame). */
   let onboarding: Onboarding | null = null;
   const { mart, loadShoppers } = createMart({ scene: stage.scene, layout, state, labels, floaters, sound });
-  const traffic = new Traffic(
-    new CarPool(stage.scene),
-    layout,
-    state,
-    cash,
-    effects,
-    sound,
-    labels,
-    floaters,
-    (paid) => {
-      if (paid.automated) income.add(clock.now, paid.amount);
-      else flag('washed');
-      meta.onPaid(paid);
-      town.onPaid(paid);
-      onboarding?.onPaid(paid);
-    },
-    mart,
-  );
+  const pool = new CarPool(stage.scene);
+  const onPaid = (paid: Paid): void => {
+    if (paid.automated) income.add(clock.now, paid.amount);
+    else flag('washed');
+    meta.onPaid(paid);
+    town.onPaid(paid);
+    onboarding?.onPaid(paid);
+  };
+  const traffic = new Traffic(pool, layout, state, cash, effects, sound, labels, floaters, onPaid, mart);
+  const street = createStreetLife(stage.scene, layout, pool);
 
   const staff = new StaffSystem(stage.scene, layout, state, labels, cash);
 
@@ -220,6 +213,7 @@ export function createGame(
     supplies.update(dt, [playerCarry, ...staff.carriers()]);
     playerCarry.update(dt, player.isMoving);
     player.scrubbing = traffic.update(dt, work, supplies);
+    street.update(dt);
     hoses.update(traffic.forecourt.pumps);
     washSounds.update(dt, player.scrubbing);
     if (cash.update(player.position)) flag('collected');

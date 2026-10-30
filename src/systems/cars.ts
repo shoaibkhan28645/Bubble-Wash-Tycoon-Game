@@ -164,6 +164,8 @@ export class Car {
 /** Reuses car objects instead of creating and destroying them. */
 export class CarPool {
   private readonly free: Car[] = [];
+  /** Every car out on the lot or the road now. */
+  readonly active = new Set<Car>();
 
   constructor(private readonly scene: Scene) {}
 
@@ -171,12 +173,14 @@ export class CarPool {
     const car = this.free.pop() ?? new Car(new CarModel());
     car.model.mesh.name = 'car';
     this.scene.add(car.model.mesh);
+    this.active.add(car);
     return car;
   }
 
   release(car: Car): void {
     car.model.mesh.visible = false;
     this.scene.remove(car.model.mesh);
+    this.active.delete(car);
     this.free.push(car);
   }
 }
