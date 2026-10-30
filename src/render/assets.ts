@@ -56,6 +56,8 @@ function manifest(): Record<string, string> {
   files['building:mini-mart'] = 'models/buildings/mini-mart.glb';
   files['building:props'] = 'models/buildings/props.glb';
   files['building:landmark'] = 'models/buildings/landmark.glb';
+  files['building:town-shops'] = 'models/buildings/town-shops.glb';
+  files['building:town-homes'] = 'models/buildings/town-homes.glb';
   for (const person of [CHARACTERS.player, ...Object.values(CHARACTERS.staff)]) {
     files[`person:${person}`] = `models/people/character-${person}.glb`;
   }

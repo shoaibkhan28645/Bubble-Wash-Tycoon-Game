@@ -91,6 +91,23 @@ def box(size, at, col, bevel=0.04, segments=1, rot=(0, 0, 0)):
     return _finish(obj, col, bevel, segments, rot)
 
 
+def prism(size, at, col, bevel=0.0):
+    """A gable roof shape: a triangular prism of size (x length, y width,
+    z height) along X, standing on `at` (its base), ridge on top."""
+    bpy.ops.mesh.primitive_cube_add(size=1, location=(at[0], at[1], at[2] + size[2] / 2))
+    obj = bpy.context.object
+    obj.scale = size
+    bpy.ops.object.transform_apply(location=False, rotation=False, scale=True)
+    for v in obj.data.vertices:
+        if v.co.z > 0:
+            v.co.y = 0
+    bpy.ops.object.mode_set(mode='EDIT')
+    bpy.ops.mesh.select_all(action='SELECT')
+    bpy.ops.mesh.remove_doubles(threshold=0.001)
+    bpy.ops.object.mode_set(mode='OBJECT')
+    return _finish(obj, col, bevel)
+
+
 def cylinder(radius, depth, at, col, verts=16, bevel=0.0, rot=(0, 0, 0)):
     bpy.ops.mesh.primitive_cylinder_add(vertices=verts, radius=radius, depth=depth, location=at)
     return _finish(bpy.context.object, col, bevel, 1, rot)

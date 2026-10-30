@@ -1,6 +1,6 @@
 import { Loop } from './loop';
 import { GameClock } from './clock';
-import { LOCATION1, PADS, TUNING, UPGRADES } from './config';
+import { LOCATION1, PADS, TUNING, UPGRADES, fixedSolids } from './config';
 import type { GameState } from './gameState';
 import type { Lifecycle } from './lifecycle';
 import type { SaveManager } from './save';
@@ -209,10 +209,11 @@ export function createGame(
 
   let rateTimer = 0;
   let buildTimer = 0;
+  const fixed = fixedSolids(layout);
   const loop = new Loop((dt) => {
     clock.advance(dt);
     state.playSeconds += dt;
-    player.update(dt, input.read(), [...buildings.obstacles(), ...layout.blocked, ...layout.planters, ...traffic.obstacles()], view.walkable);
+    player.update(dt, input.read(), [...buildings.obstacles(), ...fixed, ...traffic.obstacles()], view.walkable);
     pads.update(dt, player.position);
     upgrades.update(dt, player.position);
     staff.update(dt, traffic.all(), supplies, buildings.obstacles(), (station) => insideRect(player.position, station.zone), traffic.valetCall);

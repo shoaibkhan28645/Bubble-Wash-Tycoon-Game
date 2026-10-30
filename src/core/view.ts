@@ -93,6 +93,7 @@ export class LotView {
       const site = layout.sites[id];
       if (site) grow({ minX: site.x - site.width / 2, maxX: site.x + site.width / 2, minZ: site.z - site.depth / 2, maxZ: site.z + site.depth / 2 });
     }
+    for (const view of layout.views) if (state.unlocked.includes(view.after)) grow(view);
     for (const footprint of this.offered()) grow(footprint);
     return rect;
   }

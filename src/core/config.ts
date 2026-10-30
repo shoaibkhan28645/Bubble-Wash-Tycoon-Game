@@ -101,6 +101,12 @@ export interface LocationLayout {
   walk: Rect;
   /** Ground inside `walk` the player can't go (the grass beside the lot, when the walk reaches round it). */
   blocked: Rect[];
+  /** The town round the lot (art/blender/town.py, or a prop): shops, homes, lamps; some solid, some with a name sign. */
+  town: TownPiece[];
+  /** Trees along the streets. */
+  streetTrees: Point[];
+  /** More ground the player may walk and the camera show once a pad is built (the side street, after the dryer). */
+  views: (Rect & { after: string })[];
   /** Raised flower beds on the lot (solid), some with trees. */
   planters: (Rect & { trees: number })[];
   cameraBase: Rect;
@@ -146,6 +152,20 @@ export interface LocationLayout {
   upgradePads: Record<string, Point>;
   /** Where each staff member stands when idle. */
   staffSpots: Record<string, Point>;
+}
+
+/** One piece of the town: a model by name, where it stands and which way it faces. */
+export interface TownPiece {
+  model: string;
+  x: number;
+  z: number;
+  /** Turn about the vertical, in radians (models face +z). */
+  rot?: number;
+  /** A shop's name, painted on its sign board, and the board's colour. */
+  sign?: string;
+  signColor?: string;
+  /** Half width and depth the player can't walk through (things on the lot). */
+  solid?: [number, number];
 }
 
 export type Tuning = typeof tuningJson;
@@ -255,6 +275,26 @@ export const DAILY = dailyJson as DailyData;
 export const ADS = adsJson;
 export const CONTRACTS = contractsJson as ContractsData;
 export const GOALS = goalsJson as GoalsData;
+
+/** Half the gap in the lot's side hedge where each driveway goes out (art: render/terrain.ts). */
+const DRIVEWAY_GAP = 1.75;
+
+/**
+ * Ground nobody walks through, whatever is built: off the lot, the flower
+ * beds, town pieces set on the lot, and the hedge along the side street
+ * (open at the driveways).
+ */
+export function fixedSolids(layout: LocationLayout): Rect[] {
+  const town = layout.town.flatMap((p) => (p.solid ? [{ minX: p.x - p.solid[0], maxX: p.x + p.solid[0], minZ: p.z - p.solid[1], maxZ: p.z + p.solid[1] }] : []));
+  const hedge: Rect[] = [];
+  const { lot } = layout;
+  let from = lot.minZ + 1.6;
+  for (const z of [...[layout.earlyExitZ, layout.exitZ].sort((a, b) => a - b), lot.maxZ + DRIVEWAY_GAP + 1]) {
+    if (z - DRIVEWAY_GAP > from) hedge.push({ minX: lot.maxX + 0.1, maxX: lot.maxX + 0.8, minZ: from, maxZ: z - DRIVEWAY_GAP });
+    from = z + DRIVEWAY_GAP;
+  }
+  return [...layout.blocked, ...layout.planters, ...town, ...hedge];
+}
 
 export function padById(id: string): PadDef | undefined {
   return PADS.find((pad) => pad.id === id);

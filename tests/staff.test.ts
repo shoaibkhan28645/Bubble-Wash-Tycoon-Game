@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { Group } from 'three';
-import { LOCATION1, TUNING, type Point, type Rect } from '../src/core/config';
+import { LOCATION1, TUNING, fixedSolids, type Point, type Rect } from '../src/core/config';
 import { newGame } from '../src/core/gameState';
 import type { Car } from '../src/systems/cars';
 import { SOLID } from '../src/systems/buildings';
@@ -22,7 +22,7 @@ function solids(): Rect[] {
     if (!at) return [];
     return boxes.map(([hw, hd, dx = 0, dz = 0]) => ({ minX: at.x + dx - hw, maxX: at.x + dx + hw, minZ: at.z + dz - hd, maxZ: at.z + dz + hd }));
   });
-  return [...props, ...LOCATION1.blocked, ...LOCATION1.planters];
+  return [...props, ...fixedSolids(LOCATION1)];
 }
 
 /** Walks a path like the staff do and reports whether the target was reached without entering a prop. */

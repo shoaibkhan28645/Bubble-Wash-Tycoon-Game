@@ -15,6 +15,7 @@ import { mergedModel } from './assets';
 import { GRAPHICS } from './graphics';
 import { lotSurface } from './lotSurface';
 import { mergeParts, toyMaterial, type Part } from './models/build';
+import { townModel } from './models/town';
 
 const GRASS_A = new Color('#8fd46a');
 const GRASS_B = new Color('#6fc35a');
@@ -217,8 +218,10 @@ function scenery(layout: LocationLayout): Group {
   const rand = seeded(7);
   const { lot, roadZ } = layout;
   const areas = Object.values(layout.areas);
+  const town = layout.town.filter((p) => !p.solid);
   const blocked = (x: number, z: number, margin: number) =>
     inside(x, z, lot, margin + 0.8) ||
+    town.some((p) => Math.hypot(x - p.x, z - p.z) < (p.model.startsWith('lamp') ? 1 : 4.6) + margin) ||
     Math.abs(z - roadZ) < 3.6 + margin ||
     inside(x, z, sideStreet(layout), margin) ||
     areas.some((a) => inside(x, z, a, margin));
@@ -257,8 +260,9 @@ function scenery(layout: LocationLayout): Group {
     const z = roadZ - 4.6 - rand() * 1.5;
     const s = 2.6 + rand() * 0.8;
     const r = rand() * 6;
-    if (!areas.some((a) => inside(x, z, a, 1.2))) row.push({ x, z, s, r });
+    if (!areas.some((a) => inside(x, z, a, 1.2)) && !blocked(x, z, 0)) row.push({ x, z, s, r });
   }
+  for (const t of layout.streetTrees) row.push({ x: t.x, z: t.z, s: 2.6 + rand() * 0.6, r: rand() * 6 });
   group.add(scatter('nature:tree_oak', row));
   return group;
 }
@@ -271,7 +275,7 @@ function sideStreet(layout: LocationLayout): Rect {
 /** All static ground and scenery for a location. */
 export function terrain(layout: LocationLayout, bayXs: number[], tunnelX: number | null): Group {
   const group = new Group();
-  group.add(ground(layout), roads(layout), hedges(layout), planters(layout), scenery(layout));
+  group.add(ground(layout), roads(layout), hedges(layout), planters(layout), scenery(layout), townModel(layout));
   if (GRAPHICS.lot) group.add(lotSurface(layout, bayXs, tunnelX));
   return group;
 }
