@@ -1,15 +1,15 @@
 {
   "player": "tycoon",
   "staff": {
-    "washer": "male-f",
-    "runner": "female-b",
-    "dryer": "female-c",
-    "cashier": "female-d",
-    "valet": "male-a",
-    "manager": "male-d",
-    "detailer": "female-e",
-    "attendant": "male-b",
-    "clerk": "female-f"
+    "washer": "male-f-staff",
+    "runner": "female-b-staff",
+    "dryer": "female-c-staff",
+    "cashier": "female-d-staff",
+    "valet": "male-a-staff",
+    "manager": "male-d-staff",
+    "detailer": "female-e-staff",
+    "attendant": "male-b-staff",
+    "clerk": "female-f-staff"
   },
   "shoppers": ["female-a", "male-e"],
   "gaits": { "walk": 2.4, "sprint": 3.8 }

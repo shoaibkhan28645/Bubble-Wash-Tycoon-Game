@@ -12,4 +12,7 @@ attribution required. Downloaded from Kenney's official OpenGameArt uploads.
 | `people/` | Mini Characters | 1.0 | https://opengameart.org/content/mini-character-1 |
 | `nature/` | Nature Kit | 2.1 | https://opengameart.org/content/nature-kit |
 
-Only the models the game uses are copied here, unchanged.
+Only the models the game uses are copied here. The player
+(`character-tycoon.glb`) and the staff (`character-*-staff.glb`) are Mini
+Characters restyled in Blender (`art/blender/kenney_tycoon.py`,
+`art/blender/kenney_staff.py`); the rest are unchanged.
