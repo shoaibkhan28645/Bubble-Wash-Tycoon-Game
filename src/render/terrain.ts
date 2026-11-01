@@ -10,7 +10,7 @@ import {
   Object3D,
   PlaneGeometry,
 } from 'three';
-import type { LocationLayout, Rect } from '../core/config';
+import { SIDE_HEDGE_START, type LocationLayout, type Rect } from '../core/config';
 import { mergedModel } from './assets';
 import { GRAPHICS } from './graphics';
 import { lotSurface } from './lotSurface';
@@ -162,7 +162,7 @@ function hedges(layout: LocationLayout): Mesh {
   run(lot.minX - inset, lot.minZ + 1.6, lot.minX - inset, lot.maxZ + inset);
   run(lot.minX - inset, lot.maxZ + inset, lot.maxX + inset, lot.maxZ + inset);
   const exits = [earlyExitZ, exitZ].sort((a, b) => a - b);
-  let from = lot.minZ + 1.6;
+  let from = lot.minZ + SIDE_HEDGE_START;
   for (const z of [...exits, lot.maxZ + inset + DRIVE]) {
     if (z - DRIVE - 0.4 > from) run(lot.maxX + inset, from, lot.maxX + inset, z - DRIVE - 0.4);
     from = z + DRIVE + 0.4;

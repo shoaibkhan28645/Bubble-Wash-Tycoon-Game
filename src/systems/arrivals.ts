@@ -16,11 +16,22 @@ export type Lane = Station | Tunnel;
 const VALET_CALL_SECONDS = 4;
 /** A new car only comes on where the road is clear this far either side. */
 const SPAWN_ROOM = 6;
+/** Turning onto a road lane, a car cuts the corner by this much (or its nose would poke into the next lane, or the lot). */
+export const CORNER = 1.6;
+/** Half a long car: a waiting spot this far in from the lot's front edge keeps the car off the road. */
+const HALF_CAR = 1.9;
 
 /** Where the `index`-th waiting car parks in a lane's line. */
 export function slotOf(lane: Lane, index: number, layout: LocationLayout): Point {
   if (lane instanceof Tunnel) return lane.slot(index);
   return { x: lane.at.x, z: lane.at.z - layout.queueGap * (index + 1) };
+}
+
+/** How many cars can wait in a lane's line on the lot: a longer line would spill onto the road and block it. */
+export function queueRoom(lane: Lane, layout: LocationLayout): number {
+  let room = 0;
+  while (room < 10 && slotOf(lane, room, layout).z - HALF_CAR >= layout.lot.minZ - 0.05) room++;
+  return room;
 }
 
 /** Sum of a pad effect over everything built (the bench's patience, the sign's arrivals). */
@@ -111,7 +122,7 @@ export class Arrivals {
     lane.queue.push(car);
   }
 
-  /** Golden VIP (GDD): first at 5:00 of play, then every 3–5 minutes; goes to the front of a bay line. */
+  /** Golden VIP (GDD): first at 5:00 of play, then every 3–5 minutes; joins the shortest bay line. */
   private spawnVip(dt: number): void {
     this.vipTimer -= dt;
     if (this.vipTimer > 0) return;
@@ -134,14 +145,15 @@ export class Arrivals {
     this.convoyTimer = ADS.convoy.spacingSeconds;
   }
 
-  /** A golden VIP at the front of a bay line. Pays 5× (its payMultiplier) the best regular car on the lot. */
+  /** A golden VIP in a bay line. Pays 5× (its payMultiplier) the best regular car on the lot. */
   private addVip(): boolean {
     if (!this.roadClear()) return false;
     const vip = CARS.find((c) => c.vip);
     const best = this.bestCar();
     const lane = vip && this.washLaneFor(vip, true);
     if (!vip || !best || !lane) return false;
-    const car = this.addCar(vip, { ...vip, basePay: best.basePay }, lane, 0);
+    // First in line if the line is empty; it can't drive through cars already waiting.
+    const car = this.addCar(vip, { ...vip, basePay: best.basePay }, lane, lane.queue.length);
     car.wantsDetail = true;
     this.sound.play('vip');
     return true;
@@ -200,7 +212,7 @@ export class Arrivals {
     return car;
   }
 
-  /** Least-busy wash lane this car may use that has room (a VIP may squeeze into a full line). */
+  /** Least-busy wash lane this car may use that has room (a VIP may squeeze into a full line, but never onto the road). */
   washLaneFor(def: CarDef, vip: boolean): Lane | null {
     const car = { def, vip };
     let best: Lane | null = null;
@@ -209,7 +221,7 @@ export class Arrivals {
       if (!canUse(car, lane)) continue;
       const capacity = this.capacity(lane);
       const used = lane.queue.length + (lane instanceof Tunnel ? lane.inside.length : lane.car ? 1 : 0);
-      if (!vip && used >= capacity) continue;
+      if ((!vip && used >= capacity) || lane.queue.length >= queueRoom(lane, this.layout)) continue;
       if (used / capacity < bestLoad) {
         best = lane;
         bestLoad = used / capacity;
@@ -233,6 +245,9 @@ export class Arrivals {
     const move = pickRebalance(this.lanes());
     if (!move) return;
     const { car, from, to } = move;
+    // It drives across the lot in front of the lanes in between: only while nobody is waiting in them.
+    const [left, right] = [Math.min(from.at.x, to.at.x), Math.max(from.at.x, to.at.x)];
+    if (this.lanes().some((lane) => lane.at.x > left && lane.at.x < right && lane.queue.length > 0)) return;
     from.queue.shift();
     from.queue.forEach((c, i) => c.driveTo(slotOf(from, i, this.layout)));
     const target = slotOf(to, to.queue.length, this.layout);

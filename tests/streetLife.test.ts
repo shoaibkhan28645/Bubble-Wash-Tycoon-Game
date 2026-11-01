@@ -119,11 +119,21 @@ function car(x: number, z: number, next: Point | null, facing = 0, extra: Record
   return {
     position: { x, z },
     nextPoint: next,
+    // Straight on towards its next point, stopping there.
+    aim: (d: number) => {
+      if (!next) return null;
+      const len = Math.hypot(next.x - x, next.z - z);
+      const k = Math.min(1, d / len);
+      return { x: x + (next.x - x) * k, z: z + (next.z - z) * k };
+    },
     facing,
     def: { size: [1.7, 1.5, 3] },
     model: { mesh: { visible: true } },
     state: 'arriving',
     station: null,
+    serial: 0,
+    held: false,
+    heldFor: 0,
     ...extra,
   } as unknown as Car;
 }
@@ -134,47 +144,77 @@ describe('road rules', () => {
     const front = car(0, 3.2, null);
     const behind = car(0, -3.5, null);
     const beside = car(3, 1, null);
-    expect(new RoadRules(() => [me, front], () => []).blocked(me, 0.1)).toBe(true);
-    expect(new RoadRules(() => [me, behind, beside], () => []).blocked(me, 0.1)).toBe(false);
+    expect(new RoadRules(() => [me, front], () => []).blocked(me)).toBe(true);
+    expect(new RoadRules(() => [me, behind, beside], () => []).blocked(me)).toBe(false);
     // Far enough ahead: it drives up to the gap and stops there.
-    expect(new RoadRules(() => [me, car(0, 6, null)], () => []).blocked(me, 0.1)).toBe(false);
+    expect(new RoadRules(() => [me, car(0, 6, null)], () => []).blocked(me)).toBe(false);
   });
 
   it('a car stops for a person in front of it for as long as it takes', () => {
     const me = car(0, 0, { x: 10, z: 0 }, Math.PI / 2);
     const rules = new RoadRules(() => [me], () => [{ x: 2.2, z: 0.3 }]);
-    for (let i = 0; i < 100; i++) expect(rules.blocked(me, 0.1)).toBe(true);
-    expect(new RoadRules(() => [me], () => [{ x: -2, z: 0 }]).blocked(me, 0.1)).toBe(false);
+    for (let i = 0; i < 100; i++) expect(rules.blocked(me)).toBe(true);
+    expect(new RoadRules(() => [me], () => [{ x: -2, z: 0 }]).blocked(me)).toBe(false);
   });
 
-  it('two cars nose to nose: after a while one eases past, so nothing stays stuck', () => {
-    const a = car(0, 0, { x: 0, z: 10 });
-    const b = car(0, 3.2, { x: 0, z: -10 }, Math.PI);
-    const rules = new RoadRules(() => [a, b], () => []);
-    let waited = 0;
-    while (rules.blocked(a, 0.1)) waited += 0.1;
-    expect(waited).toBeGreaterThan(TUNING.cars.giveWaySeconds - 0.2);
-    expect(waited).toBeLessThan(TUNING.cars.giveWaySeconds + 0.2);
+  it("where two ways cross, the car that came later waits short of the other's path, which drives on", () => {
+    const first = car(0, 0, { x: 20, z: 0 }, Math.PI / 2, { serial: 1 });
+    const later = car(4, -3.2, { x: 4, z: 10 }, 0, { serial: 2 });
+    const rules = new RoadRules(() => [first, later], () => []);
+    expect(rules.blocked(later)).toBe(true);
+    expect(rules.blocked(first)).toBe(false);
+    // Already in the way: the later car carries on to clear it, and the first one waits.
+    const inTheWay = car(2.4, -0.3, { x: 2.4, z: 10 }, 0, { serial: 2 });
+    const both = new RoadRules(() => [first, inTheWay], () => []);
+    expect(both.blocked(inTheWay)).toBe(false);
+    expect(both.blocked(first)).toBe(true);
+  });
+
+  it('a car never drives through the one in front, however long both wait', () => {
+    const a = car(0, 0, { x: 0, z: 10 }, 0, { serial: 1, held: true, heldFor: 60 });
+    const b = car(0, 3.2, { x: 0, z: 20 }, 0, { serial: 2, held: true, heldFor: 60 });
+    expect(new RoadRules(() => [a, b], () => []).blocked(a)).toBe(true);
+  });
+
+  it('in gridlock, after a few seconds the car that came first eases through; the later one keeps waiting', () => {
+    // Nose to nose, each in the other's way.
+    const first = car(0, 0, { x: 0, z: 10 }, 0, { serial: 1, held: true, heldFor: 1 });
+    const later = car(0, 4.2, { x: 0, z: -10 }, Math.PI, { serial: 2, held: true, heldFor: 9 });
+    const rules = new RoadRules(() => [first, later], () => []);
+    expect(rules.blocked(first)).toBe(true);
+    (first as { heldFor: number }).heldFor = 5;
+    expect(rules.blocked(first)).toBe(false);
+    expect(rules.blocked(later)).toBe(true);
+    // A queued car (standing still) is never driven through.
+    const queued = car(0, 4.2, null, Math.PI, { serial: 2 });
+    expect(new RoadRules(() => [first, queued], () => []).blocked(first)).toBe(true);
+  });
+
+  it("people walking on the pavement beside the road don't hold up the cars going by", () => {
+    const truck = car(0, 0, { x: 20, z: 0 }, Math.PI / 2, { def: { size: [2.25, 1.95, 4.43] } });
+    // The pavement runs 1.4 m from the middle of the near lane.
+    expect(new RoadRules(() => [truck], () => [{ x: 2.5, z: 1.4 }]).blocked(truck)).toBe(false);
+    expect(new RoadRules(() => [truck], () => [{ x: 2.5, z: 0.6 }]).blocked(truck)).toBe(true);
   });
 
   it('a car standing still (queued, at a station) is always waited for, never driven through', () => {
     const me = car(0, 0, { x: 0, z: 10 });
     const parked = car(0, 3.2, null);
     const rules = new RoadRules(() => [me, parked], () => []);
-    for (let i = 0; i < 200; i++) expect(rules.blocked(me, 0.1)).toBe(true);
+    for (let i = 0; i < 200; i++) expect(rules.blocked(me)).toBe(true);
   });
 
   it('oncoming cars in the other lane pass each other, even wide trucks', () => {
     const me = car(0, 0, { x: 20, z: 0 }, Math.PI / 2, { def: { size: [2.25, 1.95, 4.43] } });
     const oncoming = car(3.6, -1.7, { x: -20, z: -1.7 }, -Math.PI / 2);
-    expect(new RoadRules(() => [me, oncoming], () => []).blocked(me, 0.1)).toBe(false);
+    expect(new RoadRules(() => [me, oncoming], () => []).blocked(me)).toBe(false);
   });
 
   it('cars on the tunnel conveyor together leave the spacing to the tunnel', () => {
     const tunnel = { kind: 'tunnel' };
     const a = car(0, 0, { x: 0, z: 10 }, 0, { station: tunnel });
     const b = car(0, 2, null, 0, { station: tunnel });
-    expect(new RoadRules(() => [a, b], () => []).blocked(a, 0.1)).toBe(false);
+    expect(new RoadRules(() => [a, b], () => []).blocked(a)).toBe(false);
   });
 
   it('someone walking waits for a car just in front of them, but can always step out of one', () => {

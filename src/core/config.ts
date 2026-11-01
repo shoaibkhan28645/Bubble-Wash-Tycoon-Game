@@ -280,6 +280,8 @@ export const GOALS = goalsJson as GoalsData;
 
 /** Half the gap in the lot's side hedge where each driveway goes out (art: render/terrain.ts). */
 const DRIVEWAY_GAP = 1.75;
+/** The side hedge starts this far in from the lot's front, leaving the pavement by the crossing open. */
+export const SIDE_HEDGE_START = 5;
 /** Half the width of a street tree's trunk. */
 const TRUNK = 0.35;
 
@@ -292,7 +294,7 @@ export function fixedSolids(layout: LocationLayout): Rect[] {
   const town = layout.town.flatMap((p) => (p.solid ? [{ minX: p.x - p.solid[0], maxX: p.x + p.solid[0], minZ: p.z - p.solid[1], maxZ: p.z + p.solid[1] }] : []));
   const hedge: Rect[] = [];
   const { lot } = layout;
-  let from = lot.minZ + 1.6;
+  let from = lot.minZ + SIDE_HEDGE_START;
   for (const z of [...[layout.earlyExitZ, layout.exitZ].sort((a, b) => a - b), lot.maxZ + DRIVEWAY_GAP + 1]) {
     if (z - DRIVEWAY_GAP > from) hedge.push({ minX: lot.maxX + 0.1, maxX: lot.maxX + 0.8, minZ: from, maxZ: z - DRIVEWAY_GAP });
     from = z + DRIVEWAY_GAP;

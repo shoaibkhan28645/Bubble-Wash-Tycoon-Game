@@ -8,7 +8,7 @@ import { Station } from '../src/systems/stations';
 import type { Need } from '../src/systems/tickets';
 
 function car(needs: Need[]): Car {
-  const c = new Car({ mesh: { position: { x: 0, y: 0, z: 0 } } } as unknown as CarModel);
+  const c = new Car({ mesh: { position: { x: 0, y: 0, z: 0 }, visible: true } } as unknown as CarModel);
   c.def = CARS[0]!;
   c.needs = needs;
   c.served = ['fuel'];
@@ -78,6 +78,20 @@ describe('leaving the pump', () => {
     expect(bay.queue).toEqual([c]);
     expect(c.state).toBe('arriving');
     expect(c.patience).toBe(10 + 60 * TUNING.fuel.patienceRefill);
+  });
+
+  it('one car at a time drives out along the exit both pumps share', () => {
+    const forecourt = open('pump1', 'pump2');
+    const [one, two] = forecourt.pumps;
+    const [a, b] = [car(['fuel']), car(['fuel'])];
+    one!.car = a;
+    two!.car = b;
+    a.model.mesh.position.z = one!.at.z;
+    expect(forecourt.depart(a, one!, null)).toBe('away');
+    expect(forecourt.depart(b, two!, null)).toBe('stay');
+    // Out on the road: the next car may go.
+    a.model.mesh.position.z = LOCATION1.roadZ;
+    expect(forecourt.depart(b, two!, null)).toBe('away');
   });
 
   it('waits a little for room in a wash lane, then gives the wash a miss', () => {

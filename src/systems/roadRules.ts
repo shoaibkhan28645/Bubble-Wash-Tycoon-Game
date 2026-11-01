@@ -1,71 +1,160 @@
-// Cars are solid: a moving car looks ahead along the way it's driving and
-// waits while another car or a person is in front of it. Only two moving
-// cars stuck facing each other ease past after a while; a car standing
-// still (queued, at a station) and a person are always waited for.
-import { TUNING, type Point, type Rect } from '../core/config';
+// Cars are solid: before each step a moving car checks the stretch of its
+// route just ahead, following its turns, and waits while its body there
+// would run into another car or a person. Where two cars' ways cross or
+// merge, the car that came on later gives way before it reaches the other's
+// path, so the two don't end up nose to nose. If cars still lock up waiting
+// on each other (gridlock), the one that came first eases through after a
+// few seconds; a parked or queued car and a person are never driven through.
+import { type Point, type Rect } from '../core/config';
 import { insideRect } from './stations';
 import type { Car } from './cars';
 
 /** Room kept to the car in front, and to a person, in metres. */
 const CAR_GAP = 0.35;
 const PERSON_GAP = 0.5;
-/** A person's half width. */
+/** A person's size ahead of a car, and how close to its path (side on) they must be to hold it up. */
 const PERSON = 0.3;
+const PERSON_SIDE = 0.15;
 /** Oncoming cars further off to the side than this are in the other lane. */
 const ONCOMING_SIDE = 1.2;
+/** How much two cars may brush sides before one counts as in the other's way (the tail of a long car in a line). */
+const SIDE_SLACK = 0.25;
+/** How far along its route a car checks, in steps (more than a car drives in one frame). */
+const LOOK = 1;
+const STEP = 0.25;
+/** How far ahead of a car with right of way, and how far out to its side, another car keeps out of its path. */
+const YIELD_AHEAD = 3.5;
+const YIELD_SIDE = 1.2;
+/** Cars going this nearly the same way follow each other rather than give way. */
+const SAME_WAY = 0.7;
+/** Seconds cars stay locked up waiting on each other before the first to come eases through. */
+const GRIDLOCK = 4;
+
+/** What the rules need of a car. */
+type RoadCar = Pick<Car, 'position' | 'aim' | 'facing' | 'def' | 'model' | 'state' | 'station' | 'serial' | 'held' | 'heldFor'>;
+
+/** A car's body: centre, which way it points (unit), half length and half width. */
+interface Body {
+  at: Point;
+  dir: Point;
+  hl: number;
+  hw: number;
+}
 
 export class RoadRules {
-  /** Seconds each car has been held up by another car. */
-  private readonly waiting = new Map<Car, number>();
-
   constructor(
-    private readonly cars: () => Iterable<Car>,
+    private readonly cars: () => Iterable<RoadCar>,
     /** Where the people are: the player, staff, shoppers, people out walking. */
     private readonly people: () => Point[],
   ) {}
 
-  blocked(car: Car, dt: number): boolean {
-    const next = car.nextPoint;
-    if (!next) return false;
+  blocked(car: RoadCar): boolean {
+    const dir = heading(car);
+    if (!dir) return false;
     const p = car.position;
-    const dx = next.x - p.x;
-    const dz = next.z - p.z;
-    const len = Math.hypot(dx, dz);
-    if (len < 1e-4) return false;
-    const dir = { x: dx / len, z: dz / len };
     const [width, , length] = car.def.size;
-    const hw = width / 2;
-    const hl = length / 2;
     // Nobody steps out in front of a car: people always get to cross.
     for (const person of this.people()) {
       const { along, side } = relative(p, dir, person);
-      if (along > 0 && along < hl + PERSON + PERSON_GAP && side < hw + PERSON) return true;
+      if (along > 0 && along < length / 2 + PERSON + PERSON_GAP && side < width / 2 + PERSON_SIDE) return true;
     }
+    const ahead = sweep(car, LOOK);
+    let held = false;
     for (const other of this.cars()) {
       if (other === car || !other.model.mesh.visible || other.state === 'angry' || sameTunnel(car, other)) continue;
-      const { along, side } = relative(p, dir, other.position);
-      // The other car's half size along this car's way and across it.
-      const f = { x: Math.sin(other.facing), z: Math.cos(other.facing) };
-      const facing = f.x * dir.x + f.z * dir.z;
-      // Coming the other way in the other lane: they just pass (wide trucks reach over the line).
-      if (facing < -0.7 && side > ONCOMING_SIDE) continue;
-      const cos = Math.abs(facing);
-      const sin = Math.abs(f.x * dir.z - f.z * dir.x);
-      const [ow, , ol] = other.def.size;
-      const otherAlong = cos * (ol / 2) + sin * (ow / 2);
-      const otherSide = sin * (ol / 2) + cos * (ow / 2);
-      if (along > 0 && along < hl + otherAlong + CAR_GAP && side < hw + otherSide - 0.15) {
-        // A car standing still (in a queue, at a station) is always waited for:
-        // it will move on. Only two moving cars stuck facing each other ease past.
-        const held = other.nextPoint ? (this.waiting.get(car) ?? 0) + dt : 0;
-        this.waiting.set(car, held);
-        if (held > TUNING.cars.giveWaySeconds) return false;
-        return true;
+      // Anything in its path holds it up, moving or standing. Two cars stuck waiting on each other
+      // (gridlock) for a few seconds: the one that came first eases through.
+      if (hits(car, ahead, other)) {
+        const locked = car.heldFor > GRIDLOCK && other.held && other.serial > car.serial && hits(other, sweep(other, LOOK), car);
+        if (!locked) return true;
+        continue;
       }
+      // Give way to a car that came on earlier and is about to drive through where this one is heading,
+      // unless this car is already in its path (then it carries on and clears it), or that car is held
+      // up itself (it may be waiting for this one). A car still in the lane, facing the way the other
+      // goes (about to turn off it, say), just carries on.
+      const way = heading(other);
+      const body = { x: Math.sin(car.facing), z: Math.cos(car.facing) };
+      if (!way || other.held || other.serial >= car.serial || dot(way, dir) > SAME_WAY || dot(way, body) > SAME_WAY) continue;
+      if (hits(other, sweep(other, YIELD_AHEAD, YIELD_SIDE), car) && !hits(other, sweep(other, LOOK), car) && towards(car, dir, other, way)) held = true;
     }
-    this.waiting.delete(car);
-    return false;
+    return held;
   }
+}
+
+/** Which way a car is driving (towards where its route takes it next), or null if it's standing still. */
+function heading(car: RoadCar): Point | null {
+  const next = car.aim(STEP);
+  if (!next) return null;
+  const dx = next.x - car.position.x;
+  const dz = next.z - car.position.z;
+  const len = Math.hypot(dx, dz);
+  return len < 1e-4 ? null : { x: dx / len, z: dz / len };
+}
+
+/** Where a car's body will be as it drives on along its route, step by step up to `distance` (and `wide` wider). */
+function sweep(car: RoadCar, distance: number, wide = 0): Body[] {
+  const [width, , length] = car.def.size;
+  const bodies: Body[] = [];
+  let from = car.position;
+  for (let d = STEP; d <= distance + 1e-6; d += STEP) {
+    const at = car.aim(d);
+    if (!at) break;
+    const dx = at.x - from.x;
+    const dz = at.z - from.z;
+    const len = Math.hypot(dx, dz);
+    // The end of its route: it stops there, so nothing further on is in its way.
+    if (len < 1e-4) break;
+    bodies.push({ at, dir: { x: dx / len, z: dz / len }, hl: length / 2 + CAR_GAP, hw: width / 2 - SIDE_SLACK + wide });
+    from = at;
+  }
+  return bodies;
+}
+
+/**
+ * One of `car`'s bodies along its way runs into `other`. Two cars already
+ * overlapping (after gridlock) come apart: the one in front drives out, the
+ * one behind waits.
+ */
+function hits(car: RoadCar, ahead: Body[], other: RoadCar): boolean {
+  const first = ahead[0];
+  if (!first) return false;
+  const [ow, , ol] = other.def.size;
+  const f = { x: Math.sin(other.facing), z: Math.cos(other.facing) };
+  const them: Body = { at: other.position, dir: f, hl: ol / 2, hw: ow / 2 };
+  const [width, , length] = car.def.size;
+  // Coming the other way in the other lane: they just pass (wide trucks reach over the line).
+  const r = { x: car.position.x - other.position.x, z: car.position.z - other.position.z };
+  if (dot(f, first.dir) < -SAME_WAY && Math.abs(r.x * f.z - r.z * f.x) > ONCOMING_SIDE) return false;
+  if (overlap({ at: car.position, dir: first.dir, hl: length / 2, hw: width / 2 - SIDE_SLACK }, them)) {
+    const away = dot(first.dir, r);
+    return away < -0.1 || (Math.abs(away) <= 0.1 && car.serial > other.serial);
+  }
+  return ahead.some((body) => overlap(body, them));
+}
+
+/** Two cars' bodies overlap (separating axes). */
+function overlap(a: Body, b: Body): boolean {
+  const d = { x: b.at.x - a.at.x, z: b.at.z - a.at.z };
+  const reach = (body: Body, axis: Point) => body.hl * Math.abs(dot(body.dir, axis)) + body.hw * Math.abs(body.dir.x * axis.z - body.dir.z * axis.x);
+  for (const axis of [a.dir, { x: -a.dir.z, z: a.dir.x }, b.dir, { x: -b.dir.z, z: b.dir.x }]) {
+    if (Math.abs(dot(d, axis)) > reach(a, axis) + reach(b, axis)) return false;
+  }
+  return true;
+}
+
+function dot(a: Point, b: Point): number {
+  return a.x * b.x + a.z * b.z;
+}
+
+/** `car` is heading into `other`'s path (not already driving away from it). */
+function towards(car: RoadCar, dir: Point, other: RoadCar, way: Point): boolean {
+  // Which side of the other car's line it's on, and whether its way crosses that line.
+  const rx = car.position.x - other.position.x;
+  const rz = car.position.z - other.position.z;
+  const offset = rx * way.z - rz * way.x;
+  const drift = dir.x * way.z - dir.z * way.x;
+  return offset * drift < 0 || Math.abs(offset) < car.def.size[0] / 2;
 }
 
 /** How far ahead along `dir` a point is from `p`, and how far off to the side. */
@@ -76,12 +165,12 @@ function relative(p: Point, dir: Point, q: Point): { along: number; side: number
 }
 
 /** On the tunnel's conveyor together: the tunnel spaces them itself. */
-function sameTunnel(a: Car, b: Car): boolean {
+function sameTunnel(a: RoadCar, b: RoadCar): boolean {
   return a.station !== null && a.station === b.station && a.station.kind === 'tunnel';
 }
 
 /** How far ahead a walker checks for a car, and the room kept from it. */
-const LOOK = 0.45;
+const WALKER_LOOK = 0.45;
 const CAR_ROOM = 0.15;
 
 /**
@@ -93,7 +182,7 @@ export function carAhead(at: Point, next: Point, cars: readonly Rect[]): boolean
   const dz = next.z - at.z;
   const len = Math.hypot(dx, dz);
   if (len < 1e-4) return false;
-  const probe = { x: at.x + (dx / len) * Math.min(LOOK, len), z: at.z + (dz / len) * Math.min(LOOK, len) };
+  const probe = { x: at.x + (dx / len) * Math.min(WALKER_LOOK, len), z: at.z + (dz / len) * Math.min(WALKER_LOOK, len) };
   const grown = (r: Rect) => ({ minX: r.minX - CAR_ROOM, maxX: r.maxX + CAR_ROOM, minZ: r.minZ - CAR_ROOM, maxZ: r.maxZ + CAR_ROOM });
   return cars.some((r) => insideRect(probe, grown(r)) && !insideRect(at, grown(r)));
 }

@@ -1,6 +1,6 @@
 import { TUNING, type LocationLayout, type Point } from '../core/config';
 import type { WorldLabels } from '../ui/worldLabels';
-import { slotOf, type Lane } from './arrivals';
+import { CORNER, slotOf, type Lane } from './arrivals';
 import type { Car } from './cars';
 import { Station } from './stations';
 
@@ -19,6 +19,8 @@ export class Forecourt {
   readonly pumps: Station[] = [];
   /** Cars waiting for a pump, first in line first. */
   readonly line: Car[] = [];
+  /** The car driving out along the exit (both pumps' lanes share it, so one at a time), and which arrival it was. */
+  private leaving: { car: Car; serial: number } | null = null;
 
   constructor(
     private readonly layout: LocationLayout,
@@ -86,6 +88,8 @@ export class Forecourt {
       if (car.timer < TUNING.cars.leaveDelay + TUNING.fuel.washWaitSeconds) return 'stay';
       car.needs = car.needs.filter((need) => need !== 'wash');
     }
+    if (this.exitBusy) return 'stay';
+    this.leaving = { car, serial: car.serial };
     pump.car = null;
     car.station = null;
     const { roadZ, roadLane, forecourt } = this.layout;
@@ -93,22 +97,32 @@ export class Forecourt {
       car.state = 'arriving';
       car.patience = Math.min(car.patienceMax, car.patience + car.patienceMax * TUNING.fuel.patienceRefill);
       const road = roadZ + roadLane;
-      car.route([...this.exitRoute(pump, road), { x: washLane.at.x, z: road }], slotOf(washLane, washLane.queue.length, this.layout));
+      car.route([...this.exitRoute(pump, road, washLane.at.x), { x: washLane.at.x, z: road }], slotOf(washLane, washLane.queue.length, this.layout));
       washLane.queue.push(car);
       return 'wash';
     }
     car.state = 'leaving';
     const road = roadZ - roadLane;
-    car.follow([...this.exitRoute(pump, road), { x: forecourt.leaveX, z: road }]);
+    car.follow([...this.exitRoute(pump, road, forecourt.leaveX), { x: forecourt.leaveX, z: road }]);
     return 'away';
   }
 
-  /** From a pump on along its lane and out across the pavement to the road (at `roadZ`). */
-  private exitRoute(pump: Station, roadZ: number): Point[] {
+  /** Another car is still on its way out along the exit, inside the forecourt. */
+  private get exitBusy(): boolean {
+    const out = this.leaving;
+    // Gone (back in the pool, or out again as a new arrival), or back at a station.
+    if (!out || out.car.serial !== out.serial || !out.car.model.mesh.visible || out.car.station) return false;
+    return out.car.position.z < this.layout.roadZ - this.layout.roadLane * 2;
+  }
+
+  /** From a pump on along its lane and out across the pavement to the road (at `roadZ`), cutting the corner towards `towardsX`. */
+  private exitRoute(pump: Station, roadZ: number, towardsX: number): Point[] {
     const { exitX } = this.layout.forecourt;
+    const turn = Math.sign(towardsX - exitX) * CORNER;
     return [
       { x: exitX, z: pump.at.z },
-      { x: exitX, z: roadZ },
+      { x: exitX, z: roadZ - CORNER },
+      { x: exitX + turn, z: roadZ },
     ];
   }
 }

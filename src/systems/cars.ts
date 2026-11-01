@@ -12,6 +12,8 @@ import type { Need } from './tickets';
 export type CarState = 'arriving' | 'queued' | 'entering' | 'waiting' | 'done' | 'leaving' | 'angry';
 
 const TURN_RATE = 10;
+/** Counts cars as they come on: an earlier car has right of way where two ways cross. */
+let spawned = 0;
 
 /** One car on the lot. Drives along waypoints; the bays decide where. */
 export class Car {
@@ -45,6 +47,11 @@ export class Car {
   wantsDetail = false;
   /** Bought a snack from the vending machine while waiting. */
   snacked = false;
+  /** Which car this is in the order they came on (lower came first). */
+  serial = 0;
+  /** It was held up by something in its way last time it tried to drive, and for how long now. */
+  held = false;
+  heldFor = 0;
   /** Seconds spent waiting in line. */
   waited = 0;
   /** Its driver is away at the Mini-Mart (the car waits at the pump until they're back). */
@@ -58,7 +65,7 @@ export class Car {
   private heading = 0;
 
   /** Who has to wait for whom on the road; none in tests. */
-  static rules: { blocked(car: Car, dt: number): boolean } | null = null;
+  static rules: { blocked(car: Car): boolean } | null = null;
 
   constructor(readonly model: CarModel) {}
 
@@ -90,6 +97,19 @@ export class Car {
     return this.path[0] ?? null;
   }
 
+  /** Where it will be after driving `distance` more along its route (where it's really heading, round a corner just ahead). */
+  aim(distance: number): Point | null {
+    let at = this.position;
+    let left = distance;
+    for (const point of this.path) {
+      const step = Math.hypot(point.x - at.x, point.z - at.z);
+      if (step >= left) return { x: at.x + ((point.x - at.x) * left) / step, z: at.z + ((point.z - at.z) * left) / step };
+      left -= step;
+      at = point;
+    }
+    return this.path.length > 0 ? at : null;
+  }
+
   /** Wants this but hasn't had it yet. */
   wants(need: Need): boolean {
     return this.needs.includes(need) && !this.served.includes(need);
@@ -97,6 +117,7 @@ export class Car {
 
   spawn(def: CarDef, at: Point, approach: Point[], goal: Point, payDef: CarDef = def, needs: Need[] = ['wash']): void {
     this.def = def;
+    this.serial = ++spawned;
     this.payDef = payDef;
     this.vip = !!def.vip;
     this.special = !!def.special;
@@ -152,7 +173,9 @@ export class Car {
   update(dt: number, speed: number): void {
     const next = this.path[0];
     // Something in the way: wait for it to clear (the road rules decide).
-    if (next && Car.rules?.blocked(this, dt)) {
+    this.held = !!next && !!Car.rules?.blocked(this);
+    this.heldFor = this.held ? this.heldFor + dt : 0;
+    if (this.held) {
       this.model.animate(dt, false);
       return;
     }

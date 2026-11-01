@@ -1,6 +1,6 @@
 import { TUNING, type LocationLayout, type Point } from '../core/config';
 import type { CarMoods } from '../ui/carBubbles';
-import { slotOf, type Arrivals, type Lane } from './arrivals';
+import { CORNER, slotOf, type Arrivals, type Lane } from './arrivals';
 import type { Car } from './cars';
 import type { Departures } from './departures';
 import type { Forecourt } from './forecourt';
@@ -9,6 +9,9 @@ import type { Mart } from './mart';
 import type { Station } from './stations';
 import type { Till } from './till';
 import { Tunnel } from './tunnel';
+
+/** A car this much nearer the front of a line than the one ahead of it in the list takes its place. */
+const OVERTAKE = 2;
 
 /** The lot's stations, as Traffic keeps them. */
 export interface LotStations {
@@ -36,20 +39,42 @@ export class Journeys {
     private readonly departures: Departures,
   ) {}
 
+  /** Every car done at a bay, the tunnel or a finishing station, waiting to move on, with where it is. */
+  private doneCars(): { car: Car; from: Station }[] {
+    const done = [...this.lot.bays, ...this.lot.finishing].flatMap((s) => (s.car?.state === 'done' ? [{ car: s.car, from: s }] : []));
+    const front = this.lot.tunnel?.inside[0];
+    if (front?.state === 'done') done.push({ car: front, from: this.lot.tunnel! });
+    return done;
+  }
+
   /**
    * Of the cars done and waiting for `next`, the one that has waited longest.
    * Without this the tunnel, updated last, took every free dryer and the
    * bays' finished cars sat waiting forever.
    */
   private firstInLine(next: Station): Car | undefined {
-    const done = [...this.lot.bays, ...this.lot.finishing].flatMap((s) => (s.car?.state === 'done' ? [{ car: s.car, from: s }] : []));
-    const front = this.lot.tunnel?.inside[0];
-    if (front?.state === 'done') done.push({ car: front, from: this.lot.tunnel! });
+    const done = this.doneCars();
     let first: Car | undefined;
     for (const { car, from } of done) {
       if (nextStop(this.lot.finishing, from, car.wantsDetail) === next && this.wayClear(from, next) && (!first || car.timer > first.timer)) first = car;
     }
     return first;
+  }
+
+  /**
+   * Held for a car that has waited longer to drive past it: the tunnel's
+   * cars skip the dryer, and without this the bays' cars took the dryer
+   * turn after turn, so the tunnel's car never found its way clear and the
+   * conveyor stood still behind it.
+   */
+  private heldFor(station: Station, car: Car): boolean {
+    const stations = this.lot.finishing;
+    return this.doneCars().some(({ car: other, from }) => {
+      if (other === car || other.timer <= car.timer) return false;
+      const target = nextStop(stations, from, other.wantsDetail);
+      const at = stations.indexOf(station);
+      return !!target && at > stations.indexOf(from) && at < stations.indexOf(target);
+    });
   }
 
   /**
@@ -84,7 +109,7 @@ export class Journeys {
     const next = nextStop(this.lot.finishing, from, car.wantsDetail);
     if (next) {
       // Wait here until the next station is free and it's this car's turn.
-      if (next.car || !this.wayClear(from, next) || this.firstInLine(next) !== car) return;
+      if (next.car || !this.wayClear(from, next) || this.firstInLine(next) !== car || this.heldFor(next, car)) return;
       this.leave(from, car);
       next.car = car;
       car.station = next;
@@ -122,14 +147,15 @@ export class Journeys {
     this.departures.driveOff(car);
   }
 
-  /** Out of the lot onto the side street, up it (keeping right) and away along the main road. */
+  /** Out of the lot onto the side street, up it (keeping right) and away along the main road, cutting the corner. */
   private awayRoute(exitZ: number): Point[] {
     const { sideStreetX, roadZ, roadLane, leaveX } = this.layout;
     const x = sideStreetX + roadLane;
     const z = roadZ + roadLane;
     return [
       { x, z: exitZ },
-      { x, z },
+      { x, z: z + CORNER },
+      { x: x + CORNER, z },
       { x: leaveX, z },
     ];
   }
@@ -158,8 +184,29 @@ export class Journeys {
     this.departures.stormOff(car);
   }
 
+  /**
+   * Keeps a line in the order its cars really are: one that joined from the
+   * pumps may still be on its way while a later car is already waiting at the
+   * front, and only the car at the front can drive in.
+   */
+  private reorder(lane: Lane): void {
+    const front = slotOf(lane, 0, this.layout);
+    const away = (car: Car) => Math.hypot(car.position.x - front.x, car.position.z - front.z);
+    let moved = false;
+    for (let i = 0; i + 1 < lane.queue.length; i++) {
+      const [a, b] = [lane.queue[i]!, lane.queue[i + 1]!];
+      if (away(b) + OVERTAKE < away(a)) {
+        lane.queue[i] = b;
+        lane.queue[i + 1] = a;
+        moved = true;
+      }
+    }
+    if (moved) lane.queue.forEach((car, i) => car.driveTo(slotOf(lane, i, this.layout)));
+  }
+
   /** Front car moves into an empty bay or onto the tunnel conveyor; the rest shuffle forward. */
   advanceQueue(lane: Lane): void {
+    this.reorder(lane);
     if (!lane.idle || lane.queue.length === 0) return;
     const next = lane.queue.shift()!;
     next.state = 'entering';

@@ -9,6 +9,8 @@ import { guideTarget, sideButtonOpen, tutorialActive, type GuideView } from '../
 import { t } from '../src/ui/strings';
 import { canUse, nextStop, pickRebalance, type Lane } from '../src/systems/lanes';
 import { bill } from '../src/systems/traffic';
+import { queueRoom, slotOf } from '../src/systems/arrivals';
+import { Station } from '../src/systems/stations';
 import { Tunnel } from '../src/systems/tunnel';
 
 const def = (id: string) => CARS.find((c) => c.id === id)!;
@@ -286,5 +288,19 @@ describe('side buttons', () => {
     state.playSeconds = TUNING.onboarding.adsAfterSeconds - 1;
     expect(sideButtonOpen(state, 'speed')).toBe(false);
     expect(sideButtonOpen(state, 'convoy')).toBe(false);
+  });
+});
+
+describe('lines on the lot', () => {
+  it('never reach the road: every waiting spot keeps a long car on the lot', () => {
+    const bay = new Station('bay1', 'bay', LOCATION1.pads.bay1!, LOCATION1.bay, 0.9, null);
+    const tunnel = new Tunnel(LOCATION1.pads.tunnel!, LOCATION1.tunnel, null);
+    for (const lane of [bay, tunnel]) {
+      const room = queueRoom(lane, LOCATION1);
+      expect(room).toBeGreaterThan(0);
+      for (let i = 0; i < room; i++) expect(slotOf(lane, i, LOCATION1).z - 1.9).toBeGreaterThanOrEqual(LOCATION1.lot.minZ - 0.05);
+      // One more would stand on the road.
+      expect(slotOf(lane, room, LOCATION1).z - 1.9).toBeLessThan(LOCATION1.lot.minZ - 0.05);
+    }
   });
 });
