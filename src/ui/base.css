@@ -19,6 +19,12 @@ body {
   overscroll-behavior: none;
 }
 
+/* One town's game: the canvas and everything over it. */
+.game-root {
+  position: absolute;
+  inset: 0;
+}
+
 #app canvas {
   display: block;
   width: 100%;
@@ -67,6 +73,10 @@ body {
   background: linear-gradient(#cfe8ff, #fff4d6);
   transition: opacity 250ms ease-out;
   z-index: 10;
+}
+
+#loading[hidden] {
+  display: none;
 }
 
 #loading.loading-done {

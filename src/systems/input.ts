@@ -65,15 +65,28 @@ export class Input {
     root.addEventListener('pointerup', end);
     root.addEventListener('pointercancel', end);
 
-    window.addEventListener('keydown', (e) => {
-      if (KEYS[e.code] && !this.lifecycle.paused) {
-        this.held.add(e.code);
-        e.preventDefault();
-      }
-    });
-    window.addEventListener('keyup', (e) => this.held.delete(e.code));
-    window.addEventListener('blur', () => this.reset());
-    lifecycle.onPause(() => this.reset());
+    window.addEventListener('keydown', this.onKeyDown);
+    window.addEventListener('keyup', this.onKeyUp);
+    window.addEventListener('blur', this.onBlur);
+    this.stopPause = lifecycle.onPause(() => this.reset());
+  }
+
+  private readonly onKeyDown = (e: KeyboardEvent): void => {
+    if (KEYS[e.code] && !this.lifecycle.paused) {
+      this.held.add(e.code);
+      e.preventDefault();
+    }
+  };
+  private readonly onKeyUp = (e: KeyboardEvent): void => void this.held.delete(e.code);
+  private readonly onBlur = (): void => this.reset();
+  private readonly stopPause: () => void;
+
+  /** Stops listening to the keyboard (leaving a town). Pointer listeners go with the game's element. */
+  dispose(): void {
+    window.removeEventListener('keydown', this.onKeyDown);
+    window.removeEventListener('keyup', this.onKeyUp);
+    window.removeEventListener('blur', this.onBlur);
+    this.stopPause();
   }
 
   /** Movement this frame, length 0..1. */

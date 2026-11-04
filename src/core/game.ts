@@ -5,7 +5,7 @@ import type { GameState } from './gameState';
 import type { Lifecycle } from './lifecycle';
 import type { SaveManager } from './save';
 import type { SoundManager } from '../audio/sound';
-import { createStage, type Stage } from '../render/stage';
+import type { Stage } from '../render/stage';
 import { CameraRig } from '../render/cameraRig';
 import { terrain } from '../render/terrain';
 import { Particles } from '../render/effects/particles';
@@ -58,11 +58,18 @@ export interface Game {
   start(): void;
   /** Extra per-frame work, e.g. the debug overlay. */
   addTicker(ticker: (dt: number) => void): void;
+  /**
+   * Takes the town down (leaving it): stops the loop, drops every listener,
+   * frees the GPU context and removes everything it put on the page.
+   */
+  dispose(): void;
 }
 
 /** Builds the current town (see setTown) and the loop, and wires pause/resume to loop, audio, input and saving. */
 export function createGame(
-  root: HTMLElement,
+  container: HTMLElement,
+  /** The renderer and scene, shared by every town in the session. */
+  stage: Stage,
   state: GameState,
   lifecycle: Lifecycle,
   saves: SaveManager,
@@ -70,7 +77,13 @@ export function createGame(
 ): Game {
   const current = currentTown();
   const { layout } = current;
-  const stage = createStage(root);
+  // Everything this town puts on the page goes in here, so leaving the town removes it all at once.
+  const root = document.createElement('div');
+  root.className = 'game-root';
+  // First, under the page's other overlays (the debug panel stays on top after a trip).
+  container.prepend(root);
+  /** Undone when the town is taken down. */
+  const cleanups: (() => void)[] = [];
   stage.shadowArea({ ...layout.lot, minZ: layout.walk.minZ });
   const clock = new GameClock();
   const tickers: ((dt: number) => void)[] = [];
@@ -262,24 +275,26 @@ export function createGame(
   });
 
   // Any tap or key unlocks audio (browsers need a gesture first).
-  root.addEventListener('pointerdown', () => {
+  const unlockAudio = (): void => {
     if (!lifecycle.paused) sound.unlock();
-  });
-  window.addEventListener('keydown', () => {
-    if (!lifecycle.paused) sound.unlock();
-  });
+  };
+  root.addEventListener('pointerdown', unlockAudio);
+  window.addEventListener('keydown', unlockAudio);
+  cleanups.push(() => window.removeEventListener('keydown', unlockAudio));
 
-  lifecycle.onPause(() => {
-    loop.stop();
-    root.classList.add('is-paused');
-    sound.setPaused(true);
-    void saves.saveNow();
-  });
-  lifecycle.onResume(() => {
-    root.classList.remove('is-paused');
-    sound.setPaused(false);
-    loop.start();
-  });
+  cleanups.push(
+    lifecycle.onPause(() => {
+      loop.stop();
+      root.classList.add('is-paused');
+      sound.setPaused(true);
+      void saves.saveNow();
+    }),
+    lifecycle.onResume(() => {
+      root.classList.remove('is-paused');
+      sound.setPaused(false);
+      loop.start();
+    }),
+  );
 
   return {
     stage,
@@ -302,5 +317,18 @@ export function createGame(
       if (!lifecycle.paused) loop.start();
     },
     addTicker: (ticker) => void tickers.push(ticker),
+    dispose() {
+      loop.stop();
+      for (const cleanup of cleanups) cleanup();
+      input.dispose();
+      panel.dispose();
+      // The scene first, while the blob shadows are still in it, so the renderer lets go of everything.
+      stage.reset();
+      blobShadows.detach();
+      Car.rules = null;
+      CarModel.exhaust = null;
+      tickers.length = 0;
+      root.remove();
+    },
   };
 }

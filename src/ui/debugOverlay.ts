@@ -3,6 +3,7 @@ import type { GameState } from '../core/gameState';
 import type { Lifecycle } from '../core/lifecycle';
 import type { SaveManager } from '../core/save';
 import type { DevControls } from '../platform/types';
+import { ROADSIDE, registerTown } from '../core/towns';
 
 const REFRESH_SECONDS = 0.5;
 const DEBUG_CASH = 1000;
@@ -10,7 +11,8 @@ const FAKE_PAUSE_MS = 3000;
 
 interface DebugDeps {
   root: HTMLElement;
-  game: Game;
+  /** The town being played (a new Game after each trip). */
+  game: () => Game;
   state: GameState;
   saves: SaveManager;
   lifecycle: Lifecycle;
@@ -18,10 +20,15 @@ interface DebugDeps {
   dev: DevControls | null;
   /** Page load to playable, in ms (0 until then). */
   readyMs: () => number;
+  /** Takes the hero to another town. */
+  travel: (id: string) => Promise<void>;
 }
 
+/** A copy of the first town under another id: somewhere to travel to until Town 2 exists. */
+const TEST_TOWN = 'testville';
+
 /** `?debug` overlay: stats, +$1,000, and (outside YouTube) fake pause/mute. Off by default. */
-export function createDebugOverlay({ root, game, state, saves, lifecycle, dev, readyMs }: DebugDeps): (dt: number) => void {
+export function createDebugOverlay({ root, game, state, saves, lifecycle, dev, readyMs, travel }: DebugDeps): (dt: number) => void {
   const panel = document.createElement('div');
   panel.className = 'debug-overlay';
   const stats = document.createElement('div');
@@ -48,12 +55,23 @@ export function createDebugOverlay({ root, game, state, saves, lifecycle, dev, r
     showStats();
   });
 
-  const shadowLabel = () => `Shadows ${game.stage.shadows ? 'on' : 'off'}`;
+  const shadowLabel = () => `Shadows ${game().stage.shadows ? 'on' : 'off'}`;
   addButton(shadowLabel(), () => {
-    game.stage.setShadows(!game.stage.shadows);
+    game().stage.setShadows(!game().stage.shadows);
     showStats();
   });
   const shadowButton = buttons.lastElementChild as HTMLButtonElement;
+
+  // Travel test: back and forth between the first town and a fresh copy of it.
+  registerTown(TEST_TOWN, async () => ({ ...ROADSIDE, id: TEST_TOWN }));
+  const travelLabel = () => (state.currentTown === TEST_TOWN ? `Travel to ${ROADSIDE.id}` : 'Travel to test town');
+  addButton(travelLabel(), (button) => {
+    button.disabled = true;
+    void travel(state.currentTown === TEST_TOWN ? ROADSIDE.id : TEST_TOWN).finally(() => {
+      button.disabled = false;
+      button.textContent = travelLabel();
+    });
+  });
 
   if (dev) {
     addButton('Pause 3s', () => {
@@ -76,14 +94,14 @@ export function createDebugOverlay({ root, game, state, saves, lifecycle, dev, r
   let elapsed = 0;
 
   function showStats(): void {
-    const { calls, triangles } = game.stage.renderer.info.render;
+    const { calls, triangles } = game().stage.renderer.info.render;
     const status = lifecycle.paused ? 'PAUSED · ' : '';
-    stats.textContent = `${status}FPS ${fps} · JS ${game.frameMs.toFixed(1)}ms · calls ${calls} · tris ${triangles}`;
-    const lost = game.stage.contextLosses;
+    stats.textContent = `${status}FPS ${fps} · JS ${game().frameMs.toFixed(1)}ms · calls ${calls} · tris ${triangles}`;
+    const lost = game().stage.contextLosses;
     const memory = (performance as { memory?: { usedJSHeapSize: number } }).memory;
     const heap = memory ? ` · heap ${Math.round(memory.usedJSHeapSize / 1048576)} MB` : '';
     const ready = readyMs() ? ` · ready ${(readyMs() / 1000).toFixed(1)} s` : '';
-    gpu.textContent = `GPU ${game.stage.gpu} · res ${game.stage.pixelRatio.toFixed(2)}×${ready}${heap}${lost ? ` · crashed ${lost}×` : ''}`;
+    gpu.textContent = `GPU ${game().stage.gpu} · res ${game().stage.pixelRatio.toFixed(2)}×${ready}${heap}${lost ? ` · crashed ${lost}×` : ''}`;
     // Shadows also switch off by themselves after a GPU crash.
     shadowButton.textContent = shadowLabel();
   }

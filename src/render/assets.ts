@@ -46,24 +46,14 @@ const SCENERY = [
 /** The customers' car files, in the order they're searched for a model. */
 export const CAR_FILES = ['cars:small', 'cars:family', 'cars:large', 'cars:big', 'cars:monster'];
 
-/** Every model the game needs at start, by id → relative path. */
-function manifest(): Record<string, string> {
+/**
+ * Every model every town needs, by id → relative path. A town's own
+ * buildings are listed in its TownDef (`models`) and come and go with it.
+ */
+function sharedManifest(): Record<string, string> {
   const files: Record<string, string> = {};
   // Cars modelled in Blender (art/blender/cars.py); the Car of the Day specials load when first needed.
   for (const file of CAR_FILES) files[file] = `models/cars/cars-${file.slice(5)}.glb`;
-  // Buildings modelled in Blender (art/blender).
-  files['building:tunnel'] = 'models/buildings/tunnel.glb';
-  files['building:wash-bay'] = 'models/buildings/wash-bay.glb';
-  files['building:fuel-canopy'] = 'models/buildings/fuel-canopy.glb';
-  files['building:fuel-pump'] = 'models/buildings/fuel-pump.glb';
-  files['building:dryer'] = 'models/buildings/dryer.glb';
-  files['building:wax'] = 'models/buildings/wax.glb';
-  files['building:detailing'] = 'models/buildings/detailing.glb';
-  files['building:mini-mart'] = 'models/buildings/mini-mart.glb';
-  files['building:props'] = 'models/buildings/props.glb';
-  files['building:landmark'] = 'models/buildings/landmark.glb';
-  files['building:town-shops'] = 'models/buildings/town-shops.glb';
-  files['building:town-homes'] = 'models/buildings/town-homes.glb';
   // The player and the staff (Kenney Mini Characters); shoppers and people out walking load later (loadPeople).
   for (const person of [CHARACTERS.player, ...Object.values(CHARACTERS.staff)]) files[`person:${person}`] = personPath(person);
   for (const name of SCENERY) files[`nature:${name}`] = `models/nature/${name}.glb`;
@@ -82,13 +72,18 @@ const lambertCache = new Map<Material, MeshLambertMaterial>();
 /** Every Mini Characters and Nature Kit model points at a shared colour texture; keep one copy per image. */
 const textures = new Map<unknown, Texture>();
 
-/** Loads everything in the manifest; `onProgress` gets 0..1. */
-export async function loadAssets(onProgress: (fraction: number) => void): Promise<void> {
+/** Loads the shared models and the first town's (`townModels`); `onProgress` gets 0..1. */
+export async function loadAssets(onProgress: (fraction: number) => void, townModels: Record<string, string> = {}): Promise<void> {
   // Files loaded twice (the shared colour textures) come from memory the second time.
   Cache.enabled = true;
+  await loadAll({ ...sharedManifest(), ...townModels }, onProgress);
+}
+
+async function loadAll(files: Record<string, string>, onProgress: (fraction: number) => void): Promise<void> {
   const loader = new GLTFLoader();
-  const entries = Object.entries(manifest());
+  const entries = Object.entries(files).filter(([id]) => !assets.has(id));
   let done = 0;
+  if (entries.length === 0) onProgress(1);
   await Promise.all(
     entries.map(async ([id, path]) => {
       const gltf = await loader.loadAsync(import.meta.env.BASE_URL + path);
@@ -98,6 +93,48 @@ export async function loadAssets(onProgress: (fraction: number) => void): Promis
       onProgress(++done / entries.length);
     }),
   );
+}
+
+/**
+ * Travelling: drops the models only the old town used and loads the new
+ * town's. Call once the old town's game is taken down.
+ */
+export async function swapTownModels(
+  from: Record<string, string>,
+  to: Record<string, string>,
+  onProgress: (fraction: number) => void,
+): Promise<void> {
+  for (const id of Object.keys(from)) if (!(id in to)) unloadModel(id);
+  await loadAll(to, onProgress);
+}
+
+/** Forgets a model and frees what only it used (its shared colour textures stay). */
+function unloadModel(id: string): void {
+  const model = assets.get(id);
+  if (!model) return;
+  assets.delete(id);
+  const merged = mergedCache.get(id);
+  if (merged) {
+    merged.geometry.dispose();
+    merged.material.dispose();
+    mergedCache.delete(id);
+  }
+  const materials = new Set<Material>();
+  model.scene.traverse((node) => {
+    if (!(node instanceof Mesh)) return;
+    (node.geometry as BufferGeometry).dispose();
+    materials.add(node.material as Material);
+  });
+  for (const [source, lambert] of lambertCache) {
+    if (!materials.has(lambert)) continue;
+    lambert.dispose();
+    lambertCache.delete(source);
+  }
+}
+
+/** How many models are loaded (the debug panel, and the travel test). */
+export function loadedModelCount(): number {
+  return assets.size;
 }
 
 /** Loads one more model after the start (the Car of the Day, the shoppers), unless it's already here. */

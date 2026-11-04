@@ -2,13 +2,14 @@ import * as platform from '../platform/youtube';
 import { SoundManager } from '../audio/sound';
 import { getLoadingScreen } from '../ui/loadingScreen';
 import { setLanguage } from '../ui/strings';
-import { loadAssets } from '../render/assets';
-import { createGame } from './game';
+import { loadAssets, swapTownModels } from '../render/assets';
+import { createStage } from '../render/stage';
+import { createGame, type Game } from './game';
 import { Lifecycle } from './lifecycle';
 import { parseSave } from './migrate';
 import { SaveManager } from './save';
-import { TUNING, setTown } from './config';
-import { START_TOWN_ID, TOWN_IDS, loadTown } from './towns';
+import { TUNING, setTown, town } from './config';
+import { START_TOWN_ID, loadTown, townIds } from './towns';
 import type { GameState } from './gameState';
 import { backgroundEarner, empireOfflineEarnings, switchTown } from './empire';
 
@@ -40,7 +41,7 @@ export async function boot(root: HTMLElement): Promise<void> {
 
   setLanguage(await platform.getLanguage());
   // A town this build doesn't have (a save from a newer version): keep its progress, play the first town.
-  if (!TOWN_IDS.includes(state.currentTown)) switchTown(state, START_TOWN_ID);
+  if (!townIds().includes(state.currentTown)) switchTown(state, START_TOWN_ID);
   setTown(await loadTown(state.currentTown));
   loading.setProgress(0.5);
   // Models and sounds load side by side; the bar shows the slower of the two.
@@ -51,41 +52,70 @@ export async function boot(root: HTMLElement): Promise<void> {
     loadAssets((fraction) => {
       models = fraction;
       progress();
-    }),
+    }, town().models),
     sound.load((fraction) => {
       audio = fraction;
       progress();
     }),
   ]);
 
-  const game = createGame(root, state, lifecycle, saves, sound);
-  // Towns the hero isn't in keep earning while he plays.
-  game.addTicker(backgroundEarner(state));
+  // One renderer for the whole session; each town fills and empties its scene.
+  const stage = createStage(root);
+  const debug = new URLSearchParams(window.location.search).has('debug');
+  let debugTicker: ((dt: number) => void) | null = null;
+  let game: Game;
+  /** Builds the town being played and draws its first frame (behind the loading screen). */
+  const openTown = (): void => {
+    game = createGame(root, stage, state, lifecycle, saves, sound);
+    // Towns the hero isn't in keep earning while he plays.
+    game.addTicker(backgroundEarner(state));
+    if (debugTicker) game.addTicker(debugTicker);
+    // Dev-only handle for automated play tests; stripped from production builds.
+    if (import.meta.env.DEV) Object.assign(window, { mogul: { state, game, sound, travel } });
+    try {
+      game.renderOnce();
+    } catch (error) {
+      // A GPU crash during the first draw must not leave the loading screen up.
+      platform.logError(error);
+    }
+  };
+
+  /** Takes the hero to another town: saves, takes this town down, loads the next one's data and models, opens it. */
+  const travel = async (id: string): Promise<void> => {
+    await saves.saveNow();
+    loading.show();
+    const from = town();
+    game.dispose();
+    switchTown(state, id);
+    const to = await loadTown(id);
+    loading.setProgress(0.3);
+    await swapTownModels(from.models, to.models, (fraction) => loading.setProgress(0.3 + fraction * 0.6));
+    setTown(to);
+    openTown();
+    loading.setProgress(1);
+    await saves.saveNow();
+    await loading.hide();
+    game.start();
+  };
+
+  openTown();
   // Offline earnings since the last save (Tech Guide boot sequence).
   const offline = applyOffline(state, state.savedAt);
-  try {
-    game.renderOnce();
-  } catch (error) {
-    // A GPU crash during the first draw must not leave the loading screen up.
-    platform.logError(error);
-  }
   loading.setProgress(1);
 
-  if (new URLSearchParams(window.location.search).has('debug')) {
+  if (debug) {
     const { createDebugOverlay } = await import('../ui/debugOverlay');
-    game.addTicker(createDebugOverlay({ root, game, state, saves, lifecycle, dev: platform.devControls, readyMs: () => readyMs }));
+    debugTicker = createDebugOverlay({ root, game: () => game, state, saves, lifecycle, dev: platform.devControls, readyMs: () => readyMs, travel });
+    game!.addTicker(debugTicker);
   }
 
-  // Dev-only handle for automated play tests; stripped from production builds.
-  if (import.meta.env.DEV) Object.assign(window, { mogul: { state, game, sound } });
-
   await loading.hide();
-  game.start();
+  game!.start();
   platform.gameReady();
   readyMs = performance.now();
   // The music isn't needed to play: make it now, after the start.
   setTimeout(() => sound.prepareMusic(), 300);
-  if (offline.cash > 0) game.welcomeBack(offline);
+  if (offline.cash > 0) game!.welcomeBack(offline);
 
   // A long pause inside YouTube counts as time away too.
   let pausedAt = 0;
@@ -103,4 +133,3 @@ function applyOffline(state: GameState, since: number): { cash: number; seconds:
   state.cash += earned.cash;
   return earned;
 }
-

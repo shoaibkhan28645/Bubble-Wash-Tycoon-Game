@@ -50,10 +50,17 @@ export class UpgradePanel {
       const button = (e.target as HTMLElement).closest<HTMLButtonElement>('button[data-key]');
       if (button && !button.disabled) this.onBuy(button.dataset.key!);
     });
-    window.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape' && this.openId) this.close();
-    });
+    window.addEventListener('keydown', this.onKey);
     root.appendChild(this.el);
+  }
+
+  private readonly onKey = (e: KeyboardEvent): void => {
+    if (e.key === 'Escape' && this.openId) this.close();
+  };
+
+  /** Stops listening for Escape (leaving a town). */
+  dispose(): void {
+    window.removeEventListener('keydown', this.onKey);
   }
 
   open(id: string, title: string, rows: () => UpgradeRow[], cash: () => number): void {

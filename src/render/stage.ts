@@ -1,11 +1,15 @@
 import {
+  type BufferGeometry,
   DirectionalLight,
   Fog,
   HemisphereLight,
+  type Material,
   type Object3D,
   PCFShadowMap,
   PerspectiveCamera,
   Scene,
+  SkinnedMesh,
+  Texture,
   WebGLRenderer,
 } from 'three';
 import { GRAPHICS } from './graphics';
@@ -50,6 +54,12 @@ export interface Stage {
   /** Called after every resize, once the camera's aspect is updated. */
   onResize(callback: () => void): void;
   render(): void;
+  /**
+   * Empties the scene for the next town: everything but the sky lights goes,
+   * its GPU copies are freed and resize callbacks are dropped. The renderer
+   * (and its compiled shaders) stays for the whole session.
+   */
+  reset(): void;
 }
 
 export function createStage(container: HTMLElement): Stage {
@@ -71,6 +81,7 @@ export function createStage(container: HTMLElement): Stage {
   sun.shadow.normalBias = 0.03;
   sun.shadow.radius = 2;
   scene.add(sun, sun.target);
+  const lights = new Set<Object3D>(scene.children);
   const setShadows = (on: boolean): void => {
     renderer.shadowMap.enabled = on;
     sun.castShadow = on;
@@ -113,7 +124,8 @@ export function createStage(container: HTMLElement): Stage {
 
   // ResizeObserver catches layout changes; window resize also catches
   // pixel-ratio changes (zoom, moving between screens).
-  new ResizeObserver(fit).observe(container);
+  const observer = new ResizeObserver(fit);
+  observer.observe(container);
   window.addEventListener('resize', fit);
   fit();
 
@@ -158,5 +170,40 @@ export function createStage(container: HTMLElement): Stage {
       if (contextLost) return;
       renderer.render(scene, camera);
     },
+    reset() {
+      listeners.length = 0;
+      const leaving = scene.children.filter((child) => !lights.has(child));
+      for (const child of leaving) {
+        releaseFromRenderer(child);
+        child.removeFromParent();
+      }
+      renderer.renderLists.dispose();
+      renderer.shadowMap.needsUpdate = true;
+    },
   };
+}
+
+/**
+ * Lets go of everything the renderer has drawn. three.js hooks a listener
+ * onto each geometry, material and texture it uploads, and a model shared
+ * between towns (people, cars, cached materials) would keep the old
+ * renderer alive through it. dispose() unhooks it and frees the GPU copy;
+ * the object itself still works and is uploaded again by the next renderer.
+ */
+function releaseFromRenderer(root: Object3D): void {
+  const geometries = new Set<BufferGeometry>();
+  const materials = new Set<Material>();
+  const textures = new Set<Texture>();
+  root.traverse((node) => {
+    const mesh = node as Partial<{ geometry: BufferGeometry; material: Material | Material[]; dispose: () => void }>;
+    if (mesh.geometry) geometries.add(mesh.geometry);
+    for (const material of [mesh.material ?? []].flat()) materials.add(material);
+    if (node instanceof SkinnedMesh) node.skeleton.dispose();
+    // Lights free their shadow maps; instanced meshes their instance buffers.
+    if (typeof mesh.dispose === 'function') mesh.dispose();
+  });
+  for (const material of materials) {
+    for (const value of Object.values(material)) if (value instanceof Texture) textures.add(value);
+  }
+  for (const item of [...geometries, ...materials, ...textures]) item.dispose();
 }

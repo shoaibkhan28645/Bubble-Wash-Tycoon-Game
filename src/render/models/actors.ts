@@ -65,6 +65,14 @@ class BlobShadows {
     this.markers.add(marker);
   }
 
+  /** Forgets the scene and everyone in it (leaving a town). */
+  detach(): void {
+    this.mesh?.removeFromParent();
+    this.mesh?.dispose();
+    this.mesh = null;
+    this.markers.clear();
+  }
+
   update(): void {
     const mesh = this.mesh;
     if (!mesh) return;
