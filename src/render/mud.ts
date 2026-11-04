@@ -1,4 +1,5 @@
-import { Color, type MeshLambertMaterial, type MeshPhongMaterial } from 'three';
+import { Color, type MeshPhongMaterial } from 'three';
+import { LAMPS, driveUniforms, patchDrive, type DriveUniforms } from './carShader';
 
 /** Per-material settings the mud shader reads every frame. */
 export interface MudUniforms {
@@ -42,8 +43,9 @@ float mudNoise(vec3 p) {
  * glass take the highlights, chrome and lights a little, tyres and trim
  * hardly any; mud and the dull film take the shine off.
  */
-export function addMud(material: MeshLambertMaterial | MeshPhongMaterial): MudUniforms {
-  const uniforms: MudUniforms = {
+export function addMud(material: MeshPhongMaterial): MudUniforms & DriveUniforms {
+  const uniforms: MudUniforms & DriveUniforms = {
+    ...driveUniforms(),
     uClean: { value: 0 },
     uMudColor: { value: new Color('#8a6a48') },
     uTop: { value: 1 },
@@ -61,15 +63,21 @@ export function addMud(material: MeshLambertMaterial | MeshPhongMaterial): MudUn
         '#include <color_fragment>',
         `#include <color_fragment>
         float carGloss = 0.2;
+        float carGlass = 0.0;
+        float carPaint = 0.0;
         #ifdef USE_COLOR
         float carLum = dot(vColor.rgb, vec3(0.3, 0.59, 0.11));
-        if (vColor.b > vColor.r + 0.04 && carLum < 0.2) carGloss = 1.1;
-        else if (carLum > 0.6) carGloss = 0.6;
+        if (vColor.b > vColor.r + 0.04 && carLum < 0.2) {
+          carGloss = 1.1;
+          carGlass = 1.0;
+        } else if (carLum > 0.6) carGloss = 0.6;
         if (vColor.r > 0.9 && vColor.g < 0.1 && vColor.b > 0.9) {
           diffuseColor.rgb = uPaint;
           carGloss = 1.0;
+          carPaint = 1.0;
         }
         #endif
+        ${LAMPS}
         float mudLow = 1.0 - clamp(vMudPos.y / uTop, 0.0, 1.0);
         float mudDrip = mudNoise(vec3(vMudPos.x * 9.0, vMudPos.y * 1.3, vMudPos.z * 9.0));
         float mudN = mudNoise(vMudPos * 2.6) * 0.55 + mudNoise(vMudPos * 8.0) * 0.2 + mudDrip * 0.25;
@@ -87,6 +95,7 @@ export function addMud(material: MeshLambertMaterial | MeshPhongMaterial): MudUn
         diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.97, 0.98, 1.0), foamMask * 0.92);`,
       )
       .replace('#include <specularmap_fragment>', '#include <specularmap_fragment>\nspecularStrength *= carGloss;');
+    patchDrive(shader, uniforms);
   };
   material.customProgramCacheKey = () => 'mud';
   return uniforms;

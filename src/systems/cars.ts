@@ -12,6 +12,8 @@ import type { Need } from './tickets';
 export type CarState = 'arriving' | 'queued' | 'entering' | 'waiting' | 'done' | 'leaving' | 'angry';
 
 const TURN_RATE = 10;
+/** How far along its way a car looks for a turn to indicate. */
+const TURN_LOOK = 4;
 /** Counts cars as they come on: an earlier car has right of way where two ways cross. */
 let spawned = 0;
 
@@ -176,10 +178,10 @@ export class Car {
     this.held = !!next && !!Car.rules?.blocked(this);
     this.heldFor = this.held ? this.heldFor + dt : 0;
     if (this.held) {
-      this.model.animate(dt, false);
+      this.model.animate(dt, false, true, this.turnAhead());
       return;
     }
-    this.model.animate(dt, !!next);
+    this.model.animate(dt, !!next, false, next ? this.turnAhead() : 0);
     if (!next) return;
     const p = this.model.mesh.position;
     const dx = next.x - p.x;
@@ -201,6 +203,16 @@ export class Car {
       this.heading += diff * Math.min(1, dt * TURN_RATE);
     }
     this.model.mesh.rotation.y = this.heading;
+  }
+
+  /** Which way the way ahead turns, for the indicators: 1 left, -1 right, 0 straight on. */
+  private turnAhead(): number {
+    const far = this.aim(TURN_LOOK);
+    if (!far) return 0;
+    const p = this.position;
+    if (Math.hypot(far.x - p.x, far.z - p.z) < 0.5) return 0;
+    const diff = Math.atan2(Math.sin(Math.atan2(far.x - p.x, far.z - p.z) - this.heading), Math.cos(Math.atan2(far.x - p.x, far.z - p.z) - this.heading));
+    return Math.abs(diff) < 0.35 ? 0 : Math.sign(diff);
   }
 }
 

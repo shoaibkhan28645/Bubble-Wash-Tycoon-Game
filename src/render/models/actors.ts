@@ -11,8 +11,9 @@ import {
   Scene,
 } from 'three';
 import type { CarDef } from '../../core/config';
-import { carGeometry } from '../assets';
+import { carGeometry } from '../carGeometry';
 import { addMud, type MudUniforms } from '../mud';
+import type { DriveUniforms } from '../carShader';
 import { GRAPHICS } from '../graphics';
 
 /** How bright a car's highlights are. */
@@ -108,12 +109,19 @@ export class CarModel {
   /** Glossy: clean paint and glass catch the light (mud.ts says how shiny each part is). */
   private readonly body = new Mesh(undefined, new MeshPhongMaterial({ vertexColors: true, specular: CAR_SPECULAR, shininess: 48 }));
   private readonly shadow = blobShadow(1, 1);
-  /** Paint, mud and foam (the mud stays off on low graphics). */
-  private readonly mud: MudUniforms;
+  /** Paint, mud and foam (the mud stays off on low graphics), wheels, lamps. */
+  private readonly mud: MudUniforms & DriveUniforms;
   private wasMoving = false;
+  /** Nose up (+) or down (-), springing back; and the lean in a corner. */
   private dip = 0;
   private dipSpeed = 0;
+  private roll = 0;
   private time = 0;
+  private wheelRadius = 0.3;
+  /** Where the car was last frame and which way it faced, to roll the wheels and lean into turns. */
+  private last: { x: number; z: number; yaw: number } | null = null;
+  private yawRate = 0;
+  private sinceStop = 9;
 
   constructor() {
     // Cars keep their soft blob shadow; they receive the buildings' and trees' shadows.
@@ -125,6 +133,10 @@ export class CarModel {
   /** The model for this kind of car (art/blender/cars.py), in one of its real paint colours. */
   setType(def: CarDef): void {
     this.body.geometry = carGeometry(def.model);
+    this.wheelRadius = (this.body.geometry.userData.wheelRadius as number) * def.scale;
+    this.last = null;
+    this.mud.uBrake.value = 0;
+    this.mud.uBlinkL.value = this.mud.uBlinkR.value = 0;
     const paints = def.paints ?? DEFAULT_PAINTS;
     this.mud.uPaint.value.set(paints[Math.floor(Math.random() * paints.length)]!);
     this.mud.uTop.value = def.size[1];
@@ -132,16 +144,51 @@ export class CarModel {
     this.shadow.scale.set(def.size[0] * 1.35, 1, def.size[2] * 1.2);
   }
 
-  /** A little bob while driving, and the nose dips and springs back when it stops. */
-  animate(dt: number, moving: boolean): void {
+  /**
+   * One frame of driving: the wheels roll as far as the car went and the front ones steer into the
+   * turn; the body leans out in a corner, squats as it pulls away and dips its nose when it stops;
+   * the brake lights glow as it stops and while it waits (`held`), and the indicators blink on the
+   * side it's about to turn (`turn`: 1 left, -1 right).
+   */
+  animate(dt: number, moving: boolean, held = false, turn = 0): void {
     this.time += dt;
-    if (this.wasMoving && !moving) this.dipSpeed = -2.4;
-    this.wasMoving = moving;
     const step = Math.min(dt, 0.05);
+    const p = this.mesh.position;
+    const yaw = this.mesh.rotation.y;
+    let speed = 0;
+    if (this.last && dt > 0) {
+      const dx = p.x - this.last.x;
+      const dz = p.z - this.last.z;
+      const along = dx * Math.sin(yaw) + dz * Math.cos(yaw);
+      // A jump (a car just placed) doesn't roll the wheels.
+      if (Math.abs(along) < 1.5) {
+        this.mud.uSpin.value = (this.mud.uSpin.value + along / this.wheelRadius) % (Math.PI * 2);
+        speed = along / dt;
+      }
+      const turned = Math.atan2(Math.sin(yaw - this.last.yaw), Math.cos(yaw - this.last.yaw));
+      this.yawRate += (turned / dt - this.yawRate) * Math.min(1, step * 8);
+    }
+    this.last = { x: p.x, z: p.z, yaw };
+    // Steering follows the turn; the body leans out of it, more the faster it goes.
+    const steer = Math.max(-0.5, Math.min(0.5, this.yawRate * 0.3));
+    this.mud.uSteer.value += (steer - this.mud.uSteer.value) * Math.min(1, step * 10);
+    const lean = Math.max(-0.07, Math.min(0.07, this.yawRate * speed * 0.012));
+    this.roll += (lean - this.roll) * Math.min(1, step * 6);
+    // Squat pulling away, dive stopping, then spring back.
+    if (this.wasMoving && !moving) this.dipSpeed = -2.4;
+    if (!this.wasMoving && moving) this.dipSpeed = 1.6;
+    this.wasMoving = moving;
     this.dipSpeed += (-70 * this.dip - 8 * this.dipSpeed) * step;
     this.dip += this.dipSpeed * step;
-    this.body.rotation.x = -this.dip * 0.05;
-    this.body.position.y = moving ? Math.abs(Math.sin(this.time * 13)) * 0.025 : 0;
+    this.body.rotation.set(-this.dip * 0.05, 0, this.roll);
+    this.body.position.y = moving ? Math.abs(Math.sin(this.time * 13)) * 0.012 : 0;
+    // Brake lights: on as it stops and while it waits; off once it's parked or moving again.
+    this.sinceStop = moving ? 0 : this.sinceStop + dt;
+    const braking = held || (!moving && this.sinceStop < 0.9);
+    this.mud.uBrake.value += ((braking ? 1 : 0) - this.mud.uBrake.value) * Math.min(1, step * 12);
+    const blink = Math.sin(this.time * 9.4) > 0 ? 1 : 0;
+    this.mud.uBlinkL.value = turn > 0 ? blink : 0;
+    this.mud.uBlinkR.value = turn < 0 ? blink : 0;
   }
 
   /** 0 = fully muddy, 1 = sparkling clean. */

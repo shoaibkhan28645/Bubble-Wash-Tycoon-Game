@@ -4,7 +4,6 @@
 import {
   BufferAttribute,
   BufferGeometry,
-  Matrix4,
   Color,
   Float32BufferAttribute,
   Group,
@@ -45,7 +44,7 @@ const SCENERY = [
 ];
 
 /** The customers' car files, in the order they're searched for a model. */
-const CAR_FILES = ['cars:small', 'cars:family', 'cars:large', 'cars:big'];
+export const CAR_FILES = ['cars:small', 'cars:family', 'cars:large', 'cars:big'];
 
 /** Every model the game needs at start, by id → relative path. */
 function manifest(): Record<string, string> {
@@ -248,28 +247,4 @@ export function plain(geometry: BufferGeometry): BufferGeometry {
 /** A Car of the Day special's own file (loaded when first needed). */
 export function specialCarFile(model: string): { id: string; path: string } {
   return { id: `cars:special-${model}`, path: `models/cars/special-${model}.glb` };
-}
-const carGeometries = new Map<string, BufferGeometry>();
-
-/** A Blender car by name (art/blender/cars.py), as one geometry standing on its own base, nose towards +z. */
-export function carGeometry(name: string): BufferGeometry {
-  const cached = carGeometries.get(name);
-  if (cached) return cached;
-  for (const file of [specialCarFile(name).id, ...CAR_FILES]) {
-    const base = assets.get(file)?.scene.getObjectByName(name);
-    if (!base) continue;
-    base.updateMatrixWorld(true);
-    const inverse = new Matrix4().copy(base.matrixWorld).invert();
-    const pieces: BufferGeometry[] = [];
-    base.traverse((node) => {
-      if (node instanceof Mesh) pieces.push(plain(node.geometry as BufferGeometry).applyMatrix4(new Matrix4().multiplyMatrices(inverse, node.matrixWorld)));
-    });
-    // Modelled facing -Y in Blender, which is +z here: already nose first.
-    const geometry = pieces.length === 1 ? pieces[0]! : mergeGeometries(pieces);
-    if (!geometry) break;
-    geometry.computeBoundingSphere();
-    carGeometries.set(name, geometry);
-    return geometry;
-  }
-  throw new Error(`No car model called ${name}`);
 }

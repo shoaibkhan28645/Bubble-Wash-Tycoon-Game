@@ -22,7 +22,7 @@ DISH = '#7f8996'
 TRIM = '#2a2f37'
 CHROME = '#eef2f6'
 LIGHT = '#fff6d8'
-TAIL = '#e5303c'
+TAIL = '#d81c34'
 AMBER = '#ffa630'
 PLATE = '#f2f4f7'
 ARCH = '#16191e'
@@ -168,8 +168,10 @@ def cut_arches(obj, x, half, axles, radius, centre, depth=0.34):
     return obj
 
 
-def wheel(at, r, w, side, rim=RIM, dish=DISH, spokes=5, segs=20):
-    """A tyre with rounded shoulders and a spoked rim facing out on `side` (+1 or -1)."""
+def wheel(at, r, w, side, rim=RIM, dish=DISH, spokes=5, segs=20, lugs=0):
+    """A tyre with rounded shoulders, a spoked rim facing out on `side` (+1 or -1) with a brake disc
+    behind it and wheel nuts round the hub, and `lugs` chunky tread blocks (off-road tyres). Tagged as
+    a wheel, so cars.py exports it as one of the car's wheels (the game turns them)."""
     x, y, z = at
     c = min(0.07, w / 3)
     ri = r * 0.64
@@ -192,7 +194,15 @@ def wheel(at, r, w, side, rim=RIM, dish=DISH, spokes=5, segs=20):
         p = kit.box((0.05, ri * 0.72, 0.075 * r / 0.33), (o - 0.03, -math.sin(a) * ri * 0.5, math.cos(a) * ri * 0.5), rim, bevel=0.0, rot=(a, 0, 0))
         parts.append(p)
     parts.append(kit.cylinder(ri * 0.2, 0.05, (o - 0.01, 0, 0), CHROME, verts=10, rot=(0, math.pi / 2, 0)))
+    parts.append(kit.cylinder(ri * 0.72, 0.02, (o - 0.07, 0, 0), '#5d646e', verts=16, rot=(0, math.pi / 2, 0)))
+    for k in range(5):
+        a = 2 * math.pi * (k + 0.5) / 5
+        parts.append(kit.box((0.03, 0.025, 0.025), (o + 0.005, -math.sin(a) * ri * 0.3, math.cos(a) * ri * 0.3), '#a9b2bd', bevel=0.0))
+    for k in range(lugs):
+        a = 2 * math.pi * k / lugs
+        parts.append(kit.box((w * 0.96, 0.16, 0.09), (0, r * math.sin(a), r * math.cos(a)), '#1a1c21', bevel=0.02, rot=(-a, 0, 0)))
     obj = kit.join(parts, 'wheel')
+    obj['wheel'] = 1
     if side < 0:
         obj.scale = (-1, 1, 1)
     obj.location = (x, y, z)

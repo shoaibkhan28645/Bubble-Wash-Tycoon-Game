@@ -29,20 +29,31 @@ from car_kit import CHROME, PAINT, TRIM  # noqa: E402
 kit.reset()
 models = []
 bases = []
+#: Each car's wheels, exported as their own meshes (<car>_wheel_<n>) so the game can turn them.
+wheels = []
 
 
 def finish(parts, name, x):
     # The mesh sits in a named empty at the car's base: quantizing moves and
     # scales the mesh's own node, so the game places the empty.
-    obj = ck.smooth(kit.join(parts, name + '_mesh'), angle=36)
+    rolling = [p for p in parts if p.get('wheel')]
+    obj = ck.smooth(kit.join([p for p in parts if not p.get('wheel')], name + '_mesh'), angle=36)
     kit.set_origin(obj, (x, 0, 0))
     base = kit.bpy.data.objects.new(name, None)
     kit.bpy.context.scene.collection.objects.link(base)
     base.location = (x, 0, 0)
     obj.location = (0, 0, 0)
     obj.parent = base
+    mine = []
+    for i, w in enumerate(rolling):
+        w.name = w.data.name = f'{name}_wheel_{i}'
+        ck.smooth(w, angle=36)
+        w.location = (w.location[0] - x, w.location[1], w.location[2])
+        w.parent = base
+        mine.append(w)
     models.append(obj)
     bases.append(base)
+    wheels.append(mine)
 
 
 SEDAN = dict(
@@ -172,10 +183,9 @@ m.update(head=0.88 + UP, tail=0.94 + UP, axles=(-1.3, 1.3))
 p = pickup(X, m, UP)
 for y in (-1.3, 1.3):
     for sx in (-1, 1):
-        p.append(ck.wheel((X + sx * 1.0, y, R), R, 0.55, sx, spokes=6))
+        p.append(ck.wheel((X + sx * 1.0, y, R), R, 0.55, sx, spokes=6, lugs=10))
         p.append(ck.soft((0.12, 0.12, 0.5), (X + sx * 0.6, y, 1.05), '#ffd24a'))
     p.append(kit.cylinder(0.08, 2.0, (X, y, R), TRIM, verts=10, rot=(0, math.pi / 2, 0)))
-p += cm.tread(X, m, R, 0.55)
 p.append(ck.soft((1.5, 0.08, 0.08), (X, 0.3, 2.46), TRIM))
 for dx in (-0.45, -0.15, 0.15, 0.45):
     p.append(ck.soft((0.18, 0.1, 0.12), (X + dx, 0.26, 2.54), ck.LIGHT))
@@ -205,7 +215,7 @@ import cars_special  # noqa: E402
 cars_special.build(sedan, finish, X=9.5)
 
 toy = kit.toy_material('toy')
-for obj in models:
+for obj in models + [w for ws in wheels for w in ws]:
     kit.use_material(obj, toy)
 print('triangles', {o.name: kit.triangles([o]) for o in models})
 print('sizes', {b.name: [round(v, 2) for v in m.dimensions] for b, m in zip(bases, models)})
@@ -220,12 +230,13 @@ FILES = {
 out = Path(sys.argv[1] if len(sys.argv) > 1 else '.')
 for file, names in FILES.items():
     pick = [i for i, b in enumerate(bases) if b.name in names]
-    kit.export([models[i] for i in pick] + [bases[i] for i in pick], str(out / file))
+    kit.export([models[i] for i in pick] + [w for i in pick for w in wheels[i]] + [bases[i] for i in pick], str(out / file))
 
 # For the preview only: paint each car a real colour, as the game will.
 PREVIEW_PAINT = {'sedan': '#c9ced6', 'hatchback': '#e23a3a', 'suv': '#24395c', 'minivan': '#f2f4f7', 'sports': '#ff7a1a', 'pickup': '#2f6b3f', 'monster': '#1f8fe0', 'luxury': '#ffcf3a'}
 for base, obj in zip(bases, models):
     cm.paint_preview(obj, PREVIEW_PAINT.get(base.name, '#c9ced6'))
+print('wheels', {b.name: len(ws) for b, ws in zip(bases, wheels)})
 if len(sys.argv) > 2:
     # Lined up in a grid for the picture, five to a row.
     for i, base in enumerate(bases):

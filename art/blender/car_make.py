@@ -223,15 +223,3 @@ def paint_preview(obj, colour):
         c = item.color
         if c[0] > 0.9 and c[1] < 0.1 and c[2] > 0.9:
             item.color = col
-
-
-def tread(X, s, r, w, lugs=10, out=1.0):
-    """Chunky tread blocks round big tyres (the monster truck)."""
-    p = []
-    for y in s['axles']:
-        for sx in (-1, 1):
-            wx = X + sx * out
-            for k in range(lugs):
-                a = k * 2 * math.pi / lugs
-                p.append(ck.kit.box((w * 0.96, 0.16, 0.09), (wx, y + r * math.sin(a), r + r * math.cos(a)), '#1a1c21', bevel=0.02, rot=(-a, 0, 0)))
-    return p
