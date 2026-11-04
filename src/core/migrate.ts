@@ -1,7 +1,8 @@
-import { newDaily, newGame, type Build, type Contract, type ContractsState, type DailyState, type GameState } from './gameState';
+import { newDaily, newGame, newTownState, type Build, type Contract, type ContractsState, type DailyState, type GameState, type GoalsState, type TownState } from './gameState';
+import { START_TOWN_ID } from './towns';
 
 /** Bump when the save shape changes, and add a migration for the old version. */
-export const SAVE_VERSION = 7;
+export const SAVE_VERSION = 8;
 
 type SaveObject = Record<string, unknown>;
 export type Migration = (save: SaveObject) => SaveObject;
@@ -20,6 +21,8 @@ export const MIGRATIONS: Readonly<Record<number, Migration>> = {
   5: (save) => ({ ...save, building: {} }),
   // v7: contracts board, town goals, lifetime counts and franchise stars.
   6: (save) => ({ ...save, contracts: { slots: [], doubledDate: '' }, goals: { done: [], claimed: [] }, counts: {}, franchiseStars: 0 }),
+  // v8: the empire. Location 1 becomes the first town by id, and other towns get a place of their own.
+  7: ({ location: _location, ...save }) => ({ ...save, currentTown: START_TOWN_ID, towns: {} }),
 };
 
 /**
@@ -64,39 +67,72 @@ export function migrate(
 }
 
 export function serialize(state: GameState): string {
-  const { cash, gems, location, unlocked, levels, staff, padPaid, building, piles, stars, autoRate, supplies, flags, savedAt } = state;
+  const { cash, gems, currentTown, flags, savedAt } = state;
+  const towns: Record<string, TownState> = {};
+  for (const [id, town] of Object.entries(state.towns)) towns[id] = townFields(town);
   return JSON.stringify({
     version: SAVE_VERSION,
     savedAt,
     cash,
     gems,
-    location,
+    currentTown,
+    ...townFields(state),
+    towns,
+    flags,
+    playSeconds: Math.floor(state.playSeconds),
+    daily: state.daily,
+    boostSeconds: Math.ceil(state.boostSeconds),
+    contracts: state.contracts,
+    counts: state.counts,
+    franchiseStars: state.franchiseStars,
+  });
+}
+
+/** One town's progress as saved, with its rating and income rate rounded. */
+function townFields(town: TownState): TownState {
+  const { unlocked, levels, staff, padPaid, building, piles, supplies, goals } = town;
+  return {
     unlocked,
     levels,
     staff,
     padPaid,
     building,
     piles,
-    stars: Math.round(stars * 100) / 100,
-    autoRate: Math.round(autoRate * 100) / 100,
+    stars: Math.round(town.stars * 100) / 100,
+    autoRate: Math.round(town.autoRate * 100) / 100,
     supplies,
-    flags,
-    playSeconds: Math.floor(state.playSeconds),
-    daily: state.daily,
-    boostSeconds: Math.ceil(state.boostSeconds),
-    contracts: state.contracts,
-    goals: state.goals,
-    counts: state.counts,
-    franchiseStars: state.franchiseStars,
-  });
+    goals,
+  };
 }
 
 function sanitize(save: SaveObject): GameState {
   const fresh = newGame();
+  const towns: Record<string, TownState> = {};
+  const currentTown = typeof save.currentTown === 'string' && save.currentTown ? save.currentTown : fresh.currentTown;
+  if (isObject(save.towns)) {
+    for (const [id, town] of Object.entries(save.towns)) if (id !== currentTown && isObject(town)) towns[id] = townState(town);
+  }
   return {
     cash: nonNegative(save.cash, fresh.cash),
     gems: Math.floor(nonNegative(save.gems, fresh.gems)),
-    location: Math.max(1, Math.floor(nonNegative(save.location, fresh.location))),
+    currentTown,
+    towns,
+    ...townState(save),
+    flags: stringList(save.flags),
+    playSeconds: nonNegative(save.playSeconds, fresh.playSeconds),
+    daily: dailyState(save.daily),
+    boostSeconds: nonNegative(save.boostSeconds, fresh.boostSeconds),
+    contracts: contractsState(save.contracts),
+    counts: levelMap(save.counts),
+    franchiseStars: Math.floor(nonNegative(save.franchiseStars, fresh.franchiseStars)),
+    savedAt: nonNegative(save.savedAt, fresh.savedAt),
+  };
+}
+
+/** One town's progress, each field repaired on its own (the town being played, or one in `towns`). */
+function townState(save: SaveObject): TownState {
+  const fresh = newTownState();
+  return {
     unlocked: stringList(save.unlocked),
     levels: levelMap(save.levels),
     staff: stringList(save.staff),
@@ -106,18 +142,14 @@ function sanitize(save: SaveObject): GameState {
     stars: Math.min(5, Math.max(1, nonNegative(save.stars, fresh.stars))),
     autoRate: nonNegative(save.autoRate, fresh.autoRate),
     supplies: levelMap(save.supplies),
-    flags: stringList(save.flags),
-    playSeconds: nonNegative(save.playSeconds, fresh.playSeconds),
-    daily: dailyState(save.daily),
-    boostSeconds: nonNegative(save.boostSeconds, fresh.boostSeconds),
-    contracts: contractsState(save.contracts),
-    goals: {
-      done: stringList(isObject(save.goals) ? save.goals.done : []),
-      claimed: stringList(isObject(save.goals) ? save.goals.claimed : []),
-    },
-    counts: levelMap(save.counts),
-    franchiseStars: Math.floor(nonNegative(save.franchiseStars, fresh.franchiseStars)),
-    savedAt: nonNegative(save.savedAt, fresh.savedAt),
+    goals: goalsState(save.goals),
+  };
+}
+
+function goalsState(value: unknown): GoalsState {
+  return {
+    done: stringList(isObject(value) ? value.done : []),
+    claimed: stringList(isObject(value) ? value.claimed : []),
   };
 }
 

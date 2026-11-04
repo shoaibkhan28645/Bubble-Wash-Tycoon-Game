@@ -1,3 +1,5 @@
+import { START_TOWN_ID } from './towns';
+
 /** Login calendar, daily missions and the Car of the Day; missions reset each local day. */
 export interface DailyState {
   /** Local date (YYYY-MM-DD) the missions below are for; '' before the first day. */
@@ -51,12 +53,18 @@ export function newDaily(): DailyState {
 /**
  * The single source of truth for progress. Only ids, levels and counts live
  * here; positions and other moment-to-moment state belong to the systems.
+ *
+ * The town being played keeps its progress (TOWN_KEYS) at the top level,
+ * where every system reads it; each other town's is in `towns` until the
+ * hero travels there (see switchTown in empire.ts).
  */
 export interface GameState {
   cash: number;
   gems: number;
-  /** Current location number, starting at 1. */
-  location: number;
+  /** Id of the town being played (src/core/towns.ts). */
+  currentTown: string;
+  /** Every other town the hero owns businesses in, by id. */
+  towns: Record<string, TownState>;
   /** Ids of built unlock pads, in build order. */
   unlocked: string[];
   /** Upgrade levels by id, e.g. "bay1.speed": 3. */
@@ -92,26 +100,29 @@ export interface GameState {
   savedAt: number;
 }
 
+/** The fields of GameState that belong to one town; the rest are the empire's. */
+export const TOWN_KEYS = ['unlocked', 'levels', 'staff', 'padPaid', 'building', 'piles', 'stars', 'autoRate', 'supplies', 'goals'] as const;
+
+/** One town's progress: what's built there, its levels, staff, supplies, cash piles, rating and goals. */
+export type TownState = Pick<GameState, (typeof TOWN_KEYS)[number]>;
+
+/** A town nobody has built in yet. */
+export function newTownState(): TownState {
+  return { unlocked: [], levels: {}, staff: [], padPaid: {}, building: {}, piles: {}, stars: 3, autoRate: 0, supplies: {}, goals: { done: [], claimed: [] } };
+}
+
 export function newGame(): GameState {
   return {
     cash: 0,
     gems: 0,
-    location: 1,
-    unlocked: [],
-    levels: {},
-    staff: [],
-    padPaid: {},
-    building: {},
-    piles: {},
-    stars: 3,
-    autoRate: 0,
-    supplies: {},
+    currentTown: START_TOWN_ID,
+    towns: {},
+    ...newTownState(),
     flags: [],
     playSeconds: 0,
     daily: newDaily(),
     boostSeconds: 0,
     contracts: { slots: [], doubledDate: '' },
-    goals: { done: [], claimed: [] },
     counts: {},
     franchiseStars: 0,
     savedAt: 0,

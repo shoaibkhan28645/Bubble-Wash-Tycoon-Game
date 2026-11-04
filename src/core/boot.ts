@@ -8,9 +8,9 @@ import { Lifecycle } from './lifecycle';
 import { parseSave } from './migrate';
 import { SaveManager } from './save';
 import { TUNING, setTown } from './config';
-import { START_TOWN_ID, loadTown } from './towns';
+import { START_TOWN_ID, TOWN_IDS, loadTown } from './towns';
 import type { GameState } from './gameState';
-import { offlineEarnings } from '../systems/offline';
+import { backgroundEarner, empireOfflineEarnings, switchTown } from './empire';
 
 /** Boot sequence from the Tech Guide. gameReady() only once the game is playable. */
 export async function boot(root: HTMLElement): Promise<void> {
@@ -39,8 +39,9 @@ export async function boot(root: HTMLElement): Promise<void> {
   platform.onResume(() => lifecycle.resume());
 
   setLanguage(await platform.getLanguage());
-  // Every save is in the first town until saves track the current town (save version 8).
-  setTown(await loadTown(START_TOWN_ID));
+  // A town this build doesn't have (a save from a newer version): keep its progress, play the first town.
+  if (!TOWN_IDS.includes(state.currentTown)) switchTown(state, START_TOWN_ID);
+  setTown(await loadTown(state.currentTown));
   loading.setProgress(0.5);
   // Models and sounds load side by side; the bar shows the slower of the two.
   let models = 0;
@@ -58,6 +59,8 @@ export async function boot(root: HTMLElement): Promise<void> {
   ]);
 
   const game = createGame(root, state, lifecycle, saves, sound);
+  // Towns the hero isn't in keep earning while he plays.
+  game.addTicker(backgroundEarner(state));
   // Offline earnings since the last save (Tech Guide boot sequence).
   const offline = applyOffline(state, state.savedAt);
   try {
@@ -94,11 +97,9 @@ export async function boot(root: HTMLElement): Promise<void> {
   });
 }
 
-/** Adds offline earnings straight away (so closing YouTube before tapping Collect loses nothing). */
+/** Adds every town's offline earnings straight away (so closing YouTube before tapping Collect loses nothing). */
 function applyOffline(state: GameState, since: number): { cash: number; seconds: number } {
-  const hasManager = state.unlocked.includes('manager');
-  const capLevel = state.levels['manager.offlineHours'] ?? 0;
-  const earned = offlineEarnings(state.autoRate, since, Date.now(), TUNING.offline, hasManager, capLevel);
+  const earned = empireOfflineEarnings(state, since, Date.now());
   state.cash += earned.cash;
   return earned;
 }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { newDaily, newGame } from '../src/core/gameState';
+import { newDaily, newGame, newTownState } from '../src/core/gameState';
 import { MIGRATIONS, SAVE_VERSION, migrate, parseSave, serialize, type Migration } from '../src/core/migrate';
 
 // Every save version ever shipped gets a fixture here, and must keep loading.
@@ -54,7 +54,8 @@ describe('parseSave', () => {
     expect(parseSave(text).state).toEqual({
       cash: 0,
       gems: 0,
-      location: 1,
+      currentTown: 'roadside',
+      towns: {},
       unlocked: ['bay1', 'hose'],
       levels: { 'bay1.speed': 2 },
       staff: [],
@@ -86,13 +87,13 @@ describe('parseSave', () => {
       'cash',
       'contracts',
       'counts',
+      'currentTown',
       'daily',
       'flags',
       'franchiseStars',
       'gems',
       'goals',
       'levels',
-      'location',
       'padPaid',
       'piles',
       'playSeconds',
@@ -100,9 +101,28 @@ describe('parseSave', () => {
       'staff',
       'stars',
       'supplies',
+      'towns',
       'unlocked',
       'version',
     ]);
+  });
+
+  it('keeps a six-town empire under 64 KiB, what the platform saves on exit', () => {
+    const state = newGame();
+    const maxTown = (n: number) => {
+      const town = newTownState();
+      for (let i = 0; i < 40; i++) {
+        town.unlocked.push(`town${n}.business${i}`);
+        for (const kind of ['speed', 'quality', 'queue']) town.levels[`town${n}.station${i}.${kind}`] = 10;
+        town.supplies[`town${n}.station${i}.supply`] = 24;
+      }
+      town.goals = { done: ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'], claimed: ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'] };
+      return town;
+    };
+    Object.assign(state, maxTown(0));
+    for (let n = 1; n < 6; n++) state.towns[`town${n}`] = maxTown(n);
+    state.cash = 1e15;
+    expect(serialize(state).length).toBeLessThan(64 * 1024);
   });
 
   it('keeps a full late-game save well under 50 KiB', () => {
@@ -176,6 +196,28 @@ describe('old saves', () => {
     expect(state.contracts.doubledDate).toBe('2026-10-28');
     expect(state.goals).toEqual({ done: ['fuel', 'mart'], claimed: ['fuel'] });
     expect(state).toMatchObject({ counts: { combo: 14, contract: 1 }, franchiseStars: 1 });
+  });
+
+  it('puts a v7 save into the first town, keeping all its progress', () => {
+    const v7 = parseSave(fixtures['./fixtures/save-v7.json']!).state;
+    expect(v7).toMatchObject({ currentTown: 'roadside', towns: {}, cash: 5400, stars: 4.1, autoRate: 90 });
+    expect(v7.unlocked).toContain('mart');
+    expect(v7).not.toHaveProperty('location');
+  });
+
+  it('keeps every town of a v8 empire', () => {
+    const { state } = parseSave(fixtures['./fixtures/save-v8.json']!);
+    expect(state.currentTown).toBe('beach');
+    expect(state.unlocked).toEqual(['kiosk1']);
+    expect(state.towns.roadside).toMatchObject({ autoRate: 240, stars: 5, goals: { done: ['fuel', 'mart'], claimed: ['fuel'] } });
+    expect(state.towns.roadside!.unlocked).toContain('manager');
+  });
+
+  it("repairs a town's fields and drops a copy of the town being played", () => {
+    const text = JSON.stringify({ version: 8, currentTown: 'roadside', towns: { roadside: { unlocked: ['x'] }, beach: { stars: 99, unlocked: 'kiosk', piles: { a: -1 } }, bad: 4 } });
+    const { towns } = parseSave(text).state;
+    expect(Object.keys(towns)).toEqual(['beach']);
+    expect(towns.beach).toEqual({ ...newTownState(), stars: 5 });
   });
 
   it('turns a broken contract into an empty slot', () => {
