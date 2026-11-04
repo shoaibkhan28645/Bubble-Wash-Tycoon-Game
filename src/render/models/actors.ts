@@ -5,7 +5,7 @@ import {
   InstancedMesh,
   Mesh,
   MeshBasicMaterial,
-  MeshLambertMaterial,
+  MeshPhongMaterial,
   Object3D,
   PlaneGeometry,
   Scene,
@@ -15,6 +15,8 @@ import { carGeometry } from '../assets';
 import { addMud, type MudUniforms } from '../mud';
 import { GRAPHICS } from '../graphics';
 
+/** How bright a car's highlights are. */
+const CAR_SPECULAR = 0x5a5a5a;
 const MUD: Record<string, string> = { dusty: '#a4825c', muddy: '#7a5a3a', swamp: '#5a6636' };
 /** Mud threshold on a dirty car (lower = more mud): see mud.ts. */
 const DIRT_START: Record<string, number> = { dusty: 0.56, muddy: 0.48, swamp: 0.36 };
@@ -103,7 +105,8 @@ const DEFAULT_PAINTS = ['#c9ced6'];
 /** A pooled car: one Blender model (one draw call), painted and muddied by its own material. The windows are opaque, so no visible driver. */
 export class CarModel {
   readonly mesh = new Group();
-  private readonly body = new Mesh(undefined, new MeshLambertMaterial({ vertexColors: true }));
+  /** Glossy: clean paint and glass catch the light (mud.ts says how shiny each part is). */
+  private readonly body = new Mesh(undefined, new MeshPhongMaterial({ vertexColors: true, specular: CAR_SPECULAR, shininess: 48 }));
   private readonly shadow = blobShadow(1, 1);
   /** Paint, mud and foam (the mud stays off on low graphics). */
   private readonly mud: MudUniforms;
@@ -115,7 +118,7 @@ export class CarModel {
   constructor() {
     // Cars keep their soft blob shadow; they receive the buildings' and trees' shadows.
     this.body.receiveShadow = true;
-    this.mud = addMud(this.body.material as MeshLambertMaterial);
+    this.mud = addMud(this.body.material as MeshPhongMaterial);
     this.mesh.add(this.body, this.shadow);
   }
 

@@ -29,7 +29,7 @@ const referenced = [...html.matchAll(/(?:src|href)="\.\/([^"]+)"/g)].map((m) => 
 const characters = JSON.parse(readFileSync('src/data/characters.json', 'utf8'));
 const tuning = JSON.parse(readFileSync('src/data/tuning.json', 'utf8'));
 const lazy = new Set([
-  'models/cars/cars-special.glb',
+  ...['taxi', 'police', 'ambulance', 'firetruck', 'icecream'].map((c) => `models/cars/special-${c}.glb`),
   // Mini-Mart shoppers load once the shop is paid for, people out walking after the start.
   ...[...characters.shoppers, ...tuning.streetLife.characters]
     .filter((c) => c !== characters.player && !Object.values(characters.staff).includes(c))

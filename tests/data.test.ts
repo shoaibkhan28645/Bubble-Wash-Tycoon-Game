@@ -91,7 +91,8 @@ describe('location1.json', () => {
 describe('models', () => {
   it('every car and character in the data has a model file', () => {
     // The Blender car files, and every car's model in one of them (by node name).
-    for (const file of ['cars-small', 'cars-large', 'cars-special']) expect(modelFiles).toContain(`models/cars/${file}.glb`);
+    for (const file of ['cars-small', 'cars-large']) expect(modelFiles).toContain(`models/cars/${file}.glb`);
+    for (const car of DAILY.carOfDay.cars) expect(modelFiles).toContain(`models/cars/special-${car.model}.glb`);
     const cars = Object.values(carFiles).join('');
     for (const car of [...CARS, ...DAILY.carOfDay.cars]) expect(cars.includes(`"name":"${car.model}"`), car.id).toBe(true);
     for (const person of new Set([CHARACTERS.player, ...Object.values(CHARACTERS.staff), ...CHARACTERS.shoppers, ...TUNING.streetLife.characters])) {

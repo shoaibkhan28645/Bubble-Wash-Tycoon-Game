@@ -243,17 +243,19 @@ export function plain(geometry: BufferGeometry): BufferGeometry {
   return out;
 }
 
-/** The car files, in the order they're searched for a model. */
-const CAR_FILES = ['cars:small', 'cars:large', 'cars:special'];
-/** The Car of the Day specials' file (loaded when first needed). */
-export const SPECIAL_CARS = { id: 'cars:special', path: 'models/cars/cars-special.glb' };
+/** The customers' car files, in the order they're searched for a model. */
+const CAR_FILES = ['cars:small', 'cars:large'];
+/** A Car of the Day special's own file (loaded when first needed). */
+export function specialCarFile(model: string): { id: string; path: string } {
+  return { id: `cars:special-${model}`, path: `models/cars/special-${model}.glb` };
+}
 const carGeometries = new Map<string, BufferGeometry>();
 
 /** A Blender car by name (art/blender/cars.py), as one geometry standing on its own base, nose towards +z. */
 export function carGeometry(name: string): BufferGeometry {
   const cached = carGeometries.get(name);
   if (cached) return cached;
-  for (const file of CAR_FILES) {
+  for (const file of [specialCarFile(name).id, ...CAR_FILES]) {
     const base = assets.get(file)?.scene.getObjectByName(name);
     if (!base) continue;
     base.updateMatrixWorld(true);

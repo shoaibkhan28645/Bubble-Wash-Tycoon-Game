@@ -1,4 +1,4 @@
-import { Color, type MeshLambertMaterial } from 'three';
+import { Color, type MeshLambertMaterial, type MeshPhongMaterial } from 'three';
 
 /** Per-material settings the mud shader reads every frame. */
 export interface MudUniforms {
@@ -38,9 +38,11 @@ float mudNoise(vec3 p) {
  * (magenta, art/blender/cars.py) take the car's own paint. Then mud splashed
  * up from the wheels, thickest low down, in blotches and drips so the paint
  * still shows on top; it dissolves as `uClean` rises. A dull film over the
- * rest of the paint goes too.
+ * rest of the paint goes too. On a shiny (Phong) material, clean paint and
+ * glass take the highlights, chrome and lights a little, tyres and trim
+ * hardly any; mud and the dull film take the shine off.
  */
-export function addMud(material: MeshLambertMaterial): MudUniforms {
+export function addMud(material: MeshLambertMaterial | MeshPhongMaterial): MudUniforms {
   const uniforms: MudUniforms = {
     uClean: { value: 0 },
     uMudColor: { value: new Color('#8a6a48') },
@@ -58,8 +60,15 @@ export function addMud(material: MeshLambertMaterial): MudUniforms {
       .replace(
         '#include <color_fragment>',
         `#include <color_fragment>
+        float carGloss = 0.2;
         #ifdef USE_COLOR
-        if (vColor.r > 0.9 && vColor.g < 0.1 && vColor.b > 0.9) diffuseColor.rgb = uPaint;
+        float carLum = dot(vColor.rgb, vec3(0.3, 0.59, 0.11));
+        if (vColor.b > vColor.r + 0.04 && carLum < 0.2) carGloss = 1.1;
+        else if (carLum > 0.6) carGloss = 0.6;
+        if (vColor.r > 0.9 && vColor.g < 0.1 && vColor.b > 0.9) {
+          diffuseColor.rgb = uPaint;
+          carGloss = 1.0;
+        }
         #endif
         float mudLow = 1.0 - clamp(vMudPos.y / uTop, 0.0, 1.0);
         float mudDrip = mudNoise(vec3(vMudPos.x * 9.0, vMudPos.y * 1.3, vMudPos.z * 9.0));
@@ -71,11 +80,13 @@ export function addMud(material: MeshLambertMaterial): MudUniforms {
         float mudFilm = clamp(1.25 - uClean, 0.0, 1.0) * 0.55;
         diffuseColor.rgb = mix(diffuseColor.rgb, mix(diffuseColor.rgb, uMudColor, 0.45), mudFilm);
         diffuseColor.rgb = mix(diffuseColor.rgb, mudTone, mudMask * 0.95);
+        carGloss *= (1.0 - mudMask) * (1.0 - mudFilm * 1.6);
         // Foam: white suds in bubbly clumps, thickest on top.
         float foamN = mudNoise(vMudPos * 16.0) * 0.65 + mudNoise(vMudPos * 36.0) * 0.35 + (1.0 - mudLow) * 0.25;
-        float foamMask = smoothstep(1.08 - uFoam * 0.42, 1.13 - uFoam * 0.42, foamN);
+        float foamMask = smoothstep(1.08 - uFoam * 0.42, 1.13 - uFoam * 0.42, foamN) * step(0.001, uFoam);
         diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.97, 0.98, 1.0), foamMask * 0.92);`,
-      );
+      )
+      .replace('#include <specularmap_fragment>', '#include <specularmap_fragment>\nspecularStrength *= carGloss;');
   };
   material.customProgramCacheKey = () => 'mud';
   return uniforms;

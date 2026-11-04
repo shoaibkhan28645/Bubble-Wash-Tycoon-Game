@@ -5,7 +5,7 @@ import { ADS, DAILY, padById, type CarDef } from './config';
 import type { GameState } from './gameState';
 import type { SaveManager } from './save';
 import type { SoundManager } from '../audio/sound';
-import { SPECIAL_CARS, hasModel, loadModel } from '../render/assets';
+import { hasModel, loadModel, specialCarFile } from '../render/assets';
 import { Ads } from '../systems/ads';
 import { finishGems, formatClock, halveBuild, secondsLeft, soonestBuild } from '../systems/construction';
 import { addProgress, carOfDay, claimable, claimCalendar, claimMission, localDate, rollDay } from '../systems/daily';
@@ -146,11 +146,12 @@ export function createMeta(deps: {
   const updateDayCar = (): void => {
     if (state.daily.carOfDayDate === today || tutorialActive(state) || sessionSeconds < DAILY.carOfDay.afterSeconds) return;
     const day = carOfDay(today);
-    // The specials' file loads the first time one is due.
-    if (!hasModel(SPECIAL_CARS.id)) {
+    // The day's special loads when it's due.
+    const file = specialCarFile(day.model);
+    if (!hasModel(file.id)) {
       if (!dayCarLoading) {
         dayCarLoading = true;
-        loadModel(SPECIAL_CARS.id, SPECIAL_CARS.path)
+        loadModel(file.id, file.path)
           .catch((error) => platform.logWarning(error))
           .finally(() => (dayCarLoading = false));
       }
