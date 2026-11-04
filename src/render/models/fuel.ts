@@ -107,7 +107,7 @@ const nozzleGeometry = box(0.14, 0.12, 0.2);
  * parked there, drooping from the pump to the car's filler cap.
  */
 export class FuelHoses {
-  private readonly hoses = new Map<Station, { mesh: Mesh; nozzle: Mesh; car: Station['car'] }>();
+  private readonly hoses = new Map<Station, { mesh: Mesh; nozzle: Mesh; car: Station['customer'] }>();
   private readonly material = new MeshLambertMaterial({ color: HOSE_COLOR });
   private readonly nozzleMaterial = new MeshLambertMaterial({ color: '#3fae5a' });
 
@@ -118,7 +118,7 @@ export class FuelHoses {
 
   update(pumps: readonly Station[]): void {
     for (const pump of pumps) {
-      const car = pump.car && (pump.car.state === 'waiting' || pump.car.state === 'done') ? pump.car : null;
+      const car = pump.customer && (pump.customer.state === 'waiting' || pump.customer.state === 'done') ? pump.customer : null;
       const hose = this.hoses.get(pump);
       if (hose && hose.car !== car) {
         this.scene.remove(hose.mesh, hose.nozzle);
@@ -129,7 +129,7 @@ export class FuelHoses {
     }
   }
 
-  private attach(pump: Station, car: NonNullable<Station['car']>): void {
+  private attach(pump: Station, car: NonNullable<Station['customer']>): void {
     const island: Point = this.layout.buildAt[pump.id] ?? pump.at;
     const side = laneSide(this.layout, pump.id);
     const from = new Vector3(island.x + side * (PUMP_X + NOZZLE.x), NOZZLE.y, island.z + side * NOZZLE.z);

@@ -1,15 +1,12 @@
 import type { Scene } from 'three';
 import type { CarDef, Point, Rect, StageDef } from '../core/config';
 import { CarModel } from '../render/models/actors';
+import type { Customer, CustomerState } from './customers';
 import type { Station } from './stations';
 import type { Need } from './tickets';
 
-/**
- * arriving → queued → entering → waiting (needs service) → done (service
- * finished, waiting for the next station) → entering … → leaving.
- * Any car whose patience runs out while waiting goes `angry` and poofs away.
- */
-export type CarState = 'arriving' | 'queued' | 'entering' | 'waiting' | 'done' | 'leaving' | 'angry';
+/** A car's progress through the lot (see CustomerState); an angry car poofs away. */
+export type CarState = CustomerState;
 
 const TURN_RATE = 10;
 /** How far along its way a car looks for a turn to indicate. */
@@ -17,8 +14,9 @@ const TURN_LOOK = 4;
 /** Counts cars as they come on: an earlier car has right of way where two ways cross. */
 let spawned = 0;
 
-/** One car on the lot. Drives along waypoints; the bays decide where. */
-export class Car {
+/** One car on the lot: a customer who drives. Drives along waypoints; the stations decide where. */
+export class Car implements Customer {
+  readonly body = 'car' as const;
   def!: CarDef;
   state: CarState = 'arriving';
   /** Wash progress in the bay, 0..1 (also drives the mud shader). */

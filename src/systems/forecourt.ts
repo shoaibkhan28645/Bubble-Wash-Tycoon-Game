@@ -1,4 +1,4 @@
-import { TUNING, type LocationLayout, type Point } from '../core/config';
+import { TUNING, stationDef, type LocationLayout, type Point } from '../core/config';
 import type { WorldLabels } from '../ui/worldLabels';
 import { CORNER, slotOf, type Lane } from './arrivals';
 import type { Car } from './cars';
@@ -32,7 +32,7 @@ export class Forecourt {
   addPump(id: string): void {
     const at = this.layout.pads[id];
     if (!at || this.pumps.some((p) => p.id === id)) return;
-    const pump = new Station(id, 'pump', at, this.layout.pump, TUNING.stations.pump.zonePadding, this.labels);
+    const pump = new Station(id, 'pump', at, this.layout.pump, stationDef('pump').padding, this.labels);
     // Off the island's end towards the way in (cars' backs), just on this pump's side of it.
     const island = this.layout.buildAt[id] ?? at;
     const back = Math.sign(this.layout.forecourt.entryX - island.x);
@@ -51,8 +51,8 @@ export class Forecourt {
   /** Room for another fuel car: a free pump, or a free spot in the line. */
   get hasRoom(): boolean {
     if (this.pumps.length === 0) return false;
-    const free = this.pumps.filter((p) => !p.car).length;
-    return this.line.length < free + TUNING.stations.pump.queueSpots;
+    const free = this.pumps.filter((p) => !p.customer).length;
+    return this.line.length < free + (stationDef('pump').queueSpots ?? 0);
   }
 
   /** Sends the first car in line to each free pump, down the entry and along that pump's lane. */
@@ -60,9 +60,9 @@ export class Forecourt {
     for (const pump of this.pumps) {
       const car = this.line[0];
       if (!car) return;
-      if (pump.car) continue;
+      if (pump.customer) continue;
       this.line.shift();
-      pump.car = car;
+      pump.customer = car;
       car.station = pump;
       car.state = 'entering';
       car.progress = 0;
@@ -90,7 +90,7 @@ export class Forecourt {
     }
     if (this.exitBusy) return 'stay';
     this.leaving = { car, serial: car.serial };
-    pump.car = null;
+    pump.customer = null;
     car.station = null;
     const { roadZ, roadLane, forecourt } = this.layout;
     if (washLane && car.wants('wash')) {

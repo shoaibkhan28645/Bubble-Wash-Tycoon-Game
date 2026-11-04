@@ -1,8 +1,9 @@
 // Service tickets: what each car comes in for (a wash, fuel, a snack from the
 // Mini-Mart while filling up), and the combo bonus for several in one visit.
-import { TUNING } from '../core/config';
+import { NEEDS, TUNING } from '../core/config';
 
-export type Need = 'wash' | 'fuel' | 'snack';
+/** A key of src/data/needs.json: wash, fuel, snack… */
+export type Need = string;
 
 export interface TicketKind {
   /** In the order the car visits them: the forecourt by the road comes first. */
@@ -12,8 +13,10 @@ export interface TicketKind {
 
 const KINDS = TUNING.tickets.kinds as TicketKind[];
 
-/** Icons shown in a car's bubble for each need. */
-export const NEED_ICONS: Record<Need, string> = { wash: '🫧', fuel: '⛽', snack: '🥤' };
+/** The icon shown in a customer's bubble for a need. */
+export function needIcon(need: Need): string {
+  return NEEDS[need]?.icon ?? '❔';
+}
 
 /**
  * A new car's needs, picked by weight from the tickets the lot can serve

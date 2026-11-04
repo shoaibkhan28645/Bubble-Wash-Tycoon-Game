@@ -7,7 +7,7 @@ import type { Supplies } from './supplies';
 
 /** Share of patience the station's car has left (1 = just arrived, 0 = about to leave). */
 function patienceLeft(station: Station): number {
-  const car = station.car;
+  const car = station.customer;
   return car ? car.patience / car.patienceMax : 1;
 }
 

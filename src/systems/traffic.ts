@@ -1,5 +1,5 @@
 import { Vector3 } from 'three';
-import { TUNING, UPGRADES, town, type LocationLayout, type Point } from '../core/config';
+import { TUNING, UPGRADES, stationDef, town, type LocationLayout, type Point, type StageDef } from '../core/config';
 import type { GameState } from '../core/gameState';
 import type { Particles } from '../render/effects/particles';
 import type { SoundManager } from '../audio/sound';
@@ -9,7 +9,7 @@ import { Car, CarPool } from './cars';
 import type { CashSystem } from './cash';
 import { builtStages, jobSeconds, levelFactor } from './economy';
 import { Arrivals, type Lane } from './arrivals';
-import { Station, type StationKind } from './stations';
+import { Station, workSpot, type StationKind } from './stations';
 import { Departures } from './departures';
 import { Journeys } from './journeys';
 import { Forecourt } from './forecourt';
@@ -21,7 +21,7 @@ export { bill, type Paid } from './till';
 
 /** Where a washer stands to work a hand wash bay: inside it, between the car and the outer wall. */
 export function bayWorkSpot(at: Point): Point {
-  return { x: at.x + (at.x <= 0 ? -1.2 : 1.2), z: at.z + 0.6 };
+  return workSpot(stationDef('bay'), at)!;
 }
 
 const BUBBLE_SECONDS = 0.07;
@@ -91,28 +91,25 @@ export class Traffic {
   /** Adds the station a built pad provides: a bay, a fuel pump, the tunnel, the dryer, waxing station or garage. */
   addStation(padId: string): void {
     const pad = town().pads.find((p) => p.id === padId);
-    const kind: StationKind | undefined = pad?.effects.bay ? 'bay' : pad?.effects.pump ? 'pump' : (pad?.effects.station as StationKind | undefined);
+    const kind: StationKind | undefined = pad?.effects.bay ? 'bay' : pad?.effects.pump ? 'pump' : pad?.effects.station;
     const at = this.layout.pads[padId];
     if (pad?.effects.mart) this.mart.isOpen = true;
     if (!kind || !at || this.all().some((s) => s.id === padId)) return;
-    if (kind === 'pump') {
+    const def = stationDef(kind);
+    if (def.flow === 'forecourt') {
       this.forecourt.addPump(padId);
       return;
     }
-    if (kind === 'tunnel') {
+    if (def.flow === 'conveyor') {
       this.tunnel = new Tunnel(at, this.layout.tunnel, this.labels);
       return;
     }
-    const size = kind === 'bay' ? this.layout.bay : kind === 'garage' ? this.layout.garage : this.layout.station;
-    const padding = kind === 'bay' ? TUNING.wash.zonePadding : TUNING.stations.zonePadding;
-    const station = new Station(padId, kind, at, size, padding, this.labels);
-    // Washers stand inside the bay, between the car and its outer wall.
-    if (kind === 'bay') station.side = bayWorkSpot(at);
-    // At the dryer and wax station, by the car's back end on the way out (their towers fill the sides).
-    if (kind === 'dryer' || kind === 'wax') station.side = { x: at.x - 1.35, z: at.z + 2.2 };
-    // In the garage, beside the car between the lift post and the way out.
-    if (kind === 'garage') station.side = { x: at.x - 1.3, z: at.z + 1.2 };
-    if (kind === 'bay') this.bays.push(station);
+    if (!def.size) return;
+    const station = new Station(padId, kind, at, this.layout[def.size], def.padding, this.labels);
+    // Washers stand inside the bay, between the car and its outer wall; at the dryer and wax station, by the
+    // car's back end on the way out (their towers fill the sides); in the garage, between the lift post and the way out.
+    station.side = workSpot(def, at);
+    if (def.flow === 'lane') this.bays.push(station);
     else {
       this.finishing.push(station);
       this.finishing.sort((a, b) => a.at.z - b.at.z);
@@ -131,7 +128,7 @@ export class Traffic {
 
   /** A car is being served at a finishing station of this kind (the dryer's fan blasts, the wax pads buff). */
   busy(kind: StationKind): boolean {
-    return this.finishing.some((s) => s.kind === kind && s.car?.state === 'waiting');
+    return this.finishing.some((s) => s.kind === kind && s.customer?.state === 'waiting');
   }
 
   update(dt: number, work: (station: Station) => Work, supplies: SupplyCheck): boolean {
@@ -185,7 +182,7 @@ export class Traffic {
 
   /** The car in a bay or finishing station: drive in, get served, then move on. True if the player worked it. */
   private serve(dt: number, station: Station, work: Work, supplies: SupplyCheck): boolean {
-    const car = station.car;
+    const car = station.customer;
     if (!car) {
       station.showProgress(false, 0, false);
       return false;
@@ -194,7 +191,7 @@ export class Traffic {
     if (car.state === 'entering' && car.arrived) {
       car.state = 'waiting';
       // Pulled up at a pump: the driver who wants a snack walks over to the Mini-Mart.
-      if (station.kind === 'pump' && car.wants('snack')) {
+      if (station.def.flow === 'forecourt' && car.wants('snack')) {
         if (this.mart.selling) this.mart.sendShopper(car, station);
         else car.needs = car.needs.filter((need) => need !== 'snack');
       }
@@ -209,11 +206,12 @@ export class Traffic {
         byPlayer = work.byPlayer;
         if (byPlayer) car.manual = true;
         car.progress = Math.min(1, car.progress + (dt * work.rate * this.boost) / jobSeconds(station.id, station.kind, car.def.dirt, this.state, byPlayer));
-        if (station.kind === 'bay') {
+        // Hand washing scrubs the mud off as it goes (the tunnel does its own).
+        if (station.def.serves === 'wash') {
           car.clean = car.progress;
           car.model.setClean(car.def.dirt, car.clean);
         }
-        if (station.kind === 'pump') this.sound.play('glug');
+        if (station.def.fx === 'fuel') this.sound.play('glug');
         else this.bubbles(dt, car);
         if (car.progress >= 1) this.finishJob(station, car);
       } else {
@@ -221,7 +219,7 @@ export class Traffic {
       }
     }
     // At the pump the gauge ring stands in for the mood bubble, so it shows when the driver is getting impatient.
-    const hurry = station.kind === 'pump' && car.patience / car.patienceMax < TUNING.customers.moodHappy;
+    const hurry = station.def.ring === 'gauge' && car.patience / car.patienceMax < TUNING.customers.moodHappy;
     station.showProgress(car.state === 'waiting', car.progress, stalled, hurry);
     if (car.state === 'done') this.journeys.moveOn(dt, station, car);
     return byPlayer;
@@ -239,23 +237,18 @@ export class Traffic {
   private finishJob(station: Station, car: Car): void {
     car.state = 'done';
     car.timer = 0;
-    if (station.kind === 'bay' || station.kind === 'tunnel') car.served.push('wash');
-    if (station.kind === 'pump') {
-      car.served.push('fuel');
-      car.quality *= levelFactor(UPGRADES.kinds.quality, this.level(`${station.id}.quality`));
-      const p = car.position;
+    const { def } = station;
+    if (def.serves) car.served.push(def.serves);
+    // Every stage built at the stations it stands in for: the tunnel's brushes, pre-soak and blowers are the bay's and the dryer's.
+    car.stages.push(...def.stages.flatMap((at) => builtStages(this.state.unlocked, at as StageDef['station'])));
+    car.quality *= levelFactor(UPGRADES.kinds.quality, this.level(`${station.id}.quality`));
+    const p = car.position;
+    if (def.fx === 'fuel') {
       this.effects.burst('sparkle', new Vector3(p.x, 1.2, p.z), 10, 4, car.def.size[0]);
       this.sound.play('fueled');
       return;
     }
-    if (station.kind === 'tunnel') {
-      // Brushes, pre-soak and blowers: every bay stage plus drying.
-      car.stages.push(...builtStages(this.state.unlocked, 'bay'), ...builtStages(this.state.unlocked, 'dryer'));
-    } else if (station.kind !== 'counter') car.stages.push(...builtStages(this.state.unlocked, station.kind));
-    car.quality *= levelFactor(UPGRADES.kinds.quality, this.level(`${station.id}.quality`));
-    const p = car.position;
-    const big = station.kind === 'wax' || station.kind === 'garage';
-    this.effects.burst('sparkle', new Vector3(p.x, 1.4, p.z), big ? 26 : 16, 5, car.def.size[0]);
+    this.effects.burst('sparkle', new Vector3(p.x, 1.4, p.z), def.fx === 'polish' ? 26 : 16, 5, car.def.size[0]);
     this.sound.play('sparkle');
   }
 
@@ -269,10 +262,10 @@ export class Traffic {
     for (const lane of this.lanes()) for (const car of lane.queue) if (car.state === 'queued') waiting.push({ car, beside: false });
     for (const car of this.forecourt.line) if (car.state === 'queued') waiting.push({ car, beside: false });
     for (const station of [...this.bays, ...this.finishing]) {
-      if (station.car?.state === 'waiting') waiting.push({ car: station.car, beside: true });
+      if (station.customer?.state === 'waiting') waiting.push({ car: station.customer, beside: true });
     }
     // At the pump the gauge ring shows while filling up; the bubble only if it then waits for room in a wash lane.
-    for (const pump of this.forecourt.pumps) if (pump.car?.state === 'done') waiting.push({ car: pump.car, beside: true });
+    for (const pump of this.forecourt.pumps) if (pump.customer?.state === 'done') waiting.push({ car: pump.customer, beside: true });
     for (const car of this.tunnel?.inside ?? []) if (car.state === 'waiting' && !car.supplied) waiting.push({ car, beside: true });
     this.moods.update(waiting);
   }

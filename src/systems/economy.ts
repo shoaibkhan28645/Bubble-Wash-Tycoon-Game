@@ -1,4 +1,4 @@
-import { TUNING, UPGRADES, stageById, town, type CarDef, type Dirt, type StageDef, type UpgradeKind } from '../core/config';
+import { NEEDS, TUNING, UPGRADES, stageById, stationDef, town, type CarDef, type Dirt, type StageDef, type UpgradeKind } from '../core/config';
 import { comboMultiplier, type Need } from './tickets';
 
 /** Price of one wash: base pay × (1 + stage bonuses) × quality. */
@@ -7,17 +7,25 @@ export function carPay(car: CarDef, stages: readonly StageDef[], quality = 1): n
 }
 
 /**
- * What a car's ticket comes to: the wash (base pay with its stage bonuses)
- * plus fuel and a snack (each a share of base pay), times quality, times the
- * combo bonus for several needs served in one visit.
+ * What a customer's ticket comes to: each need served (needs.json), times
+ * quality, times the combo bonus for several needs served in one visit. The
+ * wash pays base pay with its stage bonuses; fuel and a snack each pay a
+ * share of base pay.
  */
-export function ticketPay(car: CarDef, stages: readonly StageDef[], served: readonly Need[], quality = 1): number {
-  const base = car.basePay * (car.payMultiplier ?? 1);
+export function ticketPay(
+  payer: Pick<CarDef, 'basePay' | 'payMultiplier'>,
+  stages: readonly StageDef[],
+  served: readonly Need[],
+  quality = 1,
+): number {
+  const base = payer.basePay * (payer.payMultiplier ?? 1);
   const bonus = stages.reduce((sum, stage) => sum + stage.payBonus, 0);
-  const wash = served.includes('wash') ? base * (1 + bonus) : 0;
-  const fuel = served.includes('fuel') ? base * TUNING.fuel.payFactor : 0;
-  const snack = served.includes('snack') ? base * TUNING.snack.payFactor : 0;
-  return Math.round((wash + fuel + snack) * quality * comboMultiplier(served.length));
+  let total = 0;
+  // In needs.json order, so a bill always adds up the same way.
+  for (const [id, need] of Object.entries(NEEDS)) {
+    if (served.includes(id)) total += need.stagePay ? base * (1 + bonus) : base * (need.payFactor ?? 0);
+  }
+  return Math.round(total * quality * comboMultiplier(served.length));
 }
 
 /** Seconds of hand scrubbing a car needs. */
@@ -123,7 +131,7 @@ export function spawnSeconds(base: number, stars: number, perStar: number, arriv
   return base / rate;
 }
 
-/** Seconds a station needs for one car at full work rate, with speed (and, by hand, scrub) upgrades. */
+/** Seconds a station needs for one customer at full work rate, with speed (and, for a wash by hand, scrub) upgrades. */
 export function jobSeconds(
   stationId: string,
   kind: string,
@@ -132,7 +140,8 @@ export function jobSeconds(
   byPlayer: boolean,
 ): number {
   const speed = levelFactor(UPGRADES.kinds.speed, state.levels[`${stationId}.speed`] ?? 0);
-  if (kind === 'dryer' || kind === 'wax' || kind === 'garage' || kind === 'pump' || kind === 'counter') return TUNING.stations[kind].seconds * speed;
+  const { seconds } = stationDef(kind);
+  if (seconds !== null) return seconds * speed;
   const scrub = byPlayer ? levelFactor(UPGRADES.kinds.scrub, state.levels['player.scrub'] ?? 0) : 1;
   return washSeconds(dirt, builtStages(state.unlocked, 'bay'), TUNING.wash) * speed * scrub;
 }

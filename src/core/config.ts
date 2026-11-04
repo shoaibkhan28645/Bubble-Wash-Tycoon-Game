@@ -2,6 +2,8 @@
 // never in code; tests/data.test.ts checks the files fit together.
 import carsJson from '../data/cars.json';
 import stagesJson from '../data/stages.json';
+import stationsJson from '../data/stations.json';
+import needsJson from '../data/needs.json';
 import tuningJson from '../data/tuning.json';
 import charactersJson from '../data/characters.json';
 import upgradesJson from '../data/upgrades.json';
@@ -89,6 +91,67 @@ export interface StageDef {
   payBonus: number;
   /** Fraction of wash time removed, e.g. 0.3 = 30% faster. */
   timeReduction: number;
+}
+
+/**
+ * The five kinds of station every business is built from (strategy doc,
+ * section 6): a service point (a customer waits while a worker does a job),
+ * a shop till, a rental slot (used for a while, then reset), a producer
+ * (makes supplies) and a mover (carries them). Chapter 1 uses service
+ * points and a till; the soap shelf and the runner are its producer and mover.
+ */
+export type StationType = 'service' | 'till' | 'rental' | 'producer' | 'mover';
+
+/** How a customer gets about: driving a car, or on foot. */
+export type Body = 'car' | 'walker';
+
+/** One kind of station, from src/data/stations.json. Its key is the station's `kind`. */
+export interface StationDef {
+  name: string;
+  type: StationType;
+  /** Who it serves. */
+  customer: Body;
+  /**
+   * How customers reach and leave it on the lot: a wash lane with a line
+   * (bays), a conveyor (the tunnel), the finishing lane, the forecourt, or a
+   * shop's queue.
+   */
+  flow: 'lane' | 'conveyor' | 'finishing' | 'forecourt' | 'till';
+  /** The ticket need it ticks off (wash, fuel, snack), or null if it only adds stages. */
+  serves: string | null;
+  /** Built stages it adds to a customer's bill, by the stage's station (stages.json). */
+  stages: string[];
+  /** Seconds for one job at full speed; null = worked out from the car's dirt (the wash). */
+  seconds: number | null;
+  /** Supply it uses up per customer once the shelf exists (soap, towel, wax), or null. */
+  supply: string | null;
+  /** Which size in the town layout its footprint takes (null: set by its building). */
+  size: 'bay' | 'station' | 'garage' | 'tunnel' | 'pump' | null;
+  /** How far round its footprint a worker counts as working it. */
+  padding: number;
+  /** Where a worker stands, from the station's spot (`mirror`: on the lot's outer side), or null for beside its zone. */
+  workSpot: { x: number; z: number; mirror?: boolean } | null;
+  /** Where its progress ring floats: over an arch, over the car as a gauge, or beside it. */
+  ring: 'arch' | 'gauge' | 'beside';
+  /** Effects while working and when done: wash (bubbles), fuel (glugs), polish (a big sparkle), none. */
+  fx: 'wash' | 'fuel' | 'polish' | 'none';
+  /** Customers inside at once (the tunnel). */
+  capacity?: number;
+  /** Extra waiting spots in front of it. */
+  queueSpots?: number;
+  /** Share of customers who stop here (the detailing garage). */
+  chance?: number;
+}
+
+/** Something a customer can come for, from src/data/needs.json. Its key is the need's id. */
+export interface NeedDef {
+  name: string;
+  /** Shown in the customer's ticket bubble. */
+  icon: string;
+  /** Pays the full base price plus every stage bonus (the wash). */
+  stagePay?: boolean;
+  /** Otherwise pays this share of the customer's base price. */
+  payFactor?: number;
 }
 
 export interface LocationLayout {
@@ -269,6 +332,10 @@ export interface GoalsData {
 
 export const CARS = carsJson as CarDef[];
 export const STAGES = stagesJson as StageDef[];
+/** Every kind of station, by kind. */
+export const STATIONS = stationsJson as Record<string, StationDef>;
+/** Everything a customer can come for, by id, in the order a bill adds them up. */
+export const NEEDS = needsJson as Record<string, NeedDef>;
 export const TUNING: Tuning = tuningJson;
 /** Who plays each role, which people file holds whom, and how fast each gait walks (art/blender/people.py). */
 export const CHARACTERS = charactersJson;
@@ -330,6 +397,13 @@ export function fixedSolids(layout: LocationLayout): Rect[] {
 /** A pad of the town being played. */
 export function padById(id: string): PadDef | undefined {
   return current.pads.find((pad) => pad.id === id);
+}
+
+/** A station kind's definition; throws for a kind stations.json doesn't have. */
+export function stationDef(kind: string): StationDef {
+  const def = STATIONS[kind];
+  if (!def) throw new Error(`Unknown station kind: ${kind}`);
+  return def;
 }
 
 export function stageById(id: string): StageDef | undefined {

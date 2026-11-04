@@ -1,7 +1,7 @@
 import { Vector3 } from 'three';
 import { TUNING } from '../core/config';
 import type { Car } from '../systems/cars';
-import { NEED_ICONS, type Need } from '../systems/tickets';
+import { needIcon, type Need } from '../systems/tickets';
 import type { Label, WorldLabels } from './worldLabels';
 
 const BUBBLE_HEIGHT = 2.6;
@@ -50,7 +50,7 @@ export class CarBubble {
     for (const need of needs) {
       const icon = document.createElement('span');
       icon.className = 'need';
-      icon.textContent = NEED_ICONS[need];
+      icon.textContent = needIcon(need);
       if (served.includes(need)) icon.dataset.done = '';
       this.needs.appendChild(icon);
     }

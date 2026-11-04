@@ -1,0 +1,5 @@
+{
+  "wash": { "name": "Wash", "icon": "🫧", "stagePay": true },
+  "fuel": { "name": "Fuel", "icon": "⛽", "payFactor": 0.8 },
+  "snack": { "name": "Snack", "icon": "🥤", "payFactor": 0.5 }
+}

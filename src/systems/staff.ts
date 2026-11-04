@@ -242,7 +242,7 @@ export class StaffSystem {
     for (const helper of this.helpers) {
       // Leave a station to the player, or to another helper already on it.
       const skip = (station: Station) =>
-        playerAt(station) || (!manager && !!station.car?.vip) || this.helpers.some((o) => o !== helper && o.assigned === station);
+        playerAt(station) || (!manager && !!station.customer?.vip) || this.helpers.some((o) => o !== helper && o.assigned === station);
       const speed = TUNING.staff.walkSpeed / levelFactor(UPGRADES.kinds.staffSpeed, this.level(`${helper.role}.staffSpeed`));
       if (this.takeBreak(dt, helper)) {
         helper.avatar.update(dt);

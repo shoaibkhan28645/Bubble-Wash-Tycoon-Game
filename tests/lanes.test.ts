@@ -1,7 +1,7 @@
 // Milestone 5: who uses which lane, the valet, the tunnel conveyor, the
 // garage, VIP pay and the tutorial hand.
 import { describe, expect, it } from 'vitest';
-import { CARS, STAGES, TUNING } from '../src/core/config';
+import { stationDef, NEEDS, CARS, STAGES, TUNING } from '../src/core/config';
 import { ROADSIDE } from '../src/core/towns';
 import { newGame } from '../src/core/gameState';
 import type { Car } from '../src/systems/cars';
@@ -104,7 +104,7 @@ describe('pay', () => {
   });
 
   it('fuel pays a share of base pay; fuel and a wash together pay the combo bonus', () => {
-    const fuel = TUNING.fuel.payFactor;
+    const fuel = NEEDS.fuel!.payFactor!;
     expect(bill({ ...car(), stages: [], served: ['fuel'] }).pay).toBe(Math.round(15 * fuel));
     const combo = TUNING.tickets.combo[2]!;
     expect(bill({ ...car(), served: ['fuel', 'wash'] }).pay).toBe(Math.round(15 * (1 + fuel) * combo));
@@ -119,9 +119,9 @@ describe('job times', () => {
   const state = newGame();
 
   it('garage, dryer and wax take their tuning seconds; speed upgrades shorten them', () => {
-    expect(jobSeconds('garage', 'garage', 'dusty', state, false)).toBe(TUNING.stations.garage.seconds);
+    expect(jobSeconds('garage', 'garage', 'dusty', state, false)).toBe(stationDef('garage').seconds!);
     const faster = { ...state, levels: { 'garage.speed': 2 } };
-    expect(jobSeconds('garage', 'garage', 'dusty', faster, false)).toBeLessThan(TUNING.stations.garage.seconds);
+    expect(jobSeconds('garage', 'garage', 'dusty', faster, false)).toBeLessThan(stationDef('garage').seconds!);
   });
 
   it('muddier cars take longer in a bay', () => {
@@ -145,7 +145,7 @@ function rider(state: string, progress = 0): Car {
 describe('brush tunnel', () => {
   const make = () => {
     const tunnel = new Tunnel(ROADSIDE.layout.pads.tunnel!, ROADSIDE.layout.tunnel, null);
-    tunnel.supply = TUNING.stations.tunnel.supply;
+    tunnel.supply = stationDef('tunnel').supply;
     return tunnel;
   };
   const noop = { onMoving() {}, onFinished() {}, onWaiting() {}, onDone() {} };
@@ -190,7 +190,7 @@ describe('brush tunnel', () => {
     tunnel.inside.push(front, behind);
     for (let i = 0; i < 100; i++) tunnel.run(0.1, 0, soap(0), noop);
     expect(front.progress).toBe(0.4);
-    expect(behind.progress).toBeCloseTo(0.4 - 1 / TUNING.stations.tunnel.capacity);
+    expect(behind.progress).toBeCloseTo(0.4 - 1 / stationDef('tunnel').capacity!);
   });
 
   it('stops without soap, and while the front car waits at the exit', () => {

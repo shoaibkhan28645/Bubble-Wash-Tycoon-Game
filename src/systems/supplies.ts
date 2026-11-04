@@ -111,9 +111,9 @@ export class Supplies implements SupplyCheck {
     return TUNING.supplies.shelfCapacity + levelStep(UPGRADES.kinds.storage, this.state.levels[`${SHELF}.storage`] ?? 0);
   }
 
-  /** Bays use soap once the shelf exists; the dryer uses towels; the waxing station wax. */
+  /** Once the shelf exists, each station uses its supply from stations.json: soap in the bays, towels at the dryer, wax… */
   private assignSupply(station: Station, hasShelf: boolean): void {
-    const wanted = !hasShelf ? null : station.kind === 'bay' ? 'soap' : TUNING.stations[station.kind].supply;
+    const wanted = hasShelf ? station.def.supply : null;
     if (wanted === station.supply) return;
     station.supply = wanted;
     // A station starts full the first time it needs a supply.

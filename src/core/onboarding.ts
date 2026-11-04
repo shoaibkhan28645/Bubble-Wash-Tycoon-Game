@@ -39,10 +39,10 @@ export function createOnboarding(deps: {
 
   /** What the tutorial hand can point at this frame. */
   const view = (): GuideView => {
-    const first = traffic.bays[0]?.car;
+    const first = traffic.bays[0]?.customer;
     const perItem = TUNING.stations.usesPerItem;
     const low = traffic.bays.find((b) => b.supply === 'soap' && (state.supplies[`${b.id}.soap`] ?? 0) <= perItem);
-    const pumpCar = traffic.forecourt.pumps[0]?.car;
+    const pumpCar = traffic.forecourt.pumps[0]?.customer;
     if (pumpCar?.manual && pumpCar.served.includes('fuel')) flag('fueled');
     const upgradeAt = layout.upgradePads.bay1;
     const upgrade = state.unlocked.includes('bay2') && upgradeAt && state.cash >= costOf('bay1.speed', state.levels['bay1.speed'] ?? 0);

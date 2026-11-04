@@ -1,33 +1,46 @@
 import { Vector3 } from 'three';
-import type { Point, Rect } from '../core/config';
+import { stationDef, type Point, type Rect, type StationDef, type StationType } from '../core/config';
 import type { Label, WorldLabels } from '../ui/worldLabels';
 import type { Car } from './cars';
+import type { Customer } from './customers';
 
-export type StationKind = 'bay' | 'dryer' | 'wax' | 'garage' | 'tunnel' | 'pump' | 'counter';
+/** A key of src/data/stations.json: bay, tunnel, dryer, wax, garage, pump, counter… */
+export type StationKind = string;
 
 /**
- * Bays: the ring floats above the arch; pumps: over the car, as its fuel
- * gauge. Dryer and wax are stacked down one lane, so their rings sit beside
- * them on the left, clear of each other.
+ * Over an arch (the bays), over the customer as a gauge (the pumps), or
+ * beside the station on the left (the dryer and wax are stacked down one
+ * lane, so their rings sit clear of each other).
  */
-function ringSpot(kind: StationKind, at: Point, width: number): Vector3 {
-  if (kind === 'bay') return new Vector3(at.x, 3.4, at.z);
-  if (kind === 'pump') return new Vector3(at.x, 1.9, at.z);
+function ringSpot(ring: StationDef['ring'], at: Point, width: number): Vector3 {
+  if (ring === 'arch') return new Vector3(at.x, 3.4, at.z);
+  if (ring === 'gauge') return new Vector3(at.x, 1.9, at.z);
   return new Vector3(at.x - width / 2 - 0.8, 1.8, at.z);
+}
+
+/** Where a worker stands to work a station, from its spot and its definition's offset (null: beside its zone). */
+export function workSpot(def: StationDef, at: Point): Point | null {
+  const spot = def.workSpot;
+  if (!spot) return null;
+  const x = spot.mirror && at.x <= 0 ? -spot.x : spot.x;
+  return { x: at.x + x, z: at.z + spot.z };
 }
 // Progress ring: track plus a fill whose dash length follows --p (0..100).
 const RING_SVG = `<svg viewBox="0 0 36 36" aria-hidden="true"><circle cx="18" cy="18" r="14" class="ring-track"/><circle cx="18" cy="18" r="14" class="ring-fill" pathLength="100"/></svg>`;
 
 /**
- * A place where cars get one kind of service: a hand-wash bay or a fuel
- * pump (each with a line of waiting cars), the dryer, or the waxing
- * station. One car at a time.
+ * A place where customers get one kind of service, one at a time: a
+ * hand-wash bay or a fuel pump (each with a line of waiting cars), the
+ * dryer, the waxing station. What it does comes from its kind's entry in
+ * stations.json; `C` is who it serves (Chapter 1: cars).
  */
-export class Station {
-  /** The car parked here, or driving in. */
-  car: Car | null = null;
-  /** Bays only: cars waiting in line, front first. */
-  readonly queue: Car[] = [];
+export class Station<C extends Customer = Car> {
+  /** The customer being served here, or on the way in. */
+  customer: C | null = null;
+  /** Lanes only: customers waiting in line, front first. */
+  readonly queue: C[] = [];
+  /** This kind's definition (stations.json). */
+  readonly def: StationDef;
   /** Where a worker must stand to work here. */
   readonly zone: Rect;
   /** Supply this station uses up per car (soap, towel, wax), or null. */
@@ -46,6 +59,7 @@ export class Station {
     /** Null in tests (no page to draw on). */
     labels: WorldLabels | null,
   ) {
+    this.def = stationDef(kind);
     this.zone = {
       minX: at.x - size.width / 2 - padding,
       maxX: at.x + size.width / 2 + padding,
@@ -57,18 +71,23 @@ export class Station {
     this.ring.className = 'wash-ring';
     this.ring.dataset.kind = kind;
     this.ring.innerHTML = RING_SVG;
-    this.label = labels.add(this.ring, ringSpot(kind, at, size.width));
+    this.label = labels.add(this.ring, ringSpot(this.def.ring, at, size.width));
     this.label.visible = false;
   }
 
-  /** Free to take the next car (a bay with nobody in it). */
-  get idle(): boolean {
-    return !this.car;
+  /** Which of the five station types it is (service point, till…). */
+  get type(): StationType {
+    return this.def.type;
   }
 
-  /** A car parked here that still needs this station's service. */
+  /** Free to take the next customer (a bay with nobody in it). */
+  get idle(): boolean {
+    return !this.customer;
+  }
+
+  /** A customer here who still needs this station's service. */
   get needsWork(): boolean {
-    return this.car?.state === 'waiting';
+    return this.customer?.state === 'waiting';
   }
 
   /** Moves the progress ring (e.g. so side-by-side pumps' rings don't overlap). */

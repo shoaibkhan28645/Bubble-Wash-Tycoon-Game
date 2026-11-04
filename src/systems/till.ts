@@ -43,7 +43,7 @@ export class Till {
   /** Pays for everything on the ticket the car got (a combo for several), plus a tip if it didn't wait long. */
   checkout(car: Car, last: Station): void {
     const { pay, tip } = this.bill(car);
-    const pileId = last.kind === 'pump' ? 'fuel' : this.state.unlocked.includes('register') ? 'register' : last.id;
+    const pileId = last.def.flow === 'forecourt' ? 'fuel' : this.state.unlocked.includes('register') ? 'register' : last.id;
     const at = this.pay(pileId, pay + tip, last.at);
     this.floaters.show(`+$${pay}`, new Vector3(at.x, 1.2, at.z), car.vip ? 'tip' : 'cash');
     if (tip > 0) this.floaters.show(`+$${tip} tip`, new Vector3(at.x + 0.6, 1.9, at.z), 'tip');

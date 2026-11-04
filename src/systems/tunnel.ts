@@ -1,8 +1,12 @@
-import { TUNING, UPGRADES, type Point } from '../core/config';
+import { TUNING, UPGRADES, stationDef, type Point } from '../core/config';
 import { levelFactor } from './economy';
 import type { WorldLabels } from '../ui/worldLabels';
 import type { Car } from './cars';
 import { Station } from './stations';
+
+const DEF = stationDef('tunnel');
+/** Cars on the conveyor at once. */
+export const TUNNEL_CAPACITY = DEF.capacity ?? 1;
 
 /** Between the cars waiting for the tunnel, middle to middle. */
 const SLOT_GAP = 4.6;
@@ -19,7 +23,7 @@ export class Tunnel extends Station {
   readonly exit: Point;
 
   constructor(at: Point, size: { width: number; length: number }, labels: WorldLabels | null) {
-    super('tunnel', 'tunnel', at, size, TUNING.stations.tunnel.zonePadding, labels);
+    super('tunnel', 'tunnel', at, size, DEF.padding, labels);
     const inset = 1.6;
     this.entry = { x: at.x, z: at.z - size.length / 2 + inset };
     this.exit = { x: at.x, z: at.z + size.length / 2 - inset };
@@ -28,8 +32,8 @@ export class Tunnel extends Station {
   /** Room on the conveyor for another car. */
   get canAccept(): boolean {
     const last = this.inside[this.inside.length - 1];
-    if (this.inside.length >= TUNING.stations.tunnel.capacity) return false;
-    return !last || (last.state !== 'entering' && last.progress >= 1 / TUNING.stations.tunnel.capacity);
+    if (this.inside.length >= TUNNEL_CAPACITY) return false;
+    return !last || (last.state !== 'entering' && last.progress >= 1 / TUNNEL_CAPACITY);
   }
 
   override get idle(): boolean {
@@ -58,7 +62,7 @@ export class Tunnel extends Station {
     on: { onMoving(car: Car): void; onFinished(car: Car): void; onWaiting(car: Car): void; onDone(car: Car): void },
   ): void {
     const blocked = this.inside[0]?.state === 'done';
-    const seconds = TUNING.stations.tunnel.seconds * levelFactor(UPGRADES.kinds.speed, speedLevel);
+    const seconds = (DEF.seconds ?? 1) * levelFactor(UPGRADES.kinds.speed, speedLevel);
     let stalled = false;
     // Nobody rides up into the car ahead (it may be stopped, waiting for soap): they keep their spacing.
     let room = 1;
@@ -73,7 +77,7 @@ export class Tunnel extends Station {
         continue;
       }
       if (!car.supplied && this.supply) car.supplied = supplies.take(this);
-      const spacing = 1 / TUNING.stations.tunnel.capacity;
+      const spacing = 1 / TUNNEL_CAPACITY;
       if ((this.supply && !car.supplied) || blocked || car.progress >= room) {
         stalled ||= !car.supplied;
         on.onWaiting(car);

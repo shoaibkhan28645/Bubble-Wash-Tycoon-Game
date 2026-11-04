@@ -1,0 +1,37 @@
+{
+  "bay": {
+    "name": "Hand wash bay", "type": "service", "customer": "car", "flow": "lane", "serves": "wash", "stages": ["bay"],
+    "seconds": null, "supply": "soap", "size": "bay", "padding": 0.9, "workSpot": { "x": 1.2, "z": 0.6, "mirror": true },
+    "ring": "arch", "fx": "wash"
+  },
+  "tunnel": {
+    "name": "Brush tunnel", "type": "service", "customer": "car", "flow": "conveyor", "serves": "wash", "stages": ["bay", "dryer"],
+    "seconds": 7, "supply": "soap", "size": "tunnel", "padding": 1.6, "workSpot": null,
+    "ring": "beside", "fx": "wash", "capacity": 3, "queueSpots": 1
+  },
+  "dryer": {
+    "name": "Dryer", "type": "service", "customer": "car", "flow": "finishing", "serves": null, "stages": ["dryer"],
+    "seconds": 2.2, "supply": "towel", "size": "station", "padding": 1, "workSpot": { "x": -1.35, "z": 2.2 },
+    "ring": "beside", "fx": "wash"
+  },
+  "wax": {
+    "name": "Waxing station", "type": "service", "customer": "car", "flow": "finishing", "serves": null, "stages": ["wax"],
+    "seconds": 2.6, "supply": "wax", "size": "station", "padding": 1, "workSpot": { "x": -1.35, "z": 2.2 },
+    "ring": "beside", "fx": "polish"
+  },
+  "garage": {
+    "name": "Detailing garage", "type": "service", "customer": "car", "flow": "finishing", "serves": null, "stages": ["garage"],
+    "seconds": 4, "supply": null, "size": "garage", "padding": 1, "workSpot": { "x": -1.3, "z": 1.2 },
+    "ring": "beside", "fx": "polish", "chance": 0.5
+  },
+  "pump": {
+    "name": "Fuel pump", "type": "service", "customer": "car", "flow": "forecourt", "serves": "fuel", "stages": [],
+    "seconds": 2.6, "supply": null, "size": "pump", "padding": 0.9, "workSpot": null,
+    "ring": "gauge", "fx": "fuel", "queueSpots": 1
+  },
+  "counter": {
+    "name": "Mini-Mart till", "type": "till", "customer": "walker", "flow": "till", "serves": "snack", "stages": [],
+    "seconds": 2.2, "supply": null, "size": null, "padding": 0, "workSpot": null,
+    "ring": "beside", "fx": "none"
+  }
+}

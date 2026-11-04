@@ -1,4 +1,4 @@
-import { ADS, CARS, TUNING, UPGRADES, town, type CarDef, type PadEffects, type LocationLayout, type Point } from '../core/config';
+import { ADS, CARS, TUNING, UPGRADES, stationDef, town, type CarDef, type PadEffects, type LocationLayout, type Point } from '../core/config';
 import type { GameState } from '../core/gameState';
 import type { SoundManager } from '../audio/sound';
 import type { Car, CarPool } from './cars';
@@ -7,7 +7,7 @@ import { canUse, pickRebalance } from './lanes';
 import type { Forecourt } from './forecourt';
 import type { Station } from './stations';
 import { rollTicket, type Need } from './tickets';
-import { Tunnel } from './tunnel';
+import { TUNNEL_CAPACITY, Tunnel } from './tunnel';
 
 /** A wash lane cars line up for: a hand-wash bay or the tunnel. */
 export type Lane = Station | Tunnel;
@@ -115,7 +115,7 @@ export class Arrivals {
   parkFirstCar(): void {
     const lane = this.lanes()[0];
     const def = this.availableCars()[0];
-    if (!lane || lane instanceof Tunnel || !def || lane.car || lane.queue.length > 0) return;
+    if (!lane || lane instanceof Tunnel || !def || lane.customer || lane.queue.length > 0) return;
     const car = this.pool.acquire();
     car.spawn({ ...def, dirt: 'muddy' }, lane.at, [], lane.at, def);
     car.patienceMax = car.patience = TUNING.onboarding.firstCarPatience;
@@ -197,7 +197,7 @@ export class Arrivals {
     car.spawn(def, road, [{ x: turnX - CORNER, z: this.roadIn }, { x: turnX, z: this.roadIn + into * CORNER }], goal, payDef, needs);
     car.patienceMax = def.patience * (1 + unlockedSum(this.state, (e) => e.patienceBonus));
     car.patience = car.patienceMax;
-    car.wantsDetail = Math.random() < TUNING.stations.garage.chance;
+    car.wantsDetail = Math.random() < (stationDef('garage').chance ?? 0);
     return car;
   }
 
@@ -222,7 +222,7 @@ export class Arrivals {
     for (const lane of this.lanes()) {
       if (!canUse(car, lane)) continue;
       const capacity = this.capacity(lane);
-      const used = lane.queue.length + (lane instanceof Tunnel ? lane.inside.length : lane.car ? 1 : 0);
+      const used = lane.queue.length + (lane instanceof Tunnel ? lane.inside.length : lane.customer ? 1 : 0);
       if ((!vip && used >= capacity) || lane.queue.length >= queueRoom(lane, this.layout)) continue;
       if (used / capacity < bestLoad) {
         best = lane;
@@ -233,7 +233,7 @@ export class Arrivals {
   }
 
   private capacity(lane: Lane): number {
-    if (lane instanceof Tunnel) return TUNING.stations.tunnel.capacity + TUNING.stations.tunnel.queueSpots;
+    if (lane instanceof Tunnel) return TUNNEL_CAPACITY + (stationDef('tunnel').queueSpots ?? 0);
     return 1 + queueSpots(TUNING.cars.queueSpots, UPGRADES.kinds.queue, this.state.levels[`${lane.id}.queue`] ?? 0);
   }
 

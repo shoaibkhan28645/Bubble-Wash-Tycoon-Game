@@ -31,7 +31,7 @@ describe('the forecourt line', () => {
     expect(forecourt.hasRoom).toBe(true);
     forecourt.line.push(car(['fuel']));
     forecourt.advance();
-    expect(forecourt.pumps[0]!.car).not.toBeNull();
+    expect(forecourt.pumps[0]!.customer).not.toBeNull();
     forecourt.line.push(car(['fuel']));
     expect(forecourt.hasRoom).toBe(false);
   });
@@ -39,11 +39,11 @@ describe('the forecourt line', () => {
   it('sends the first car in line to whichever pump is free', () => {
     const forecourt = open('pump1', 'pump2');
     const busy = car(['fuel']);
-    forecourt.pumps[0]!.car = busy;
+    forecourt.pumps[0]!.customer = busy;
     const next = car(['fuel']);
     forecourt.line.push(next);
     forecourt.advance();
-    expect(forecourt.pumps[1]!.car).toBe(next);
+    expect(forecourt.pumps[1]!.customer).toBe(next);
     expect(next.state).toBe('entering');
     expect(forecourt.line).toHaveLength(0);
   });
@@ -63,9 +63,9 @@ describe('leaving the pump', () => {
     const forecourt = open('pump1');
     const pump = forecourt.pumps[0]!;
     const c = car(['fuel']);
-    pump.car = c;
+    pump.customer = c;
     expect(forecourt.depart(c, pump, null)).toBe('away');
-    expect(pump.car).toBeNull();
+    expect(pump.customer).toBeNull();
     expect(c.state).toBe('leaving');
   });
 
@@ -73,7 +73,7 @@ describe('leaving the pump', () => {
     const forecourt = open('pump1');
     const pump = forecourt.pumps[0]!;
     const c = car(['fuel', 'wash']);
-    pump.car = c;
+    pump.customer = c;
     const bay = lane();
     expect(forecourt.depart(c, pump, bay)).toBe('wash');
     expect(bay.queue).toEqual([c]);
@@ -85,8 +85,8 @@ describe('leaving the pump', () => {
     const forecourt = open('pump1', 'pump2');
     const [one, two] = forecourt.pumps;
     const [a, b] = [car(['fuel']), car(['fuel'])];
-    one!.car = a;
-    two!.car = b;
+    one!.customer = a;
+    two!.customer = b;
     a.model.mesh.position.z = one!.at.z;
     expect(forecourt.depart(a, one!, null)).toBe('away');
     expect(forecourt.depart(b, two!, null)).toBe('stay');
@@ -99,9 +99,9 @@ describe('leaving the pump', () => {
     const forecourt = open('pump1');
     const pump = forecourt.pumps[0]!;
     const c = car(['fuel', 'wash']);
-    pump.car = c;
+    pump.customer = c;
     expect(forecourt.depart(c, pump, null)).toBe('stay');
-    expect(pump.car).toBe(c);
+    expect(pump.customer).toBe(c);
     c.timer = TUNING.cars.leaveDelay + TUNING.fuel.washWaitSeconds;
     expect(forecourt.depart(c, pump, null)).toBe('away');
     expect(c.needs).toEqual(['fuel']);

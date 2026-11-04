@@ -110,7 +110,7 @@ describe('staff pathfinding', () => {
 
 function bayWith(id: string, x: number, patience: number | null): Station {
   const station = new Station(id, 'bay', { x, z: -3 }, ROADSIDE.layout.bay, 0.9, null);
-  if (patience !== null) station.car = { state: 'waiting', patience, patienceMax: 60 } as unknown as Car;
+  if (patience !== null) station.customer = { state: 'waiting', patience, patienceMax: 60 } as unknown as Car;
   return station;
 }
 
@@ -138,7 +138,7 @@ describe('which car the washer serves', () => {
   it('waits when no car needs washing, and ignores the dryer', () => {
     const empty = bayWith('bay1', -2.2, null);
     const dryer = new Station('dryer', 'dryer', ROADSIDE.layout.pads.dryer!, ROADSIDE.layout.station, 1, null);
-    dryer.car = { state: 'waiting', patience: 1, patienceMax: 60 } as unknown as Car;
+    dryer.customer = { state: 'waiting', patience: 1, patienceMax: 60 } as unknown as Car;
     expect(pickStation([empty, dryer], ['bay'], null, nobody)).toBeNull();
   });
 });

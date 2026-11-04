@@ -1,6 +1,6 @@
 // The Mini-Mart: drivers walk over from the pumps, line up, get served, walk back.
 import { describe, expect, it } from 'vitest';
-import { CARS, TUNING } from '../src/core/config';
+import { stationDef, CARS } from '../src/core/config';
 import { ROADSIDE } from '../src/core/towns';
 import type { CarModel } from '../src/render/models/actors';
 import { Car } from '../src/systems/cars';
@@ -32,7 +32,7 @@ describe('the Mini-Mart', () => {
     run(mart, 20, 0);
     expect(mart.counter.needsWork).toBe(true);
     expect(served).toEqual([]);
-    run(mart, TUNING.stations.counter.seconds + 0.2, 1);
+    run(mart, stationDef('counter').seconds! + 0.2, 1);
     expect(served).toEqual([car]);
     expect(car.served).toEqual([]);
     run(mart, 20, 0);
@@ -49,7 +49,7 @@ describe('the Mini-Mart', () => {
     mart.sendShopper(first, pump);
     mart.sendShopper(second, pump);
     run(mart, 20, 0);
-    run(mart, 2 * (TUNING.stations.counter.seconds + 2), 1);
+    run(mart, 2 * (stationDef('counter').seconds! + 2), 1);
     expect(order).toEqual([first, second]);
   });
 

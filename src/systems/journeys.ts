@@ -41,7 +41,7 @@ export class Journeys {
 
   /** Every car done at a bay, the tunnel or a finishing station, waiting to move on, with where it is. */
   private doneCars(): { car: Car; from: Station }[] {
-    const done = [...this.lot.bays, ...this.lot.finishing].flatMap((s) => (s.car?.state === 'done' ? [{ car: s.car, from: s }] : []));
+    const done = [...this.lot.bays, ...this.lot.finishing].flatMap((s) => (s.customer?.state === 'done' ? [{ car: s.customer, from: s }] : []));
     const front = this.lot.tunnel?.inside[0];
     if (front?.state === 'done') done.push({ car: front, from: this.lot.tunnel! });
     return done;
@@ -86,21 +86,21 @@ export class Journeys {
   private wayClear(from: Station, next: Station): boolean {
     const stations = this.lot.finishing;
     const start = stations.indexOf(from) + 1;
-    return stations.slice(start, stations.indexOf(next)).every((s) => !s.car);
+    return stations.slice(start, stations.indexOf(next)).every((s) => !s.customer);
   }
 
   /** After a short pause, go to the next free station, or pay and leave. */
   moveOn(dt: number, from: Station, car: Car): void {
     car.timer += dt;
     if (car.timer < TUNING.cars.leaveDelay) return;
-    if (from.kind === 'pump') {
+    if (from.def.flow === 'forecourt') {
       this.leavePump(dt, from, car);
       return;
     }
     const lane = this.layout.finishX;
     // From a bay or the tunnel: down to the lane across the lot, then along it to the finishing lane.
     const toLane =
-      from.kind === 'bay' || from.kind === 'tunnel'
+      from.def.flow === 'lane' || from.def.flow === 'conveyor'
         ? [
             { x: from.at.x, z: this.layout.collectZ },
             { x: lane, z: this.layout.collectZ },
@@ -109,9 +109,9 @@ export class Journeys {
     const next = nextStop(this.lot.finishing, from, car.wantsDetail);
     if (next) {
       // Wait here until the next station is free and it's this car's turn.
-      if (next.car || !this.wayClear(from, next) || this.firstInLine(next) !== car || this.heldFor(next, car)) return;
+      if (next.customer || !this.wayClear(from, next) || this.firstInLine(next) !== car || this.heldFor(next, car)) return;
       this.leave(from, car);
-      next.car = car;
+      next.customer = car;
       car.station = next;
       car.state = 'entering';
       car.progress = 0;
@@ -164,7 +164,7 @@ export class Journeys {
 
   private leave(from: Station, car: Car): void {
     if (from instanceof Tunnel) from.inside.splice(from.inside.indexOf(car), 1);
-    else from.car = null;
+    else from.customer = null;
   }
 
   drainPatience(car: Car, dt: number): void {
@@ -221,7 +221,7 @@ export class Journeys {
       lane.inside.push(next);
     } else {
       next.driveTo(lane.at);
-      lane.car = next;
+      lane.customer = next;
     }
     lane.queue.forEach((car, i) => car.driveTo(slotOf(lane, i, this.layout)));
   }

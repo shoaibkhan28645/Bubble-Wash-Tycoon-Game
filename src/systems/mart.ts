@@ -1,4 +1,4 @@
-import { TUNING, type LocationLayout, type Point } from '../core/config';
+import { TUNING, stationDef, type LocationLayout, type Point } from '../core/config';
 import type { WorldLabels } from '../ui/worldLabels';
 import type { Car } from './cars';
 import { Station } from './stations';
@@ -67,7 +67,7 @@ export class Mart {
     const { counter, zone } = layout.mart;
     const size = { width: zone.maxX - zone.minX, length: zone.maxZ - zone.minZ };
     const centre = { x: (zone.minX + zone.maxX) / 2, z: (zone.minZ + zone.maxZ) / 2 };
-    this.counter = new Counter('mart', 'counter', centre, size, 0, labels);
+    this.counter = new Counter('mart', 'counter', centre, size, stationDef('counter').padding, labels);
     this.counter.side = layout.staffSpots.clerk ?? counter;
   }
 
@@ -119,7 +119,7 @@ export class Mart {
     const atTill = !!front && front.state === 'queued' && front.path.length === 0;
     this.counter.serving = atTill;
     if (atTill && rate > 0) {
-      this.counter.progress = Math.min(1, this.counter.progress + (dt * rate * boost) / TUNING.stations.counter.seconds);
+      this.counter.progress = Math.min(1, this.counter.progress + (dt * rate * boost) / (stationDef('counter').seconds ?? 1));
       if (this.counter.progress >= 1) this.serve(front);
     }
     this.counter.showProgress(atTill, this.counter.progress, false);
