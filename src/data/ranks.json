@@ -1,0 +1,19 @@
+[
+  { "id": "hustler", "name": "Hustler", "icon": "🧽", "netWorth": 0, "perk": null, "perks": {} },
+  {
+    "id": "entrepreneur",
+    "name": "Entrepreneur",
+    "icon": "👔",
+    "netWorth": 10000,
+    "perk": "You walk 10% faster.",
+    "perks": { "walk": 0.1 }
+  },
+  {
+    "id": "shopOwner",
+    "name": "Shop Owner",
+    "icon": "🎩",
+    "netWorth": 100000,
+    "perk": "One more contract on the board.",
+    "perks": { "contractSlots": 1 }
+  }
+]

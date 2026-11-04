@@ -33,6 +33,15 @@ declare namespace ytgame {
     function requestRewardedAd(rewardId: string): Promise<boolean>;
   }
 
+  namespace engagement {
+    interface Score {
+      /** A whole number, at most Number.MAX_SAFE_INTEGER, or it is rejected. */
+      value: number;
+    }
+    /** YouTube shows the highest score sent; it must match the best in the save. */
+    function sendScore(score: Score): Promise<void>;
+  }
+
   namespace health {
     function logError(): void;
     function logWarning(): void;

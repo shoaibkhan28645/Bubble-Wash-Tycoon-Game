@@ -1,4 +1,4 @@
-import { ADS, CARS, TUNING, UPGRADES, stationDef, town, type CarDef, type PadEffects, type LocationLayout, type Point } from '../core/config';
+import { ADS, CARS, TUNING, UPGRADES, stationDef, town, type CarDef, type Dirt, type PadEffects, type LocationLayout, type Point } from '../core/config';
 import type { GameState } from '../core/gameState';
 import type { SoundManager } from '../audio/sound';
 import type { Car, CarPool } from './cars';
@@ -47,6 +47,10 @@ export function unlockedSum(state: GameState, pick: (effects: PadEffects) => num
 export class Arrivals {
   /** Where the valet is needed (a car it just moved), if anywhere. */
   valetCall: Point | null = null;
+  /** The town's story: a rival across the road takes some customers (below 1). */
+  rateFactor = 1;
+  /** The town's story: a rush where every car comes dirtier and pays more. */
+  rush: { dirt: Dirt; payMultiplier: number } | null = null;
   private spawnTimer = Number.POSITIVE_INFINITY;
   private vipTimer: number;
   private valetTimer = 0;
@@ -78,12 +82,13 @@ export class Arrivals {
 
   private spawn(dt: number): void {
     const signBonus = unlockedSum(this.state, (e) => e.arrivalBonus);
-    const interval = spawnSeconds(TUNING.cars.spawnSeconds, this.state.stars, TUNING.stars.arrivalPerStar, signBonus);
+    const interval = spawnSeconds(TUNING.cars.spawnSeconds, this.state.stars, TUNING.stars.arrivalPerStar, signBonus) / this.rateFactor;
     this.spawnTimer = Math.min(interval, this.spawnTimer + dt);
     if (this.spawnTimer < interval || !this.roadClear()) return;
     const types = this.availableCars();
-    const def = types[Math.floor(Math.random() * types.length)];
-    if (!def) return;
+    const picked = types[Math.floor(Math.random() * types.length)];
+    if (!picked) return;
+    const def = this.rush ? rushed(picked, this.rush) : picked;
     const canServe = (need: Need) => need === 'wash' || (need === 'fuel' && this.forecourt.pumps.length > 0) || (need === 'snack' && this.snacks());
     let needs = rollTicket(canServe, Math.random);
     // GDD Onboarding: once the fuel pump opens, the next car wants fuel and a wash, to show the combo.
@@ -266,4 +271,9 @@ export class Arrivals {
   private availableCars(): CarDef[] {
     return CARS.filter((car) => car.unlockedBy !== null && this.state.unlocked.includes(car.unlockedBy));
   }
+}
+
+/** A car in a rush: dirtier (swamp mud stays swamp mud, so it still goes to the tunnel) and paying more. */
+export function rushed(def: CarDef, rush: { dirt: Dirt; payMultiplier: number }): CarDef {
+  return { ...def, dirt: def.dirt === 'swamp' ? 'swamp' : rush.dirt, payMultiplier: (def.payMultiplier ?? 1) * rush.payMultiplier };
 }

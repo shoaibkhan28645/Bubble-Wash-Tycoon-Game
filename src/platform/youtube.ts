@@ -23,6 +23,7 @@ function youtubeBackend(yt: typeof ytgame): PlatformBackend {
     getLanguage: () => yt.system.getLanguage(),
     requestRewardedAd: (rewardId) => yt.ads.requestRewardedAd(rewardId),
     requestInterstitialAd: () => yt.ads.requestInterstitialAd(),
+    sendScore: (value) => yt.engagement.sendScore({ value }),
     logError: () => yt.health.logError(),
     logWarning: () => yt.health.logWarning(),
   };
@@ -144,6 +145,20 @@ export async function requestRewardedAd(rewardId: string): Promise<boolean> {
   } catch (error) {
     logWarning(error);
     return false;
+  }
+}
+
+/**
+ * Sends the game's one score (the best net worth). It must be the best
+ * score kept in the save; anything else is ignored here.
+ */
+export async function sendScore(value: number): Promise<void> {
+  const score = Math.floor(value);
+  if (!(score >= 0) || score > Number.MAX_SAFE_INTEGER) return;
+  try {
+    await backend.sendScore(score);
+  } catch (error) {
+    logWarning(error);
   }
 }
 

@@ -4,6 +4,7 @@ import carsJson from '../data/cars.json';
 import stagesJson from '../data/stages.json';
 import stationsJson from '../data/stations.json';
 import needsJson from '../data/needs.json';
+import ranksJson from '../data/ranks.json';
 import tuningJson from '../data/tuning.json';
 import charactersJson from '../data/characters.json';
 import upgradesJson from '../data/upgrades.json';
@@ -141,6 +142,19 @@ export interface StationDef {
   queueSpots?: number;
   /** Share of customers who stop here (the detailing garage). */
   chance?: number;
+}
+
+/** A rank on the hero's career ladder, from src/data/ranks.json (lowest first). */
+export interface RankDef {
+  id: string;
+  name: string;
+  icon: string;
+  /** Best net worth that reaches it. */
+  netWorth: number;
+  /** What it gives, in words for the rank-up card (null: nothing yet). */
+  perk: string | null;
+  /** What it gives, as numbers added up over every rank reached. */
+  perks: { walk?: number; contractSlots?: number };
 }
 
 /** Something a customer can come for, from src/data/needs.json. Its key is the need's id. */
@@ -336,6 +350,8 @@ export const STAGES = stagesJson as StageDef[];
 export const STATIONS = stationsJson as Record<string, StationDef>;
 /** Everything a customer can come for, by id, in the order a bill adds them up. */
 export const NEEDS = needsJson as Record<string, NeedDef>;
+/** The hero's ranks, lowest first. */
+export const RANKS = ranksJson as RankDef[];
 export const TUNING: Tuning = tuningJson;
 /** Who plays each role, which people file holds whom, and how fast each gait walks (art/blender/people.py). */
 export const CHARACTERS = charactersJson;

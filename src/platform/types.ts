@@ -11,6 +11,8 @@ export interface PlatformBackend {
   getLanguage(): Promise<string>;
   requestRewardedAd(rewardId: string): Promise<boolean>;
   requestInterstitialAd(): Promise<void>;
+  /** A whole number, at most Number.MAX_SAFE_INTEGER; YouTube shows the highest sent. */
+  sendScore(value: number): Promise<void>;
   logError(): void;
   logWarning(): void;
 }

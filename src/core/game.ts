@@ -27,6 +27,7 @@ import { UpgradePads } from '../systems/upgrades';
 import { UpgradePanel } from '../ui/upgradePanel';
 import { showEndScreen } from '../ui/endScreen';
 import { levelStep } from '../systems/economy';
+import { perk } from '../systems/career';
 import { Buildings } from '../systems/buildings';
 import { PadSystem } from '../systems/pads';
 import { createMeta } from './meta';
@@ -39,6 +40,10 @@ import { createMart } from './shops';
 import { EdgePointer } from '../ui/edgePointer';
 import { createTown } from './town';
 import { createOnboarding, type Onboarding } from './onboarding';
+import { createPress } from './press';
+import { createHero } from './hero';
+import { createStoryline } from './storyline';
+import { openEmpireMap } from '../ui/empireMap';
 import { createStreetLife } from './streetLife';
 import { LotView, SIDE_BAR_PX } from './view';
 
@@ -74,6 +79,8 @@ export function createGame(
   lifecycle: Lifecycle,
   saves: SaveManager,
   sound: SoundManager,
+  /** Takes the hero to another town (the empire map's travel buttons). */
+  travelTo: (id: string) => Promise<void>,
 ): Game {
   const current = currentTown();
   const { layout } = current;
@@ -98,7 +105,8 @@ export function createGame(
   const bayIds = current.pads.filter((pad) => pad.effects.bay).map((pad) => pad.effects.bay!);
   stage.scene.add(terrain(layout, bayIds.map((id) => layout.pads[id]!.x), layout.pads.tunnel?.x ?? null));
   const level = (key: string) => state.levels[key] ?? 0;
-  const player = new Player(stage.scene, layout.playerStart, TUNING.player, () => 1 + levelStep(UPGRADES.kinds.walk, level('player.walk')));
+  // Walk upgrades and the Entrepreneur rank add speed.
+  const player = new Player(stage.scene, layout.playerStart, TUNING.player, () => 1 + levelStep(UPGRADES.kinds.walk, level('player.walk')) + perk(state, 'walk'));
   player.onFootstep(() => sound.play('step'));
   const playerCarry = new Carrier(
     player.mesh,
@@ -224,6 +232,13 @@ export function createGame(
 
   onboarding = createOnboarding({ root, labels, layout, state, traffic, cash, pads, playerCarry, flag });
 
+  // The hero's career and the town's story, both told in the town paper. Closing a card is a break between
+  // screens, so an interstitial may follow.
+  const press = createPress(root, sound, () => meta.screenClosed());
+  const empireMap = (): void => openEmpireMap({ root, state, sound, town: current, travel: (id) => travelTo(id) });
+  const hero = createHero({ root, state, town: current, sound, press, flag, save: () => saves.saveNow(), onChipTap: empireMap });
+  const storyline = createStoryline({ state, town: current, press, arrivals: traffic.arrivals, flag });
+
   let rateTimer = 0;
   let buildTimer = 0;
   const fixed = fixedSolids(layout);
@@ -261,6 +276,9 @@ export function createGame(
     effects.update(dt);
     saves.update(dt);
     meta.update(dt);
+    storyline.update(dt);
+    hero.update(dt);
+    press.update(dt);
     town.update(dt, player.position);
     view.update(dt, player.position);
     blobShadows.update();

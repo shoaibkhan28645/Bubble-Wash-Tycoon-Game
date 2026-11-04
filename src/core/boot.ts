@@ -66,7 +66,7 @@ export async function boot(root: HTMLElement): Promise<void> {
   let game: Game;
   /** Builds the town being played and draws its first frame (behind the loading screen). */
   const openTown = (): void => {
-    game = createGame(root, stage, state, lifecycle, saves, sound);
+    game = createGame(root, stage, state, lifecycle, saves, sound, travel);
     // Towns the hero isn't in keep earning while he plays.
     game.addTicker(backgroundEarner(state));
     if (debugTicker) game.addTicker(debugTicker);

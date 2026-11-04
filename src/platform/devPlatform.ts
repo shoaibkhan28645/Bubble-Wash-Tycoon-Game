@@ -76,6 +76,7 @@ export function createDevPlatform(): { backend: PlatformBackend; controls: DevCo
       return true;
     },
     requestInterstitialAd: () => fakeAd('Interstitial ad'),
+    sendScore: async () => {},
     logError: () => {},
     logWarning: () => {},
   };

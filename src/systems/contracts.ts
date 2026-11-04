@@ -5,6 +5,7 @@
 // GameState, with wall-clock times (contracts keep running while away).
 import { CONTRACTS, type ContractDef } from '../core/config';
 import type { Contract, GameState } from '../core/gameState';
+import { perk } from './career';
 
 export function contractDef(kind: string): ContractDef | undefined {
   return CONTRACTS.kinds.find((def) => def.id === kind);
@@ -50,7 +51,8 @@ export function refreshBoard(state: GameState, now: number, rand: () => number =
   if (!state.unlocked.includes('board')) return false;
   const slots = state.contracts.slots;
   let changed = false;
-  while (slots.length < CONTRACTS.slots) {
+  // The Shop Owner rank adds a slot.
+  while (slots.length < CONTRACTS.slots + perk(state, 'contractSlots')) {
     slots.push(emptySlot(0));
     changed = true;
   }

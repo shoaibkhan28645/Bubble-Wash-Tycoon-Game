@@ -6,7 +6,9 @@
 import roadsideLayout from '../data/towns/roadside/layout.json';
 import roadsidePads from '../data/towns/roadside/pads.json';
 import roadsideGoals from '../data/towns/roadside/goals.json';
+import roadsideStory from '../data/towns/roadside/story.json';
 import type { GoalsData, LocationLayout, PadDef } from './config';
+import type { StoryData } from '../systems/story';
 
 export interface TownDef {
   /** Stable id: the data folder's name, and the key a save will use for this town. */
@@ -16,6 +18,8 @@ export interface TownDef {
   /** Everything that can be built here, in unlock order. */
   pads: PadDef[];
   goals: GoalsData;
+  /** The town's story: its paper, mentor, rival and beats. */
+  story: StoryData;
   /** The town's own building models (id → path under public/), loaded on arrival and dropped on leaving. */
   models: Record<string, string>;
 }
@@ -26,6 +30,7 @@ export const ROADSIDE: TownDef = {
   layout: roadsideLayout as LocationLayout,
   pads: roadsidePads as PadDef[],
   goals: roadsideGoals as GoalsData,
+  story: roadsideStory as StoryData,
   models: {
     // Buildings modelled in Blender (art/blender).
     'building:tunnel': 'models/buildings/tunnel.glb',
@@ -64,8 +69,18 @@ export function registerTown(id: string, load: () => Promise<TownDef>): void {
   LOADERS[id] = load;
 }
 
+const loaded = new Map<string, TownDef>([[ROADSIDE.id, ROADSIDE]]);
+
 /** Fetches a town's data (downloading its chunk the first time). Rejects for an unknown id. */
-export function loadTown(id: string): Promise<TownDef> {
+export async function loadTown(id: string): Promise<TownDef> {
   const load = LOADERS[id];
-  return load ? load() : Promise.reject(new Error(`Unknown town: ${id}`));
+  if (!load) throw new Error(`Unknown town: ${id}`);
+  const def = await load();
+  loaded.set(id, def);
+  return def;
+}
+
+/** A town's data if it has been loaded (the first town always is). */
+export function loadedTown(id: string): TownDef | undefined {
+  return loaded.get(id);
 }
