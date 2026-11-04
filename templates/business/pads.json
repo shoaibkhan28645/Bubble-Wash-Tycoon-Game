@@ -1,0 +1,18 @@
+[
+  {
+    "id": "kiosk",
+    "name": "Ice-cream kiosk",
+    "cost": 500,
+    "targetMinute": 1,
+    "adds": "Tourists buy cones; serve them by hand",
+    "effects": { "station": "kiosk" }
+  },
+  {
+    "id": "scooper",
+    "name": "Scooper",
+    "cost": 4000,
+    "targetMinute": 6,
+    "adds": "Runs the kiosk",
+    "effects": { "staff": "scooper" }
+  }
+]

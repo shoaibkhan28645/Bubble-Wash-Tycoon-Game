@@ -10,7 +10,8 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "zip": "vite build && node scripts/zip.mjs",
-    "size": "node scripts/size.mjs"
+    "size": "node scripts/size.mjs",
+    "pacing": "PACING_REPORT=1 vitest run tests/pacing.test.ts --silent=false"
   },
   "devDependencies": {
     "@types/three": "0.186.0",

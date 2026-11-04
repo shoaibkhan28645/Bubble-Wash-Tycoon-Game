@@ -20,5 +20,5 @@
     "noUnusedParameters": true,
     "forceConsistentCasingInFileNames": true
   },
-  "include": ["src", "tests", "vite.config.ts"]
+  "include": ["src", "tests", "templates", "vite.config.ts"]
 }

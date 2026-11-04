@@ -1,0 +1,7 @@
+{
+  "kiosk": {
+    "name": "Ice-cream kiosk", "type": "service", "customer": "walker", "flow": "till", "serves": "icecream", "stages": [],
+    "seconds": 2.4, "supply": null, "size": "station", "padding": 0.8, "workSpot": { "x": 0, "z": -1.1 },
+    "ring": "beside", "fx": "none", "queueSpots": 4
+  }
+}
