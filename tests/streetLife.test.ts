@@ -228,6 +228,34 @@ describe('road rules', () => {
     for (const later of [b, c, d]) expect(rules.blocked(later)).toBe(true);
   });
 
+  it('a car easing through gridlock carries on until it is past, not a step at a time', () => {
+    const first = car(0, 0, { x: 0, z: 10 }, 0, { serial: 1, held: true, heldFor: 5 });
+    const later = car(0, 4.2, { x: 0, z: -10 }, Math.PI, { serial: 2, held: true, heldFor: 9 });
+    const rules = new RoadRules(() => [first, later], () => []);
+    expect(rules.blocked(later)).toBe(true);
+    expect(rules.blocked(first)).toBe(false);
+    // It has just moved (its wait starts again), but it keeps going past the same car.
+    (first as { heldFor: number }).heldFor = 0;
+    expect(rules.blocked(first)).toBe(false);
+  });
+
+  it('a car pulling out onto the road waits at the kerb for a car coming along it, not one gone by', () => {
+    // The road runs along x, 1.9 m either side of z 0; the car pulls out from z -5.
+    const onRoad = (p: Point) => Math.abs(p.z) < 1.9;
+    const out = () => car(0, -4.5, { x: 0, z: 5 }, 0, { serial: 1 });
+    const coming = car(-8, -0.85, { x: 40, z: -0.85 }, Math.PI / 2, { serial: 2 });
+    const gone = car(4, -0.85, { x: 40, z: -0.85 }, Math.PI / 2, { serial: 2 });
+    const far = car(-30, -0.85, { x: 40, z: -0.85 }, Math.PI / 2, { serial: 2 });
+    const a = out();
+    expect(new RoadRules(() => [a, coming], () => [], onRoad).blocked(a)).toBe(true);
+    const b = out();
+    expect(new RoadRules(() => [b, gone], () => [], onRoad).blocked(b)).toBe(false);
+    const c = out();
+    expect(new RoadRules(() => [c, far], () => [], onRoad).blocked(c)).toBe(false);
+    // The car on the road never waits for it.
+    expect(new RoadRules(() => [a, coming], () => [], onRoad).blocked(coming)).toBe(false);
+  });
+
   it("people walking on the pavement beside the road don't hold up the cars going by", () => {
     const truck = car(0, 0, { x: 20, z: 0 }, Math.PI / 2, { def: { size: [2.25, 1.95, 4.43] } });
     // The pavement runs 1.4 m from the middle of the near lane.

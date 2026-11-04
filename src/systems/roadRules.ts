@@ -34,6 +34,9 @@ const HEAD_ON = 0.9;
 const GRIDLOCK = 4;
 /** The most cars in a ring of gridlock looked for. */
 const RING = 12;
+/** A car about to drive onto the road looks this far along its way; the traffic coming along the road, this far ahead of each car. */
+const JOIN_LOOK = 5;
+const JOIN_AHEAD = 10;
 
 /** What the rules need of a car. */
 type RoadCar = Pick<Car, 'position' | 'aim' | 'facing' | 'def' | 'model' | 'state' | 'station' | 'serial' | 'held' | 'heldFor'>;
@@ -49,11 +52,15 @@ interface Body {
 export class RoadRules {
   /** Which car each held-up car last waited on. */
   private readonly waitingOn = new Map<RoadCar, RoadCar>();
+  /** A car easing through gridlock, and the car it is getting past: it carries on until they're clear. */
+  private readonly passing = new Map<RoadCar, RoadCar>();
 
   constructor(
     private readonly cars: () => Iterable<RoadCar>,
     /** Where the people are: the player, staff, shoppers, people out walking. */
     private readonly people: () => Point[],
+    /** On the road (kerb to kerb): cars joining it from off it give way to the traffic along it. */
+    private readonly onRoad: (p: Point) => boolean = () => false,
   ) {}
 
   blocked(car: RoadCar): boolean {
@@ -67,16 +74,31 @@ export class RoadRules {
       if (along > 0 && along < length / 2 + PERSON + PERSON_GAP && side < width / 2 + PERSON_SIDE) return true;
     }
     this.waitingOn.delete(car);
+    const passing = this.passing.get(car);
+    this.passing.delete(car);
     const ahead = sweep(car, LOOK);
+    // About to drive onto the road (out of the forecourt or the lot): it waits at the kerb for a gap,
+    // rather than pull out in front of a car and stop across its lane.
+    const entry = !this.onRoad(tip(car.position, dir, length / 2)) ? sweep(car, JOIN_LOOK) : [];
+    const joining = entry.some((body) => this.onRoad(tip(body.at, body.dir, body.hl)));
     let held = false;
     for (const other of this.cars()) {
       if (other === car || !other.model.mesh.visible || other.state === 'angry' || sameTunnel(car, other)) continue;
       // Anything in its path holds it up, moving or standing. Cars stuck in a ring each waiting on the
-      // next (gridlock) for a few seconds: the one that came first eases through.
+      // next (gridlock) for a few seconds: the one that came first eases through, all the way past.
       if (hits(car, ahead, other)) {
-        if (car.heldFor > GRIDLOCK && this.ringBack(other, car)) continue;
+        if (other === passing || (car.heldFor > GRIDLOCK && this.ringBack(other, car))) {
+          this.passing.set(car, other);
+          continue;
+        }
         this.waitingOn.set(car, other);
         return true;
+      }
+      const near = Math.hypot(other.position.x - p.x, other.position.z - p.z) < JOIN_AHEAD + JOIN_LOOK + length;
+      if (joining && near && !other.held && this.onRoad(other.position) && heading(other) && crosses(sweep(other, JOIN_AHEAD), entry)) {
+        this.waitingOn.set(car, other);
+        held = true;
+        continue;
       }
       // Give way to a car that came on earlier and is about to drive through where this one is heading,
       // unless this car is already in its path (then it carries on and clears it), or that car is held
@@ -165,7 +187,20 @@ function hits(car: RoadCar, ahead: Body[], other: RoadCar): boolean {
     const away = dot(first.dir, r);
     return away < -0.1 || (Math.abs(away) <= 0.1 && car.serial > other.serial);
   }
+  // Never held up by a car behind it (round a tight turn its tail may seem to swing into one).
+  const facing = { x: Math.sin(car.facing), z: Math.cos(car.facing) };
+  if (dot(facing, r) > length / 2) return false;
   return ahead.some((body) => overlap(body, them));
+}
+
+/** Where a body's front is: `hl` on from `at` along `dir`. */
+function tip(at: Point, dir: Point, hl: number): Point {
+  return { x: at.x + dir.x * hl, z: at.z + dir.z * hl };
+}
+
+/** Two cars' ways run into each other somewhere along them. */
+function crosses(a: Body[], b: Body[]): boolean {
+  return a.some((x) => b.some((y) => overlap(x, y)));
 }
 
 /** Two cars' bodies overlap (separating axes). */

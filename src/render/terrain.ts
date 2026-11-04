@@ -10,7 +10,7 @@ import {
   Object3D,
   PlaneGeometry,
 } from 'three';
-import { SIDE_HEDGE_START, type LocationLayout, type Rect } from '../core/config';
+import { SIDE_HEDGE_START, STREET_HALF, type LocationLayout, type Rect } from '../core/config';
 import { mergedModel } from './assets';
 import { GRAPHICS } from './graphics';
 import { lotSurface } from './lotSurface';
@@ -76,7 +76,7 @@ const ASPHALT = '#646b77';
 const PAVEMENT = '#cfd5dc';
 const DASH = '#ffd85c';
 /** Half the width of a street (kerb to kerb), and of the lot's driveways. */
-const STREET = 1.9;
+const STREET = STREET_HALF;
 const DRIVE = 1.35;
 /** Where the zebra crossing goes over Main Street: between the two bays' lanes. */
 const CROSSING_X = -1.5;

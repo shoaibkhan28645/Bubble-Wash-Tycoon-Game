@@ -1,6 +1,6 @@
 import { Loop } from './loop';
 import { GameClock } from './clock';
-import { LOCATION1, PADS, TUNING, UPGRADES, fixedSolids, type Rect } from './config';
+import { LOCATION1, PADS, TUNING, UPGRADES, fixedSolids, onRoad, type Rect } from './config';
 import type { GameState } from './gameState';
 import type { Lifecycle } from './lifecycle';
 import type { SaveManager } from './save';
@@ -117,7 +117,11 @@ export function createGame(
   const street = createStreetLife(stage.scene, layout, pool, () => carRects);
 
   const staff = new StaffSystem(stage.scene, layout, state, labels, cash);
-  Car.rules = new RoadRules(() => pool.active, () => [player.position, ...staff.positions(), ...mart.positions(), ...street.people()]);
+  Car.rules = new RoadRules(
+    () => pool.active,
+    () => [player.position, ...staff.positions(), ...mart.positions(), ...street.people()],
+    (p) => onRoad(layout, p),
+  );
 
   const addBuilt = (id: string, animate: boolean): void => {
     buildings.show(id, animate);

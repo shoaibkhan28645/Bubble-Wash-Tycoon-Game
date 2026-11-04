@@ -286,6 +286,15 @@ export const GOALS = goalsJson as GoalsData;
 const DRIVEWAY_GAP = 1.75;
 /** The side hedge starts this far in from the lot's front, leaving the pavement by the crossing open. */
 export const SIDE_HEDGE_START = 5;
+
+/** Half the width of Main Street and Bubble Lane, kerb to kerb, in metres. */
+export const STREET_HALF = 1.9;
+
+/** On Main Street or Bubble Lane (the side street the cars leave by), kerb to kerb. */
+export function onRoad(layout: LocationLayout, p: Point): boolean {
+  return Math.abs(p.z - layout.roadZ) < STREET_HALF || (p.z > layout.roadZ && Math.abs(p.x - layout.sideStreetX) < STREET_HALF);
+}
+
 /** Half the width of a street tree's trunk. */
 const TRUNK = 0.35;
 
