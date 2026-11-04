@@ -11,7 +11,7 @@ so one model comes in many real paint colours. The Car of the Day specials
 (taxi, police car, ambulance, fire truck, ice-cream van) have their own
 fixed colours (cars_special.py).
 
-Writes the customers' cars in four files (cars-small, -family, -large, -big), and each
+Writes the customers' cars in five files (cars-small, -family, -large, -big, -monster), and each
 special in its own special-<name>.glb (only the day's one is loaded).
 
 Usage: python art/blender/cars.py <out-dir> [preview.png]
@@ -63,7 +63,7 @@ SEDAN = dict(
     cabin=dict(y0=-0.74, y1=1.18, base=0.83, screen=-0.16, rear=0.8, b=(0.3,),
                roof=[(-0.74, 0.83), (-0.16, 1.32), (0.05, 1.36), (0.6, 1.36), (0.8, 1.31), (1.18, 0.9)]),
     head=0.66, tail=0.74, mirror=-0.55,
-    doors=(-0.76, 0.3, 0.74), hood=-1.6, boot=1.65, fuel=1.05,
+    doors=(-0.76, 0.3, 0.74), hood=-1.6, boot=1.65, fuel=1.05, strip=TRIM, sunroof=True,
 )
 
 
@@ -85,7 +85,7 @@ s = dict(
     cabin=dict(y0=-0.64, y1=1.6, base=0.83, screen=-0.08, rear=1.3, b=(0.5,),
                roof=[(-0.64, 0.83), (-0.08, 1.36), (0.15, 1.4), (1.25, 1.39), (1.45, 1.28), (1.6, 0.92)]),
     head=0.64, tail=0.78, mirror=-0.48,
-    doors=(-0.68, 0.56), hood=-1.45, fuel=0.92,
+    doors=(-0.68, 0.56), hood=-1.45, fuel=0.92, strip=TRIM,
 )
 p = cm.car(X, s)
 p.append(ck.soft((1.1, 0.24, 0.05), (X, 1.48, 1.38), PAINT, rot=(0.15, 0, 0)))
@@ -99,7 +99,7 @@ s = dict(
     cabin=dict(y0=-0.66, y1=1.82, base=1.04, screen=-0.12, rear=1.66, b=(0.42, 1.12),
                roof=[(-0.66, 1.04), (-0.12, 1.62), (0.1, 1.68), (1.6, 1.68), (1.76, 1.5), (1.82, 1.1)]),
     head=0.86, tail=0.96, mirror=-0.5,
-    doors=(-0.74, 0.42, 0.7), hood=-1.6, fuel=1.3,
+    doors=(-0.74, 0.42, 0.7), hood=-1.6, fuel=1.3, flaps=True,
 )
 p = cm.car(X, s)
 for sx in (-1, 1):
@@ -116,7 +116,7 @@ s = dict(
     cabin=dict(y0=-1.08, y1=1.78, base=0.92, screen=-0.3, rear=1.62, b=(0.0, 0.85),
                roof=[(-1.08, 0.92), (-0.3, 1.68), (0.0, 1.74), (1.6, 1.74), (1.74, 1.5), (1.78, 1.0)]),
     head=0.68, tail=0.86, mirror=-0.95,
-    doors=(-0.8, 0.0, 0.76), hood=-1.52, fuel=1.3,
+    doors=(-0.8, 0.0, 0.76), hood=-1.52, fuel=1.3, strip=TRIM,
 )
 finish(cm.car(X, s), 'minivan', X)
 
@@ -144,7 +144,7 @@ PICKUP = dict(
     cabin=dict(y0=-0.6, y1=0.5, base=1.06, screen=-0.14, rear=0.38,
                roof=[(-0.6, 1.06), (-0.14, 1.64), (0.05, 1.68), (0.36, 1.68), (0.46, 1.52), (0.5, 1.1)]),
     head=0.88, tail=0.94, mirror=-0.5, grille=CHROME, bumper=TRIM,
-    doors=(-0.8, 0.46), hood=-1.7, fuel=0.95,
+    doors=(-0.8, 0.46), hood=-1.7, fuel=0.95, flaps=True, bed=True,
 )
 
 
@@ -152,7 +152,8 @@ def pickup(X, s, up=0.0):
     """A pickup: the load bed is cut out of the body behind the cab."""
     p = cm.car(X, s)
     body = p[0]
-    bed = kit.box((s['W'] - 0.2, 1.2, 0.6), (X, 1.24, 1.1 + up), TRIM, bevel=0.0)
+    # The floor sits just above the rear wheel arch, which would cut a hole in it.
+    bed = kit.box((s['W'] - 0.2, 1.2, 0.6), (X, 1.24, 1.17 + up), TRIM, bevel=0.0)
     mod = body.modifiers.new('bed', 'BOOLEAN')
     mod.operation, mod.solver, mod.object = 'DIFFERENCE', 'EXACT', bed
     kit.bpy.context.view_layer.objects.active = body
@@ -175,7 +176,7 @@ X = 0.5
 # Monster truck: a pickup high on giant tyres, with springs and a bar of lights.
 UP = 0.72
 R = 0.72
-m = {**PICKUP, 'arches': False, 'wheels': False}
+m = {**PICKUP, 'arches': False, 'wheels': False, 'flaps': False}
 m['top'] = [(y, z + UP) for y, z in PICKUP['top']]
 m['bottom'] = [(y, z + UP) for y, z in PICKUP['bottom']]
 m['cabin'] = {**PICKUP['cabin'], 'base': 1.06 + UP, 'roof': [(y, z + UP) for y, z in PICKUP['cabin']['roof']]}
@@ -201,7 +202,7 @@ s = dict(
     cabin=dict(y0=-0.62, y1=1.86, base=1.1, screen=-0.12, rear=1.66, b=(0.45, 1.14),
                roof=[(-0.62, 1.1), (-0.12, 1.68), (0.1, 1.74), (1.6, 1.74), (1.78, 1.5), (1.86, 1.14)]),
     head=0.9, tail=1.0, mirror=-0.48,
-    doors=(-0.76, 0.45, 0.74), hood=-1.64, fuel=1.3,
+    doors=(-0.76, 0.45, 0.74), hood=-1.64, fuel=1.3, strip=CHROME, sunroof=True,
 )
 p = cm.car(X, s)
 for sx in (-1, 1):
@@ -224,7 +225,8 @@ FILES = {
     'cars-small.glb': ('hatchback', 'sedan'),
     'cars-family.glb': ('minivan', 'sports'),
     'cars-large.glb': ('suv', 'pickup'),
-    'cars-big.glb': ('monster', 'luxury'),
+    'cars-big.glb': ('luxury',),
+    'cars-monster.glb': ('monster',),
     **{f'special-{name}.glb': (name,) for name in ('taxi', 'police', 'ambulance', 'firetruck', 'icecream')},
 }
 out = Path(sys.argv[1] if len(sys.argv) > 1 else '.')

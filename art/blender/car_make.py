@@ -21,6 +21,9 @@ Spec keys (lengths in metres, y along the car with the nose at -L/2):
   seal            the colour of the strip under the side windows (rubber, or chrome)
   bumper          TRIM for black bumper bars (trucks); otherwise bumpers are part of the body
   grille          the grille's colour
+  strip           colour of a rubbing strip along the doors (none if missing)
+  sunroof         a glass sunroof; flaps: mud flaps behind the wheels and a tow hitch
+  bed             a pickup's load bed (no tail-light corners reaching round into it)
 """
 import math
 
@@ -93,12 +96,13 @@ def car(X, s, extra_rule=None):
         half = c.get('half', 0.86) * W / 2
         parts.append(ck.cabin(c['y0'], c['y1'], half, c['base'], c['roof'], x=X, lean=c.get('lean', 0.84),
                               corner=c.get('corner', 0.07), extra=extra, rule=rule))
-        parts += wipers_and_aerial(X, c)
+        parts += roof_and_glass(X, s, c)
         if 'mirror' in s:
             my = s['mirror']
             for sx in (-1, 1):
                 mx = X + sx * (half + 0.06)
                 parts.append(ck.soft((0.15, 0.09, 0.1), (mx, my, c['base'] + 0.07), paint, round_=0.35))
+                parts.append(ck.kit.box((0.09, 0.035, 0.03), (mx - sx * 0.08, my + 0.01, c['base'] + 0.045), TRIM, bevel=0.0))
                 parts.append(ck.kit.box((0.11, 0.015, 0.075), (mx + sx * 0.005, my + 0.046, c['base'] + 0.07), GLASS, bevel=0.0))
     if s.get('wheels', True):
         parts += ck.wheels(X, W / 2, s['axles'], r, w=s.get('tyre', 0.27), inset=0.14, rim=s.get('rim', ck.RIM), dish=s.get('dish', ck.DISH))
@@ -132,6 +136,11 @@ def nose_and_tail(X, s, sh):
         cx = X + sx * (hw_f - lamp / 2 + 0.05)
         p.append(soft((lamp + 0.04, 0.05, 0.15), (cx, y + 0.004, zh), TRIM, rot=(tilt, 0, 0), round_=0.3))
         p.append(soft((lamp - 0.03, 0.05, 0.1), (cx - sx * 0.02, y - 0.006, zh + 0.005), LIGHT, rot=(tilt, 0, 0), round_=0.3))
+        # Two projector lenses, chrome-ringed, in each lamp.
+        for k in (-1, 1):
+            lx = cx - sx * 0.02 + k * lamp * 0.22
+            p.append(ck.kit.cylinder(0.038, 0.02, (lx, y - 0.03, zh + 0.005), CHROME, verts=12, rot=(math.pi / 2 + tilt, 0, 0)))
+            p.append(ck.kit.cylinder(0.024, 0.02, (lx, y - 0.036, zh + 0.005), LIGHT, verts=12, rot=(math.pi / 2 + tilt, 0, 0)))
         p.append(box((0.08, 0.05, 0.06), (X + sx * (hw_f + 0.04), y + 0.06, zh - 0.01), AMBER, bevel=0.012, rot=(tilt, 0, sx * 0.9)))
     # The grille between them, framed in chrome, with the badge.
     gw = 2 * (hw_f - lamp) - 0.02
@@ -162,7 +171,8 @@ def nose_and_tail(X, s, sh):
         p.append(soft((0.4, 0.05, 0.17), (cx, y - 0.012, zt), TRIM, rot=(tilt, 0, 0), round_=0.3))
         p.append(soft((0.34, 0.05, 0.12), (cx, y + 0.0, zt), TAIL, rot=(tilt, 0, 0), round_=0.3))
         p.append(box((0.09, 0.05, 0.06), (cx - sx * 0.12, y + 0.008, zt - 0.01), '#f4f6f9', bevel=0.012, rot=(tilt, 0, 0)))
-        p.append(box((0.07, 0.05, 0.12), (X + sx * (hw_r + 0.05), y - 0.05, zt), '#a8161f', bevel=0.012, rot=(tilt, 0, sx * -0.9)))
+        if not s.get('bed'):
+            p.append(box((0.07, 0.05, 0.12), (X + sx * (hw_r + 0.05), y - 0.05, zt), '#a8161f', bevel=0.012, rot=(tilt, 0, sx * -0.9)))
     if s.get('plates', True):
         pz = zt - 0.17
         y, tilt = _on_face(sh, pz, False, sink=0.0)
@@ -201,11 +211,23 @@ def sides(X, s, sh):
         x, z = sh.side(y, 0.75)
         for sx in (-1, 1):
             p.append(box((0.02, 0.08, 0.03), (X + sx * (x + 0.006), y, z), AMBER, bevel=0.008))
+    if doors and s.get('strip'):
+        y0, y1 = doors[0] + 0.04, doors[-1] - 0.04
+        x, z = sh.side((y0 + y1) / 2, 0.42)
+        for sx in (-1, 1):
+            p.append(box((0.025, y1 - y0, 0.04), (X + sx * (x + 0.006), (y0 + y1) / 2, z), s['strip'], bevel=0.008))
+    if s.get('flaps'):
+        r = s.get('r', 0.34)
+        for y in s['axles']:
+            for sx in (-1, 1):
+                p.append(box((0.24, 0.02, 0.2), (X + sx * (s['W'] / 2 - 0.14), y + r + 0.05, 0.2), TRIM, bevel=0.0))
+        p.append(box((0.08, 0.16, 0.08), (X, sh.L / 2 + 0.05, ck.spline(sh.bottom, sh.L / 2) - 0.02), CHROME, bevel=0.015))
     return p
 
 
-def wipers_and_aerial(X, c):
-    """Two wipers lying at the foot of the windscreen, and a little aerial fin at the back of the roof."""
+def roof_and_glass(X, s, c):
+    """Two wipers lying at the foot of the windscreen, an aerial fin and a third brake light at the back
+    of the roof, and a sunroof if the car has one."""
     p = []
     y = c['y0'] + 0.1
     z = ck.spline(c['roof'], y) + 0.012
@@ -213,6 +235,13 @@ def wipers_and_aerial(X, c):
         p.append(ck.kit.box((0.5, 0.025, 0.018), (X + dx, y, z), TRIM, bevel=0.0, rot=(0.4, 0, 0.12)))
     yr = c['rear'] - 0.12
     p.append(ck.soft((0.05, 0.16, 0.06), (X, yr, ck.spline(c['roof'], yr) + 0.025), TRIM, round_=0.45))
+    yb = c['rear'] - 0.02
+    p.append(ck.kit.box((0.32, 0.03, 0.03), (X, yb, ck.spline(c['roof'], yb) + 0.014), TAIL, bevel=0.008))
+    if s.get('sunroof'):
+        y0, y1 = c['screen'] + 0.12, c['screen'] + 0.62
+        z = max(ck.spline(c['roof'], y0), ck.spline(c['roof'], y1)) + 0.02
+        p.append(ck.kit.box((0.62, y1 - y0 + 0.04, 0.012), (X, (y0 + y1) / 2, z - 0.002), TRIM, bevel=0.0))
+        p.append(ck.kit.box((0.58, y1 - y0, 0.012), (X, (y0 + y1) / 2, z + 0.002), GLASS, bevel=0.0))
     return p
 
 

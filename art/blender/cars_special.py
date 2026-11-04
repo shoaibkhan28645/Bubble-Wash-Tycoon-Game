@@ -23,7 +23,7 @@ def build(sedan, finish, X):
         if row == 'upper-side' and -1.3 < y < 1.3:
             return '#1d2026' if int((y + 3) / 0.17) % 2 else '#ffffff'
         return None
-    p = sedan(X, paint=YELLOW, rule=checker)
+    p = sedan(X, paint=YELLOW, rule=checker, sunroof=False, strip=None)
     p.append(ck.soft((0.72, 0.3, 0.2), (X, 0.3, 1.46), '#fffbe8', round_=0.3))
     p.append(ck.soft((0.64, 0.32, 0.05), (X, 0.3, 1.38), TRIM))
     finish(p, 'taxi', X)
@@ -32,7 +32,7 @@ def build(sedan, finish, X):
 
     def doors(y, row, normal, c):
         return WHITE if row in ('lower-side', 'upper-side', 'sill') and -0.76 < y < 0.74 else None
-    p = sedan(X, paint='#22262d', rule=doors)
+    p = sedan(X, paint='#22262d', rule=doors, sunroof=False, strip=None)
     p.append(ck.soft((0.92, 0.28, 0.1), (X, 0.3, 1.4), TRIM))
     for dx, col in ((-0.25, '#ff2e4c'), (0.25, '#2e7dff')):
         p.append(ck.soft((0.38, 0.24, 0.13), (X + dx, 0.3, 1.49), col, round_=0.35))

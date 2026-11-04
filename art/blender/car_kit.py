@@ -175,20 +175,24 @@ def wheel(at, r, w, side, rim=RIM, dish=DISH, spokes=5, segs=20, lugs=0):
     x, y, z = at
     c = min(0.07, w / 3)
     ri = r * 0.64
-    prof = [(-w / 2, ri), (-w / 2, r - c)]
-    for k in (1,):
-        a = math.pi / 4
-        prof.append((-w / 2 + c - c * math.cos(a), r - c + c * math.sin(a)))
-    prof += [(-w / 2 + c, r), (w / 2 - c, r)]
-    for k in (1,):
-        a = math.pi / 4
-        prof.append((w / 2 - c + c * math.sin(a), r - c + c * math.cos(a)))
-    prof += [(w / 2, r - c), (w / 2, ri)]
-    tyre = _lathe(prof, segs, 'tyre', lambda cx, cr: TYRE if cr > r - 0.02 else WALL)
+    k = math.sqrt(0.5)
+    prof = [(-w / 2, ri), (-w / 2, r - c), (-w / 2 + c - c * k, r - c + c * k), (-w / 2 + c, r)]
+    # The tread, with two grooves round it.
+    for gx in (-w / 6, w / 6):
+        prof += [(gx - 0.014, r), (gx - 0.009, r - 0.014), (gx + 0.009, r - 0.014), (gx + 0.014, r)]
+    prof += [(w / 2 - c, r), (w / 2 - c + c * k, r - c + c * k), (w / 2, r - c), (w / 2, ri)]
+
+    def tyre_colour(cx, cr):
+        if cr > r - 0.016 and abs(abs(cx) - w / 6) < 0.012:
+            return '#16181c'
+        return TYRE if cr > r - 0.02 else WALL
+    tyre = _lathe(prof, segs, 'tyre', tyre_colour)
     o = w / 2 * 0.9
     disc = [(o, ri * 1.02), (o + 0.012, ri * 0.95), (o - 0.03, ri * 0.84), (o - 0.05, ri * 0.25), (o - 0.03, 0.0)]
     hub = _lathe(disc, segs, 'rim', lambda cx, cr: rim if cr > ri * 0.9 else dish)
-    parts = [tyre, hub]
+    # A dark plate closing the tyre's inner side (seen on wheels that stand out from the body).
+    back = kit.cylinder(ri * 1.01, 0.012, (-w / 2 * 0.85, 0, 0), '#202328', verts=segs, rot=(0, math.pi / 2, 0))
+    parts = [tyre, hub, back]
     for k in range(spokes):
         a = 2 * math.pi * k / spokes
         p = kit.box((0.05, ri * 0.72, 0.075 * r / 0.33), (o - 0.03, -math.sin(a) * ri * 0.5, math.cos(a) * ri * 0.5), rim, bevel=0.0, rot=(a, 0, 0))
@@ -209,13 +213,8 @@ def wheel(at, r, w, side, rim=RIM, dish=DISH, spokes=5, segs=20, lugs=0):
     bpy.ops.object.select_all(action='DESELECT')
     obj.select_set(True)
     bpy.context.view_layer.objects.active = obj
+    # Applying the mirror (scale -1) turns the faces round with it, so they still face out.
     bpy.ops.object.transform_apply(location=True, rotation=True, scale=True)
-    if side < 0:
-        bm = bmesh.new()
-        bm.from_mesh(obj.data)
-        bmesh.ops.reverse_faces(bm, faces=bm.faces)
-        bm.to_mesh(obj.data)
-        bm.free()
     return obj
 
 

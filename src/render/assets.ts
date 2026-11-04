@@ -44,7 +44,7 @@ const SCENERY = [
 ];
 
 /** The customers' car files, in the order they're searched for a model. */
-export const CAR_FILES = ['cars:small', 'cars:family', 'cars:large', 'cars:big'];
+export const CAR_FILES = ['cars:small', 'cars:family', 'cars:large', 'cars:big', 'cars:monster'];
 
 /** Every model the game needs at start, by id → relative path. */
 function manifest(): Record<string, string> {
