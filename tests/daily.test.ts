@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { DAILY, PADS } from '../src/core/config';
+import { DAILY } from '../src/core/config';
+import { ROADSIDE } from '../src/core/towns';
 import { newGame } from '../src/core/gameState';
 import {
   addProgress,
@@ -13,7 +14,7 @@ import {
   rollDay,
 } from '../src/systems/daily';
 
-const all = PADS.map((p) => p.id);
+const all = ROADSIDE.pads.map((p) => p.id);
 
 describe('daily missions', () => {
   it('uses the local date', () => {

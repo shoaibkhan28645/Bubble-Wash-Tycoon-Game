@@ -1,5 +1,5 @@
 import { Vector3 } from 'three';
-import { PADS, TUNING, UPGRADES, type LocationLayout, type Point } from '../core/config';
+import { TUNING, UPGRADES, town, type LocationLayout, type Point } from '../core/config';
 import type { GameState } from '../core/gameState';
 import type { Particles } from '../render/effects/particles';
 import type { SoundManager } from '../audio/sound';
@@ -90,7 +90,7 @@ export class Traffic {
 
   /** Adds the station a built pad provides: a bay, a fuel pump, the tunnel, the dryer, waxing station or garage. */
   addStation(padId: string): void {
-    const pad = PADS.find((p) => p.id === padId);
+    const pad = town().pads.find((p) => p.id === padId);
     const kind: StationKind | undefined = pad?.effects.bay ? 'bay' : pad?.effects.pump ? 'pump' : (pad?.effects.station as StationKind | undefined);
     const at = this.layout.pads[padId];
     if (pad?.effects.mart) this.mart.isOpen = true;

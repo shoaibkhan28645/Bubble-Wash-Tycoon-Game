@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { PerspectiveCamera, Vector3 } from 'three';
 import { fitCameraToRect } from '../src/render/cameraFit';
-import { LOCATION1 } from '../src/core/config';
+import { ROADSIDE } from '../src/core/towns';
 
 const FOV = 35;
 const VIEW_DIR = new Vector3(0, 1.2, 1).normalize();
@@ -10,7 +10,7 @@ const LIMIT = 0.92;
 // From 9:32 (very tall) to 32:9 (very wide), the range YouTube requires.
 const ASPECTS = [9 / 32, 9 / 16, 3 / 4, 1, 4 / 3, 16 / 9, 32 / 9];
 const RECTS = {
-  'location 1 start': LOCATION1.cameraBase,
+  'location 1 start': ROADSIDE.layout.cameraBase,
   'small square': { minX: -2, maxX: 2, minZ: -2, maxZ: 2 },
   'off-centre strip': { minX: 10, maxX: 30, minZ: -3, maxZ: 1 },
 };
@@ -50,7 +50,7 @@ describe('fitCameraToRect', () => {
 describe('fitCameraToRect with a strip kept clear on the right', () => {
   it.each(ASPECTS)('keeps the lot left of the side buttons at aspect %f', (aspect) => {
     const inset = 0.3;
-    const rect = LOCATION1.lot;
+    const rect = ROADSIDE.layout.lot;
     const { target, distance } = fitCameraToRect(FOV, aspect, VIEW_DIR, rect, HEIGHT, LIMIT, inset);
     const camera = new PerspectiveCamera(FOV, aspect, 0.1, 5000);
     camera.position.copy(target).addScaledVector(VIEW_DIR, distance);
@@ -67,7 +67,7 @@ describe('fitCameraToRect with a strip kept clear on the right', () => {
 describe('fitCameraToRect with a strip kept clear at the top', () => {
   it.each(ASPECTS)('keeps the lot below the cash and stars at aspect %f', (aspect) => {
     const inset = 0.25;
-    const rect = LOCATION1.walk;
+    const rect = ROADSIDE.layout.walk;
     const { target, distance } = fitCameraToRect(FOV, aspect, VIEW_DIR, rect, HEIGHT, LIMIT, 0, inset);
     const camera = new PerspectiveCamera(FOV, aspect, 0.1, 5000);
     camera.position.copy(target).addScaledVector(VIEW_DIR, distance);

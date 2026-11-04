@@ -1,6 +1,7 @@
 // The Mini-Mart: drivers walk over from the pumps, line up, get served, walk back.
 import { describe, expect, it } from 'vitest';
-import { CARS, LOCATION1, TUNING } from '../src/core/config';
+import { CARS, TUNING } from '../src/core/config';
+import { ROADSIDE } from '../src/core/towns';
 import type { CarModel } from '../src/render/models/actors';
 import { Car } from '../src/systems/cars';
 import { Mart } from '../src/systems/mart';
@@ -14,7 +15,7 @@ function carAtPump(pump: Station): Car {
   return car;
 }
 
-const pump = new Station('pump1', 'pump', LOCATION1.pads.pump1!, LOCATION1.pump, 0.5, null);
+const pump = new Station('pump1', 'pump', ROADSIDE.layout.pads.pump1!, ROADSIDE.layout.pump, 0.5, null);
 
 /** Runs the shop for a while at a given till work rate. */
 function run(mart: Mart, seconds: number, rate: number): void {
@@ -24,7 +25,7 @@ function run(mart: Mart, seconds: number, rate: number): void {
 describe('the Mini-Mart', () => {
   it('a driver walks over, waits at the till until served, then walks back with a snack', () => {
     const served: Car[] = [];
-    const mart = new Mart(LOCATION1, null, null, (car) => served.push(car));
+    const mart = new Mart(ROADSIDE.layout, null, null, (car) => served.push(car));
     const car = carAtPump(pump);
     mart.sendShopper(car, pump);
     expect(car.shopping).toBe(true);
@@ -42,7 +43,7 @@ describe('the Mini-Mart', () => {
 
   it('serves the line in order, the next stepping up to the till', () => {
     const order: Car[] = [];
-    const mart = new Mart(LOCATION1, null, null, (car) => order.push(car));
+    const mart = new Mart(ROADSIDE.layout, null, null, (car) => order.push(car));
     const first = carAtPump(pump);
     const second = carAtPump(pump);
     mart.sendShopper(first, pump);
@@ -53,7 +54,7 @@ describe('the Mini-Mart', () => {
   });
 
   it('a car that gives up takes its driver with it', () => {
-    const mart = new Mart(LOCATION1, null, null, () => {});
+    const mart = new Mart(ROADSIDE.layout, null, null, () => {});
     const car = carAtPump(pump);
     mart.sendShopper(car, pump);
     run(mart, 5, 0);
@@ -64,7 +65,7 @@ describe('the Mini-Mart', () => {
   });
 
   it('only sells once it is open and its shoppers can be drawn', () => {
-    const mart = new Mart(LOCATION1, null, null, () => {});
+    const mart = new Mart(ROADSIDE.layout, null, null, () => {});
     expect(mart.selling).toBe(false);
     mart.isOpen = true;
     expect(mart.selling).toBe(false);

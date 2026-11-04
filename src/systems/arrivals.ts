@@ -1,4 +1,4 @@
-import { ADS, CARS, PADS, TUNING, UPGRADES, type CarDef, type LocationLayout, type Point } from '../core/config';
+import { ADS, CARS, TUNING, UPGRADES, town, type CarDef, type PadEffects, type LocationLayout, type Point } from '../core/config';
 import type { GameState } from '../core/gameState';
 import type { SoundManager } from '../audio/sound';
 import type { Car, CarPool } from './cars';
@@ -35,8 +35,8 @@ export function queueRoom(lane: Lane, layout: LocationLayout): number {
 }
 
 /** Sum of a pad effect over everything built (the bench's patience, the sign's arrivals). */
-export function unlockedSum(state: GameState, pick: (effects: (typeof PADS)[number]['effects']) => number | undefined): number {
-  return PADS.filter((p) => state.unlocked.includes(p.id)).reduce((sum, p) => sum + (pick(p.effects) ?? 0), 0);
+export function unlockedSum(state: GameState, pick: (effects: PadEffects) => number | undefined): number {
+  return town().pads.filter((p) => state.unlocked.includes(p.id)).reduce((sum, p) => sum + (pick(p.effects) ?? 0), 0);
 }
 
 /**

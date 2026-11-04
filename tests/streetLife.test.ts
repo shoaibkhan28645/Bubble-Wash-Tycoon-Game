@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { CARS, LOCATION1, SIDE_STREET_HALF, STREET_HALF, TUNING, type Point } from '../src/core/config';
+import { CARS, SIDE_STREET_HALF, STREET_HALF, TUNING, type Point } from '../src/core/config';
+import { ROADSIDE } from '../src/core/towns';
 import type { CarPool } from '../src/systems/cars';
 import type { Walker } from '../src/systems/mart';
 import { PassingTraffic } from '../src/systems/passing';
@@ -78,8 +79,8 @@ describe('pedestrians', () => {
   });
 
   it('walk routes that exist in the layout, each with two ends', () => {
-    expect(LOCATION1.walkways.length).toBeGreaterThan(0);
-    for (const route of LOCATION1.walkways) expect(route.length).toBeGreaterThanOrEqual(2);
+    expect(ROADSIDE.layout.walkways.length).toBeGreaterThan(0);
+    for (const route of ROADSIDE.layout.walkways) expect(route.length).toBeGreaterThanOrEqual(2);
   });
 });
 
@@ -116,11 +117,11 @@ function fakePool(): CarPool & { cars: { position: Point }[] } {
 describe('passing traffic', () => {
   it('drives along Main Street both ways and goes off at the far end', () => {
     const pool = fakePool();
-    const passing = new PassingTraffic(pool, LOCATION1, () => [], () => 0);
+    const passing = new PassingTraffic(pool, ROADSIDE.layout, () => [], () => 0);
     passing.update(3);
     expect(passing.count).toBe(2);
     const zs = pool.cars.map((c) => c.position.z).sort((a, b) => a - b);
-    expect(zs).toEqual([LOCATION1.roadZ - LOCATION1.roadLane, LOCATION1.roadZ + LOCATION1.roadLane]);
+    expect(zs).toEqual([ROADSIDE.layout.roadZ - ROADSIDE.layout.roadLane, ROADSIDE.layout.roadZ + ROADSIDE.layout.roadLane]);
     const [a, b] = pool.cars;
     const starts = [a!.position.x, b!.position.x];
     for (let t = 0; t < 20; t += 0.5) passing.update(0.5);
@@ -131,8 +132,8 @@ describe('passing traffic', () => {
   it("doesn't start a car onto a stretch of road that's taken", () => {
     const end = TUNING.streetLife.roadEnd;
     const pool = fakePool();
-    const lanes = [LOCATION1.roadZ - LOCATION1.roadLane, LOCATION1.roadZ + LOCATION1.roadLane];
-    const passing = new PassingTraffic(pool, LOCATION1, () => [{ x: -end, z: lanes[1]! }, { x: end, z: lanes[0]! }], () => 0);
+    const lanes = [ROADSIDE.layout.roadZ - ROADSIDE.layout.roadLane, ROADSIDE.layout.roadZ + ROADSIDE.layout.roadLane];
+    const passing = new PassingTraffic(pool, ROADSIDE.layout, () => [{ x: -end, z: lanes[1]! }, { x: end, z: lanes[0]! }], () => 0);
     passing.update(3);
     expect(passing.count).toBe(0);
   });
@@ -299,16 +300,16 @@ describe('road rules', () => {
 describe('the roads', () => {
   it('Main Street has room for the widest car in each lane, kerb to centre line', () => {
     const widest = Math.max(...CARS.map((c) => c.size[0]));
-    expect(LOCATION1.roadLane - widest / 2).toBeGreaterThanOrEqual(-0.01);
-    expect(LOCATION1.roadLane + widest / 2).toBeLessThanOrEqual(STREET_HALF);
+    expect(ROADSIDE.layout.roadLane - widest / 2).toBeGreaterThanOrEqual(-0.01);
+    expect(ROADSIDE.layout.roadLane + widest / 2).toBeLessThanOrEqual(STREET_HALF);
     // Bubble Lane, one way: the right-hand side is driven.
-    expect(LOCATION1.sideLane + widest / 2).toBeLessThanOrEqual(SIDE_STREET_HALF);
+    expect(ROADSIDE.layout.sideLane + widest / 2).toBeLessThanOrEqual(SIDE_STREET_HALF);
   });
 });
 
 describe('the town is laid out for walking', () => {
   it('no walkway goes on the lot, the forecourt, a road or a driveway: people out walking stay in the town', () => {
-    const L = LOCATION1;
+    const L = ROADSIDE.layout;
     const grow = (r: { minX: number; maxX: number; minZ: number; maxZ: number }, by: number) => ({ minX: r.minX - by, maxX: r.maxX + by, minZ: r.minZ - by, maxZ: r.maxZ + by });
     const working = [
       grow(L.lot, 0.6),
@@ -335,12 +336,12 @@ describe('the town is laid out for walking', () => {
 
   it('no walkway passes through a lamp post, street tree or anything else solid in the town', () => {
     const solids = [
-      ...LOCATION1.town.filter((p) => p.solid).map((p) => ({ x: p.x, z: p.z, hw: p.solid![0], hd: p.solid![1] })),
-      ...LOCATION1.town.filter((p) => p.model === 'lamp').map((p) => ({ x: p.x, z: p.z, hw: 0.2, hd: 0.2 })),
-      ...LOCATION1.streetTrees.map((t) => ({ x: t.x, z: t.z, hw: 0.35, hd: 0.35 })),
+      ...ROADSIDE.layout.town.filter((p) => p.solid).map((p) => ({ x: p.x, z: p.z, hw: p.solid![0], hd: p.solid![1] })),
+      ...ROADSIDE.layout.town.filter((p) => p.model === 'lamp').map((p) => ({ x: p.x, z: p.z, hw: 0.2, hd: 0.2 })),
+      ...ROADSIDE.layout.streetTrees.map((t) => ({ x: t.x, z: t.z, hw: 0.35, hd: 0.35 })),
     ];
     const room = 0.25;
-    for (const route of LOCATION1.walkways) {
+    for (const route of ROADSIDE.layout.walkways) {
       for (let i = 1; i < route.length; i++) {
         const a = route[i - 1]!;
         const b = route[i]!;

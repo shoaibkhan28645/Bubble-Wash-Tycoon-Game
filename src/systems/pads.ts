@@ -1,5 +1,5 @@
 import { Vector3, type Scene } from 'three';
-import { PADS, type LocationLayout, type PadDef, type Point, type Rect, type Tuning } from '../core/config';
+import { town, type LocationLayout, type PadDef, type Point, type Rect, type Tuning } from '../core/config';
 import type { GameState } from '../core/gameState';
 import type { Particles } from '../render/effects/particles';
 import type { SoundManager } from '../audio/sound';
@@ -87,13 +87,13 @@ export class PadSystem {
 
   /** Next pad in order that isn't built (or being built) and has a place on this lot; the truck waits for the town goals. */
   private nextPad(): PadDef | undefined {
-    const pad = PADS.find((p) => !this.state.unlocked.includes(p.id) && !this.state.building[p.id] && this.layout.pads[p.id]);
+    const pad = town().pads.find((p) => !this.state.unlocked.includes(p.id) && !this.state.building[p.id] && this.layout.pads[p.id]);
     return pad?.afterGoals && !allGoalsDone(this.state) ? undefined : pad;
   }
 
   /** A building's construction is done: it opens, with the usual fanfare. */
   finishConstruction(id: string): void {
-    const def = PADS.find((pad) => pad.id === id);
+    const def = town().pads.find((pad) => pad.id === id);
     const at = this.layout.buildAt[id] ?? this.layout.pads[id];
     if (def && at && !this.state.unlocked.includes(id)) this.complete(def, at, false);
   }
@@ -125,7 +125,7 @@ export class PadSystem {
 
   /** Shows the locked tunnel pad as a goal until it's the next one to buy. */
   private updatePreview(dt: number): void {
-    const def = PADS.find((p) => p.id === PREVIEW.pad);
+    const def = town().pads.find((p) => p.id === PREVIEW.pad);
     const at = this.layout.pads[PREVIEW.pad];
     const want =
       !!def &&

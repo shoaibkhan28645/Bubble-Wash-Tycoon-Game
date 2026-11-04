@@ -1,16 +1,14 @@
 // Typed access to the balancing data in src/data. Numbers live in the JSON,
 // never in code; tests/data.test.ts checks the files fit together.
 import carsJson from '../data/cars.json';
-import padsJson from '../data/pads.json';
 import stagesJson from '../data/stages.json';
 import tuningJson from '../data/tuning.json';
-import location1Json from '../data/location1.json';
 import charactersJson from '../data/characters.json';
 import upgradesJson from '../data/upgrades.json';
 import dailyJson from '../data/daily.json';
 import adsJson from '../data/ads.json';
 import contractsJson from '../data/contracts.json';
-import goalsJson from '../data/goals.json';
+import { ROADSIDE, type TownDef } from './towns';
 
 export type Dirt = 'dusty' | 'muddy' | 'swamp';
 
@@ -270,11 +268,8 @@ export interface GoalsData {
 }
 
 export const CARS = carsJson as CarDef[];
-/** In unlock order. */
-export const PADS = padsJson as PadDef[];
 export const STAGES = stagesJson as StageDef[];
 export const TUNING: Tuning = tuningJson;
-export const LOCATION1 = location1Json as LocationLayout;
 /** Who plays each role, which people file holds whom, and how fast each gait walks (art/blender/people.py). */
 export const CHARACTERS = charactersJson;
 export const UPGRADES = upgradesJson as UpgradesData;
@@ -282,7 +277,18 @@ export const DAILY = dailyJson as DailyData;
 /** Rewarded ad rewards (and their gem prices) and interstitial limits. */
 export const ADS = adsJson;
 export const CONTRACTS = contractsJson as ContractsData;
-export const GOALS = goalsJson as GoalsData;
+
+let current: TownDef = ROADSIDE;
+
+/** The town being played: its layout, its pads (in unlock order) and its goals. */
+export function town(): TownDef {
+  return current;
+}
+
+/** Makes this the town being played. Call before the game is built for it. */
+export function setTown(def: TownDef): void {
+  current = def;
+}
 
 /** Half the gap in the lot's side hedge where each driveway goes out (art: render/terrain.ts). */
 const DRIVEWAY_GAP = 1.75;
@@ -321,8 +327,9 @@ export function fixedSolids(layout: LocationLayout): Rect[] {
   return [...layout.blocked, ...layout.planters, ...town, ...hedge, ...trees];
 }
 
+/** A pad of the town being played. */
 export function padById(id: string): PadDef | undefined {
-  return PADS.find((pad) => pad.id === id);
+  return current.pads.find((pad) => pad.id === id);
 }
 
 export function stageById(id: string): StageDef | undefined {

@@ -1,6 +1,7 @@
 // Construction timers: real time, halved once by an ad, finished with gems.
 import { describe, expect, it } from 'vitest';
-import { PADS, TUNING } from '../src/core/config';
+import { TUNING } from '../src/core/config';
+import { ROADSIDE } from '../src/core/towns';
 import { newGame } from '../src/core/gameState';
 import { finishGems, formatClock, halveBuild, secondsLeft, soonestBuild, startBuild, takeFinished } from '../src/systems/construction';
 
@@ -50,9 +51,9 @@ describe('construction timers', () => {
   });
 
   it('only buildings take time, and none in the first five minutes of play', () => {
-    for (const pad of PADS) {
+    for (const pad of ROADSIDE.pads) {
       if (pad.buildSeconds) expect(pad.targetMinute, pad.id).toBeGreaterThan(5);
     }
-    expect(PADS.find((p) => p.id === 'mart')?.buildSeconds).toBeGreaterThan(0);
+    expect(ROADSIDE.pads.find((p) => p.id === 'mart')?.buildSeconds).toBeGreaterThan(0);
   });
 });

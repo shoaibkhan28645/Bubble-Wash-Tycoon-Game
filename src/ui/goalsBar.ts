@@ -1,6 +1,6 @@
 // The town goals: a bar under the cash counter (how many are reached and the
 // next one), and the list it opens, where reached goals are claimed.
-import { GOALS, type GoalDef } from '../core/config';
+import { town, type GoalDef } from '../core/config';
 import type { GameState } from '../core/gameState';
 import { goalProgress } from '../systems/townGoals';
 import { openDialog } from './dialog';
@@ -62,7 +62,7 @@ export function showGoals(root: HTMLElement, state: GameState, onClaim: (id: str
   const showStars = () => (stars.textContent = `⭐ ${t('franchiseStars', { n: state.franchiseStars })}`);
   showStars();
   list.appendChild(stars);
-  for (const goal of GOALS.goals) {
+  for (const goal of town().goals.goals) {
     const { value, target } = goalProgress(state, goal);
     const done = state.goals.done.includes(goal.id);
     const row = document.createElement('div');

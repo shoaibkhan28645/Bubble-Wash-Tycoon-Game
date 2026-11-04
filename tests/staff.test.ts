@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { Group } from 'three';
-import { LOCATION1, TUNING, fixedSolids, type Point, type Rect } from '../src/core/config';
+import { TUNING, fixedSolids, type Point, type Rect } from '../src/core/config';
+import { ROADSIDE } from '../src/core/towns';
 import { newGame } from '../src/core/gameState';
 import type { Car } from '../src/systems/cars';
 import { SOLID } from '../src/systems/buildings';
@@ -18,11 +19,11 @@ const silent = { play: () => {} } as unknown as SoundManager;
 /** Every solid prop from buildings.ts, where it's built (the whole lot built), and the grass beside the lot. */
 function solids(): Rect[] {
   const props = Object.entries(SOLID).flatMap(([id, boxes]) => {
-    const at = LOCATION1.buildAt[id] ?? LOCATION1.pads[id];
+    const at = ROADSIDE.layout.buildAt[id] ?? ROADSIDE.layout.pads[id];
     if (!at) return [];
     return boxes.map(([hw, hd, dx = 0, dz = 0]) => ({ minX: at.x + dx - hw, maxX: at.x + dx + hw, minZ: at.z + dz - hd, maxZ: at.z + dz + hd }));
   });
-  return [...props, ...fixedSolids(LOCATION1)];
+  return [...props, ...fixedSolids(ROADSIDE.layout)];
 }
 
 /** Walks a path like the staff do and reports whether the target was reached without entering a prop. */
@@ -42,18 +43,18 @@ function walk(nav: NavGrid, from: Point, to: Point, obstacles: Rect[]): boolean 
 
 describe('staff pathfinding', () => {
   const obstacles = solids();
-  const nav = new NavGrid(LOCATION1.walk, obstacles, 0.45);
-  const shelfSpot = { x: LOCATION1.pads.soap!.x, z: LOCATION1.pads.soap!.z + 1 };
+  const nav = new NavGrid(ROADSIDE.layout.walk, obstacles, 0.45);
+  const shelfSpot = { x: ROADSIDE.layout.pads.soap!.x, z: ROADSIDE.layout.pads.soap!.z + 1 };
 
-  const bay1 = bayWorkSpot(LOCATION1.pads.bay1!);
-  const bay2 = bayWorkSpot(LOCATION1.pads.bay2!);
+  const bay1 = bayWorkSpot(ROADSIDE.layout.pads.bay1!);
+  const bay2 = bayWorkSpot(ROADSIDE.layout.pads.bay2!);
 
   it('goes around the shelf when coming from bay 1 (used to walk into it and stop)', () => {
     expect(walk(nav, bay1, shelfSpot, obstacles)).toBe(true);
   });
 
   it('walks into a bay through its open end, never through its walls', () => {
-    expect(walk(nav, LOCATION1.staffSpots.washer!, bay1, obstacles)).toBe(true);
+    expect(walk(nav, ROADSIDE.layout.staffSpots.washer!, bay1, obstacles)).toBe(true);
     expect(walk(nav, bay1, bay2, obstacles)).toBe(true);
   });
 
@@ -63,22 +64,22 @@ describe('staff pathfinding', () => {
   });
 
   it('reaches every station side and home spot from everywhere it works', () => {
-    const forecourt = new Forecourt(LOCATION1, null);
+    const forecourt = new Forecourt(ROADSIDE.layout, null);
     forecourt.addPump('pump1');
     forecourt.addPump('pump2');
     const pumpSides = forecourt.pumps.map((p) => p.side!);
-    const dryer = LOCATION1.pads.dryer!;
+    const dryer = ROADSIDE.layout.pads.dryer!;
     const dryerSide = { x: dryer.x - 1.35, z: dryer.z + 2.2 };
-    const wax = LOCATION1.pads.wax!;
+    const wax = ROADSIDE.layout.pads.wax!;
     const waxSide = { x: wax.x - 1.35, z: wax.z + 2.2 };
-    const garage = LOCATION1.pads.garage!;
+    const garage = ROADSIDE.layout.pads.garage!;
     const garageSide = { x: garage.x - 1.3, z: garage.z + 1.2 };
-    const spots = [shelfSpot, bay1, bay2, dryerSide, waxSide, garageSide, ...pumpSides, ...Object.values(LOCATION1.staffSpots)];
+    const spots = [shelfSpot, bay1, bay2, dryerSide, waxSide, garageSide, ...pumpSides, ...Object.values(ROADSIDE.layout.staffSpots)];
     for (const a of spots) for (const b of spots) expect(walk(nav, a, b, obstacles)).toBe(true);
   });
 
   it("puts every work spot well inside its station's zone, so a worker who stops close to it still works", () => {
-    const forecourt = new Forecourt(LOCATION1, null);
+    const forecourt = new Forecourt(ROADSIDE.layout, null);
     forecourt.addPump('pump1');
     forecourt.addPump('pump2');
     for (const pump of forecourt.pumps) {
@@ -89,17 +90,17 @@ describe('staff pathfinding', () => {
   });
 
   it('the player can reach every unlock pad (before its own building is there) and every upgrade pad', () => {
-    const start = LOCATION1.playerStart;
+    const start = ROADSIDE.layout.playerStart;
     const without = (id: string) => {
-      const at = LOCATION1.buildAt[id] ?? LOCATION1.pads[id]!;
+      const at = ROADSIDE.layout.buildAt[id] ?? ROADSIDE.layout.pads[id]!;
       const own = (SOLID[id] ?? []).map(([hw, hd, dx = 0, dz = 0]) => `${at.x + dx - hw},${at.z + dz - hd}`);
       return obstacles.filter((o) => !own.includes(`${o.minX},${o.minZ}`));
     };
-    for (const [id, at] of Object.entries(LOCATION1.pads)) {
+    for (const [id, at] of Object.entries(ROADSIDE.layout.pads)) {
       const others = without(id);
-      expect(walk(new NavGrid(LOCATION1.walk, others, 0.45), start, at, others), id).toBe(true);
+      expect(walk(new NavGrid(ROADSIDE.layout.walk, others, 0.45), start, at, others), id).toBe(true);
     }
-    for (const [id, at] of Object.entries(LOCATION1.upgradePads)) expect(walk(nav, start, at, obstacles), `upgrade ${id}`).toBe(true);
+    for (const [id, at] of Object.entries(ROADSIDE.layout.upgradePads)) expect(walk(nav, start, at, obstacles), `upgrade ${id}`).toBe(true);
   });
 
   it('a clear line is one straight step', () => {
@@ -108,7 +109,7 @@ describe('staff pathfinding', () => {
 });
 
 function bayWith(id: string, x: number, patience: number | null): Station {
-  const station = new Station(id, 'bay', { x, z: -3 }, LOCATION1.bay, 0.9, null);
+  const station = new Station(id, 'bay', { x, z: -3 }, ROADSIDE.layout.bay, 0.9, null);
   if (patience !== null) station.car = { state: 'waiting', patience, patienceMax: 60 } as unknown as Car;
   return station;
 }
@@ -136,7 +137,7 @@ describe('which car the washer serves', () => {
 
   it('waits when no car needs washing, and ignores the dryer', () => {
     const empty = bayWith('bay1', -2.2, null);
-    const dryer = new Station('dryer', 'dryer', LOCATION1.pads.dryer!, LOCATION1.station, 1, null);
+    const dryer = new Station('dryer', 'dryer', ROADSIDE.layout.pads.dryer!, ROADSIDE.layout.station, 1, null);
     dryer.car = { state: 'waiting', patience: 1, patienceMax: 60 } as unknown as Car;
     expect(pickStation([empty, dryer], ['bay'], null, nobody)).toBeNull();
   });
@@ -149,11 +150,11 @@ describe('runner never jams', () => {
   function setup() {
     const state = { ...newGame(), unlocked: ['bay1', 'soap', 'dryer'] };
     const stations = [
-      new Station('bay1', 'bay', LOCATION1.pads.bay1!, LOCATION1.bay, 0.9, null),
-      new Station('dryer', 'dryer', LOCATION1.pads.dryer!, LOCATION1.station, 1, null),
+      new Station('bay1', 'bay', ROADSIDE.layout.pads.bay1!, ROADSIDE.layout.bay, 0.9, null),
+      new Station('dryer', 'dryer', ROADSIDE.layout.pads.dryer!, ROADSIDE.layout.station, 1, null),
     ];
-    const supplies = new Supplies(state, LOCATION1, () => stations, silent, null);
-    let at: Point = LOCATION1.pads.soap!;
+    const supplies = new Supplies(state, ROADSIDE.layout, () => stations, silent, null);
+    let at: Point = ROADSIDE.layout.pads.soap!;
     const carrier = new Carrier(new Group(), () => at, () => 3);
     supplies.update(0, [carrier]);
     return { state, stations, supplies, carrier, moveTo: (p: Point) => (at = p) };

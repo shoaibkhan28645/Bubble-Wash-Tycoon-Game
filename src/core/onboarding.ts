@@ -1,7 +1,7 @@
 // GDD Onboarding, the first ten minutes: the game opens on a muddy car in
 // the first bay, and a pointing hand with a few words teaches one thing at
 // a time; the first combo and each helper get a word when they happen.
-import { PADS, TUNING, type LocationLayout } from './config';
+import { TUNING, town, type LocationLayout } from './config';
 import type { GameState } from './gameState';
 import type { CashSystem } from '../systems/cash';
 import type { Carrier } from '../systems/carry';
@@ -66,7 +66,7 @@ export function createOnboarding(deps: {
     },
     onBuilt(id) {
       // GDD minute 5–6: the player sees a station run without them.
-      const pad = PADS.find((p) => p.id === id);
+      const pad = town().pads.find((p) => p.id === id);
       if (pad?.effects.staff) toast(root, `👷 ${t('hired', { name: pad.name, adds: pad.adds })}`);
     },
     onPaid(paid) {

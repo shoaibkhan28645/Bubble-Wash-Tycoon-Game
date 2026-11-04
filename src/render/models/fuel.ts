@@ -2,7 +2,7 @@
 // out, the canopy, island and pumps (Blender models), and hoses that reach
 // over to the car being filled.
 import { CatmullRomCurve3, Group, Mesh, MeshLambertMaterial, PlaneGeometry, TubeGeometry, Vector3, type BufferGeometry, type Object3D } from 'three';
-import { PADS, STREET_HALF, type LocationLayout, type Point, type Rect } from '../../core/config';
+import { STREET_HALF, town, type LocationLayout, type Point, type Rect } from '../../core/config';
 import type { Station } from '../../systems/stations';
 import { asset } from '../assets';
 import { box, mergeParts, toyMaterial, type Part } from './build';
@@ -76,7 +76,7 @@ const flat = (r: Rect, color: string, y: number): Part => ({
 function pavingParts(layout: LocationLayout, firstPump: string): Part[] {
   const island = layout.buildAt[firstPump]!;
   const { entryX, exitX } = layout.forecourt;
-  const laneZs = PADS.filter((p) => p.effects.pump && layout.pads[p.id]).map((p) => layout.pads[p.id]!.z - island.z);
+  const laneZs = town().pads.filter((p) => p.effects.pump && layout.pads[p.id]).map((p) => layout.pads[p.id]!.z - island.z);
   const half = LANE / 2;
   const x0 = exitX - island.x;
   const x1 = entryX - island.x;

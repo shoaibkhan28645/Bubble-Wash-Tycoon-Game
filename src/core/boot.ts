@@ -7,7 +7,8 @@ import { createGame } from './game';
 import { Lifecycle } from './lifecycle';
 import { parseSave } from './migrate';
 import { SaveManager } from './save';
-import { TUNING } from './config';
+import { TUNING, setTown } from './config';
+import { START_TOWN_ID, loadTown } from './towns';
 import type { GameState } from './gameState';
 import { offlineEarnings } from '../systems/offline';
 
@@ -38,6 +39,8 @@ export async function boot(root: HTMLElement): Promise<void> {
   platform.onResume(() => lifecycle.resume());
 
   setLanguage(await platform.getLanguage());
+  // Every save is in the first town until saves track the current town (save version 8).
+  setTown(await loadTown(START_TOWN_ID));
   loading.setProgress(0.5);
   // Models and sounds load side by side; the bar shows the slower of the two.
   let models = 0;

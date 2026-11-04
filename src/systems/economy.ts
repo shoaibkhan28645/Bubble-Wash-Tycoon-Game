@@ -1,4 +1,4 @@
-import { PADS, TUNING, UPGRADES, stageById, type CarDef, type Dirt, type StageDef, type UpgradeKind } from '../core/config';
+import { TUNING, UPGRADES, stageById, town, type CarDef, type Dirt, type StageDef, type UpgradeKind } from '../core/config';
 import { comboMultiplier, type Need } from './tickets';
 
 /** Price of one wash: base pay × (1 + stage bonuses) × quality. */
@@ -49,7 +49,7 @@ export function padDrain(
 /** Built stages, optionally only those done at one kind of station. */
 export function builtStages(unlocked: readonly string[], station?: StageDef['station']): StageDef[] {
   const stages: StageDef[] = [];
-  for (const pad of PADS) {
+  for (const pad of town().pads) {
     const id = pad.effects.stage;
     const stage = id && unlocked.includes(pad.id) ? stageById(id) : undefined;
     if (stage && (!station || stage.station === station)) stages.push(stage);

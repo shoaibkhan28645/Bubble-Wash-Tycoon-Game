@@ -1,5 +1,5 @@
 import { Vector3, type Scene } from 'three';
-import { PADS, TUNING, UPGRADES, type LocationLayout, type Point, type Rect } from '../core/config';
+import { TUNING, UPGRADES, town, type LocationLayout, type Point, type Rect } from '../core/config';
 import type { GameState } from '../core/gameState';
 import type { SoundManager } from '../audio/sound';
 import type { Particles } from '../render/effects/particles';
@@ -130,7 +130,7 @@ export class UpgradePads {
     for (const id of Object.keys(this.layout.upgradePads)) {
       if (this.pads.has(id)) continue;
       const needs = id === 'staffRoom' ? STAFF_ROOM_AFTER : id;
-      if (!this.state.unlocked.includes(needs) || !PADS.some((p) => p.id === needs)) continue;
+      if (!this.state.unlocked.includes(needs) || !town().pads.some((p) => p.id === needs)) continue;
       const at = this.layout.upgradePads[id]!;
       const pad = new PadModel(1.5, 0x6cc4ff);
       pad.group.position.set(at.x, 0, at.z);

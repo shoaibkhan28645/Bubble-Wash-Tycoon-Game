@@ -1,6 +1,6 @@
 import { Loop } from './loop';
 import { GameClock } from './clock';
-import { LOCATION1, PADS, TUNING, UPGRADES, fixedSolids, roadLaneAt, type Rect } from './config';
+import { TUNING, UPGRADES, town as currentTown, fixedSolids, roadLaneAt, type Rect } from './config';
 import type { GameState } from './gameState';
 import type { Lifecycle } from './lifecycle';
 import type { SaveManager } from './save';
@@ -60,7 +60,7 @@ export interface Game {
   addTicker(ticker: (dt: number) => void): void;
 }
 
-/** Builds location 1 and the loop, and wires pause/resume to loop, audio, input and saving. */
+/** Builds the current town (see setTown) and the loop, and wires pause/resume to loop, audio, input and saving. */
 export function createGame(
   root: HTMLElement,
   state: GameState,
@@ -68,7 +68,8 @@ export function createGame(
   saves: SaveManager,
   sound: SoundManager,
 ): Game {
-  const layout = LOCATION1;
+  const current = currentTown();
+  const { layout } = current;
   const stage = createStage(root);
   stage.shadowArea({ ...layout.lot, minZ: layout.walk.minZ });
   const clock = new GameClock();
@@ -81,7 +82,7 @@ export function createGame(
   CarModel.exhaust = (at, back) => effects.puff(at, back);
   blobShadows.attach(stage.scene);
 
-  const bayIds = PADS.filter((pad) => pad.effects.bay).map((pad) => pad.effects.bay!);
+  const bayIds = current.pads.filter((pad) => pad.effects.bay).map((pad) => pad.effects.bay!);
   stage.scene.add(terrain(layout, bayIds.map((id) => layout.pads[id]!.x), layout.pads.tunnel?.x ?? null));
   const level = (key: string) => state.levels[key] ?? 0;
   const player = new Player(stage.scene, layout.playerStart, TUNING.player, () => 1 + levelStep(UPGRADES.kinds.walk, level('player.walk')));
@@ -146,7 +147,7 @@ export function createGame(
       view.refit();
       onboarding?.onBuilt(id);
       void saves.saveNow();
-      if (PADS.find((p) => p.id === id)?.effects.endOfContent) {
+      if (current.pads.find((p) => p.id === id)?.effects.endOfContent) {
         flag('ended');
         showEndScreen(root, () => meta.screenClosed());
       }

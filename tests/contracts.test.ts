@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { CONTRACTS, GOALS, PADS } from '../src/core/config';
+import { CONTRACTS } from '../src/core/config';
+import { ROADSIDE } from '../src/core/towns';
 import { newGame, type GameState } from '../src/core/gameState';
 import { canDouble, claimContract, contractDef, countTask, dealContract, readyCount, refreshBoard, tasksFor } from '../src/systems/contracts';
 import { allGoalsDone, checkGoals, claimGoal, goalsSummary } from '../src/systems/townGoals';
@@ -39,7 +40,7 @@ describe('contracts board', () => {
 
   it('pays more cash on a bigger lot, and runs for its minutes', () => {
     const small = dealContract(lotWith('bay2', 'board'), NOW, first)!;
-    const big = dealContract(lotWith(...PADS.slice(1, 20).map((p) => p.id)), NOW, first)!;
+    const big = dealContract(lotWith(...ROADSIDE.pads.slice(1, 20).map((p) => p.id)), NOW, first)!;
     expect(small.kind).toBe(big.kind);
     expect(big.cash).toBeGreaterThan(small.cash);
     expect(small.endsAt).toBe(NOW + contractDef(small.kind)!.minutes * MIN);
@@ -120,16 +121,16 @@ describe('town goals', () => {
   it('claiming pays gems and a franchise star, once', () => {
     const state = lotWith('pump1');
     checkGoals(state);
-    const gems = GOALS.goals.find((g) => g.id === 'fuel')!.gems;
+    const gems = ROADSIDE.goals.goals.find((g) => g.id === 'fuel')!.gems;
     expect(claimGoal(state, 'fuel')).toBe(gems);
-    expect(state.franchiseStars).toBe(GOALS.franchiseStars);
+    expect(state.franchiseStars).toBe(ROADSIDE.goals.franchiseStars);
     expect(claimGoal(state, 'fuel')).toBe(0);
     expect(claimGoal(state, 'mart')).toBe(0);
     expect(state.gems).toBe(gems);
   });
 
   it('counts goals up from what was done, and opens the road when all are reached', () => {
-    const state = lotWith(...GOALS.goals.flatMap((g) => (g.built ? [g.built] : [])));
+    const state = lotWith(...ROADSIDE.goals.goals.flatMap((g) => (g.built ? [g.built] : [])));
     state.stars = 5;
     state.counts = { combo: 39, contract: 3 };
     checkGoals(state);
@@ -138,6 +139,6 @@ describe('town goals', () => {
     state.counts.combo = 40;
     checkGoals(state);
     expect(allGoalsDone(state)).toBe(true);
-    expect(goalsSummary(state)).toMatchObject({ done: GOALS.goals.length, ready: GOALS.goals.length, next: null });
+    expect(goalsSummary(state)).toMatchObject({ done: ROADSIDE.goals.goals.length, ready: ROADSIDE.goals.goals.length, next: null });
   });
 });

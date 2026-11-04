@@ -2,7 +2,7 @@
 (each with its origin at its own base, fronts facing -Y, the camera):
 six shops along Main Street, four styles of house with gardens, a street
 lamp, a bus stop and a café table. The game writes the shop names on the
-sign boards and places everything (src/data/location1.json, "town").
+sign boards and places everything (src/data/towns/roadside/layout.json, "town").
 
 Two files, so each stays small: town-shops.glb (shops, lamp, bus stop,
 café table) and town-homes.glb (the houses).

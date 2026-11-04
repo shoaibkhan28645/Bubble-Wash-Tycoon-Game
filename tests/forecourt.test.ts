@@ -1,6 +1,7 @@
 // The fuel forecourt: one line for the pumps, and where cars go once filled up.
 import { describe, expect, it } from 'vitest';
-import { CARS, LOCATION1, TUNING } from '../src/core/config';
+import { CARS, TUNING } from '../src/core/config';
+import { ROADSIDE } from '../src/core/towns';
 import type { CarModel } from '../src/render/models/actors';
 import { Car } from '../src/systems/cars';
 import { Forecourt } from '../src/systems/forecourt';
@@ -18,7 +19,7 @@ function car(needs: Need[]): Car {
 }
 
 function open(...ids: string[]): Forecourt {
-  const forecourt = new Forecourt(LOCATION1, null);
+  const forecourt = new Forecourt(ROADSIDE.layout, null);
   for (const id of ids) forecourt.addPump(id);
   return forecourt;
 }
@@ -56,7 +57,7 @@ describe('the forecourt line', () => {
 });
 
 describe('leaving the pump', () => {
-  const lane = () => new Station('bay1', 'bay', LOCATION1.pads.bay1!, LOCATION1.bay, 0.9, null);
+  const lane = () => new Station('bay1', 'bay', ROADSIDE.layout.pads.bay1!, ROADSIDE.layout.bay, 0.9, null);
 
   it('fuel only: pays and drives away, freeing the pump', () => {
     const forecourt = open('pump1');
@@ -90,7 +91,7 @@ describe('leaving the pump', () => {
     expect(forecourt.depart(a, one!, null)).toBe('away');
     expect(forecourt.depart(b, two!, null)).toBe('stay');
     // Out on the road: the next car may go.
-    a.model.mesh.position.z = LOCATION1.roadZ;
+    a.model.mesh.position.z = ROADSIDE.layout.roadZ;
     expect(forecourt.depart(b, two!, null)).toBe('away');
   });
 

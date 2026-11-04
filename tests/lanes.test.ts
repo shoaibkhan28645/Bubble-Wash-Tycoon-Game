@@ -1,7 +1,8 @@
 // Milestone 5: who uses which lane, the valet, the tunnel conveyor, the
 // garage, VIP pay and the tutorial hand.
 import { describe, expect, it } from 'vitest';
-import { CARS, LOCATION1, PADS, STAGES, TUNING } from '../src/core/config';
+import { CARS, STAGES, TUNING } from '../src/core/config';
+import { ROADSIDE } from '../src/core/towns';
 import { newGame } from '../src/core/gameState';
 import type { Car } from '../src/systems/cars';
 import { jobSeconds } from '../src/systems/economy';
@@ -143,7 +144,7 @@ function rider(state: string, progress = 0): Car {
 
 describe('brush tunnel', () => {
   const make = () => {
-    const tunnel = new Tunnel(LOCATION1.pads.tunnel!, LOCATION1.tunnel, null);
+    const tunnel = new Tunnel(ROADSIDE.layout.pads.tunnel!, ROADSIDE.layout.tunnel, null);
     tunnel.supply = TUNING.stations.tunnel.supply;
     return tunnel;
   };
@@ -271,7 +272,7 @@ describe('tutorial hand', () => {
 
 describe('location 1 has room for everything', () => {
   it('every pad has a place on the lot', () => {
-    for (const pad of PADS) expect(LOCATION1.pads[pad.id], pad.id).toBeDefined();
+    for (const pad of ROADSIDE.pads) expect(ROADSIDE.layout.pads[pad.id], pad.id).toBeDefined();
   });
 });
 
@@ -304,14 +305,14 @@ describe('side buttons', () => {
 
 describe('lines on the lot', () => {
   it('never reach the road: every waiting spot keeps a long car on the lot', () => {
-    const bay = new Station('bay1', 'bay', LOCATION1.pads.bay1!, LOCATION1.bay, 0.9, null);
-    const tunnel = new Tunnel(LOCATION1.pads.tunnel!, LOCATION1.tunnel, null);
+    const bay = new Station('bay1', 'bay', ROADSIDE.layout.pads.bay1!, ROADSIDE.layout.bay, 0.9, null);
+    const tunnel = new Tunnel(ROADSIDE.layout.pads.tunnel!, ROADSIDE.layout.tunnel, null);
     for (const lane of [bay, tunnel]) {
-      const room = queueRoom(lane, LOCATION1);
+      const room = queueRoom(lane, ROADSIDE.layout);
       expect(room).toBeGreaterThan(0);
-      for (let i = 0; i < room; i++) expect(slotOf(lane, i, LOCATION1).z - 1.9).toBeGreaterThanOrEqual(LOCATION1.lot.minZ - 0.05);
+      for (let i = 0; i < room; i++) expect(slotOf(lane, i, ROADSIDE.layout).z - 1.9).toBeGreaterThanOrEqual(ROADSIDE.layout.lot.minZ - 0.05);
       // One more would stand on the road.
-      expect(slotOf(lane, room, LOCATION1).z - 1.9).toBeLessThan(LOCATION1.lot.minZ - 0.05);
+      expect(slotOf(lane, room, ROADSIDE.layout).z - 1.9).toBeLessThan(ROADSIDE.layout.lot.minZ - 0.05);
     }
   });
 });

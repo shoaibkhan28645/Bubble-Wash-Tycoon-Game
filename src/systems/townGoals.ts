@@ -2,8 +2,11 @@
 // opened, a lifetime count or a star rating; once reached it stays reached,
 // and claiming it pays gems and franchise stars. Every goal reached opens
 // the road to the next town (the truck pad).
-import { GOALS, type GoalDef } from '../core/config';
+import { town, type GoalDef } from '../core/config';
 import type { GameState } from '../core/gameState';
+
+/** The goals of the town being played. */
+const goals = (): GoalDef[] => town().goals.goals;
 
 /** How far along a goal is: built goals are 0 or 1. */
 export function goalProgress(state: GameState, goal: GoalDef): { value: number; target: number } {
@@ -21,33 +24,33 @@ function reached(state: GameState, goal: GoalDef): boolean {
 /** Marks newly reached goals as done (for good). Returns their ids. */
 export function checkGoals(state: GameState): string[] {
   const done = state.goals.done;
-  const fresh = GOALS.goals.filter((goal) => !done.includes(goal.id) && reached(state, goal)).map((goal) => goal.id);
+  const fresh = goals().filter((goal) => !done.includes(goal.id) && reached(state, goal)).map((goal) => goal.id);
   done.push(...fresh);
   return fresh;
 }
 
 /** Takes a reached goal's gems and franchise stars. Returns the gems (0 if not ready). */
 export function claimGoal(state: GameState, id: string): number {
-  const goal = GOALS.goals.find((g) => g.id === id);
+  const goal = goals().find((g) => g.id === id);
   if (!goal || !state.goals.done.includes(id) || state.goals.claimed.includes(id)) return 0;
   state.goals.claimed.push(id);
   state.gems += goal.gems;
-  state.franchiseStars += GOALS.franchiseStars;
+  state.franchiseStars += town().goals.franchiseStars;
   return goal.gems;
 }
 
 /** Every goal reached: the road to the next town opens. */
 export function allGoalsDone(state: GameState): boolean {
-  return GOALS.goals.every((goal) => state.goals.done.includes(goal.id));
+  return goals().every((goal) => state.goals.done.includes(goal.id));
 }
 
 /** For the goals bar: how many are reached, waiting to be claimed, and the first one still to do. */
 export function goalsSummary(state: GameState): { done: number; total: number; ready: number; next: GoalDef | null } {
   const { done, claimed } = state.goals;
   return {
-    done: GOALS.goals.filter((g) => done.includes(g.id)).length,
-    total: GOALS.goals.length,
-    ready: GOALS.goals.filter((g) => done.includes(g.id) && !claimed.includes(g.id)).length,
-    next: GOALS.goals.find((g) => !done.includes(g.id)) ?? null,
+    done: goals().filter((g) => done.includes(g.id)).length,
+    total: goals().length,
+    ready: goals().filter((g) => done.includes(g.id) && !claimed.includes(g.id)).length,
+    next: goals().find((g) => !done.includes(g.id)) ?? null,
   };
 }

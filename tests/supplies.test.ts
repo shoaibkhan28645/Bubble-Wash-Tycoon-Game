@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { Group } from 'three';
-import { LOCATION1, TUNING } from '../src/core/config';
+import { TUNING } from '../src/core/config';
+import { ROADSIDE } from '../src/core/towns';
 import { newGame } from '../src/core/gameState';
 import { Carrier } from '../src/systems/carry';
 import { Station } from '../src/systems/stations';
@@ -8,16 +9,16 @@ import { Supplies } from '../src/systems/supplies';
 import type { SoundManager } from '../src/audio/sound';
 
 const silent = { play: () => {} } as unknown as SoundManager;
-const shelf = LOCATION1.pads.soap!;
+const shelf = ROADSIDE.layout.pads.soap!;
 const USES = TUNING.stations.usesPerItem;
 /** A full station, counted in uses (cars). */
 const CAP = TUNING.stations.supplyCapacity * USES;
 
 function setup(unlocked = ['bay1', 'soap']) {
   const state = { ...newGame(), unlocked: [...unlocked] };
-  const stations = [new Station('bay1', 'bay', LOCATION1.pads.bay1!, LOCATION1.bay, 0.9, null)];
-  if (unlocked.includes('dryer')) stations.push(new Station('dryer', 'dryer', LOCATION1.pads.dryer!, LOCATION1.station, 1, null));
-  const supplies = new Supplies(state, LOCATION1, () => stations, silent, null);
+  const stations = [new Station('bay1', 'bay', ROADSIDE.layout.pads.bay1!, ROADSIDE.layout.bay, 0.9, null)];
+  if (unlocked.includes('dryer')) stations.push(new Station('dryer', 'dryer', ROADSIDE.layout.pads.dryer!, ROADSIDE.layout.station, 1, null));
+  const supplies = new Supplies(state, ROADSIDE.layout, () => stations, silent, null);
   let at = { x: 0, z: 0 };
   const carrier = new Carrier(new Group(), () => at, () => 3);
   const moveTo = (p: { x: number; z: number }) => (at = p);
@@ -83,7 +84,7 @@ describe('supplies', () => {
     moveTo({ x: 0, z: 9 }); // far from everything
     tick();
     expect(carrier.stack.length).toBe(3);
-    moveTo(LOCATION1.pads.bay1!);
+    moveTo(ROADSIDE.layout.pads.bay1!);
     for (let i = 0; i < 10; i++) tick();
     expect(state.supplies['bay1.soap']).toBe(CAP);
     expect(carrier.stack.length).toBe(1);
