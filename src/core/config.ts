@@ -292,7 +292,7 @@ export const SIDE_HEDGE_START = 5;
 /** Half the width of Main Street, kerb to kerb, in metres (room for a monster truck in each lane). */
 export const STREET_HALF = 2.35;
 /** Half the width of Bubble Lane, the side street the cars leave by. */
-export const SIDE_STREET_HALF = 1.9;
+export const SIDE_STREET_HALF = 2.35;
 
 /** Which lane of the road a point is in: Main Street's far (westbound) or near (eastbound) side, Bubble Lane, or none (off the road). */
 export function roadLaneAt(layout: LocationLayout, p: Point): 'west' | 'east' | 'side' | null {

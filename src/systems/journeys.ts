@@ -153,7 +153,9 @@ export class Journeys {
     const x = sideStreetX + sideLane;
     const z = roadZ + roadLane;
     return [
-      { x, z: exitZ },
+      // Round the corner onto it, not pivot on the spot: the car's nose would poke over the far pavement.
+      { x: x - CORNER, z: exitZ },
+      { x, z: exitZ - CORNER },
       { x, z: z + CORNER },
       { x: x + CORNER, z },
       { x: leaveX, z },
