@@ -96,8 +96,7 @@ export class Forecourt {
     if (washLane && car.wants('wash')) {
       car.state = 'arriving';
       car.patience = Math.min(car.patienceMax, car.patience + car.patienceMax * TUNING.fuel.patienceRefill);
-      const road = roadZ + roadLane;
-      car.route([...this.exitRoute(pump, road, washLane.at.x), { x: washLane.at.x, z: road }], slotOf(washLane, washLane.queue.length, this.layout));
+      car.route(this.acrossTo(pump, washLane.at.x), slotOf(washLane, washLane.queue.length, this.layout));
       washLane.queue.push(car);
       return 'wash';
     }
@@ -113,6 +112,19 @@ export class Forecourt {
     // Gone (back in the pool, or out again as a new arrival), or back at a station.
     if (!out || out.car.serial !== out.serial || !out.car.model.mesh.visible || out.car.station) return false;
     return out.car.position.z < this.layout.roadZ - this.layout.roadLane * 2;
+  }
+
+  /**
+   * From a pump over the road into the lot at `laneX`, cutting the corners. A lane just across from the
+   * exit is driven straight over to; one further along, by the near side of the road.
+   */
+  private acrossTo(pump: Station, laneX: number): Point[] {
+    const { roadZ, roadLane, forecourt } = this.layout;
+    const near = roadZ + roadLane;
+    const into = { x: laneX, z: near + CORNER };
+    if (Math.abs(laneX - forecourt.exitX) < 2 * CORNER) return [{ x: forecourt.exitX, z: pump.at.z }, { x: forecourt.exitX, z: roadZ - roadLane - CORNER }, into];
+    const turn = Math.sign(laneX - forecourt.exitX) * CORNER;
+    return [...this.exitRoute(pump, near, laneX), { x: laneX - turn, z: near }, into];
   }
 
   /** From a pump on along its lane and out across the pavement to the road (at `roadZ`), cutting the corner towards `towardsX`. */

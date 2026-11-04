@@ -53,6 +53,30 @@ describe('pedestrians', () => {
     expect(w.root.rotation.y).toBe(Math.PI);
   });
 
+  it('walk a dead-end route to its turn and back the way they came, then leave', () => {
+    const made: Walker[] = [];
+    const route = [{ x: 0, z: 0 }, { x: 10, z: 0, turn: true }];
+    const people = new Pedestrians([route], () => {
+      const w = walker();
+      made.push(w);
+      return w;
+    }, first);
+    people.update(0.01);
+    // The one setting off starts at the route's start, never at the dead end.
+    const p = made.at(-1)!;
+    expect(p.root.position.x).toBeLessThan(0.1);
+    let furthest = 0;
+    let back = Infinity;
+    for (let t = 0; t < 30 && p.root.visible; t += 0.1) {
+      people.update(0.1);
+      furthest = Math.max(furthest, p.root.position.x);
+      if (furthest > 9.9) back = Math.min(back, p.root.position.x);
+    }
+    expect(furthest).toBeGreaterThan(9.9);
+    expect(furthest).toBeLessThanOrEqual(10);
+    expect(back).toBeLessThan(0.5);
+  });
+
   it('walk routes that exist in the layout, each with two ends', () => {
     expect(LOCATION1.walkways.length).toBeGreaterThan(0);
     for (const route of LOCATION1.walkways) expect(route.length).toBeGreaterThanOrEqual(2);
@@ -182,12 +206,26 @@ describe('road rules', () => {
     const later = car(0, 4.2, { x: 0, z: -10 }, Math.PI, { serial: 2, held: true, heldFor: 9 });
     const rules = new RoadRules(() => [first, later], () => []);
     expect(rules.blocked(first)).toBe(true);
+    expect(rules.blocked(later)).toBe(true);
     (first as { heldFor: number }).heldFor = 5;
     expect(rules.blocked(first)).toBe(false);
     expect(rules.blocked(later)).toBe(true);
     // A queued car (standing still) is never driven through.
     const queued = car(0, 4.2, null, Math.PI, { serial: 2 });
     expect(new RoadRules(() => [first, queued], () => []).blocked(first)).toBe(true);
+  });
+
+  it('in a ring of cars each waiting on the next, the one that came first eases through; the rest keep waiting', () => {
+    // Four cars round a crossing, each nose to the side of the next.
+    const a = car(0, 0, { x: 0, z: 10 }, 0, { serial: 1, held: true, heldFor: 1 });
+    const b = car(0, 3.4, { x: 10, z: 3.4 }, Math.PI / 2, { serial: 2, held: true, heldFor: 9 });
+    const c = car(3.4, 3.4, { x: 3.4, z: -10 }, Math.PI, { serial: 3, held: true, heldFor: 9 });
+    const d = car(3.4, 0, { x: -10, z: 0 }, -Math.PI / 2, { serial: 4, held: true, heldFor: 9 });
+    const rules = new RoadRules(() => [a, b, c, d], () => []);
+    expect([a, b, c, d].map((x) => rules.blocked(x))).toEqual([true, true, true, true]);
+    (a as { heldFor: number }).heldFor = 5;
+    expect(rules.blocked(a)).toBe(false);
+    for (const later of [b, c, d]) expect(rules.blocked(later)).toBe(true);
   });
 
   it("people walking on the pavement beside the road don't hold up the cars going by", () => {
@@ -226,6 +264,33 @@ describe('road rules', () => {
 });
 
 describe('the town is laid out for walking', () => {
+  it('no walkway goes on the lot, the forecourt, a road or a driveway: people out walking stay in the town', () => {
+    const L = LOCATION1;
+    const grow = (r: { minX: number; maxX: number; minZ: number; maxZ: number }, by: number) => ({ minX: r.minX - by, maxX: r.maxX + by, minZ: r.minZ - by, maxZ: r.maxZ + by });
+    const STREET = 1.9;
+    const working = [
+      grow(L.lot, 0.6),
+      ...Object.values(L.areas).map((a) => grow(a, 0.3)),
+      // Main Street, kerb to kerb.
+      { minX: -1e3, maxX: 1e3, minZ: L.roadZ - STREET - 0.1, maxZ: L.roadZ + STREET + 0.1 },
+      // Bubble Lane and the lot's driveways out to it.
+      { minX: L.lot.maxX, maxX: L.sideStreetX + STREET + 0.2, minZ: L.roadZ, maxZ: 1e3 },
+    ];
+    for (const route of L.walkways) {
+      for (let i = 1; i < route.length; i++) {
+        const a = route[i - 1]!;
+        const b = route[i]!;
+        const steps = Math.ceil(Math.hypot(b.x - a.x, b.z - a.z) / 0.2);
+        for (let k = 0; k <= steps; k++) {
+          const x = a.x + ((b.x - a.x) * k) / steps;
+          const z = a.z + ((b.z - a.z) * k) / steps;
+          const hit = working.find((r) => x > r.minX && x < r.maxX && z > r.minZ && z < r.maxZ);
+          expect(hit, `walkway at ${x.toFixed(1)}, ${z.toFixed(1)}`).toBeUndefined();
+        }
+      }
+    }
+  });
+
   it('no walkway passes through a lamp post, street tree or anything else solid in the town', () => {
     const solids = [
       ...LOCATION1.town.filter((p) => p.solid).map((p) => ({ x: p.x, z: p.z, hw: p.solid![0], hd: p.solid![1] })),

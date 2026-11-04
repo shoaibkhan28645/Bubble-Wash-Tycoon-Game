@@ -60,6 +60,8 @@ export class Tunnel extends Station {
     const blocked = this.inside[0]?.state === 'done';
     const seconds = TUNING.stations.tunnel.seconds * levelFactor(UPGRADES.kinds.speed, speedLevel);
     let stalled = false;
+    // Nobody rides up into the car ahead (it may be stopped, waiting for soap): they keep their spacing.
+    let room = 1;
     for (const car of [...this.inside]) {
       if (car.state === 'entering') {
         car.update(dt, TUNING.cars.speed);
@@ -71,12 +73,15 @@ export class Tunnel extends Station {
         continue;
       }
       if (!car.supplied && this.supply) car.supplied = supplies.take(this);
-      if ((this.supply && !car.supplied) || blocked) {
+      const spacing = 1 / TUNING.stations.tunnel.capacity;
+      if ((this.supply && !car.supplied) || blocked || car.progress >= room) {
         stalled ||= !car.supplied;
         on.onWaiting(car);
+        room = Math.max(0, car.progress - spacing);
         continue;
       }
-      car.progress = Math.min(1, car.progress + dt / seconds);
+      car.progress = Math.min(room, car.progress + dt / seconds);
+      room = Math.max(0, car.progress - spacing);
       car.clean = car.progress;
       this.place(car, car.progress);
       on.onMoving(car);

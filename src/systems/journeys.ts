@@ -6,7 +6,7 @@ import type { Departures } from './departures';
 import type { Forecourt } from './forecourt';
 import { nextStop } from './lanes';
 import type { Mart } from './mart';
-import type { Station } from './stations';
+import { insideRect, type Station } from './stations';
 import type { Till } from './till';
 import { Tunnel } from './tunnel';
 
@@ -207,7 +207,10 @@ export class Journeys {
   /** Front car moves into an empty bay or onto the tunnel conveyor; the rest shuffle forward. */
   advanceQueue(lane: Lane): void {
     this.reorder(lane);
-    if (!lane.idle || lane.queue.length === 0) return;
+    // The front car drives in only once it's off the road: until then it keeps its place in line, so a car
+    // joining later waits behind it rather than slipping into the line's front spot and blocking its way in.
+    const head = lane.queue[0];
+    if (!lane.idle || !head || (head.state !== 'queued' && !insideRect(head.position, this.layout.lot))) return;
     const next = lane.queue.shift()!;
     next.state = 'entering';
     next.station = lane;

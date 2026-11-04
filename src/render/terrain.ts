@@ -251,6 +251,7 @@ function scenery(layout: LocationLayout): Group {
       if (blocked(x, z, kind.margin)) continue;
       // Nothing solid where people walk (small plants are fine to brush past).
       if (kind.margin >= 1 && inside(x, z, layout.walk, kind.margin)) continue;
+      if (kind.margin >= 0.6 && nearWalkway(layout, x, z, kind.margin + 0.4)) continue;
       if (kind.near && !inside(x, z, lot, kind.near)) continue;
       items.push({ x, z, s: kind.scale[0] + rand() * (kind.scale[1] - kind.scale[0]), r: rand() * Math.PI * 2 });
     }
@@ -262,11 +263,25 @@ function scenery(layout: LocationLayout): Group {
     const z = roadZ - 4.6 - rand() * 1.5;
     const s = 2.6 + rand() * 0.8;
     const r = rand() * 6;
-    if (!areas.some((a) => inside(x, z, a, 1.2)) && !blocked(x, z, 0) && !inside(x, z, layout.walk, 1)) row.push({ x, z, s, r });
+    if (!areas.some((a) => inside(x, z, a, 1.2)) && !blocked(x, z, 0) && !inside(x, z, layout.walk, 1) && !nearWalkway(layout, x, z, 1)) row.push({ x, z, s, r });
   }
   for (const t of layout.streetTrees) row.push({ x: t.x, z: t.z, s: 2.6 + rand() * 0.6, r: rand() * 6 });
   group.add(scatter('nature:tree_oak', row));
   return group;
+}
+
+/** Within `d` of a route people walk (trees and bushes keep off them). */
+function nearWalkway(layout: LocationLayout, x: number, z: number, d: number): boolean {
+  return layout.walkways.some((route) =>
+    route.some((b, i) => {
+      const a = route[i - 1];
+      if (!a) return false;
+      const dx = b.x - a.x;
+      const dz = b.z - a.z;
+      const k = Math.max(0, Math.min(1, ((x - a.x) * dx + (z - a.z) * dz) / (dx * dx + dz * dz || 1)));
+      return Math.hypot(x - a.x - dx * k, z - a.z - dz * k) < d;
+    }),
+  );
 }
 
 /** Bubble Lane and its pavements, from the lot's edge to past its far side. */

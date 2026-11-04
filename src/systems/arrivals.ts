@@ -192,7 +192,9 @@ export class Arrivals {
   private newCar(def: CarDef, payDef: CarDef, turnX: number, goal: Point, needs: Need[]): Car {
     const car = this.pool.acquire();
     const road = { x: this.layout.spawnX, z: this.roadIn };
-    car.spawn(def, road, [{ x: turnX, z: this.roadIn }], goal, payDef, needs);
+    // Round the corner off the road rather than pivot on the spot: a long car's tail would swing across the far lane.
+    const into = Math.sign(goal.z - this.roadIn) || 1;
+    car.spawn(def, road, [{ x: turnX - CORNER, z: this.roadIn }, { x: turnX, z: this.roadIn + into * CORNER }], goal, payDef, needs);
     car.patienceMax = def.patience * (1 + unlockedSum(this.state, (e) => e.patienceBonus));
     car.patience = car.patienceMax;
     car.wantsDetail = Math.random() < TUNING.stations.garage.chance;

@@ -1,12 +1,13 @@
 // People out for a stroll (no business at the car wash): they walk the
-// pavements along routes from the layout, cross at the zebra crossings,
-// sometimes stop to look in a shop window, and leave at the far end.
+// town's pavements and garden paths along routes from the layout, never the
+// lot, the forecourt or across a road; sometimes stop to look in a shop
+// window or at a house, and leave at the far end (or turn back at a dead end).
 import { TUNING, type Point, type Rect } from '../core/config';
 import { between } from './economy';
 import type { Walker } from './mart';
 import { carAhead } from './roadRules';
 
-type Spot = Point & { look?: number };
+type Spot = Point & { look?: number; turn?: boolean };
 
 interface Stroller {
   walker: Walker;
@@ -32,7 +33,7 @@ export class Pedestrians {
   private started = false;
 
   constructor(
-    /** The routes people walk, each from one end to the other (either way). */
+    /** The routes people walk, each from one end to the other (either way), or to a turn and back. */
     private readonly routes: readonly Spot[][],
     /** A person to show (null in tests: nobody is drawn, but the walking still happens). */
     private readonly makeWalker: () => Walker,
@@ -67,7 +68,7 @@ export class Pedestrians {
   /** Someone sets off from one end of a route (or, `midway`, is already somewhere along it). */
   private spawn(midway = false): void {
     const route = this.routes[Math.floor(this.rand() * this.routes.length)]!;
-    const path = this.rand() < 0.5 ? [...route] : [...route].reverse();
+    const path = route[route.length - 1]!.turn ? [...route, ...[...route].reverse().slice(1)] : this.rand() < 0.5 ? [...route] : [...route].reverse();
     let start = path.shift()!;
     if (midway && path.length > 0) {
       const skip = Math.floor(this.rand() * path.length);

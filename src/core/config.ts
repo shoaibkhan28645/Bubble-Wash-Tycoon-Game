@@ -103,8 +103,12 @@ export interface LocationLayout {
   blocked: Rect[];
   /** The town round the lot (art/blender/town.py, or a prop): shops, homes, lamps; some solid, some with a name sign. */
   town: TownPiece[];
-  /** Routes people stroll along (either way); they may stop at a point with a `look` (the way they face). */
-  walkways: (Point & { look?: number })[][];
+  /**
+   * Routes people stroll along, end to end either way, through the town (never the lot, the forecourt or
+   * a road); they may stop at a point with a `look` (the way they face). A route ending in a `turn` spot
+   * is a dead end: people come from its start, walk to the turn and back.
+   */
+  walkways: (Point & { look?: number; turn?: boolean })[][];
   /** Trees along the streets. */
   streetTrees: Point[];
   /** More ground the player may walk and the camera show once a pad is built (the side street, after the dryer). */

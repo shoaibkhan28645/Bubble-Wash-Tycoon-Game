@@ -181,6 +181,17 @@ describe('brush tunnel', () => {
     expect(car.model.mesh.position.z).toBeCloseTo(tunnel.exit.z);
   });
 
+  it('never lets a car ride up into one stopped ahead of it (waiting for soap)', () => {
+    const tunnel = make();
+    const front = rider('waiting', 0.4);
+    const behind = rider('waiting', 0);
+    behind.supplied = true;
+    tunnel.inside.push(front, behind);
+    for (let i = 0; i < 100; i++) tunnel.run(0.1, 0, soap(0), noop);
+    expect(front.progress).toBe(0.4);
+    expect(behind.progress).toBeCloseTo(0.4 - 1 / TUNING.stations.tunnel.capacity);
+  });
+
   it('stops without soap, and while the front car waits at the exit', () => {
     const tunnel = make();
     const car = rider('waiting');
