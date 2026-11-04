@@ -1,7 +1,7 @@
 # 3D model credits
 
-The buildings (`buildings/`) and cars (`cars/`) are made for Bubble Wash
-Town in Blender, from the scripts in `art/blender`.
+The buildings (`buildings/`) and cars (`cars/`) are made for Main Street
+Mogul in Blender, from the scripts in `art/blender`.
 
 The people in `people/` and the trees, plants and rocks in `nature/` are by **Kenney** (https://kenney.nl),
 released under **Creative Commons Zero (CC0 1.0)**: free for any use, no

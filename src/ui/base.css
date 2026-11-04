@@ -63,8 +63,8 @@ body {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 24px;
-  background: #bfe9ff;
+  gap: 20px;
+  background: linear-gradient(#cfe8ff, #fff4d6);
   transition: opacity 250ms ease-out;
   z-index: 10;
 }
@@ -77,7 +77,7 @@ body {
 .loading-title {
   margin: 0;
   font: 900 30px/1.1 system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
-  color: #2f80d1;
+  color: #1d3a6e;
   text-align: center;
   text-shadow:
     0 3px 0 #fff,
@@ -85,29 +85,37 @@ body {
 }
 
 .loading-title span {
-  color: #ff5fa8;
+  color: #e09a00;
 }
 
-.loading-bubbles {
+.loading-tagline {
+  margin: -12px 0 0;
+  font: 700 15px/1.2 system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  color: #4a5f80;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+/* Three gold coins bobbing while the game loads. */
+.loading-coins {
   display: flex;
   gap: 12px;
 }
 
-.loading-bubbles span {
+.loading-coins span {
   width: 22px;
   height: 22px;
   border-radius: 50%;
-  background: radial-gradient(circle at 35% 30%, #fff 0 18%, #ff8fc8 22% 100%);
+  border: 2px solid #c98a00;
+  background: radial-gradient(circle at 35% 30%, #fff6c8 0 16%, #ffd23f 22% 100%);
   animation: loading-bob 900ms ease-in-out infinite;
 }
 
-.loading-bubbles span:nth-child(2) {
-  background: radial-gradient(circle at 35% 30%, #fff 0 18%, #ffd85c 22% 100%);
+.loading-coins span:nth-child(2) {
   animation-delay: 150ms;
 }
 
-.loading-bubbles span:nth-child(3) {
-  background: radial-gradient(circle at 35% 30%, #fff 0 18%, #7ee0c3 22% 100%);
+.loading-coins span:nth-child(3) {
   animation-delay: 300ms;
 }
 
@@ -123,7 +131,7 @@ body {
   width: 0;
   height: 100%;
   border-radius: 5px;
-  background: #ff8fc8;
+  background: #ffc21a;
   transition: width 200ms ease-out;
 }
 

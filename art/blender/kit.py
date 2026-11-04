@@ -1,4 +1,4 @@
-"""Shared Blender helpers for Bubble Wash Town's buildings.
+"""Shared Blender helpers for Main Street Mogul's buildings.
 
 Every building is made of simple rounded parts, each painted one flat
 colour. Static parts are joined into one mesh that carries its colours as

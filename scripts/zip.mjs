@@ -1,4 +1,4 @@
-// Packs dist/ into bubble-wash.zip with index.html at the root, ready for
+// Packs dist/ into main-street-mogul.zip with index.html at the root, ready for
 // the Playables Developer Portal. Pure JavaScript (fflate), so it works in
 // Termux without the zip binary. Fails on file names YouTube rejects.
 import { readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
@@ -6,7 +6,7 @@ import { join, relative } from 'node:path';
 import { zipSync } from 'fflate';
 
 const DIST = 'dist';
-const OUT = 'bubble-wash.zip';
+const OUT = 'main-street-mogul.zip';
 const SAFE_NAME = /^[A-Za-z0-9_.-]+$/;
 const MAX_FILES = 8000;
 

@@ -71,7 +71,7 @@ export async function boot(root: HTMLElement): Promise<void> {
   }
 
   // Dev-only handle for automated play tests; stripped from production builds.
-  if (import.meta.env.DEV) Object.assign(window, { bubbleWash: { state, game, sound } });
+  if (import.meta.env.DEV) Object.assign(window, { mogul: { state, game, sound } });
 
   await loading.hide();
   game.start();

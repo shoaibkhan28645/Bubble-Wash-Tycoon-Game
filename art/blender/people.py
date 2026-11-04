@@ -1,4 +1,4 @@
-"""Bubble Wash Town's people: the car wash staff and the townspeople, in
+"""Main Street Mogul's people: the car wash staff and the townspeople, in
 the hero's style, all on one shared skeleton with the same animations.
 
 Each person is built from a look (looks.py): a body (person_body.py), a

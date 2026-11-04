@@ -1,6 +1,7 @@
 import { Emitter } from '../core/events';
 import type { DevControls, PlatformBackend } from './types';
 
+// Kept from the game's first name so existing dev saves still load.
 const SAVE_KEY = 'bubble-wash-dev-save';
 const FAKE_AD_MS = 1500;
 
