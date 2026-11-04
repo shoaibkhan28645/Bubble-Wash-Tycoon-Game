@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { LOCATION1, TUNING, type Point } from '../src/core/config';
+import { CARS, LOCATION1, SIDE_STREET_HALF, STREET_HALF, TUNING, type Point } from '../src/core/config';
 import type { CarPool } from '../src/systems/cars';
 import type { Walker } from '../src/systems/mart';
 import { PassingTraffic } from '../src/systems/passing';
@@ -240,8 +240,8 @@ describe('road rules', () => {
   });
 
   it('a car pulling out onto the road waits at the kerb for a car coming along it, not one gone by', () => {
-    // The road runs along x, 1.9 m either side of z 0; the car pulls out from z -5.
-    const onRoad = (p: Point) => Math.abs(p.z) < 1.9;
+    // The road runs along x, 1.9 m either side of z 0 (a lane each side); the car pulls out from z -5.
+    const onRoad = (p: Point) => (Math.abs(p.z) < 1.9 ? (p.z < 0 ? 'far' : 'near') : null);
     const out = () => car(0, -4.5, { x: 0, z: 5 }, 0, { serial: 1 });
     const coming = car(-8, -0.85, { x: 40, z: -0.85 }, Math.PI / 2, { serial: 2 });
     const gone = car(4, -0.85, { x: 40, z: -0.85 }, Math.PI / 2, { serial: 2 });
@@ -254,6 +254,11 @@ describe('road rules', () => {
     expect(new RoadRules(() => [c, far], () => [], onRoad).blocked(c)).toBe(false);
     // The car on the road never waits for it.
     expect(new RoadRules(() => [a, coming], () => [], onRoad).blocked(coming)).toBe(false);
+    // Turning across the far lane from the near one: it waits for a car coming along the far lane.
+    const turning = car(0, 1.6, { x: 0, z: -6 }, Math.PI, { serial: 1 });
+    const along = car(8, -0.85, { x: -40, z: -0.85 }, -Math.PI / 2, { serial: 2 });
+    expect(new RoadRules(() => [turning, along], () => [], onRoad).blocked(turning)).toBe(true);
+    expect(new RoadRules(() => [turning, along], () => [], onRoad).blocked(along)).toBe(false);
   });
 
   it("people walking on the pavement beside the road don't hold up the cars going by", () => {
@@ -291,18 +296,27 @@ describe('road rules', () => {
   });
 });
 
+describe('the roads', () => {
+  it('Main Street has room for the widest car in each lane, kerb to centre line', () => {
+    const widest = Math.max(...CARS.map((c) => c.size[0]));
+    expect(LOCATION1.roadLane - widest / 2).toBeGreaterThanOrEqual(-0.01);
+    expect(LOCATION1.roadLane + widest / 2).toBeLessThanOrEqual(STREET_HALF);
+    // Bubble Lane, one way: the right-hand side is driven.
+    expect(LOCATION1.sideLane + widest / 2).toBeLessThanOrEqual(SIDE_STREET_HALF);
+  });
+});
+
 describe('the town is laid out for walking', () => {
   it('no walkway goes on the lot, the forecourt, a road or a driveway: people out walking stay in the town', () => {
     const L = LOCATION1;
     const grow = (r: { minX: number; maxX: number; minZ: number; maxZ: number }, by: number) => ({ minX: r.minX - by, maxX: r.maxX + by, minZ: r.minZ - by, maxZ: r.maxZ + by });
-    const STREET = 1.9;
     const working = [
       grow(L.lot, 0.6),
       ...Object.values(L.areas).map((a) => grow(a, 0.3)),
       // Main Street, kerb to kerb.
-      { minX: -1e3, maxX: 1e3, minZ: L.roadZ - STREET - 0.1, maxZ: L.roadZ + STREET + 0.1 },
+      { minX: -1e3, maxX: 1e3, minZ: L.roadZ - STREET_HALF - 0.1, maxZ: L.roadZ + STREET_HALF + 0.1 },
       // Bubble Lane and the lot's driveways out to it.
-      { minX: L.lot.maxX, maxX: L.sideStreetX + STREET + 0.2, minZ: L.roadZ, maxZ: 1e3 },
+      { minX: L.lot.maxX, maxX: L.sideStreetX + SIDE_STREET_HALF + 0.2, minZ: L.roadZ, maxZ: 1e3 },
     ];
     for (const route of L.walkways) {
       for (let i = 1; i < route.length; i++) {

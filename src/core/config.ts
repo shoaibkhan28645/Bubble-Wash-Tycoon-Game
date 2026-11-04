@@ -118,8 +118,10 @@ export interface LocationLayout {
   cameraBase: Rect;
   roadZ: number;
   spawnX: number;
-  /** Cars drive on the near side of the road coming in, the far side going away. */
+  /** Cars drive on the near side of the road coming in, the far side going away: each lane's middle is this far from the road's. */
   roadLane: number;
+  /** The same for Bubble Lane (cars drive up its right-hand side). */
+  sideLane: number;
   /** Lane below the bays that carries washed cars to the finishing lane. */
   collectZ: number;
   /** Finishing lane (dryer, wax) runs down at this x. */
@@ -287,12 +289,15 @@ const DRIVEWAY_GAP = 1.75;
 /** The side hedge starts this far in from the lot's front, leaving the pavement by the crossing open. */
 export const SIDE_HEDGE_START = 5;
 
-/** Half the width of Main Street and Bubble Lane, kerb to kerb, in metres. */
-export const STREET_HALF = 1.9;
+/** Half the width of Main Street, kerb to kerb, in metres (room for a monster truck in each lane). */
+export const STREET_HALF = 2.35;
+/** Half the width of Bubble Lane, the side street the cars leave by. */
+export const SIDE_STREET_HALF = 1.9;
 
-/** On Main Street or Bubble Lane (the side street the cars leave by), kerb to kerb. */
-export function onRoad(layout: LocationLayout, p: Point): boolean {
-  return Math.abs(p.z - layout.roadZ) < STREET_HALF || (p.z > layout.roadZ && Math.abs(p.x - layout.sideStreetX) < STREET_HALF);
+/** Which lane of the road a point is in: Main Street's far (westbound) or near (eastbound) side, Bubble Lane, or none (off the road). */
+export function roadLaneAt(layout: LocationLayout, p: Point): 'west' | 'east' | 'side' | null {
+  if (Math.abs(p.z - layout.roadZ) < STREET_HALF) return p.z < layout.roadZ ? 'west' : 'east';
+  return p.z > layout.roadZ && Math.abs(p.x - layout.sideStreetX) < SIDE_STREET_HALF ? 'side' : null;
 }
 
 /** Half the width of a street tree's trunk. */

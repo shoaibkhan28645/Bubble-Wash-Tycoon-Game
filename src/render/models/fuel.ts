@@ -2,7 +2,7 @@
 // out, the canopy, island and pumps (Blender models), and hoses that reach
 // over to the car being filled.
 import { CatmullRomCurve3, Group, Mesh, MeshLambertMaterial, PlaneGeometry, TubeGeometry, Vector3, type BufferGeometry, type Object3D } from 'three';
-import { PADS, type LocationLayout, type Point, type Rect } from '../../core/config';
+import { PADS, STREET_HALF, type LocationLayout, type Point, type Rect } from '../../core/config';
 import type { Station } from '../../systems/stations';
 import { asset } from '../assets';
 import { box, mergeParts, toyMaterial, type Part } from './build';
@@ -83,7 +83,7 @@ function pavingParts(layout: LocationLayout, firstPump: string): Part[] {
   const far = Math.min(...laneZs) - half;
   const near = Math.max(...laneZs) + half;
   // The road's kerb, relative to the island.
-  const kerb = layout.roadZ - 1.95 - island.z;
+  const kerb = layout.roadZ - STREET_HALF - 0.05 - island.z;
   const parts: Part[] = [
     flat({ minX: x0 - 1.6, maxX: x1 + 1.6, minZ: far - 1.6, maxZ: kerb - 1.15 }, CONCRETE, 0.016),
     flat({ minX: x0 - half, maxX: x1 + half, minZ: far, maxZ: near }, ASPHALT, 0.02),

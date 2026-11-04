@@ -149,8 +149,8 @@ export class Journeys {
 
   /** Out of the lot onto the side street, up it (keeping right) and away along the main road, cutting the corner. */
   private awayRoute(exitZ: number): Point[] {
-    const { sideStreetX, roadZ, roadLane, leaveX } = this.layout;
-    const x = sideStreetX + roadLane;
+    const { sideStreetX, sideLane, roadZ, roadLane, leaveX } = this.layout;
+    const x = sideStreetX + sideLane;
     const z = roadZ + roadLane;
     return [
       { x, z: exitZ },

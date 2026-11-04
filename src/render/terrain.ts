@@ -10,7 +10,7 @@ import {
   Object3D,
   PlaneGeometry,
 } from 'three';
-import { SIDE_HEDGE_START, STREET_HALF, type LocationLayout, type Rect } from '../core/config';
+import { SIDE_HEDGE_START, SIDE_STREET_HALF, STREET_HALF, type LocationLayout, type Rect } from '../core/config';
 import { mergedModel } from './assets';
 import { GRAPHICS } from './graphics';
 import { lotSurface } from './lotSurface';
@@ -75,8 +75,9 @@ const flat = (w: number, d: number, color: string, x: number, z: number, y: numb
 const ASPHALT = '#646b77';
 const PAVEMENT = '#cfd5dc';
 const DASH = '#ffd85c';
-/** Half the width of a street (kerb to kerb), and of the lot's driveways. */
+/** Half the width of Main Street and of Bubble Lane (kerb to kerb), and of the lot's driveways. */
 const STREET = STREET_HALF;
+const SIDE = SIDE_STREET_HALF;
 const DRIVE = 1.35;
 /** Where the zebra crossing goes over Main Street: between the two bays' lanes. */
 const CROSSING_X = -1.5;
@@ -89,35 +90,35 @@ const CROSSING_X = -1.5;
 function roads(layout: LocationLayout): Mesh {
   const { roadZ, exitZ, earlyExitZ, sideStreetX: sx, lot } = layout;
   const end = lot.maxZ + 14;
-  const parts: Part[] = [flat(160, STREET * 2, ASPHALT, 0, roadZ, 0.02), flat(160, 1.4, PAVEMENT, 0, roadZ - 2.8, 0.025)];
+  const parts: Part[] = [flat(160, STREET * 2, ASPHALT, 0, roadZ, 0.02), flat(160, 1.4, PAVEMENT, 0, roadZ - STREET - 0.7, 0.025)];
   const box = (x0: number, z0: number, x1: number, z1: number, color: string, h = 0.14) =>
     parts.push({ geometry: new BoxGeometry(Math.max(0.24, x1 - x0), h, Math.max(0.24, z1 - z0)), color, x: (x0 + x1) / 2, y: h / 2, z: (z0 + z1) / 2 });
   // Main Street: kerbs (open where Bubble Lane joins), dashes, the pavement on the lot's side beyond it.
   box(-80, roadZ - STREET - 0.15, 80, roadZ - STREET + 0.15, '#e9edf2', 0.16);
-  box(-80, roadZ + STREET - 0.15, sx - STREET, roadZ + STREET + 0.15, '#e9edf2', 0.16);
-  box(sx + STREET, roadZ + STREET - 0.15, 80, roadZ + STREET + 0.15, '#e9edf2', 0.16);
-  for (let x = -78; x < 80; x += 3.2) if (Math.abs(x - sx) > STREET + 0.8) parts.push(flat(1.5, 0.2, DASH, x, roadZ, 0.03));
-  for (const [x0, x1] of [[-80, lot.minX], [lot.maxX, sx - STREET], [sx + STREET, 80]] as const) {
+  box(-80, roadZ + STREET - 0.15, sx - SIDE, roadZ + STREET + 0.15, '#e9edf2', 0.16);
+  box(sx + SIDE, roadZ + STREET - 0.15, 80, roadZ + STREET + 0.15, '#e9edf2', 0.16);
+  for (let x = -78; x < 80; x += 3.2) if (Math.abs(x - sx) > SIDE + 0.8) parts.push(flat(1.5, 0.2, DASH, x, roadZ, 0.03));
+  for (const [x0, x1] of [[-80, lot.minX], [lot.maxX, sx - SIDE], [sx + SIDE, 80]] as const) {
     parts.push(flat(x1 - x0, 1.4, PAVEMENT, (x0 + x1) / 2, roadZ + STREET + 0.7, 0.025));
   }
   // Bubble Lane, from Main Street down past the lot: centre dashes, kerbs, a pavement on the far side.
   const top = roadZ + STREET - 0.1;
-  parts.push(flat(STREET * 2, end - top, ASPHALT, sx, (top + end) / 2, 0.021));
+  parts.push(flat(SIDE * 2, end - top, ASPHALT, sx, (top + end) / 2, 0.021));
   for (let z = top + 2.5; z < end; z += 3.2) parts.push(flat(0.2, 1.5, DASH, sx, z, 0.03));
-  parts.push(flat(1.4, end - top, PAVEMENT, sx + STREET + 0.7, (top + end) / 2, 0.025));
-  box(sx + STREET - 0.15, top + 0.2, sx + STREET + 0.15, end, '#e9edf2', 0.16);
+  parts.push(flat(1.4, end - top, PAVEMENT, sx + SIDE + 0.7, (top + end) / 2, 0.025));
+  box(sx + SIDE - 0.15, top + 0.2, sx + SIDE + 0.15, end, '#e9edf2', 0.16);
   // The lot's driveways out, and kerbs between them along the lot's edge.
   const exits = [earlyExitZ, exitZ].sort((a, b) => a - b);
-  for (const z of exits) parts.push(flat(sx - STREET - lot.maxX + 0.2, DRIVE * 2, ASPHALT, (lot.maxX + sx - STREET) / 2, z, 0.022));
-  parts.push(flat(sx - STREET - lot.maxX, end - top, PAVEMENT, (lot.maxX + sx - STREET) / 2, (top + end) / 2, 0.018));
+  for (const z of exits) parts.push(flat(sx - SIDE - lot.maxX + 0.2, DRIVE * 2, ASPHALT, (lot.maxX + sx - SIDE) / 2, z, 0.022));
+  parts.push(flat(sx - SIDE - lot.maxX, end - top, PAVEMENT, (lot.maxX + sx - SIDE) / 2, (top + end) / 2, 0.018));
   let from = top + 0.2;
   for (const z of [...exits, end + DRIVE]) {
-    box(sx - STREET - 0.15, from, sx - STREET + 0.15, z - DRIVE, '#e9edf2', 0.16);
+    box(sx - SIDE - 0.15, from, sx - SIDE + 0.15, z - DRIVE, '#e9edf2', 0.16);
     from = z + DRIVE;
   }
   // Zebra crossings: over Main Street between the bay lanes, over Bubble Lane by the corner.
   for (let z = roadZ - STREET + 0.35; z < roadZ + STREET - 0.2; z += 0.75) parts.push(flat(2.4, 0.38, '#ffffff', CROSSING_X, z, 0.032));
-  for (let x = sx - STREET + 0.35; x < sx + STREET - 0.2; x += 0.75) parts.push(flat(0.38, 2.4, '#ffffff', x, roadZ + STREET + 2.6, 0.032));
+  for (let x = sx - SIDE + 0.35; x < sx + SIDE - 0.2; x += 0.75) parts.push(flat(0.38, 2.4, '#ffffff', x, roadZ + STREET + 2.6, 0.032));
   // Kerbs round the lot on the two sides away from the streets.
   box(lot.minX, lot.maxZ - 0.15, lot.maxX, lot.maxZ + 0.15, KERB);
   box(lot.minX - 0.15, lot.minZ + 0.2, lot.minX + 0.15, lot.maxZ, KERB);
@@ -286,7 +287,7 @@ function nearWalkway(layout: LocationLayout, x: number, z: number, d: number): b
 
 /** Bubble Lane and its pavements, from the lot's edge to past its far side. */
 function sideStreet(layout: LocationLayout): Rect {
-  return { minX: layout.lot.maxX, maxX: layout.sideStreetX + STREET + 1.4, minZ: layout.roadZ, maxZ: layout.lot.maxZ + 14 };
+  return { minX: layout.lot.maxX, maxX: layout.sideStreetX + SIDE + 1.4, minZ: layout.roadZ, maxZ: layout.lot.maxZ + 14 };
 }
 
 /** All static ground and scenery for a location. */

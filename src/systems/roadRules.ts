@@ -59,8 +59,8 @@ export class RoadRules {
     private readonly cars: () => Iterable<RoadCar>,
     /** Where the people are: the player, staff, shoppers, people out walking. */
     private readonly people: () => Point[],
-    /** On the road (kerb to kerb): cars joining it from off it give way to the traffic along it. */
-    private readonly onRoad: (p: Point) => boolean = () => false,
+    /** Which lane of the road a point is in (null: off the road). Cars pulling into a lane give way to the traffic along it. */
+    private readonly laneAt: (p: Point) => string | null = () => null,
   ) {}
 
   blocked(car: RoadCar): boolean {
@@ -77,10 +77,16 @@ export class RoadRules {
     const passing = this.passing.get(car);
     this.passing.delete(car);
     const ahead = sweep(car, LOOK);
-    // About to drive onto the road (out of the forecourt or the lot): it waits at the kerb for a gap,
-    // rather than pull out in front of a car and stop across its lane.
-    const entry = !this.onRoad(tip(car.position, dir, length / 2)) ? sweep(car, JOIN_LOOK) : [];
-    const joining = entry.some((body) => this.onRoad(tip(body.at, body.dir, body.hl)));
+    // About to pull into a lane of the road (out of the forecourt or the lot, or across the road into the
+    // forecourt): it waits for a gap in the traffic along that lane, rather than pull out in front of a
+    // car and stop across its way.
+    const here = this.laneAt(tip(p, dir, length / 2));
+    const entry = sweep(car, JOIN_LOOK);
+    const joining = new Set<string>();
+    for (const body of entry) {
+      const lane = this.laneAt(tip(body.at, body.dir, body.hl));
+      if (lane !== null && lane !== here) joining.add(lane);
+    }
     let held = false;
     for (const other of this.cars()) {
       if (other === car || !other.model.mesh.visible || other.state === 'angry' || sameTunnel(car, other)) continue;
@@ -95,7 +101,8 @@ export class RoadRules {
         return true;
       }
       const near = Math.hypot(other.position.x - p.x, other.position.z - p.z) < JOIN_AHEAD + JOIN_LOOK + length;
-      if (joining && near && !other.held && this.onRoad(other.position) && heading(other) && crosses(sweep(other, JOIN_AHEAD), entry)) {
+      const lane = joining.size > 0 && near && !other.held ? this.laneAt(other.position) : null;
+      if (lane !== null && joining.has(lane) && heading(other) && crosses(sweep(other, JOIN_AHEAD), entry)) {
         this.waitingOn.set(car, other);
         held = true;
         continue;

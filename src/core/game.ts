@@ -1,6 +1,6 @@
 import { Loop } from './loop';
 import { GameClock } from './clock';
-import { LOCATION1, PADS, TUNING, UPGRADES, fixedSolids, onRoad, type Rect } from './config';
+import { LOCATION1, PADS, TUNING, UPGRADES, fixedSolids, roadLaneAt, type Rect } from './config';
 import type { GameState } from './gameState';
 import type { Lifecycle } from './lifecycle';
 import type { SaveManager } from './save';
@@ -120,7 +120,7 @@ export function createGame(
   Car.rules = new RoadRules(
     () => pool.active,
     () => [player.position, ...staff.positions(), ...mart.positions(), ...street.people()],
-    (p) => onRoad(layout, p),
+    (p) => roadLaneAt(layout, p),
   );
 
   const addBuilt = (id: string, animate: boolean): void => {
