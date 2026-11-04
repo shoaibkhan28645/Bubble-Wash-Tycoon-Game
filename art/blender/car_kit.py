@@ -95,26 +95,43 @@ def _loft(rings, ys, name, rule):
     return obj
 
 
-def body(L, W, top, bottom, x=0.0, ring=24, n=4.2, end=0.26, taper=0.95, rule=None, count=20, extra=()):
+SEAM = '#262a31'
+#: Half the width of a panel line, in metres along the car (and in ring angle across it).
+GAP = 0.016
+GAP_T = 0.035
+
+
+def surface(L, W, top, bottom, y, t, n=4.2, end=0.26, taper=0.95, x=0.0):
+    """Where the body's skin is at `y` along the car and `t` round it (0: the right side, pi/2: the top)."""
+    d = min(y + L / 2, L / 2 - y)
+    f = (1 - (1 - min(1.0, max(0.0, d) / end)) ** 2.4) ** (1 / 2.4)
+    u = abs(y) / (L / 2)
+    a = W / 2 * (1 - (1 - taper) * u ** 3) * (0.72 + 0.28 * f)
+    zt, zb = spline(top, y), spline(bottom, y)
+    zc, b = (zt + zb) / 2, (zt - zb) / 2 * (0.6 + 0.4 * f)
+    cx, sz = _se(t, n)
+    return x + a * cx * f, zc + b * sz
+
+
+def body(L, W, top, bottom, x=0.0, ring=24, n=4.2, end=0.26, taper=0.95, rule=None, count=20, extra=(), seams_t=()):
     """The car's lower body: `top` and `bottom` are (y, z) points along it (front at -L/2); its sides
     are rounded (superellipse power `n`), it narrows a little towards the ends (`taper`), and its
-    nose and tail round off over `end` metres."""
+    nose and tail round off over `end` metres. `seams_t` are angles round the right side (mirrored on
+    the left) where a lengthways panel line may run: the ring gets a thin row there."""
     ys = stations(-L / 2, L / 2, count, extra)
     ys[0] += 0.002
     ys[-1] -= 0.002
+    ts = {round(2 * math.pi * j / ring, 5) for j in range(ring)}
+    for t in seams_t:
+        for side in (t, math.pi - t):
+            ts |= {round(side - GAP_T, 5), round(side + GAP_T, 5)}
+    ts = sorted(ts)
     rings = []
     for y in ys:
-        d = min(y + L / 2, L / 2 - y)
-        f = (1 - (1 - min(1.0, d / end)) ** 2.4) ** (1 / 2.4)
-        u = abs(y) / (L / 2)
-        a = W / 2 * (1 - (1 - taper) * u ** 3) * (0.72 + 0.28 * f)
-        zt, zb = spline(top, y), spline(bottom, y)
-        zc, b = (zt + zb) / 2, (zt - zb) / 2 * (0.6 + 0.4 * f)
         pts = []
-        for j in range(ring):
-            t = 2 * math.pi * j / ring
-            cx, sz = _se(t, n)
-            pts.append((x + a * cx * f, zc + b * sz, t))
+        for t in ts:
+            px, pz = surface(L, W, top, bottom, y, t, n, end, taper, x)
+            pts.append((px, pz, t))
         rings.append(pts)
     return _loft(rings, ys, 'body', rule or (lambda *a: PAINT))
 
@@ -146,12 +163,14 @@ def cabin(y0, y1, half_w, base, roof, x=0.0, lean=0.82, corner=0.14, count=10, e
     return _loft(rings, ys, 'cabin', rule or (lambda *a: GLASS))
 
 
-def windows(y_screen, y_rear, b_pillars=(), pillar=0.05, body=PAINT):
-    """A painting rule for a cabin: glass windscreen, side and rear windows; painted roof, pillars,
-    window frames and sills."""
+def windows(y_screen, y_rear, b_pillars=(), pillar=0.05, body=PAINT, seal=TRIM):
+    """A painting rule for a cabin: glass windscreen, side and rear windows; painted roof, pillars and
+    window frames, and a rubber (or chrome) `seal` along the bottom of the side windows."""
     def rule(y, t, normal, centre):
-        if t < 1:
+        if t < 0:
             return body
+        if t < 1:
+            return seal if y_screen - 0.1 < y < y_rear + 0.1 else body
         front, back = y < y_screen, y > y_rear
         if t < 2:
             return body if not (front or back) and any(abs(y - b) < pillar for b in b_pillars) else GLASS

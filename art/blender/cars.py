@@ -9,7 +9,7 @@ so one model comes in many real paint colours. The Car of the Day specials
 (taxi, police car, ambulance, fire truck, ice-cream van) have their own
 fixed colours (cars_special.py).
 
-Writes the customers' cars in cars-small.glb and cars-large.glb, and each
+Writes the customers' cars in four files (cars-small, -family, -large, -big), and each
 special in its own special-<name>.glb (only the day's one is loaded).
 
 Usage: python art/blender/cars.py <out-dir> [preview.png]
@@ -50,6 +50,7 @@ SEDAN = dict(
     cabin=dict(y0=-0.7, y1=1.12, base=0.8, screen=-0.18, rear=0.82, b=(0.3,),
                roof=[(-0.7, 0.8), (-0.18, 1.3), (0.05, 1.35), (0.6, 1.35), (0.85, 1.28), (1.12, 0.84)]),
     head=0.6, tail=0.68, bumpers=(0.36, 0.38), mirror=(-0.6, 0.86),
+    doors=(-0.72, 0.3, 0.7), hood=-1.55, boot=1.6, fuel=1.02,
 )
 
 
@@ -71,6 +72,7 @@ s = dict(
     cabin=dict(y0=-0.62, y1=1.62, base=0.82, screen=-0.1, rear=1.32, b=(0.5,),
                roof=[(-0.62, 0.82), (-0.1, 1.36), (0.15, 1.41), (1.2, 1.4), (1.45, 1.3), (1.62, 0.9)]),
     head=0.58, tail=0.72, bumpers=(0.34, 0.36), mirror=(-0.52, 0.86),
+    doors=(-0.62, 0.56), hood=-1.4, fuel=0.96,
 )
 p = cm.car(X, s)
 p.append(ck.soft((1.08, 0.26, 0.05), (X, 1.5, 1.37), PAINT, rot=(0.15, 0, 0)))
@@ -83,7 +85,8 @@ s = dict(
     bottom=[(-1.81, 0.46), (-1.5, 0.38), (1.5, 0.38), (1.81, 0.46)],
     cabin=dict(y0=-0.62, y1=1.74, base=1.0, screen=-0.15, rear=1.6, b=(0.42, 1.1),
                roof=[(-0.62, 1.0), (-0.15, 1.6), (0.1, 1.66), (1.55, 1.66), (1.7, 1.4), (1.74, 1.06)]),
-    head=0.82, tail=0.86, bumpers=(0.46, 0.48), mirror=(-0.52, 1.06),
+    head=0.82, tail=0.86, bumpers=(0.46, 0.48), mirror=(-0.52, 1.06), bumper=TRIM,
+    doors=(-0.66, 0.42, 0.68), hood=-1.55, fuel=1.2,
 )
 p = cm.car(X, s)
 for sx in (-1, 1):
@@ -100,6 +103,7 @@ s = dict(
     cabin=dict(y0=-1.12, y1=1.74, base=0.92, screen=-0.36, rear=1.6, b=(0.0, 0.85),
                roof=[(-1.12, 0.92), (-0.36, 1.66), (0.0, 1.72), (1.55, 1.72), (1.7, 1.45), (1.74, 1.0)]),
     head=0.64, tail=0.78, bumpers=(0.36, 0.38), mirror=(-0.98, 0.98),
+    doors=(-0.76, 0.0, 0.76), hood=-1.48, fuel=1.25,
 )
 finish(cm.car(X, s), 'minivan', X)
 
@@ -111,6 +115,7 @@ s = dict(
     cabin=dict(y0=-0.32, y1=1.45, base=0.7, screen=0.3, rear=0.95, half=0.8, lean=0.78,
                roof=[(-0.32, 0.7), (0.3, 1.1), (0.6, 1.13), (0.95, 1.05), (1.45, 0.78)]),
     head=0.5, tail=0.6, bumpers=(0.26, 0.3), mirror=(-0.12, 0.76), plates=False,
+    doors=(-0.76, 0.55), hood=-1.6, boot=1.62, fuel=1.22,
 )
 p = cm.car(X, s)
 for sx in (-1, 1):
@@ -127,7 +132,8 @@ PICKUP = dict(
     bottom=[(-1.88, 0.44), (-1.6, 0.38), (1.6, 0.38), (1.88, 0.44)],
     cabin=dict(y0=-0.55, y1=0.5, base=1.02, screen=-0.12, rear=0.36,
                roof=[(-0.55, 1.04), (-0.12, 1.62), (0.05, 1.66), (0.34, 1.66), (0.46, 1.5), (0.5, 1.06)]),
-    head=0.84, tail=0.86, bumpers=(0.46, 0.48), mirror=(-0.45, 1.08), grille=CHROME,
+    head=0.84, tail=0.86, bumpers=(0.46, 0.48), mirror=(-0.45, 1.08), grille=CHROME, bumper=TRIM,
+    doors=(-0.74, 0.46), hood=-1.65, fuel=0.92,
 )
 
 
@@ -184,7 +190,8 @@ s = dict(
     bottom=[(-1.86, 0.44), (-1.55, 0.38), (1.55, 0.38), (1.86, 0.44)],
     cabin=dict(y0=-0.6, y1=1.8, base=1.06, screen=-0.15, rear=1.62, b=(0.45, 1.12),
                roof=[(-0.6, 1.06), (-0.15, 1.66), (0.1, 1.71), (1.55, 1.71), (1.72, 1.45), (1.8, 1.12)]),
-    head=0.88, tail=0.9, bumpers=(0.46, 0.48), mirror=(-0.5, 1.12), grille=CHROME, bumper=PAINT,
+    head=0.88, tail=0.9, bumpers=(0.46, 0.48), mirror=(-0.5, 1.12), grille=CHROME, bumper=PAINT, seal=CHROME,
+    doors=(-0.68, 0.45, 0.68), hood=-1.6, fuel=1.25,
 )
 p = cm.car(X, s)
 p.append(ck.soft((0.8, 0.08, 0.36), (X, -1.86, 0.74), CHROME))
@@ -205,8 +212,10 @@ print('triangles', {o.name: kit.triangles([o]) for o in models})
 print('sizes', {b.name: [round(v, 2) for v in m.dimensions] for b, m in zip(bases, models)})
 # Several files, so each stays small (the game finds a car by name in any of them).
 FILES = {
-    'cars-small.glb': ('hatchback', 'sedan', 'minivan', 'sports'),
-    'cars-large.glb': ('suv', 'pickup', 'monster', 'luxury'),
+    'cars-small.glb': ('hatchback', 'sedan'),
+    'cars-family.glb': ('minivan', 'sports'),
+    'cars-large.glb': ('suv', 'pickup'),
+    'cars-big.glb': ('monster', 'luxury'),
     **{f'special-{name}.glb': (name,) for name in ('taxi', 'police', 'ambulance', 'firetruck', 'icecream')},
 }
 out = Path(sys.argv[1] if len(sys.argv) > 1 else '.')

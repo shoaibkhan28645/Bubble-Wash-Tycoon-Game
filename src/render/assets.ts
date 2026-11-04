@@ -44,12 +44,14 @@ const SCENERY = [
   'flower_purpleA', 'rock_smallA', 'rock_largeA', 'fence_simple',
 ];
 
+/** The customers' car files, in the order they're searched for a model. */
+const CAR_FILES = ['cars:small', 'cars:family', 'cars:large', 'cars:big'];
+
 /** Every model the game needs at start, by id → relative path. */
 function manifest(): Record<string, string> {
   const files: Record<string, string> = {};
   // Cars modelled in Blender (art/blender/cars.py); the Car of the Day specials load when first needed.
-  files['cars:small'] = 'models/cars/cars-small.glb';
-  files['cars:large'] = 'models/cars/cars-large.glb';
+  for (const file of CAR_FILES) files[file] = `models/cars/cars-${file.slice(5)}.glb`;
   // Buildings modelled in Blender (art/blender).
   files['building:tunnel'] = 'models/buildings/tunnel.glb';
   files['building:wash-bay'] = 'models/buildings/wash-bay.glb';
@@ -243,8 +245,6 @@ export function plain(geometry: BufferGeometry): BufferGeometry {
   return out;
 }
 
-/** The customers' car files, in the order they're searched for a model. */
-const CAR_FILES = ['cars:small', 'cars:large'];
 /** A Car of the Day special's own file (loaded when first needed). */
 export function specialCarFile(model: string): { id: string; path: string } {
   return { id: `cars:special-${model}`, path: `models/cars/special-${model}.glb` };

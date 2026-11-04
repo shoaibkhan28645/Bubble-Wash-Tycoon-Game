@@ -92,8 +92,11 @@ def van(X, paint, L, W, box, r=0.36, axles=(-1.2, 1.2), cab=(-1.12, -0.4)):
         bottom=[(-L / 2, 0.34), (-L / 2 + 0.3, 0.28), (L / 2 - 0.3, 0.28), (L / 2, 0.34)],
         cabin=dict(y0=y0 + 0.08, y1=y1 + 0.1, base=0.96, screen=y0 + 0.42, rear=y1, half=0.86,
                    roof=[(y0 + 0.08, 0.96), (y0 + 0.42, 1.58), (y0 + 0.6, 1.62), (y1 + 0.1, 1.64)]),
-        head=0.64, tail=0.74, bumpers=(0.36, 0.38), mirror=(y0 + 0.4, 1.0),
+        head=0.64, tail=0.74, bumpers=(0.36, 0.38), mirror=(y0 + 0.4, 1.0), bumper=TRIM, hood=-L / 2 + 0.3,
     )
+    door = axles[0] + r + 0.08
+    if y1 - door > 0.3:
+        s['doors'] = (door, y1)
     p = cm.car(X, s)
     b0, b1, top = box
     p.append(ck.soft((W + 0.04, b1 - b0, top - 0.86), (X, (b0 + b1) / 2, (top + 0.86) / 2), paint, round_=0.08))
