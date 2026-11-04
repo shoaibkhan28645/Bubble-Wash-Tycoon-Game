@@ -19,24 +19,24 @@ PASTEL = '#ffb3d9'
 
 def build(sedan, finish, X):
     """Adds the five specials, side by side from X."""
-    def checker(y, t, normal, c):
-        if t >= 0 and abs(math.cos(t)) > 0.6 and 0.12 < math.sin(t) < 0.5 and -1.3 < y < 1.3:
+    def checker(y, row, normal, c):
+        if row == 'upper-side' and -1.3 < y < 1.3:
             return '#1d2026' if int((y + 3) / 0.17) % 2 else '#ffffff'
         return None
     p = sedan(X, paint=YELLOW, rule=checker)
-    p.append(ck.soft((0.72, 0.3, 0.2), (X, 0.3, 1.44), '#fffbe8', round_=0.3))
-    p.append(ck.soft((0.64, 0.32, 0.05), (X, 0.3, 1.36), TRIM))
+    p.append(ck.soft((0.72, 0.3, 0.2), (X, 0.3, 1.46), '#fffbe8', round_=0.3))
+    p.append(ck.soft((0.64, 0.32, 0.05), (X, 0.3, 1.38), TRIM))
     finish(p, 'taxi', X)
 
     X += 4
 
-    def doors(y, t, normal, c):
-        return WHITE if t >= 0 and abs(math.cos(t)) > 0.5 and -0.5 < math.sin(t) < 0.6 and -0.95 < y < 0.95 else None
+    def doors(y, row, normal, c):
+        return WHITE if row in ('lower-side', 'upper-side', 'sill') and -0.76 < y < 0.74 else None
     p = sedan(X, paint='#22262d', rule=doors)
-    p.append(ck.soft((0.92, 0.28, 0.1), (X, 0.3, 1.38), TRIM))
+    p.append(ck.soft((0.92, 0.28, 0.1), (X, 0.3, 1.4), TRIM))
     for dx, col in ((-0.25, '#ff2e4c'), (0.25, '#2e7dff')):
-        p.append(ck.soft((0.38, 0.24, 0.13), (X + dx, 0.3, 1.47), col, round_=0.35))
-    p.append(ck.soft((1.0, 0.12, 0.28), (X, -1.86, 0.46), TRIM))
+        p.append(ck.soft((0.38, 0.24, 0.13), (X + dx, 0.3, 1.49), col, round_=0.35))
+    p.append(ck.soft((1.1, 0.12, 0.26), (X, -1.9, 0.44), TRIM))
     finish(p, 'police', X)
 
     X += 4
@@ -87,12 +87,12 @@ def van(X, paint, L, W, box, r=0.36, axles=(-1.2, 1.2), cab=(-1.12, -0.4)):
     """A rounded cab with a glasshouse, and a tall box body from box[0] to box[1] (top at box[2])."""
     y0, y1 = cab
     s = dict(
-        L=L, W=W, r=r, axles=axles, paint=paint,
-        top=[(-L / 2, 0.68), (-L / 2 + 0.28, 0.84), (y0 + 0.2, 0.96), (y1, 1.0), (L / 2, 1.0)],
+        L=L, W=W, r=r, axles=axles, paint=paint, corner=(0.32, 0.12), rake=(0.12, 0.0),
+        top=[(-L / 2, 0.72), (-L / 2 + 0.3, 0.86), (y0 + 0.2, 0.96), (y1, 1.0), (L / 2, 1.0)],
         bottom=[(-L / 2, 0.34), (-L / 2 + 0.3, 0.28), (L / 2 - 0.3, 0.28), (L / 2, 0.34)],
-        cabin=dict(y0=y0 + 0.08, y1=y1 + 0.1, base=0.96, screen=y0 + 0.42, rear=y1, half=0.86,
+        cabin=dict(y0=y0 + 0.08, y1=y1 + 0.1, base=0.96, screen=y0 + 0.42, rear=y1, half=0.88,
                    roof=[(y0 + 0.08, 0.96), (y0 + 0.42, 1.58), (y0 + 0.6, 1.62), (y1 + 0.1, 1.64)]),
-        head=0.64, tail=0.74, bumpers=(0.36, 0.38), mirror=(y0 + 0.4, 1.0), bumper=TRIM, hood=-L / 2 + 0.3,
+        head=0.7, tail=0.78, mirror=y0 + 0.36, bumper=TRIM, hood=-L / 2 + 0.32,
     )
     door = axles[0] + r + 0.08
     if y1 - door > 0.3:

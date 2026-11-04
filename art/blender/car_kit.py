@@ -18,7 +18,7 @@ GLASS = '#2c4258'
 TYRE = '#26292f'
 WALL = '#30343c'
 RIM = '#dfe4ea'
-DISH = '#9aa4b0'
+DISH = '#7f8996'
 TRIM = '#2a2f37'
 CHROME = '#eef2f6'
 LIGHT = '#fff6d8'
@@ -64,7 +64,7 @@ def _loft(rings, ys, name, rule):
     obj = bpy.data.objects.new(name, mesh)
     bpy.context.scene.collection.objects.link(obj)
     bm = bmesh.new()
-    verts = [[bm.verts.new((x, y, z)) for x, z, _ in ring] for ring, y in zip(rings, ys)]
+    verts = [[bm.verts.new((pt[0], y + (pt[3] if len(pt) > 3 else 0.0), pt[1])) for pt in ring] for ring, y in zip(rings, ys)]
     params = {}
     count = len(rings[0])
     for i in range(len(rings) - 1):
@@ -77,7 +77,8 @@ def _loft(rings, ys, name, rule):
     for i, ring in ((0, rings[0]), (len(rings) - 1, rings[-1])):
         cx = sum(p[0] for p in ring) / count
         cz = sum(p[1] for p in ring) / count
-        centre = bm.verts.new((cx, ys[i], cz))
+        dy = sum(p[3] if len(p) > 3 else 0.0 for p in ring) / count
+        centre = bm.verts.new((cx, ys[i] + dy, cz))
         for j in range(count):
             f = bm.faces.new([verts[i][j], verts[i][(j + 1) % count], centre])
             params[f] = (ys[i], -2)
@@ -93,47 +94,6 @@ def _loft(rings, ys, name, rule):
             attr.data[li].color = rgba
     mesh.color_attributes.active_color = attr
     return obj
-
-
-SEAM = '#262a31'
-#: Half the width of a panel line, in metres along the car (and in ring angle across it).
-GAP = 0.016
-GAP_T = 0.035
-
-
-def surface(L, W, top, bottom, y, t, n=4.2, end=0.26, taper=0.95, x=0.0):
-    """Where the body's skin is at `y` along the car and `t` round it (0: the right side, pi/2: the top)."""
-    d = min(y + L / 2, L / 2 - y)
-    f = (1 - (1 - min(1.0, max(0.0, d) / end)) ** 2.4) ** (1 / 2.4)
-    u = abs(y) / (L / 2)
-    a = W / 2 * (1 - (1 - taper) * u ** 3) * (0.72 + 0.28 * f)
-    zt, zb = spline(top, y), spline(bottom, y)
-    zc, b = (zt + zb) / 2, (zt - zb) / 2 * (0.6 + 0.4 * f)
-    cx, sz = _se(t, n)
-    return x + a * cx * f, zc + b * sz
-
-
-def body(L, W, top, bottom, x=0.0, ring=24, n=4.2, end=0.26, taper=0.95, rule=None, count=20, extra=(), seams_t=()):
-    """The car's lower body: `top` and `bottom` are (y, z) points along it (front at -L/2); its sides
-    are rounded (superellipse power `n`), it narrows a little towards the ends (`taper`), and its
-    nose and tail round off over `end` metres. `seams_t` are angles round the right side (mirrored on
-    the left) where a lengthways panel line may run: the ring gets a thin row there."""
-    ys = stations(-L / 2, L / 2, count, extra)
-    ys[0] += 0.002
-    ys[-1] -= 0.002
-    ts = {round(2 * math.pi * j / ring, 5) for j in range(ring)}
-    for t in seams_t:
-        for side in (t, math.pi - t):
-            ts |= {round(side - GAP_T, 5), round(side + GAP_T, 5)}
-    ts = sorted(ts)
-    rings = []
-    for y in ys:
-        pts = []
-        for t in ts:
-            px, pz = surface(L, W, top, bottom, y, t, n, end, taper, x)
-            pts.append((px, pz, t))
-        rings.append(pts)
-    return _loft(rings, ys, 'body', rule or (lambda *a: PAINT))
 
 
 def cabin(y0, y1, half_w, base, roof, x=0.0, lean=0.82, corner=0.14, count=10, extra=(), rule=None, n=None):
