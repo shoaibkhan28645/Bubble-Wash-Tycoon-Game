@@ -31,7 +31,7 @@ import { Buildings } from '../systems/buildings';
 import { PadSystem } from '../systems/pads';
 import { createMeta } from './meta';
 import { WashSounds } from '../audio/washSounds';
-import { blobShadows } from '../render/models/actors';
+import { CarModel, blobShadows } from '../render/models/actors';
 import { FuelHoses } from '../render/models/fuel';
 import { ConstructionSites } from '../render/models/site';
 import { takeFinished } from '../systems/construction';
@@ -78,6 +78,7 @@ export function createGame(
   const hud = new Hud(root, state.cash);
   const input = new Input(root, lifecycle);
   const effects = new Particles(stage.scene);
+  CarModel.exhaust = (at, back) => effects.puff(at, back);
   blobShadows.attach(stage.scene);
 
   const bayIds = PADS.filter((pad) => pad.effects.bay).map((pad) => pad.effects.bay!);

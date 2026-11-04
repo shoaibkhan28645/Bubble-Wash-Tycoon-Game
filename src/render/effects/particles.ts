@@ -11,7 +11,7 @@ import {
   Vector3,
 } from 'three';
 
-export type ParticleKind = 'sparkle' | 'bubble' | 'bill' | 'water' | 'confetti';
+export type ParticleKind = 'sparkle' | 'bubble' | 'bill' | 'water' | 'confetti' | 'smoke';
 
 interface Particle {
   active: boolean;
@@ -27,12 +27,13 @@ interface Particle {
   spin: number;
 }
 
-const GRAVITY: Record<ParticleKind, number> = { sparkle: -9, bubble: 1.2, bill: -12, water: -14, confetti: -5 };
+const GRAVITY: Record<ParticleKind, number> = { sparkle: -9, bubble: 1.2, bill: -12, water: -14, confetti: -5, smoke: 0.9 };
 /** How fast each kind slows down in the air (bubbles float, confetti flutters). */
-const DRAG: Partial<Record<ParticleKind, number>> = { bubble: 2.5, confetti: 1.8 };
+const DRAG: Partial<Record<ParticleKind, number>> = { bubble: 2.5, confetti: 1.8, smoke: 2.2 };
 const TINTS: Partial<Record<ParticleKind, number[]>> = {
   sparkle: [0xfff6b0, 0xffffff, 0xffd85c, 0xbfe9ff],
   confetti: [0xff8fc8, 0x5bbcff, 0xffd24a, 0x7ee0c3, 0xb79cff],
+  smoke: [0xd9dde2, 0xc4c9d0, 0xe8ebee, 0xb8bec6],
 };
 const POOL = 96;
 
@@ -47,6 +48,23 @@ export class Particles {
     this.addKind(scene, 'bill', new BoxGeometry(0.42, 0.06, 0.24), new MeshBasicMaterial({ color: 0x5cc45c }));
     this.addKind(scene, 'water', new OctahedronGeometry(0.07), new MeshBasicMaterial({ color: 0x8fd3ff, transparent: true, opacity: 0.85 }));
     this.addKind(scene, 'confetti', new BoxGeometry(0.16, 0.02, 0.1), new MeshBasicMaterial({ color: 0xffffff }));
+    this.addKind(scene, 'smoke', new IcosahedronGeometry(0.17, 1), new MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.6, depthWrite: false }));
+  }
+
+  /** A soft puff of exhaust from a car's pipe at `at`, blown out along `back` (a car pulling away). */
+  puff(at: Vector3, back: Vector3, count = 6): void {
+    for (let i = 0; i < count; i++) {
+      const p = this.take('smoke');
+      if (!p) return;
+      p.fly = false;
+      p.pos.set(at.x + (Math.random() - 0.5) * 0.12, at.y + Math.random() * 0.06, at.z + (Math.random() - 0.5) * 0.12);
+      // Some blown further than others, so the puff trails out behind the car.
+      const out = 0.5 + Math.random() * 1.6;
+      p.vel.set(back.x * out + (Math.random() - 0.5) * 1.1, 0.3 + Math.random() * 0.7, back.z * out + (Math.random() - 0.5) * 1.1);
+      p.life = 0.9 + Math.random() * 0.6;
+      p.size = 0.55 + Math.random() * 0.7 + i * 0.08;
+      p.spin *= 0.3;
+    }
   }
 
   /** Particles flung outward from a point. */
@@ -96,7 +114,8 @@ export class Particles {
           if (drag) p.vel.multiplyScalar(Math.max(0, 1 - dt * drag));
           p.pos.addScaledVector(p.vel, dt);
         }
-        const scale = p.size * (p.fly ? 1 : 1 - t * t);
+        // Smoke swells as it drifts, then thins away; the rest shrink as they fall.
+        const scale = p.size * (p.fly ? 1 : kind === 'smoke' ? (0.5 + 1.8 * t) * (1 - t * t) : 1 - t * t);
         this.dummy.position.copy(p.pos);
         this.dummy.rotation.set(p.spin * p.age, p.spin * p.age * 0.7, 0);
         this.dummy.scale.setScalar(Math.max(0.001, scale));

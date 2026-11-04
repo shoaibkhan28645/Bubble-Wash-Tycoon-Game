@@ -9,6 +9,7 @@ import {
   Object3D,
   PlaneGeometry,
   Scene,
+  Vector3,
 } from 'three';
 import type { CarDef } from '../../core/config';
 import { carGeometry } from '../carGeometry';
@@ -105,6 +106,8 @@ const DEFAULT_PAINTS = ['#c9ced6'];
 
 /** A pooled car: one Blender model (one draw call), painted and muddied by its own material. The windows are opaque, so no visible driver. */
 export class CarModel {
+  /** Where to send a puff of exhaust (the game's particles): a car pulling away from a stop. */
+  static exhaust: ((at: Vector3, back: Vector3) => void) | null = null;
   readonly mesh = new Group();
   /** Glossy: clean paint and glass catch the light (mud.ts says how shiny each part is). */
   private readonly body = new Mesh(undefined, new MeshPhongMaterial({ vertexColors: true, specular: CAR_SPECULAR, shininess: 48 }));
@@ -122,6 +125,8 @@ export class CarModel {
   private last: { x: number; z: number; yaw: number } | null = null;
   private yawRate = 0;
   private sinceStop = 9;
+  /** The exhaust pipe, under the back on the right, and how far the puff blows (in the car's own space). */
+  private readonly pipe = new Vector3();
 
   constructor() {
     // Cars keep their soft blob shadow; they receive the buildings' and trees' shadows.
@@ -134,7 +139,10 @@ export class CarModel {
   setType(def: CarDef): void {
     this.body.geometry = carGeometry(def.model);
     this.wheelRadius = (this.body.geometry.userData.wheelRadius as number) * def.scale;
+    this.pipe.set(-(def.size[0] / 2 - 0.45), 0.24, -def.size[2] / 2 - 0.08);
     this.last = null;
+    // It arrives already driving: no squat or puff as it appears.
+    this.wasMoving = true;
     this.mud.uBrake.value = 0;
     this.mud.uBlinkL.value = this.mud.uBlinkR.value = 0;
     const paints = def.paints ?? DEFAULT_PAINTS;
@@ -176,7 +184,14 @@ export class CarModel {
     this.roll += (lean - this.roll) * Math.min(1, step * 6);
     // Squat pulling away, dive stopping, then spring back.
     if (this.wasMoving && !moving) this.dipSpeed = -2.4;
-    if (!this.wasMoving && moving) this.dipSpeed = 1.6;
+    if (!this.wasMoving && moving) {
+      this.dipSpeed = 1.6;
+      // A puff of exhaust as it pulls away (not when it has only just appeared).
+      if (this.last && CarModel.exhaust && this.mesh.visible) {
+        const back = new Vector3(-Math.sin(yaw), 0, -Math.cos(yaw));
+        CarModel.exhaust(this.mesh.localToWorld(this.pipe.clone()), back);
+      }
+    }
     this.wasMoving = moving;
     this.dipSpeed += (-70 * this.dip - 8 * this.dipSpeed) * step;
     this.dip += this.dipSpeed * step;
