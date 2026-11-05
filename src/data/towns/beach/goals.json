@@ -1,0 +1,20 @@
+{
+  "franchiseStars": 1,
+  "goals": [
+    {
+      "id": "scooper",
+      "built": "scooper",
+      "gems": 10
+    },
+    {
+      "id": "kiosk2",
+      "built": "kiosk2",
+      "gems": 15
+    },
+    {
+      "id": "lifeguard",
+      "built": "lifeguard",
+      "gems": 15
+    }
+  ]
+}

@@ -32,6 +32,8 @@ export interface Customer {
   manual: boolean;
   /** Whether the current station's supply was used up for it. */
   supplied: boolean;
+  /** A golden VIP: only the hero serves it until a manager is hired. */
+  readonly vip?: boolean;
   /** Wants this need but hasn't had it yet. */
   wants(need: Need): boolean;
 }

@@ -7,6 +7,8 @@ const EN = {
   endTitle: 'Your first town is complete!',
   endBody: 'Beach Boardwalk opens soon. Your businesses here keep earning in the meantime.',
   keepWashing: 'Keep going',
+  endTitleBeach: 'The boardwalk is just getting started',
+  endBodyBeach: 'Snack bars, surf rentals and a beach motel open soon. Every business you own keeps earning in the meantime.',
   newsEdition: 'Local news',
   newsContinue: 'Back to work',
   rankHeadline: 'Local owner rises to {rank}',
@@ -64,6 +66,7 @@ const EN = {
   m_combo: 'Serve {n} combos',
   m_snack: 'Sell {n} snacks at the Mini-Mart',
   guideWash: 'Stand by the car to wash it',
+  guideServe: 'Stand behind the counter to serve',
   guideCash: 'Pick up your cash',
   guideShelf: 'Grab soap from the shelf',
   guideSoapBay: 'Bring the soap to the bay',
@@ -95,6 +98,9 @@ const EN = {
   goal_tunnel: 'Open the brush tunnel',
   goal_garage: 'Open the detailing garage',
   goal_landmark: 'Build the Duck Fountain',
+  goal_scooper: 'Hire a scooper',
+  goal_kiosk2: 'Open a second kiosk',
+  goal_lifeguard: 'Build the lifeguard tower',
   task_wash: 'Wash {n} cars',
   'task_wash:hatchback': 'Wash {n} hatchbacks',
   'task_wash:sedan': 'Wash {n} sedans',
@@ -123,6 +129,11 @@ export function setLanguage(tag: string): void {
   const lower = tag.toLowerCase();
   table = TABLES[lower] ?? TABLES[lower.split('-')[0] ?? ''] ?? EN;
   document.documentElement.lang = table === EN ? 'en' : lower;
+}
+
+/** Whether there are words for this key (data that names its own strings, like town goals). */
+export function hasString(key: string): key is StringKey {
+  return key in EN;
 }
 
 /** A string with {placeholders} filled in, e.g. t('day', { n: 3 }). */

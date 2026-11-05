@@ -42,9 +42,13 @@ export function createMeta(deps: {
   state: GameState;
   saves: SaveManager;
   sound: SoundManager;
-  traffic: Traffic;
+  /** The car wash town's cars (the VIP convoy, the Car of the Day); null in a town without cars. */
+  traffic: Traffic | null;
   pads: PadSystem;
-  supplies: Supplies;
+  /** Station supplies (the instant refill); null in a town without them. */
+  supplies: Supplies | null;
+  /** Sets how much faster everyone works (the rewarded speed boost). */
+  setBoost: (multiplier: number) => void;
 }): Meta {
   const { root, state, saves, sound, traffic, pads, supplies } = deps;
   const ads = new Ads(platform, () => state.playSeconds);
@@ -86,13 +90,14 @@ export function createMeta(deps: {
       save();
     },
     convoy: async () => {
-      if (sessionSeconds < convoyReadyAt) return;
+      if (!traffic || sessionSeconds < convoyReadyAt) return;
       if (!(await earn('vip-convoy', '👑', t('convoyTitle'), t('convoyBody'), ADS.convoy.gems))) return;
       traffic.arrivals.callConvoy(ADS.convoy.cars);
       convoyReadyAt = sessionSeconds + ADS.convoy.cooldownSeconds;
       save();
     },
     refill: async () => {
+      if (!supplies) return;
       if (!(await earn('instant-supply', '🧴', t('refillTitle'), t('refillBody'), ADS.refill.gems))) return;
       supplies.fillAll();
       sound.play('reward');
@@ -144,7 +149,7 @@ export function createMeta(deps: {
 
   /** The Car of the Day: once a day, a minute into a session, after the tutorial. */
   const updateDayCar = (): void => {
-    if (state.daily.carOfDayDate === today || tutorialActive(state) || sessionSeconds < DAILY.carOfDay.afterSeconds) return;
+    if (!traffic || state.daily.carOfDayDate === today || tutorialActive(state) || sessionSeconds < DAILY.carOfDay.afterSeconds) return;
     const day = carOfDay(today);
     // The day's special loads when it's due.
     const file = specialCarFile(day.model);
@@ -173,7 +178,9 @@ export function createMeta(deps: {
     save();
   };
 
-  const available = (action: SideAction): boolean => sideButtonOpen(state, action);
+  // Buttons for what this town has: no convoy without cars, no refill without supplies.
+  const available = (action: SideAction): boolean =>
+    sideButtonOpen(state, action) && (action !== 'convoy' || !!traffic) && (action !== 'refill' || !!supplies);
 
   const progress = (kind: Parameters<typeof addProgress>[1], amount = 1): void => {
     // Missions open with the Mini-Mart; until then they count quietly.
@@ -185,9 +192,9 @@ export function createMeta(deps: {
   return {
     update(dt) {
       sessionSeconds += dt;
-      if (supplies.anyEmpty()) refillUntil = sessionSeconds + REFILL_LINGER_SECONDS;
+      if (supplies?.anyEmpty()) refillUntil = sessionSeconds + REFILL_LINGER_SECONDS;
       state.boostSeconds = Math.max(0, state.boostSeconds - dt);
-      traffic.boost = state.boostSeconds > 0 ? ADS.speedBoost.multiplier : 1;
+      deps.setBoost(state.boostSeconds > 0 ? ADS.speedBoost.multiplier : 1);
       dateTimer -= dt;
       if (dateTimer <= 0) {
         dateTimer = DATE_CHECK_SECONDS;
@@ -223,7 +230,7 @@ export function createMeta(deps: {
       progress('earn', paid.amount);
       const car = paid.car;
       if (!car) {
-        progress('snack');
+        if (paid.snack) progress('snack');
         return;
       }
       if (car.served.includes('fuel')) progress('fuel');

@@ -1,7 +1,7 @@
 // Runs the town's story while playing: checks for due beats, sends each to
 // the paper, and applies their effects (the rival's lost customers, a rush).
-import type { Arrivals } from '../systems/arrivals';
 import { beatFlag, catchUpFlags, dueBeats, newsFor, storyArrivalFactor } from '../systems/story';
+import type { Dirt } from './config';
 import type { GameState } from './gameState';
 import type { Press } from './press';
 import type { TownDef } from './towns';
@@ -19,7 +19,8 @@ export function createStoryline(deps: {
   state: GameState;
   town: TownDef;
   press: Press;
-  arrivals: Arrivals;
+  /** Who the story's effects act on: the car wash's arrivals, or the boardwalk's tourists. */
+  arrivals: { rateFactor: number; rush: { dirt: Dirt; payMultiplier: number } | null };
   /** Records a flag and saves. */
   flag: (name: string) => void;
 }): Storyline {

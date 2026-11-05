@@ -58,14 +58,15 @@ export function dueBeats(town: string, story: StoryData, state: GameState, rushA
 }
 
 /**
- * The first time a town's story runs: a save from before the story (a
- * player already well into the town) has every beat that's already due
- * marked as told, without cards, so it doesn't open on a pile of old news.
- * A new town has nothing due yet, so nothing is skipped. Returns the
- * flags to add.
+ * The first time a town's story runs. A save from before stories existed
+ * (no story told in any town yet: a player already well into the first
+ * town) has every beat that's already due marked as told, without cards,
+ * so it doesn't open on a pile of old news. Anyone else just starts the
+ * story, so arriving in a new town tells its opening. Returns the flags to add.
  */
 export function catchUpFlags(town: string, story: StoryData, state: GameState): string[] {
   if (state.flags.includes(storyStartFlag(town))) return [];
+  if (state.flags.some((f) => f.startsWith('story:'))) return [storyStartFlag(town)];
   const skipped: string[] = [];
   // Beats can depend on each other: keep going until nothing more is due.
   for (;;) {

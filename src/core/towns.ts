@@ -7,14 +7,13 @@ import roadsideLayout from '../data/towns/roadside/layout.json';
 import roadsidePads from '../data/towns/roadside/pads.json';
 import roadsideGoals from '../data/towns/roadside/goals.json';
 import roadsideStory from '../data/towns/roadside/story.json';
-import type { GoalsData, LocationLayout, PadDef } from './config';
+import type { BoardwalkLayout, GoalsData, LocationLayout, PadDef } from './config';
 import type { StoryData } from '../systems/story';
 
-export interface TownDef {
+/** What every town has, whatever its kind. */
+interface TownBase {
   /** Stable id: the data folder's name, and the key a save will use for this town. */
   id: string;
-  /** The town's map: lot, roads, buildings, where every pad and station stands. */
-  layout: LocationLayout;
   /** Everything that can be built here, in unlock order. */
   pads: PadDef[];
   goals: GoalsData;
@@ -24,9 +23,24 @@ export interface TownDef {
   models: Record<string, string>;
 }
 
+/** A car wash town (Chapter 1): cars drive in off the road to the bays, the pumps and the Mini-Mart. */
+export interface RoadsideTown extends TownBase {
+  kind: 'carWash';
+  layout: LocationLayout;
+}
+
+/** A boardwalk town (Chapter 2): tourists walk up to kiosks, stalls and rentals by the sea. */
+export interface BoardwalkTown extends TownBase {
+  kind: 'boardwalk';
+  layout: BoardwalkLayout;
+}
+
+export type TownDef = RoadsideTown | BoardwalkTown;
+
 /** Town 1, Dusty Roadside Lot: the car wash, fuel pumps and Mini-Mart. */
-export const ROADSIDE: TownDef = {
+export const ROADSIDE: RoadsideTown = {
   id: 'roadside',
+  kind: 'carWash',
   layout: roadsideLayout as LocationLayout,
   pads: roadsidePads as PadDef[],
   goals: roadsideGoals as GoalsData,
@@ -57,6 +71,7 @@ export const START_TOWN_ID = ROADSIDE.id;
  */
 const LOADERS: Record<string, () => Promise<TownDef>> = {
   roadside: () => Promise.resolve(ROADSIDE),
+  beach: () => import('./beach').then((m) => m.BEACH),
 };
 
 /** Town ids in the order the hero reaches them. */

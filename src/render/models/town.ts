@@ -4,7 +4,7 @@
 // each shop's name painted on its sign board.
 import { BufferGeometry, Group, Matrix4, Mesh, type Object3D } from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
-import type { LocationLayout, TownPiece } from '../../core/config';
+import type { TownLayout, TownPiece } from '../../core/config';
 import { asset, plain } from '../assets';
 import { toyMaterial } from './build';
 import { plate } from './kit';
@@ -23,7 +23,7 @@ function source(name: string): Object3D {
 /** The town is merged in squares this size, so the ones off screen aren't drawn. */
 const CHUNK = 16;
 
-export function townModel(layout: LocationLayout): Group {
+export function townModel(layout: TownLayout): Group {
   const group = new Group();
   const chunks = new Map<string, BufferGeometry[]>();
   const place = new Matrix4();

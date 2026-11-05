@@ -1,7 +1,7 @@
 // The town's longer goals: the contracts board (walk up to it to see the
 // contracts) and the town goals bar. Both count what paying cars got.
 import { Vector3, type Scene } from 'three';
-import type { LocationLayout, Point } from './config';
+import type { TownLayout, Point } from './config';
 import type { GameState } from './gameState';
 import type { SoundManager } from '../audio/sound';
 import { PadModel } from '../render/models/padModel';
@@ -30,7 +30,7 @@ export interface Town {
 export function createTown(deps: {
   root: HTMLElement;
   scene: Scene;
-  layout: LocationLayout;
+  layout: TownLayout;
   state: GameState;
   labels: WorldLabels;
   sound: SoundManager;

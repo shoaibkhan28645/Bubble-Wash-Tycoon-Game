@@ -4,7 +4,7 @@
 import { Group, Mesh, Vector3, type BufferGeometry, type Object3D } from 'three';
 import { secondsLeft, formatClock } from '../../systems/construction';
 import type { GameState } from '../../core/gameState';
-import type { LocationLayout } from '../../core/config';
+import type { TownLayout } from '../../core/config';
 import type { Label, WorldLabels } from '../../ui/worldLabels';
 import { withShadows } from '../stage';
 import { box, cylinder, mergeParts, rbox, toyMaterial, type Part } from './build';
@@ -86,7 +86,7 @@ export class ConstructionSites {
   constructor(
     private readonly scene: Object3D,
     private readonly labels: WorldLabels,
-    private readonly layout: LocationLayout,
+    private readonly layout: TownLayout,
   ) {}
 
   show(id: string): void {

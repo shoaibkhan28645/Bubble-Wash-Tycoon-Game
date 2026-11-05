@@ -1,5 +1,5 @@
 import { Vector3, type Scene } from 'three';
-import { CHARACTERS, TUNING, UPGRADES, fixedSolids, type LocationLayout, type Point, type Rect } from '../core/config';
+import { CHARACTERS, TUNING, UPGRADES, fixedSolids, type TownLayout, type Point, type Rect } from '../core/config';
 import type { GameState } from '../core/gameState';
 import { PersonAvatar, type Tool } from '../render/models/person';
 import type { Label, WorldLabels } from '../ui/worldLabels';
@@ -8,6 +8,10 @@ import { levelFactor, levelStep } from './economy';
 import { NavGrid } from './nav';
 import { pickStation, planRunner, sideOf } from './staffPlan';
 import { insideRect, type Station, type StationKind } from './stations';
+import type { Customer } from './customers';
+
+/** Any station, whoever it serves (cars, or customers on foot). */
+type AnyStation = Station<Customer>;
 import { carAhead } from './roadRules';
 import type { Supplies } from './supplies';
 import type { CashSystem } from './cash';
@@ -23,6 +27,7 @@ const ROLES = {
   garage: 'detailer',
   attendant: 'attendant',
   clerk: 'clerk',
+  scooper: 'scooper',
 } as const;
 export type Role = keyof typeof ROLES;
 
@@ -41,6 +46,7 @@ const WORKS: Record<Role, StationKind[]> = {
   garage: ['garage', 'wax'],
   attendant: ['pump'],
   clerk: ['counter'],
+  scooper: ['kiosk'],
 };
 
 /** What each worker holds while working a station. */
@@ -61,9 +67,9 @@ class Helper {
   readonly carrier: Carrier | null;
   target: Point;
   /** The station this helper has taken on (keeps it until that car is done). */
-  assigned: Station | null = null;
+  assigned: AnyStation | null = null;
   /** The station being worked right now (assigned and standing in its zone). */
-  working: Station | null = null;
+  working: AnyStation | null = null;
   onBreak = 0;
   worked = 0;
   /** Seconds left standing still (e.g. picking up cash). */
@@ -185,7 +191,7 @@ export class StaffSystem {
 
   constructor(
     private readonly scene: Scene,
-    private readonly layout: LocationLayout,
+    private readonly layout: TownLayout,
     private readonly state: GameState,
     private readonly labels: WorldLabels,
     private readonly cash: CashSystem,
@@ -214,7 +220,7 @@ export class StaffSystem {
   }
 
   /** How hard staff are working a station this frame (0 if nobody). */
-  rateFor(station: Station): number {
+  rateFor(station: AnyStation): number {
     const helper = this.helpers.find((h) => h.working === station && h.onBreak <= 0);
     if (!helper) return 0;
     return TUNING.staff.workRate / levelFactor(UPGRADES.kinds.staffSpeed, this.level(`${helper.role}.staffSpeed`));
@@ -222,10 +228,11 @@ export class StaffSystem {
 
   update(
     dt: number,
-    stations: readonly Station[],
-    supplies: Supplies,
+    stations: readonly AnyStation[],
+    /** The supplies the runner carries; null in a town without them. */
+    supplies: Supplies | null,
     obstacles: readonly Rect[],
-    playerAt: (station: Station) => boolean,
+    playerAt: (station: AnyStation) => boolean,
     /** Where the valet is needed (a car just moved to another line), if anywhere. */
     valetCall: Point | null,
     /** Every car's footprint: helpers wait for them, or go round. */
@@ -241,14 +248,16 @@ export class StaffSystem {
     const manager = this.state.unlocked.includes('manager');
     for (const helper of this.helpers) {
       // Leave a station to the player, or to another helper already on it.
-      const skip = (station: Station) =>
+      const skip = (station: AnyStation) =>
         playerAt(station) || (!manager && !!station.customer?.vip) || this.helpers.some((o) => o !== helper && o.assigned === station);
       const speed = TUNING.staff.walkSpeed / levelFactor(UPGRADES.kinds.staffSpeed, this.level(`${helper.role}.staffSpeed`));
       if (this.takeBreak(dt, helper)) {
         helper.avatar.update(dt);
         continue;
       }
-      if (helper.role === 'runner') this.planRun(helper, stations, supplies);
+      if (helper.role === 'runner') {
+        if (supplies) this.planRun(helper, stations, supplies);
+      }
       else if (helper.role === 'cashier') this.planCashier(dt, helper);
       else if (helper.role === 'valet' || helper.role === 'manager') {
         helper.assigned = null;
@@ -284,7 +293,7 @@ export class StaffSystem {
     helper.target = pile ? { x: pile.at.x + 0.6, z: pile.at.z + 0.6 } : this.home('cashier');
   }
 
-  private planRun(helper: Helper, stations: readonly Station[], supplies: Supplies): void {
+  private planRun(helper: Helper, stations: readonly AnyStation[], supplies: Supplies): void {
     const plan = planRunner(helper.carrier!, stations, this.state, supplies);
     const shelf = this.layout.pads.soap;
     helper.assigned = null;

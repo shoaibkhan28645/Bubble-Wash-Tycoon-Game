@@ -4,7 +4,10 @@ Every building is made of simple rounded parts, each painted one flat
 colour. Static parts are joined into one mesh that carries its colours as
 vertex colours (one draw call in the game); see-through glass and moving
 parts (brushes) stay separate, named objects. Run a building script with
-Blender's Python module, e.g. `python art/blender/tunnel.py <out.glb> <preview.png>`.
+Blender's Python module, e.g. `python art/blender/tunnel.py <out.glb> <preview.png>`
+(the `bpy` package from pip works, Blender 5.2), then shrink the file before
+it goes in public/models: `npx @gltf-transform/cli@4.2.1 quantize <out.glb>
+<final.glb>` (16-bit positions and normals, 8-bit colours).
 
 Blender is Z-up; the glTF export turns it Y-up, so Blender +Y becomes the
 game's -Z (towards the road) and -Y the game's +Z (towards the camera).

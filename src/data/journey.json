@@ -1,8 +1,8 @@
 [
   { "id": "roadside", "name": "Dusty Roadside Lot", "chapter": 1, "icon": "🧽", "teaser": "A car wash, fuel pumps and a Mini-Mart", "franchiseStars": 0 },
-  { "id": "beach", "name": "Beach Boardwalk", "chapter": 2, "icon": "🏖️", "teaser": "Ice cream, surf rentals and a beach motel", "franchiseStars": 1 },
-  { "id": "market", "name": "Maple Market Town", "chapter": 3, "icon": "🛒", "teaser": "A supermarket, a diner and a car dealership", "franchiseStars": 3 },
-  { "id": "downtown", "name": "Downtown Bay City", "chapter": 4, "icon": "🏙️", "teaser": "A hotel, a cinema and office towers", "franchiseStars": 6 },
-  { "id": "port", "name": "Port & Industrial Park", "chapter": 5, "icon": "🏭", "teaser": "A factory, a truck fleet and a cargo port", "franchiseStars": 9 },
-  { "id": "skyline", "name": "Skyline HQ", "chapter": 6, "icon": "🌆", "teaser": "An airport, a research campus and your own tower", "franchiseStars": 12 }
+  { "id": "beach", "name": "Beach Boardwalk", "chapter": 2, "icon": "🏖️", "teaser": "Ice cream, surf rentals and a beach motel", "franchiseStars": 8 },
+  { "id": "market", "name": "Maple Market Town", "chapter": 3, "icon": "🛒", "teaser": "A supermarket, a diner and a car dealership", "franchiseStars": 14 },
+  { "id": "downtown", "name": "Downtown Bay City", "chapter": 4, "icon": "🏙️", "teaser": "A hotel, a cinema and office towers", "franchiseStars": 20 },
+  { "id": "port", "name": "Port & Industrial Park", "chapter": 5, "icon": "🏭", "teaser": "A factory, a truck fleet and a cargo port", "franchiseStars": 26 },
+  { "id": "skyline", "name": "Skyline HQ", "chapter": 6, "icon": "🌆", "teaser": "An airport, a research campus and your own tower", "franchiseStars": 32 }
 ]

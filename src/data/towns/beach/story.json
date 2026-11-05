@@ -1,0 +1,32 @@
+{
+  "paper": "The Boardwalk Bugle",
+  "mentor": { "name": "Mabel", "icon": "👵" },
+  "rival": { "name": "Rex Goldsby", "icon": "😎", "business": "Goldsby Gelato" },
+  "beats": [
+    {
+      "id": "arrival",
+      "when": { "built": "kiosk" },
+      "icon": "🍦",
+      "headline": "Highway car wash owner comes to the boardwalk",
+      "body": "The owner of the roadside car wash has bought the old ice-cream kiosk by the sea. The car wash back home keeps running under its manager.",
+      "speaker": "mentor",
+      "words": "Tourists don't wait like drivers do. Keep the line short and the cones cold."
+    },
+    {
+      "id": "firstHire",
+      "when": { "built": "scooper" },
+      "icon": "👷",
+      "headline": "Kiosk hires its first scooper",
+      "body": "Two hands behind the counter now. The line on the boardwalk moves at last."
+    },
+    {
+      "id": "pier",
+      "when": { "built": "pier" },
+      "icon": "🎡",
+      "headline": "Plans for the pier take shape",
+      "body": "The kiosk owner has bought the old pier. Locals expect snack bars, surf rentals and a beach motel before long.",
+      "speaker": "mentor",
+      "words": "One kiosk was a start. A whole boardwalk is a business."
+    }
+  ]
+}

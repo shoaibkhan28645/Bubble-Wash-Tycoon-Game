@@ -23,10 +23,14 @@ export const JOURNEY = journeyJson as JourneyStop[];
  */
 export type StopStatus = 'here' | 'owned' | 'open' | 'soon' | 'locked';
 
-/** Where each town stands for this player; `exists` says which towns this build can load. */
-export function stopStatus(stop: JourneyStop, state: GameState, exists: (id: string) => boolean): StopStatus {
+/**
+ * Where each town stands for this player; `exists` says which towns this
+ * build can load. A town is also open once its truck is built (a player who
+ * bought the truck before the town existed, or before claiming every star).
+ */
+export function stopStatus(stop: JourneyStop, state: GameState, exists: (id: string) => boolean, truckBuilt = false): StopStatus {
   if (stop.id === state.currentTown) return 'here';
   if (state.towns[stop.id]) return 'owned';
-  if (state.franchiseStars < stop.franchiseStars) return 'locked';
+  if (state.franchiseStars < stop.franchiseStars && !truckBuilt) return 'locked';
   return exists(stop.id) ? 'open' : 'soon';
 }

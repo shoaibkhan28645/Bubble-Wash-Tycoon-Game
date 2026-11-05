@@ -41,7 +41,8 @@ export function openEmpireMap(deps: {
   list.className = 'empire-towns';
   let dialog: { close: () => void } | null = null;
   for (const stop of JOURNEY) {
-    const status = stopStatus(stop, state, (id) => townIds().includes(id));
+    const truck = town.pads.some((p) => p.effects.travel === stop.id && state.unlocked.includes(p.id));
+    const status = stopStatus(stop, state, (id) => townIds().includes(id), truck);
     const item = document.createElement('li');
     item.className = `empire-town empire-${status}`;
     const icon = document.createElement('span');

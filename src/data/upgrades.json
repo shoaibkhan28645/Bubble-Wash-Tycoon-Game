@@ -95,9 +95,22 @@
     "manager": 1,
     "pump1": 1.2,
     "pump2": 1.6,
-    "attendant": 1.2
+    "attendant": 1.2,
+    "kiosk": 10,
+    "kiosk2": 12,
+    "scooper": 10
   },
   "panels": {
+    "kiosk": [
+      "kiosk.speed",
+      "kiosk.quality",
+      "scooper.staffSpeed",
+      "scooper.stamina"
+    ],
+    "kiosk2": [
+      "kiosk2.speed",
+      "kiosk2.quality"
+    ],
     "bay1": [
       "bay1.speed",
       "bay1.quality",

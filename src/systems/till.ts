@@ -21,8 +21,10 @@ export interface Paid {
   tip: number;
   automated: boolean;
   at: Point;
-  /** The car that paid; absent for vending snacks. */
+  /** The car that paid; absent for vending snacks and customers on foot. */
   car?: Car;
+  /** A snack was sold (the vending machine). */
+  snack?: boolean;
 }
 
 /**
@@ -66,7 +68,7 @@ export class Till {
   sellSnack(at: Point): void {
     this.cash.add('vending', TUNING.vending.pay);
     this.floaters.show(`+$${TUNING.vending.pay} 🥤`, new Vector3(at.x, 2.2, at.z), 'tip');
-    this.onPaid({ amount: TUNING.vending.pay, tip: 0, automated: true, at });
+    this.onPaid({ amount: TUNING.vending.pay, tip: 0, automated: true, at, snack: true });
   }
 
   /** The bill, with the lot's bonus on every bill (the landmark). */

@@ -33,5 +33,10 @@
     "name": "Mini-Mart till", "type": "till", "customer": "walker", "flow": "till", "serves": "snack", "stages": [],
     "seconds": 2.2, "supply": null, "size": null, "padding": 0, "workSpot": null,
     "ring": "beside", "fx": "none"
+  },
+  "kiosk": {
+    "name": "Ice-cream kiosk", "type": "service", "customer": "walker", "flow": "till", "serves": "icecream", "stages": [],
+    "seconds": 2.4, "supply": null, "size": null, "padding": 0.4, "workSpot": null,
+    "ring": "beside", "fx": "none", "queueSpots": 5
   }
 }

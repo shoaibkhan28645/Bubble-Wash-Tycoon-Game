@@ -68,6 +68,10 @@ export interface PadEffects {
   /** The contracts board. */
   contracts?: boolean;
   endOfContent?: boolean;
+  /** Takes the hero to this town once built (the truck to the next town). */
+  travel?: string;
+  /** A walk-up counter (the boardwalk's kiosks and stalls), of this station kind. */
+  counter?: string;
 }
 
 export interface PadDef {
@@ -118,7 +122,7 @@ export interface StationDef {
    * shop's queue.
    */
   flow: 'lane' | 'conveyor' | 'finishing' | 'forecourt' | 'till';
-  /** The ticket need it ticks off (wash, fuel, snack), or null if it only adds stages. */
+  /** The ticket need it ticks off (wash, fuel, snack, icecream), or null if it only adds stages. */
   serves: string | null;
   /** Built stages it adds to a customer's bill, by the stage's station (stages.json). */
   stages: string[];
@@ -168,7 +172,8 @@ export interface NeedDef {
   payFactor?: number;
 }
 
-export interface LocationLayout {
+/** What every town's map has: the ground the player walks, where pads, piles, sites and staff go, and the camera's area. */
+export interface TownLayout {
   name: string;
   /** The paved car wash lot. */
   lot: Rect;
@@ -191,6 +196,53 @@ export interface LocationLayout {
   /** Raised flower beds on the lot (solid), some with trees. */
   planters: (Rect & { trees: number })[];
   cameraBase: Rect;
+  playerStart: Point;
+  /** Building sites (scaffolding) for pads with a construction timer: centre and size. */
+  sites: Record<string, { x: number; z: number; width: number; depth: number }>;
+  /** Where a pad's building stands, if not on the pad itself (the pump island between two lanes). */
+  buildAt: Record<string, Point>;
+  /** Ground a built pad covers beyond its own spot (the forecourt): kept flat and clear, and in view once built. */
+  areas: Record<string, Rect>;
+  piles: Record<string, Point>;
+  pads: Record<string, Point>;
+  /** Small pads that open an upgrade pop-up, keyed by panel id. */
+  upgradePads: Record<string, Point>;
+  /** Where each staff member stands when idle. */
+  staffSpots: Record<string, Point>;
+}
+
+/** A walk-up counter on the boardwalk: where customers are served, where they line up, and where its worker stands. */
+export interface CounterSpot {
+  /** The serving window: customers stand here to be served, facing it. */
+  window: Point;
+  /** Where a worker counts as serving (behind the counter). */
+  zone: Rect;
+  /** Waiting spots, front first (the first is at the window). */
+  queue: Point[];
+  /** Which way customers face at the window, in radians (0 = +z). */
+  facing: number;
+  /** The corner tourists walk round to reach the line (beside the counter, off the boardwalk). */
+  approach: Point;
+}
+
+/** A boardwalk town's map (Chapter 2): the shared map plus the sea, the boardwalk and its counters. */
+export interface BoardwalkLayout extends TownLayout {
+  /** The water's edge: the sea lies beyond this z (towards -z). */
+  shoreZ: number;
+  /** The plank promenade along the beach. */
+  boardwalk: Rect;
+  /** Where tourists come onto the map and leave it. */
+  entrances: Point[];
+  /** Where tourists stroll off to once served (the beach, the sea). */
+  strolls: Point[];
+  /** Each walk-up counter, by its pad id. */
+  counters: Record<string, CounterSpot>;
+  /** Palm trees (solid trunks). */
+  palms: Point[];
+}
+
+/** The car wash town's map (Chapter 1): the shared map plus its roads, lanes, stations and forecourt. */
+export interface LocationLayout extends TownLayout {
   roadZ: number;
   spawnX: number;
   /** Cars drive on the near side of the road coming in, the far side going away: each lane's middle is this far from the road's. */
@@ -209,7 +261,6 @@ export interface LocationLayout {
   sideStreetX: number;
   /** And away along the main road, out of sight here. */
   leaveX: number;
-  playerStart: Point;
   bay: { width: number; length: number };
   station: { width: number; length: number };
   tunnel: { width: number; length: number };
@@ -222,19 +273,7 @@ export interface LocationLayout {
   forecourt: { entryX: number; exitX: number; waitZ: number; leaveX: number };
   /** The Mini-Mart's till (where drivers are served, and the zone where a worker serves them) and where drivers line up. */
   mart: { counter: Point; zone: Rect; queue: Point[] };
-  /** Building sites (scaffolding) for pads with a construction timer: centre and size. */
-  sites: Record<string, { x: number; z: number; width: number; depth: number }>;
-  /** Where a pad's building stands, if not on the pad itself (the pump island between two lanes). */
-  buildAt: Record<string, Point>;
-  /** Ground a built pad covers beyond its own spot (the forecourt): kept flat and clear, and in view once built. */
-  areas: Record<string, Rect>;
   queueGap: number;
-  piles: Record<string, Point>;
-  pads: Record<string, Point>;
-  /** Small pads that open an upgrade pop-up, keyed by panel id. */
-  upgradePads: Record<string, Point>;
-  /** Where each staff member stands when idle. */
-  staffSpots: Record<string, Point>;
 }
 
 /** One piece of the town: a model by name, where it stands and which way it faces. */
@@ -394,20 +433,26 @@ const TRUNK = 0.35;
 
 /**
  * Ground nobody walks through, whatever is built: off the lot, the flower
- * beds, town pieces set on the lot, the hedge along the side street (open
- * at the driveways) and the street trees.
+ * beds, town pieces set on the lot, the street trees and palm trunks, and in
+ * the car wash town the hedge along the side street (open at the driveways).
  */
-export function fixedSolids(layout: LocationLayout): Rect[] {
+export function fixedSolids(layout: TownLayout): Rect[] {
   const town = layout.town.flatMap((p) => (p.solid ? [{ minX: p.x - p.solid[0], maxX: p.x + p.solid[0], minZ: p.z - p.solid[1], maxZ: p.z + p.solid[1] }] : []));
-  const hedge: Rect[] = [];
+  const trunk = (t: Point) => ({ minX: t.x - TRUNK, maxX: t.x + TRUNK, minZ: t.z - TRUNK, maxZ: t.z + TRUNK });
+  const trees = [...layout.streetTrees, ...('palms' in layout ? (layout as BoardwalkLayout).palms : [])].map(trunk);
+  return [...layout.blocked, ...layout.planters, ...town, ...('exitZ' in layout ? hedge(layout as LocationLayout) : []), ...trees];
+}
+
+/** The car wash town's hedge along the side street, open where cars drive out. */
+function hedge(layout: LocationLayout): Rect[] {
+  const rects: Rect[] = [];
   const { lot } = layout;
   let from = lot.minZ + SIDE_HEDGE_START;
   for (const z of [...[layout.earlyExitZ, layout.exitZ].sort((a, b) => a - b), lot.maxZ + DRIVEWAY_GAP + 1]) {
-    if (z - DRIVEWAY_GAP > from) hedge.push({ minX: lot.maxX + 0.1, maxX: lot.maxX + 0.8, minZ: from, maxZ: z - DRIVEWAY_GAP });
+    if (z - DRIVEWAY_GAP > from) rects.push({ minX: lot.maxX + 0.1, maxX: lot.maxX + 0.8, minZ: from, maxZ: z - DRIVEWAY_GAP });
     from = z + DRIVEWAY_GAP;
   }
-  const trees = layout.streetTrees.map((t) => ({ minX: t.x - TRUNK, maxX: t.x + TRUNK, minZ: t.z - TRUNK, maxZ: t.z + TRUNK }));
-  return [...layout.blocked, ...layout.planters, ...town, ...hedge, ...trees];
+  return rects;
 }
 
 /** A pad of the town being played. */

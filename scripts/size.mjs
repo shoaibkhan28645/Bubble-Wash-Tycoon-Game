@@ -28,10 +28,18 @@ const referenced = [...html.matchAll(/(?:src|href)="\.\/([^"]+)"/g)].map((m) => 
 // The Car of the Day specials load later, the first time one is due, and the shoppers with the Mini-Mart: they don't count towards the start.
 const characters = JSON.parse(readFileSync('src/data/characters.json', 'utf8'));
 const tuning = JSON.parse(readFileSync('src/data/tuning.json', 'utf8'));
+// Later towns' own models load when the hero travels there (each town lists its models in its TownDef).
+const modelPaths = (file) => [...readFileSync(file, 'utf8').matchAll(/'(models\/[^']+\.glb)'/g)].map((m) => m[1]);
+const firstTown = new Set(modelPaths('src/core/towns.ts'));
+const laterTowns = readdirSync('src/core')
+  .filter((f) => f.endsWith('.ts') && f !== 'towns.ts')
+  .flatMap((f) => modelPaths(join('src/core', f)))
+  .filter((path) => !firstTown.has(path));
 const lazy = new Set([
   ...['taxi', 'police', 'ambulance', 'firetruck', 'icecream'].map((c) => `models/cars/special-${c}.glb`),
-  // Mini-Mart shoppers load once the shop is paid for, people out walking after the start.
-  ...[...characters.shoppers, ...tuning.streetLife.characters]
+  ...laterTowns,
+  // Mini-Mart shoppers load once the shop is paid for, people out walking after the start, tourists in their town.
+  ...[...characters.shoppers, ...tuning.streetLife.characters, ...characters.tourists]
     .filter((c) => c !== characters.player && !Object.values(characters.staff).includes(c))
     .map((c) => `models/people/character-${c}.glb`),
 ]);
@@ -43,7 +51,7 @@ const sum = (names, key) => names.reduce((total, n) => total + sizes.get(n)[key]
 const all = [...sizes.keys()];
 
 console.log(`Initial: ${kib(sum(initial, 'gz'))} gzip (${kib(sum(initial, 'raw'))} raw), ${initial.length} files`);
-console.log(`Loaded later (Car of the Day, shoppers, people out walking): ${kib(sum([...lazy].filter((f) => sizes.has(f)), 'gz'))} gzip, ${lazy.size} files`);
+console.log(`Loaded later (other towns, Car of the Day, shoppers, people out walking, tourists): ${kib(sum([...lazy].filter((f) => sizes.has(f)), 'gz'))} gzip, ${lazy.size} files`);
 console.log(`dist total: ${kib(sum(all, 'raw'))} raw, ${all.length} files`);
 // Budgets (Tech Guide): fail the command if one is broken.
 const INITIAL_BUDGET = 15 * 1024 * 1024;

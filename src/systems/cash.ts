@@ -1,6 +1,6 @@
 import { BoxGeometry, InstancedMesh, MeshLambertMaterial, Object3D, Vector3, type Scene } from 'three';
 import type { GameState } from '../core/gameState';
-import type { LocationLayout, Point, Tuning } from '../core/config';
+import type { TownLayout, Point, Tuning } from '../core/config';
 import type { Particles } from '../render/effects/particles';
 import type { SoundManager } from '../audio/sound';
 import { blobShadow } from '../render/models/actors';
@@ -33,7 +33,7 @@ export class CashSystem {
 
   constructor(
     private readonly scene: Scene,
-    private readonly layout: LocationLayout,
+    private readonly layout: TownLayout,
     private readonly tuning: Tuning['cash'],
     private readonly state: GameState,
     private readonly effects: Particles,

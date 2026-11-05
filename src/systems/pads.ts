@@ -1,5 +1,5 @@
 import { Vector3, type Scene } from 'three';
-import { town, type LocationLayout, type PadDef, type Point, type Rect, type Tuning } from '../core/config';
+import { town, type TownLayout, type PadDef, type Point, type Rect, type Tuning } from '../core/config';
 import type { GameState } from '../core/gameState';
 import type { Particles } from '../render/effects/particles';
 import type { SoundManager } from '../audio/sound';
@@ -37,7 +37,7 @@ export class PadSystem {
 
   constructor(
     private readonly scene: Scene,
-    private readonly layout: LocationLayout,
+    private readonly layout: TownLayout,
     private readonly tuning: Tuning['pads'],
     private readonly state: GameState,
     private readonly effects: Particles,

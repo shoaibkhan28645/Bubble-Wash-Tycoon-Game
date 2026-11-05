@@ -1,5 +1,5 @@
 import { Vector3, type Scene } from 'three';
-import { TUNING, UPGRADES, town, type LocationLayout, type Point, type Rect } from '../core/config';
+import { TUNING, UPGRADES, town, type TownLayout, type Point, type Rect } from '../core/config';
 import type { GameState } from '../core/gameState';
 import type { SoundManager } from '../audio/sound';
 import type { Particles } from '../render/effects/particles';
@@ -49,13 +49,15 @@ export class UpgradePads {
 
   constructor(
     private readonly scene: Scene,
-    private readonly layout: LocationLayout,
+    private readonly layout: TownLayout,
     private readonly state: GameState,
     private readonly panel: UpgradePanel,
     private readonly labels: WorldLabels,
     private readonly sound: SoundManager,
     private readonly effects: Particles,
     private readonly onBought: () => void,
+    /** Upgrade pads appear once this pad is built (one thing at a time); each town says which. */
+    private readonly upgradesAfter: string = TUNING.onboarding.upgradesAfter,
   ) {}
 
   /** Footprints of the visible upgrade pads, for the camera. */
@@ -126,7 +128,7 @@ export class UpgradePads {
 
   /** Shows a pad once its station is built (the staff room after the register), none until the second bay (one thing at a time). */
   private showAvailable(): void {
-    if (!this.state.unlocked.includes(TUNING.onboarding.upgradesAfter)) return;
+    if (!this.state.unlocked.includes(this.upgradesAfter)) return;
     for (const id of Object.keys(this.layout.upgradePads)) {
       if (this.pads.has(id)) continue;
       const needs = id === 'staffRoom' ? STAFF_ROOM_AFTER : id;

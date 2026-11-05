@@ -9,8 +9,10 @@
     "manager": "male-d-staff",
     "detailer": "female-e-staff",
     "attendant": "male-b-staff",
-    "clerk": "female-f-staff"
+    "clerk": "female-f-staff",
+    "scooper": "female-c-staff"
   },
   "shoppers": ["female-a", "male-e"],
+  "tourists": ["female-a", "male-e", "female-d", "male-c", "female-e", "male-a"],
   "gaits": { "walk": 2.4, "sprint": 3.8 }
 }

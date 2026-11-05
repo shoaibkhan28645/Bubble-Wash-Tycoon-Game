@@ -4,21 +4,21 @@ import { t } from './strings';
  * End of content (YouTube requires telling the player when there's no more):
  * shown once the truck to the next town is bought. The lot keeps running.
  */
-export function showEndScreen(root: HTMLElement, onClose: () => void): void {
+export function showEndScreen(root: HTMLElement, onClose: () => void, text: { title: string; body: string } = { title: t('endTitle'), body: t('endBody') }): void {
   const overlay = document.createElement('div');
   overlay.className = 'welcome-overlay';
   overlay.setAttribute('role', 'dialog');
-  overlay.setAttribute('aria-label', t('endTitle'));
+  overlay.setAttribute('aria-label', text.title);
   const card = document.createElement('div');
   card.className = 'welcome-card end-card';
   const trophy = document.createElement('div');
   trophy.className = 'welcome-bag';
   trophy.textContent = '🏆';
   const title = document.createElement('h2');
-  title.textContent = t('endTitle');
+  title.textContent = text.title;
   const body = document.createElement('p');
   body.className = 'end-body';
-  body.textContent = t('endBody');
+  body.textContent = text.body;
   const keep = document.createElement('button');
   keep.type = 'button';
   keep.className = 'welcome-collect';

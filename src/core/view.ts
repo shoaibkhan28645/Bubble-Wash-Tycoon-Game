@@ -1,4 +1,4 @@
-import type { LocationLayout, Point, Rect } from './config';
+import type { TownLayout, Point, Rect } from './config';
 import type { GameState } from './gameState';
 import type { CameraRig } from '../render/cameraRig';
 import type { Stage } from '../render/stage';
@@ -27,7 +27,7 @@ export class LotView {
   constructor(
     private readonly stage: Stage,
     private readonly rig: CameraRig,
-    private readonly layout: LocationLayout,
+    private readonly layout: TownLayout,
     private readonly state: GameState,
     /** Footprints of the pads on offer (the next unlock pad, the upgrade pads). */
     private readonly offered: () => Rect[],

@@ -1,14 +1,16 @@
 // The town goals: a bar under the cash counter (how many are reached and the
 // next one), and the list it opens, where reached goals are claimed.
-import { town, type GoalDef } from '../core/config';
+import { padById, town, type GoalDef } from '../core/config';
 import type { GameState } from '../core/gameState';
 import { goalProgress } from '../systems/townGoals';
 import { openDialog } from './dialog';
-import { t, type StringKey } from './strings';
+import { hasString, t } from './strings';
 
-/** "Open the Mini-Mart", "Serve 40 combos"… */
+/** "Open the Mini-Mart", "Serve 40 combos"… (a goal with no words of its own: "Build" and its pad's name). */
 export function goalText(goal: GoalDef): string {
-  return t(`goal_${goal.id}` as StringKey, { n: goal.goal ?? goal.stars ?? 1 });
+  const key = `goal_${goal.id}`;
+  if (hasString(key)) return t(key, { n: goal.goal ?? goal.stars ?? 1 });
+  return `Build: ${padById(goal.built ?? '')?.name ?? goal.id}`;
 }
 
 export interface GoalsBarView {

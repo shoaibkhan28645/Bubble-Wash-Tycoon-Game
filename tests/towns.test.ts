@@ -6,7 +6,7 @@ import { allGoalsDone, goalsSummary } from '../src/systems/townGoals';
 
 /** A second town with one free pad and no goals, standing on Town 1's map. */
 const testPad: PadDef = { id: 'kiosk', name: 'Test kiosk', cost: 0, targetMinute: 0, adds: 'Nothing', effects: {} };
-const TEST_TOWN: TownDef = { id: 'test', layout: ROADSIDE.layout, pads: [testPad], goals: { franchiseStars: 1, goals: [] }, models: ROADSIDE.models, story: ROADSIDE.story };
+const TEST_TOWN: TownDef = { id: 'test', layout: ROADSIDE.layout, pads: [testPad], goals: { franchiseStars: 1, goals: [] }, models: ROADSIDE.models, story: ROADSIDE.story, kind: 'carWash' };
 
 afterEach(() => setTown(ROADSIDE));
 

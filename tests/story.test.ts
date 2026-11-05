@@ -69,6 +69,13 @@ describe('the roadside story', () => {
     expect(flags).toEqual(expect.arrayContaining(told('arrival', 'firstHire', 'rival', 'rivalBeaten', 'storm', 'stormOver', 'landmark')));
   });
 
+  it('tells a later town its opening, even if it is due on arrival', () => {
+    const state = newGame();
+    state.flags = [storyStartFlag(TOWN), ...told('arrival')];
+    state.unlocked = ['bay1'];
+    expect(catchUpFlags('beach', story, state)).toEqual([storyStartFlag('beach')]);
+  });
+
   it('puts the speaker under the story', () => {
     const arrival = story.beats.find((b) => b.id === 'arrival')!;
     expect(newsFor(story, arrival)).toMatchObject({ paper: story.paper, headline: arrival.headline, quote: { who: story.mentor.name } });
@@ -100,7 +107,7 @@ describe('the journey', () => {
     const [roadside, beach, market] = JOURNEY;
     expect(stopStatus(roadside!, state, exists)).toBe('here');
     expect(stopStatus(beach!, state, exists)).toBe('locked');
-    state.franchiseStars = 1;
+    state.franchiseStars = 8;
     expect(stopStatus(beach!, state, exists)).toBe('soon');
     expect(stopStatus(beach!, state, () => true)).toBe('open');
     expect(stopStatus(market!, state, () => true)).toBe('locked');

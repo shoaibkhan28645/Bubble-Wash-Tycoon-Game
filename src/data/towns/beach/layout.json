@@ -1,0 +1,297 @@
+{
+  "name": "Beach Boardwalk",
+  "lot": {
+    "minX": -16,
+    "maxX": 16,
+    "minZ": -10.5,
+    "maxZ": 12
+  },
+  "walk": {
+    "minX": -28,
+    "maxX": 28,
+    "minZ": -10.5,
+    "maxZ": 12
+  },
+  "blocked": [],
+  "town": [
+    {
+      "model": "shop_cafe",
+      "x": -22.5,
+      "z": 3,
+      "rot": 1.5708,
+      "sign": "SURF",
+      "signColor": "#2f80d1"
+    },
+    {
+      "model": "shop_bakery",
+      "x": -22.5,
+      "z": 9,
+      "rot": 1.5708,
+      "sign": "TAFFY",
+      "signColor": "#ff5fa8"
+    },
+    {
+      "model": "shop_toys",
+      "x": 22.5,
+      "z": 3,
+      "rot": -1.5708,
+      "sign": "BEACH TOYS",
+      "signColor": "#ffbf3c"
+    },
+    {
+      "model": "shop_flowers",
+      "x": 22.5,
+      "z": 9,
+      "rot": -1.5708,
+      "sign": "SEAFOOD",
+      "signColor": "#3fae5a"
+    }
+  ],
+  "walkways": [],
+  "streetTrees": [],
+  "views": [
+    {
+      "after": "kiosk2",
+      "minX": -16,
+      "maxX": 16,
+      "minZ": -14,
+      "maxZ": 12
+    }
+  ],
+  "planters": [],
+  "cameraBase": {
+    "minX": -11,
+    "maxX": 1,
+    "minZ": -12,
+    "maxZ": 8
+  },
+  "playerStart": {
+    "x": -7.6,
+    "z": 4.4
+  },
+  "sites": {},
+  "buildAt": {},
+  "areas": {
+    "parasols": {
+      "minX": -14,
+      "maxX": -8,
+      "minZ": -10.5,
+      "maxZ": -7
+    },
+    "pier": {
+      "minX": 11,
+      "maxX": 20,
+      "minZ": -8,
+      "maxZ": -1
+    }
+  },
+  "piles": {
+    "kiosk": {
+      "x": -8.2,
+      "z": 2.4
+    },
+    "kiosk2": {
+      "x": 0.8,
+      "z": 2.4
+    }
+  },
+  "pads": {
+    "kiosk": {
+      "x": -5,
+      "z": 0.8
+    },
+    "parasols": {
+      "x": -11,
+      "z": -8.6
+    },
+    "menu": {
+      "x": -8.4,
+      "z": 5.6
+    },
+    "scooper": {
+      "x": -10,
+      "z": 2.8
+    },
+    "kiosk2": {
+      "x": 4,
+      "z": 0.8
+    },
+    "lifeguard": {
+      "x": 9,
+      "z": -9
+    },
+    "pier": {
+      "x": 15.5,
+      "z": -4.5
+    }
+  },
+  "upgradePads": {
+    "kiosk": {
+      "x": -1.4,
+      "z": 4.6
+    },
+    "kiosk2": {
+      "x": 7.4,
+      "z": 4.6
+    }
+  },
+  "staffSpots": {
+    "scooper": {
+      "x": -5,
+      "z": 0.6
+    }
+  },
+  "shoreZ": -11.5,
+  "boardwalk": {
+    "minX": -28,
+    "maxX": 28,
+    "minZ": -7,
+    "maxZ": -1.6
+  },
+  "entrances": [
+    {
+      "x": -28,
+      "z": -4.3
+    },
+    {
+      "x": 28,
+      "z": -4.3
+    }
+  ],
+  "strolls": [
+    {
+      "x": -15,
+      "z": -9.4
+    },
+    {
+      "x": -6,
+      "z": -9.8
+    },
+    {
+      "x": 3,
+      "z": -9.8
+    },
+    {
+      "x": 13,
+      "z": -9.4
+    },
+    {
+      "x": -20,
+      "z": -8.6
+    },
+    {
+      "x": 20,
+      "z": -8.6
+    }
+  ],
+  "counters": {
+    "kiosk": {
+      "window": {
+        "x": -5,
+        "z": 2.3
+      },
+      "zone": {
+        "minX": -6.1,
+        "maxX": -3.9,
+        "minZ": 0.2,
+        "maxZ": 1.2
+      },
+      "queue": [
+        {
+          "x": -5,
+          "z": 2.3
+        },
+        {
+          "x": -5,
+          "z": 3.6
+        },
+        {
+          "x": -5,
+          "z": 4.9
+        },
+        {
+          "x": -5,
+          "z": 6.2
+        },
+        {
+          "x": -5,
+          "z": 7.5
+        }
+      ],
+      "facing": 3.1416,
+      "approach": {
+        "x": -2.6,
+        "z": 0.9
+      }
+    },
+    "kiosk2": {
+      "window": {
+        "x": 4,
+        "z": 2.3
+      },
+      "zone": {
+        "minX": 2.9,
+        "maxX": 5.1,
+        "minZ": 0.2,
+        "maxZ": 1.2
+      },
+      "queue": [
+        {
+          "x": 4,
+          "z": 2.3
+        },
+        {
+          "x": 4,
+          "z": 3.6
+        },
+        {
+          "x": 4,
+          "z": 4.9
+        },
+        {
+          "x": 4,
+          "z": 6.2
+        },
+        {
+          "x": 4,
+          "z": 7.5
+        }
+      ],
+      "facing": 3.1416,
+      "approach": {
+        "x": 6.4,
+        "z": 0.9
+      }
+    }
+  },
+  "palms": [
+    {
+      "x": -18,
+      "z": 5
+    },
+    {
+      "x": -13,
+      "z": 8.5
+    },
+    {
+      "x": 10,
+      "z": 8.5
+    },
+    {
+      "x": 17,
+      "z": 5
+    },
+    {
+      "x": -24,
+      "z": -9
+    },
+    {
+      "x": 24,
+      "z": -9
+    },
+    {
+      "x": 2.5,
+      "z": 9
+    }
+  ]
+}

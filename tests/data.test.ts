@@ -14,7 +14,7 @@ describe('roadside pads.json', () => {
   it('has the 26 town-1 pads in order, from the free bay to the truck', () => {
     expect(ROADSIDE.pads).toHaveLength(26);
     expect(ROADSIDE.pads[0]).toMatchObject({ id: 'bay1', cost: 0 });
-    expect(ROADSIDE.pads.at(-1)).toMatchObject({ id: 'truck', cost: 25000, effects: { endOfContent: true } });
+    expect(ROADSIDE.pads.at(-1)).toMatchObject({ id: 'truck', cost: 25000, effects: { travel: 'beach' } });
   });
 
   it('the fuel pump comes in the first ten minutes, before the first washer', () => {
