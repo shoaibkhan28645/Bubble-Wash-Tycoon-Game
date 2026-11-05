@@ -27,7 +27,6 @@ const ROLES = {
   garage: 'detailer',
   attendant: 'attendant',
   clerk: 'clerk',
-  scooper: 'scooper',
 } as const;
 export type Role = keyof typeof ROLES;
 
@@ -46,7 +45,6 @@ const WORKS: Record<Role, StationKind[]> = {
   garage: ['garage', 'wax'],
   attendant: ['pump'],
   clerk: ['counter'],
-  scooper: ['kiosk'],
 };
 
 /** What each worker holds while working a station. */

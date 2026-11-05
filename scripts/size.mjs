@@ -38,8 +38,8 @@ const laterTowns = readdirSync('src/core')
 const lazy = new Set([
   ...['taxi', 'police', 'ambulance', 'firetruck', 'icecream'].map((c) => `models/cars/special-${c}.glb`),
   ...laterTowns,
-  // Mini-Mart shoppers load once the shop is paid for, people out walking after the start, tourists in their town.
-  ...[...characters.shoppers, ...tuning.streetLife.characters, ...characters.tourists]
+  // Mini-Mart shoppers load once the shop is paid for, people out walking after the start.
+  ...[...characters.shoppers, ...tuning.streetLife.characters]
     .filter((c) => c !== characters.player && !Object.values(characters.staff).includes(c))
     .map((c) => `models/people/character-${c}.glb`),
 ]);
@@ -51,7 +51,7 @@ const sum = (names, key) => names.reduce((total, n) => total + sizes.get(n)[key]
 const all = [...sizes.keys()];
 
 console.log(`Initial: ${kib(sum(initial, 'gz'))} gzip (${kib(sum(initial, 'raw'))} raw), ${initial.length} files`);
-console.log(`Loaded later (other towns, Car of the Day, shoppers, people out walking, tourists): ${kib(sum([...lazy].filter((f) => sizes.has(f)), 'gz'))} gzip, ${lazy.size} files`);
+console.log(`Loaded later (other towns, Car of the Day, shoppers, people out walking): ${kib(sum([...lazy].filter((f) => sizes.has(f)), 'gz'))} gzip, ${lazy.size} files`);
 console.log(`dist total: ${kib(sum(all, 'raw'))} raw, ${all.length} files`);
 // Budgets (Tech Guide): fail the command if one is broken.
 const INITIAL_BUDGET = 15 * 1024 * 1024;

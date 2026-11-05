@@ -4,7 +4,7 @@
   "cash": 5400,
   "gems": 35,
   "unlocked": [
-    "kiosk1"
+    "field1"
   ],
   "levels": {},
   "staff": [],
@@ -85,7 +85,7 @@
     "contract": 1
   },
   "franchiseStars": 1,
-  "currentTown": "beach",
+  "currentTown": "willowbrook",
   "towns": {
     "roadside": {
       "unlocked": [

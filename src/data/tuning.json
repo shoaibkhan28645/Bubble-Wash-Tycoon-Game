@@ -8,7 +8,6 @@
   "cars": { "speed": 8, "spawnSeconds": 4.5, "queueSpots": 2, "leaveDelay": 0.35 },
   "construction": { "gemSeconds": 120 },
   "snack": { "walkSpeed": 2.3 },
-  "tourists": { "spawnSeconds": 4.5, "patience": 40, "walkSpeed": 2.3, "pay": [100, 160] },
   "fuel": { "patienceRefill": 0.5, "washWaitSeconds": 4 },
   "tickets": {
     "kinds": [

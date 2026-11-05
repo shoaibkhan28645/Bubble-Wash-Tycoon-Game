@@ -19,7 +19,7 @@ export function createStoryline(deps: {
   state: GameState;
   town: TownDef;
   press: Press;
-  /** Who the story's effects act on: the car wash's arrivals, or the boardwalk's tourists. */
+  /** Who the story's effects act on: the car wash's arrivals, or a town's walk-up visitors. */
   arrivals: { rateFactor: number; rush: { dirt: Dirt; payMultiplier: number } | null };
   /** Records a flag and saves. */
   flag: (name: string) => void;

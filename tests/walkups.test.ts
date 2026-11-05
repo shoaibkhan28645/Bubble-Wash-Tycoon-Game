@@ -1,78 +1,90 @@
 import { describe, expect, it } from 'vitest';
-import { stationDef } from '../src/core/config';
+import { stationDef, type WalkUpLayout } from '../src/core/config';
 import { newGame } from '../src/core/gameState';
-import { BEACH } from '../src/core/beach';
-import { WalkUps, type ServedTourist, type Tourist } from '../src/systems/walkups';
+import { WalkUps, type ServedVisitor, type Visitor } from '../src/systems/walkups';
 
 const RULES = { spawnSeconds: 2, patience: 30, walkSpeed: 2.3, pay: [100, 160] as [number, number] };
+/** A walk-up counter of a kind customers on foot use (the Mini-Mart till). */
+const KIND = 'counter';
 
-function boardwalk(patience = RULES.patience) {
-  const served: ServedTourist[] = [];
-  const gaveUp: Tourist[] = [];
-  const walkups = new WalkUps(
-    BEACH.layout,
-    newGame(),
-    { ...RULES, patience },
-    () => 0,
-    () => 0,
-    null,
-    (s) => served.push(s),
-    (t) => gaveUp.push(t),
-    () => 0,
-  );
+/** A stand beside a walkway: visitors come in at either end and wander off to the two stroll spots. */
+const LAYOUT: WalkUpLayout = {
+  entrances: [
+    { x: -20, z: -4 },
+    { x: 20, z: -4 },
+  ],
+  walkwayZ: -4,
+  strolls: [
+    { x: -8, z: -9 },
+    { x: 8, z: -9 },
+  ],
+  counters: {
+    stand: {
+      window: { x: 0, z: 2.3 },
+      zone: { minX: -1.1, maxX: 1.1, minZ: 0.2, maxZ: 1.2 },
+      queue: [2.3, 3.6, 4.9, 6.2, 7.5].map((z) => ({ x: 0, z })),
+      facing: Math.PI,
+      approach: { x: 2.4, z: 0.9 },
+    },
+  },
+};
+
+function stand(patience = RULES.patience) {
+  const served: ServedVisitor[] = [];
+  const gaveUp: Visitor[] = [];
+  const walkups = new WalkUps(LAYOUT, newGame(), { ...RULES, patience }, () => 0, () => 0, null, (s) => served.push(s), (v) => gaveUp.push(v), () => 0);
   walkups.open = true;
-  walkups.addCounter('kiosk', 'kiosk', null);
+  walkups.addCounter('stand', KIND, null);
   return { walkups, served, gaveUp };
 }
 
-/** Runs the boardwalk for `seconds`, the counter worked at `rate` (0: nobody behind it). */
+/** Runs the stand for `seconds`, the counter worked at `rate` (0: nobody behind it). */
 function run(walkups: WalkUps, seconds: number, rate: number): void {
   for (let t = 0; t < seconds; t += 0.1) walkups.update(0.1, () => ({ rate, byPlayer: rate > 0 }));
 }
 
 describe('walk-up counters', () => {
-  it('brings tourists to the window, where they wait to be served', () => {
-    const { walkups } = boardwalk();
+  it('brings visitors round to the window, where they wait to be served', () => {
+    const { walkups } = stand();
     const [counter] = walkups.counters;
     run(walkups, 25, 0);
     expect(counter!.line.length).toBeGreaterThan(1);
-    expect(counter!.front?.at).toEqual(BEACH.layout.counters.kiosk!.window);
+    expect(counter!.front?.at).toEqual(LAYOUT.counters.stand!.window);
     expect(counter!.needsWork).toBe(true);
   });
 
-  it('serves the front of the line, who pays and strolls off, and the next steps up', () => {
-    const { walkups, served } = boardwalk();
+  it('serves the front of the line, who pays and wanders off, and the next steps up', () => {
+    const { walkups, served } = stand();
     const [counter] = walkups.counters;
     run(walkups, 25, 0);
     const first = counter!.front!;
     const second = counter!.line[1]!;
-    run(walkups, (stationDef('kiosk').seconds ?? 1) + 0.2, 1);
-    expect(served[0]?.tourist).toBe(first);
-    expect(first.served).toEqual(['icecream']);
+    run(walkups, (stationDef(KIND).seconds ?? 1) + 0.2, 1);
+    expect(served[0]?.visitor).toBe(first);
+    expect(first.served).toEqual([stationDef(KIND).serves]);
     expect(first.manual).toBe(true);
     expect(counter!.line[0]).toBe(second);
-    // The next one walks up to the window and is ready to be served.
     run(walkups, 3, 0);
     expect(counter!.front).toBe(second);
   });
 
-  it('opens a new boardwalk with a tourist already at the window', () => {
-    const { walkups } = boardwalk();
+  it('opens a new counter with a visitor already at the window', () => {
+    const { walkups } = stand();
     walkups.parkFirst();
     const counter = walkups.counters[0]!;
-    expect(counter.front?.at).toEqual(BEACH.layout.counters.kiosk!.window);
+    expect(counter.front?.at).toEqual(LAYOUT.counters.stand!.window);
     walkups.parkFirst();
     expect(counter.line.length).toBe(1);
   });
 
   it('keeps the line to the spots the counter has', () => {
-    const { walkups } = boardwalk(1000);
+    const { walkups } = stand(1000);
     run(walkups, 120, 0);
-    expect(walkups.counters[0]!.line.length).toBeLessThanOrEqual(stationDef('kiosk').queueSpots ?? 0);
+    expect(walkups.counters[0]!.line.length).toBeLessThanOrEqual(LAYOUT.counters.stand!.queue.length);
   });
 
-  it('loses tourists kept waiting too long, unserved', () => {
-    const { walkups, served, gaveUp } = boardwalk(5);
+  it('loses visitors kept waiting too long, unserved', () => {
+    const { walkups, served, gaveUp } = stand(5);
     run(walkups, 40, 0);
     expect(gaveUp.length).toBeGreaterThan(0);
     expect(gaveUp[0]!.served).toEqual([]);
@@ -80,40 +92,15 @@ describe('walk-up counters', () => {
   });
 
   it('sends nobody before the models are ready, and fewer while a rival is open', () => {
-    const closed = boardwalk();
+    const closed = stand();
     closed.walkups.open = false;
     run(closed.walkups, 30, 0);
-    expect(closed.walkups.tourists).toEqual([]);
-    const normal = boardwalk(1000);
-    const rival = boardwalk(1000);
+    expect(closed.walkups.visitors).toEqual([]);
+    const normal = stand(1000);
+    const rival = stand(1000);
     rival.walkups.rateFactor = 0.5;
     run(normal.walkups, 9, 0);
     run(rival.walkups, 9, 0);
-    expect(rival.walkups.tourists.length).toBeLessThan(normal.walkups.tourists.length);
-  });
-});
-
-describe('Beach Boardwalk data', () => {
-  it('has a counter, pile and upgrade pad for every kiosk, and a spot for every pad', () => {
-    for (const pad of BEACH.pads) {
-      expect(BEACH.layout.pads[pad.id], pad.id).toBeDefined();
-      if (pad.effects.counter) {
-        expect(BEACH.layout.counters[pad.id], pad.id).toBeDefined();
-        expect(BEACH.layout.piles[pad.id], pad.id).toBeDefined();
-        expect(stationDef(pad.effects.counter).customer).toBe('walker');
-      }
-    }
-    expect(BEACH.pads[0]).toMatchObject({ id: 'kiosk', cost: 0 });
-    expect(BEACH.pads.at(-1)?.effects.endOfContent).toBe(true);
-  });
-
-  it('prices its pads in order, about ten times the first town', () => {
-    for (let i = 1; i < BEACH.pads.length; i++) expect(BEACH.pads[i]!.cost).toBeGreaterThan(BEACH.pads[i - 1]!.cost);
-  });
-
-  it('keeps every queue spot on the boardwalk or the sand, clear of the sea', () => {
-    for (const counter of Object.values(BEACH.layout.counters)) {
-      for (const spot of counter.queue) expect(spot.z).toBeGreaterThan(BEACH.layout.shoreZ);
-    }
+    expect(rival.walkups.visitors.length).toBeLessThan(normal.walkups.visitors.length);
   });
 });

@@ -1,5 +1,6 @@
 // The game for the town being played: each kind of town builds its own
-// (the car wash town, the boardwalk), all behind the same Game interface.
+// (the car wash town today; Chapter 2's farm village next), all behind the
+// same Game interface.
 import type { GameClock } from './clock';
 import type { GameState } from './gameState';
 import type { Lifecycle } from './lifecycle';
@@ -11,7 +12,6 @@ import type { Traffic } from '../systems/traffic';
 import type { StaffSystem } from '../systems/staff';
 import { town } from './config';
 import { createRoadsideGame } from './roadsideGame';
-import { createBoardwalkGame } from './boardwalkGame';
 
 export interface Game {
   readonly stage: Stage;
@@ -47,7 +47,5 @@ export function createGame(
   travelTo: (id: string) => Promise<void>,
 ): Game {
   const current = town();
-  return current.kind === 'carWash'
-    ? createRoadsideGame(container, stage, state, lifecycle, saves, sound, travelTo, current)
-    : createBoardwalkGame(container, stage, state, lifecycle, saves, sound, travelTo, current);
+  return createRoadsideGame(container, stage, state, lifecycle, saves, sound, travelTo, current);
 }

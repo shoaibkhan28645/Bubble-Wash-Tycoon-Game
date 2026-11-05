@@ -1,9 +1,9 @@
-// Walk-up businesses (Chapter 2 on): tourists on foot come along the
-// boardwalk, line up at a counter, are served by the hero or a worker
-// behind it, pay, and stroll off to the beach. A tourist who waits too long
-// gives up and leaves unhappy. Counters are stations like the car wash's,
+// Walk-up businesses (a farm stand, a market stall): visitors on foot come
+// along a walkway, line up at a counter, are served by the hero or a worker
+// behind it, pay, and wander off. A visitor who waits too long gives up and
+// leaves unhappy. Counters are stations like the car wash's,
 // serving Customers on foot instead of cars.
-import { TUNING, stationDef, type BoardwalkLayout, type CounterSpot, type Dirt, type Point } from '../core/config';
+import { TUNING, stationDef, type WalkUpLayout, type CounterSpot, type Dirt, type Point } from '../core/config';
 import type { GameState } from '../core/gameState';
 import type { Customer, CustomerState } from './customers';
 import { spawnSeconds } from './economy';
@@ -18,8 +18,8 @@ export interface WalkerAvatar {
   update(dt: number, scrubbing?: boolean): void;
 }
 
-/** Tunables for tourists, from tuning.json. */
-export interface TouristRules {
+/** Tunables for visitors (each town gives its own). */
+export interface VisitorRules {
   spawnSeconds: number;
   patience: number;
   walkSpeed: number;
@@ -27,8 +27,8 @@ export interface TouristRules {
   pay: [number, number];
 }
 
-/** One tourist on foot. */
-export class Tourist implements Customer {
+/** One visitor on foot. */
+export class Visitor implements Customer {
   readonly body = 'walker' as const;
   state: CustomerState = 'arriving';
   needs: Need[];
@@ -70,10 +70,10 @@ export class Tourist implements Customer {
   }
 }
 
-/** A walk-up counter (a kiosk window): a line of tourists, served one at a time from behind the counter. */
-export class WalkUpCounter extends Station<Tourist> {
-  /** Tourists lined up, front first (the front one is at the window once there). */
-  readonly line: Tourist[] = [];
+/** A walk-up counter (a stand's window): a line of visitors, served one at a time from behind the counter. */
+export class WalkUpCounter extends Station<Visitor> {
+  /** Visitors lined up, front first (the front one is at the window once there). */
+  readonly line: Visitor[] = [];
 
   constructor(
     id: string,
@@ -87,8 +87,8 @@ export class WalkUpCounter extends Station<Tourist> {
     this.side = { x: this.at.x, z: this.at.z };
   }
 
-  /** The tourist at the window, waiting to be served. */
-  get front(): Tourist | null {
+  /** The visitor at the window, waiting to be served. */
+  get front(): Visitor | null {
     const first = this.line[0];
     return first && first.state === 'waiting' ? first : null;
   }
@@ -107,44 +107,44 @@ export class WalkUpCounter extends Station<Tourist> {
   }
 }
 
-/** The first tourist on a new boardwalk waits this long (as good as for ever). */
+/** The first visitor at a new counter waits this long (as good as for ever). */
 const FIRST_PATIENCE = 3600;
 
-export interface ServedTourist {
-  tourist: Tourist;
+export interface ServedVisitor {
+  visitor: Visitor;
   counter: WalkUpCounter;
 }
 
 /**
- * All the tourists and counters of a boardwalk town: who comes when, who
+ * All the visitors and counters of a town's walk-up businesses: who comes when, who
  * lines up where, who's served, and who gives up.
  */
 export class WalkUps {
   readonly counters: WalkUpCounter[] = [];
-  readonly tourists: Tourist[] = [];
-  /** The town's story: a rival takes some tourists (below 1). */
+  readonly visitors: Visitor[] = [];
+  /** The town's story: a rival takes some visitors (below 1). */
   rateFactor = 1;
-  /** The town's story: a rush where every tourist pays more (dirt doesn't apply on foot). */
+  /** The town's story: a rush where every visitor pays more (dirt doesn't apply on foot). */
   rush: { dirt: Dirt; payMultiplier: number } | null = null;
   /** Rewarded boost: serving goes this much faster. */
   boost = 1;
-  /** Tourists come only once their models have loaded. */
+  /** Visitors come only once their models have loaded. */
   open = false;
   private spawnTimer = 0;
   private readonly spare: WalkerAvatar[] = [];
 
   constructor(
-    private readonly layout: BoardwalkLayout,
+    private readonly layout: WalkUpLayout,
     private readonly state: GameState,
-    private readonly rules: TouristRules,
-    /** Arrival speed-up from what's built (the menu board). */
+    private readonly rules: VisitorRules,
+    /** Arrival speed-up from what's built (a sign). */
     private readonly arrivalBonus: () => number,
-    /** Extra patience from what's built (the parasols). */
+    /** Extra patience from what's built (shade, a bench). */
     private readonly patienceBonus: () => number,
     /** A person to draw (null in tests). */
     private readonly makeAvatar: (() => WalkerAvatar | null) | null,
-    private readonly onServed: (served: ServedTourist) => void,
-    private readonly onGaveUp: (tourist: Tourist) => void,
+    private readonly onServed: (served: ServedVisitor) => void,
+    private readonly onGaveUp: (visitor: Visitor) => void,
     private readonly random: () => number = Math.random,
   ) {}
 
@@ -156,8 +156,8 @@ export class WalkUps {
   }
 
   /**
-   * A new boardwalk opens with a tourist already waiting at the first
-   * window, as the car wash opens on a car in the bay: the first thing to
+   * A new town opens with a visitor already waiting at the first window,
+   * as the car wash opens on a car in the bay: the first thing to
    * do is right there. They wait as long as it takes.
    */
   parkFirst(): void {
@@ -166,18 +166,18 @@ export class WalkUps {
     const at = counter.spot.queue[0]!;
     const [low, high] = this.rules.pay;
     const avatar = this.makeAvatar?.() ?? null;
-    const tourist = new Tourist(avatar, at, stationDef(counter.kind).serves ?? '', Math.round((low + high) / 2), FIRST_PATIENCE);
+    const visitor = new Visitor(avatar, at, stationDef(counter.kind).serves ?? '', Math.round((low + high) / 2), FIRST_PATIENCE);
     avatar?.root.position.set(at.x, 0, at.z);
     if (avatar) avatar.root.rotation.y = counter.spot.facing;
-    tourist.counter = counter;
-    tourist.state = 'waiting';
-    counter.line.push(tourist);
-    this.tourists.push(tourist);
+    visitor.counter = counter;
+    visitor.state = 'waiting';
+    counter.line.push(visitor);
+    this.visitors.push(visitor);
   }
 
-  /** Where tourists are (the player walks round them). */
+  /** Where visitors are (the player walks round them). */
   positions(): Point[] {
-    return this.tourists.map((t) => t.at);
+    return this.visitors.map((t) => t.at);
   }
 
   /**
@@ -187,7 +187,7 @@ export class WalkUps {
   update(dt: number, rate: (counter: WalkUpCounter) => { rate: number; byPlayer: boolean }): boolean {
     this.spawn(dt);
     let playerWorking = false;
-    for (const tourist of [...this.tourists]) this.walk(dt, tourist);
+    for (const visitor of [...this.visitors]) this.walk(dt, visitor);
     for (const counter of this.counters) {
       const front = counter.front;
       const work = rate(counter);
@@ -201,15 +201,15 @@ export class WalkUps {
       }
       counter.showProgress(!!counter.front, counter.front?.progress ?? 0, false);
     }
-    for (const tourist of [...this.tourists]) {
-      if (tourist.state !== 'queued' && tourist.state !== 'waiting') continue;
-      tourist.patience -= dt;
-      if (tourist.patience <= 0) this.giveUp(tourist);
+    for (const visitor of [...this.visitors]) {
+      if (visitor.state !== 'queued' && visitor.state !== 'waiting') continue;
+      visitor.patience -= dt;
+      if (visitor.patience <= 0) this.giveUp(visitor);
     }
     return playerWorking;
   }
 
-  /** A new tourist when the timer says (the stars and the menu board speed it up), heading for the shortest line. */
+  /** A new visitor when the timer says (the stars and what's built speed it up), heading for the shortest line. */
   private spawn(dt: number): void {
     if (!this.open || this.counters.length === 0) return;
     const interval = spawnSeconds(this.rules.spawnSeconds, this.state.stars, TUNING.stars.arrivalPerStar, this.arrivalBonus()) / this.rateFactor;
@@ -229,46 +229,46 @@ export class WalkUps {
       avatar.holding = false;
       avatar.root.position.set(from.x, 0, from.z);
     }
-    const tourist = new Tourist(avatar, from, stationDef(counter.kind).serves ?? '', pay, patience);
-    this.tourists.push(tourist);
-    this.join(tourist, counter);
+    const visitor = new Visitor(avatar, from, stationDef(counter.kind).serves ?? '', pay, patience);
+    this.visitors.push(visitor);
+    this.join(visitor, counter);
   }
 
-  /** Lines up at a counter: along the boardwalk, round the counter's side, then to the next free spot in its line. */
-  private join(tourist: Tourist, counter: WalkUpCounter): void {
-    tourist.counter = counter;
-    tourist.state = 'arriving';
-    counter.line.push(tourist);
+  /** Lines up at a counter: along the walkway, round the counter's side, then to the next free spot in its line. */
+  private join(visitor: Visitor, counter: WalkUpCounter): void {
+    visitor.counter = counter;
+    visitor.state = 'arriving';
+    counter.line.push(visitor);
     const spot = counter.spot.queue[counter.line.length - 1]!;
     const { approach } = counter.spot;
-    const mid = (this.layout.boardwalk.minZ + this.layout.boardwalk.maxZ) / 2;
-    tourist.path = [{ x: approach.x, z: mid }, approach, { x: approach.x, z: spot.z }, spot];
+    const mid = this.layout.walkwayZ;
+    visitor.path = [{ x: approach.x, z: mid }, approach, { x: approach.x, z: spot.z }, spot];
   }
 
-  private serve(counter: WalkUpCounter, tourist: Tourist): void {
-    tourist.served.push(...tourist.needs);
-    tourist.progress = 0;
-    this.leaveLine(tourist);
-    tourist.state = 'leaving';
-    if (tourist.avatar) tourist.avatar.holding = true;
-    this.onServed({ tourist, counter });
-    this.strollOff(tourist, counter);
+  private serve(counter: WalkUpCounter, visitor: Visitor): void {
+    visitor.served.push(...visitor.needs);
+    visitor.progress = 0;
+    this.leaveLine(visitor);
+    visitor.state = 'leaving';
+    if (visitor.avatar) visitor.avatar.holding = true;
+    this.onServed({ visitor, counter });
+    this.strollOff(visitor, counter);
   }
 
   /** Out of patience: walks off unhappy, unserved. */
-  private giveUp(tourist: Tourist): void {
-    const counter = tourist.counter;
-    this.leaveLine(tourist);
-    tourist.state = 'angry';
-    this.onGaveUp(tourist);
-    if (counter) this.strollOff(tourist, counter);
+  private giveUp(visitor: Visitor): void {
+    const counter = visitor.counter;
+    this.leaveLine(visitor);
+    visitor.state = 'angry';
+    this.onGaveUp(visitor);
+    if (counter) this.strollOff(visitor, counter);
   }
 
-  private leaveLine(tourist: Tourist): void {
-    const counter = tourist.counter;
-    tourist.counter = null;
+  private leaveLine(visitor: Visitor): void {
+    const counter = visitor.counter;
+    visitor.counter = null;
     if (!counter) return;
-    const i = counter.line.indexOf(tourist);
+    const i = counter.line.indexOf(visitor);
     if (i >= 0) counter.line.splice(i, 1);
     // Everyone behind steps up a spot.
     counter.line.forEach((t, k) => {
@@ -281,54 +281,53 @@ export class WalkUps {
     });
   }
 
-  /** Back round the counter's side to the boardwalk, down the beach to a stroll spot (unless unhappy), then away. */
-  private strollOff(tourist: Tourist, from: WalkUpCounter): void {
-    const { strolls, entrances, boardwalk } = this.layout;
+  /** Back round the counter's side to the walkway, off to a stroll spot (unless unhappy), then away. */
+  private strollOff(visitor: Visitor, from: WalkUpCounter): void {
+    const { strolls, entrances, walkwayZ: mid } = this.layout;
     const stroll = strolls[Math.floor(this.random() * strolls.length)]!;
     const exit = entrances[Math.floor(this.random() * entrances.length)]!;
-    const mid = (boardwalk.minZ + boardwalk.maxZ) / 2;
     const { approach } = from.spot;
-    const back = [{ x: approach.x, z: tourist.at.z }, approach, { x: approach.x, z: mid }];
-    tourist.path = tourist.state === 'angry' ? [...back, exit] : [...back, stroll, { x: stroll.x, z: mid }, exit];
+    const back = [{ x: approach.x, z: visitor.at.z }, approach, { x: approach.x, z: mid }];
+    visitor.path = visitor.state === 'angry' ? [...back, exit] : [...back, stroll, { x: stroll.x, z: mid }, exit];
   }
 
-  private walk(dt: number, tourist: Tourist): void {
+  private walk(dt: number, visitor: Visitor): void {
     let budget = this.rules.walkSpeed * dt;
-    const moving = tourist.path.length > 0;
-    while (budget > 0 && tourist.path.length > 0) {
-      const next = tourist.path[0]!;
-      const dx = next.x - tourist.at.x;
-      const dz = next.z - tourist.at.z;
+    const moving = visitor.path.length > 0;
+    while (budget > 0 && visitor.path.length > 0) {
+      const next = visitor.path[0]!;
+      const dx = next.x - visitor.at.x;
+      const dz = next.z - visitor.at.z;
       const dist = Math.hypot(dx, dz);
-      if (dist > 1e-4 && tourist.avatar) tourist.avatar.root.rotation.y = Math.atan2(dx, dz);
+      if (dist > 1e-4 && visitor.avatar) visitor.avatar.root.rotation.y = Math.atan2(dx, dz);
       if (dist <= budget) {
-        tourist.at = { ...next };
-        tourist.path.shift();
+        visitor.at = { ...next };
+        visitor.path.shift();
         budget -= dist;
       } else {
-        tourist.at = { x: tourist.at.x + (dx / dist) * budget, z: tourist.at.z + (dz / dist) * budget };
+        visitor.at = { x: visitor.at.x + (dx / dist) * budget, z: visitor.at.z + (dz / dist) * budget };
         budget = 0;
       }
     }
-    tourist.avatar?.root.position.set(tourist.at.x, 0, tourist.at.z);
-    if (moving && tourist.path.length === 0) this.arrive(tourist);
-    tourist.avatar?.update(dt);
+    visitor.avatar?.root.position.set(visitor.at.x, 0, visitor.at.z);
+    if (moving && visitor.path.length === 0) this.arrive(visitor);
+    visitor.avatar?.update(dt);
   }
 
-  private arrive(tourist: Tourist): void {
-    const counter = tourist.counter;
+  private arrive(visitor: Visitor): void {
+    const counter = visitor.counter;
     if (counter) {
       // At the window (front of the line): wait to be served, facing the counter. Further back: wait in line.
-      tourist.state = counter.line[0] === tourist ? 'waiting' : 'queued';
-      if (tourist.avatar) tourist.avatar.root.rotation.y = counter.spot.facing;
+      visitor.state = counter.line[0] === visitor ? 'waiting' : 'queued';
+      if (visitor.avatar) visitor.avatar.root.rotation.y = counter.spot.facing;
       return;
     }
     // Strolled off the map: gone.
-    this.tourists.splice(this.tourists.indexOf(tourist), 1);
-    if (tourist.avatar) {
-      tourist.avatar.root.visible = false;
-      tourist.avatar.holding = false;
-      this.spare.push(tourist.avatar);
+    this.visitors.splice(this.visitors.indexOf(visitor), 1);
+    if (visitor.avatar) {
+      visitor.avatar.root.visible = false;
+      visitor.avatar.holding = false;
+      this.spare.push(visitor.avatar);
     }
   }
 }

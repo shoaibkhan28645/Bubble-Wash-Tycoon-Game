@@ -23,8 +23,8 @@ function roadsideBuilt() {
 describe('switchTown', () => {
   it('stores the town being played and opens a fresh one, keeping empire progress', () => {
     const state = roadsideBuilt();
-    switchTown(state, 'beach');
-    expect(state.currentTown).toBe('beach');
+    switchTown(state, 'willowbrook');
+    expect(state.currentTown).toBe('willowbrook');
     expect(currentTownState(state)).toEqual(newTownState());
     expect(state.towns.roadside).toMatchObject({ unlocked: ['bay1', 'hose', 'washer'], autoRate: 120, stars: 4.5, piles: { bay1: 40 } });
     expect(state).toMatchObject({ cash: 1000, gems: 12, flags: ['washed'] });
@@ -33,11 +33,11 @@ describe('switchTown', () => {
   it('brings a town back exactly as it was left', () => {
     const state = roadsideBuilt();
     const before = currentTownState(state);
-    switchTown(state, 'beach');
-    state.unlocked.push('kiosk1');
+    switchTown(state, 'willowbrook');
+    state.unlocked.push('field1');
     switchTown(state, 'roadside');
     expect(currentTownState(state)).toEqual(before);
-    expect(state.towns).toEqual({ beach: { ...newTownState(), unlocked: ['kiosk1'] } });
+    expect(state.towns).toEqual({ willowbrook: { ...newTownState(), unlocked: ['field1'] } });
   });
 
   it('does nothing when already there', () => {
@@ -51,7 +51,7 @@ describe('background towns', () => {
   it('earn at the offline rate while the hero is elsewhere, full rate with a manager', () => {
     const state = roadsideBuilt();
     expect(backgroundIncome(state)).toBe(0);
-    switchTown(state, 'beach');
+    switchTown(state, 'willowbrook');
     expect(backgroundIncome(state)).toBeCloseTo((120 * TUNING.offline.rate) / 60);
     state.towns.roadside!.unlocked.push('manager');
     expect(backgroundIncome(state)).toBeCloseTo((120 * TUNING.offline.managerRate) / 60);
@@ -59,7 +59,7 @@ describe('background towns', () => {
 
   it('pays in whole dollars as play goes on', () => {
     const state = roadsideBuilt();
-    switchTown(state, 'beach');
+    switchTown(state, 'willowbrook');
     const earn = backgroundEarner(state);
     const perSecond = backgroundIncome(state);
     for (let i = 0; i < 600; i++) earn(0.1);
@@ -70,7 +70,7 @@ describe('background towns', () => {
 
   it('every town earns while the game is closed, each with its own cap', () => {
     const state = roadsideBuilt();
-    switchTown(state, 'beach');
+    switchTown(state, 'willowbrook');
     state.autoRate = 60;
     const now = 100 * HOUR;
     const twoHours = empireOfflineEarnings(state, now - 2 * HOUR, now);

@@ -24,5 +24,5 @@
   { "id": "manager", "name": "Manager", "cost": 10000, "targetMinute": 50, "adds": "Offline earnings to 100%", "effects": { "staff": "manager" } },
   { "id": "garage", "name": "Detailing garage", "cost": 15000, "targetMinute": 60, "adds": "Premium add-ons: detailer, tires, vacuum", "effects": { "stage": "detail", "station": "garage", "staff": "detailer" }, "buildSeconds": 900 },
   { "id": "landmark", "name": "Duck Fountain", "cost": 20000, "targetMinute": 68, "adds": "The town's landmark: +20% on every bill", "buildSeconds": 14400, "effects": { "payBonus": 0.2 } },
-  { "id": "truck", "name": "Truck to Beach Boardwalk", "cost": 25000, "targetMinute": 75, "adds": "Moves the hero to the beach; offered once every town goal is done", "afterGoals": true, "effects": { "travel": "beach" } }
+  { "id": "truck", "name": "Truck to Willowbrook", "cost": 25000, "targetMinute": 75, "adds": "Moves the hero to the farm village; offered once every town goal is done", "afterGoals": true, "effects": { "travel": "willowbrook" } }
 ]

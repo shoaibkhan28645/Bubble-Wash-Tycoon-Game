@@ -70,7 +70,7 @@ export interface PadEffects {
   endOfContent?: boolean;
   /** Takes the hero to this town once built (the truck to the next town). */
   travel?: string;
-  /** A walk-up counter (the boardwalk's kiosks and stalls), of this station kind. */
+  /** A walk-up counter (a farm stand, a market stall), of this station kind. */
   counter?: string;
 }
 
@@ -122,7 +122,7 @@ export interface StationDef {
    * shop's queue.
    */
   flow: 'lane' | 'conveyor' | 'finishing' | 'forecourt' | 'till';
-  /** The ticket need it ticks off (wash, fuel, snack, icecream), or null if it only adds stages. */
+  /** The ticket need it ticks off (wash, fuel, snack), or null if it only adds stages. */
   serves: string | null;
   /** Built stages it adds to a customer's bill, by the stage's station (stages.json). */
   stages: string[];
@@ -211,7 +211,7 @@ export interface TownLayout {
   staffSpots: Record<string, Point>;
 }
 
-/** A walk-up counter on the boardwalk: where customers are served, where they line up, and where its worker stands. */
+/** A walk-up counter (a farm stand, a market stall): where customers are served, where they line up, and where its worker stands. */
 export interface CounterSpot {
   /** The serving window: customers stand here to be served, facing it. */
   window: Point;
@@ -221,24 +221,20 @@ export interface CounterSpot {
   queue: Point[];
   /** Which way customers face at the window, in radians (0 = +z). */
   facing: number;
-  /** The corner tourists walk round to reach the line (beside the counter, off the boardwalk). */
+  /** The corner customers walk round to reach the line (beside the counter, off the walkway). */
   approach: Point;
 }
 
-/** A boardwalk town's map (Chapter 2): the shared map plus the sea, the boardwalk and its counters. */
-export interface BoardwalkLayout extends TownLayout {
-  /** The water's edge: the sea lies beyond this z (towards -z). */
-  shoreZ: number;
-  /** The plank promenade along the beach. */
-  boardwalk: Rect;
-  /** Where tourists come onto the map and leave it. */
+/** What a town with walk-up counters adds to its map: where people come from, walk along and wander off to. */
+export interface WalkUpLayout {
+  /** Where visitors come onto the map and leave it. */
   entrances: Point[];
-  /** Where tourists stroll off to once served (the beach, the sea). */
+  /** The z of the path visitors walk along between the entrances. */
+  walkwayZ: number;
+  /** Where visitors wander off to once served. */
   strolls: Point[];
   /** Each walk-up counter, by its pad id. */
   counters: Record<string, CounterSpot>;
-  /** Palm trees (solid trunks). */
-  palms: Point[];
 }
 
 /** The car wash town's map (Chapter 1): the shared map plus its roads, lanes, stations and forecourt. */
@@ -433,13 +429,12 @@ const TRUNK = 0.35;
 
 /**
  * Ground nobody walks through, whatever is built: off the lot, the flower
- * beds, town pieces set on the lot, the street trees and palm trunks, and in
- * the car wash town the hedge along the side street (open at the driveways).
+ * beds, town pieces set on the lot, the street trees, and in the car wash
+ * town the hedge along the side street (open at the driveways).
  */
 export function fixedSolids(layout: TownLayout): Rect[] {
   const town = layout.town.flatMap((p) => (p.solid ? [{ minX: p.x - p.solid[0], maxX: p.x + p.solid[0], minZ: p.z - p.solid[1], maxZ: p.z + p.solid[1] }] : []));
-  const trunk = (t: Point) => ({ minX: t.x - TRUNK, maxX: t.x + TRUNK, minZ: t.z - TRUNK, maxZ: t.z + TRUNK });
-  const trees = [...layout.streetTrees, ...('palms' in layout ? (layout as BoardwalkLayout).palms : [])].map(trunk);
+  const trees = layout.streetTrees.map((t) => ({ minX: t.x - TRUNK, maxX: t.x + TRUNK, minZ: t.z - TRUNK, maxZ: t.z + TRUNK }));
   return [...layout.blocked, ...layout.planters, ...town, ...('exitZ' in layout ? hedge(layout as LocationLayout) : []), ...trees];
 }
 

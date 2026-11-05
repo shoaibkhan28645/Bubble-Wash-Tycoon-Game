@@ -207,17 +207,17 @@ describe('old saves', () => {
 
   it('keeps every town of a v8 empire', () => {
     const { state } = parseSave(fixtures['./fixtures/save-v8.json']!);
-    expect(state.currentTown).toBe('beach');
-    expect(state.unlocked).toEqual(['kiosk1']);
+    expect(state.currentTown).toBe('willowbrook');
+    expect(state.unlocked).toEqual(['field1']);
     expect(state.towns.roadside).toMatchObject({ autoRate: 240, stars: 5, goals: { done: ['fuel', 'mart'], claimed: ['fuel'] } });
     expect(state.towns.roadside!.unlocked).toContain('manager');
   });
 
   it("repairs a town's fields and drops a copy of the town being played", () => {
-    const text = JSON.stringify({ version: 8, currentTown: 'roadside', towns: { roadside: { unlocked: ['x'] }, beach: { stars: 99, unlocked: 'kiosk', piles: { a: -1 } }, bad: 4 } });
+    const text = JSON.stringify({ version: 8, currentTown: 'roadside', towns: { roadside: { unlocked: ['x'] }, willowbrook: { stars: 99, unlocked: 'kiosk', piles: { a: -1 } }, bad: 4 } });
     const { towns } = parseSave(text).state;
-    expect(Object.keys(towns)).toEqual(['beach']);
-    expect(towns.beach).toEqual({ ...newTownState(), stars: 5 });
+    expect(Object.keys(towns)).toEqual(['willowbrook']);
+    expect(towns.willowbrook).toEqual({ ...newTownState(), stars: 5 });
   });
 
   it('turns a broken contract into an empty slot', () => {

@@ -5,7 +5,7 @@ import { newGame } from '../src/core/gameState';
 import { allGoalsDone, goalsSummary } from '../src/systems/townGoals';
 
 /** A second town with one free pad and no goals, standing on Town 1's map. */
-const testPad: PadDef = { id: 'kiosk', name: 'Test kiosk', cost: 0, targetMinute: 0, adds: 'Nothing', effects: {} };
+const testPad: PadDef = { id: 'stand', name: 'Test stand', cost: 0, targetMinute: 0, adds: 'Nothing', effects: {} };
 const TEST_TOWN: TownDef = { id: 'test', layout: ROADSIDE.layout, pads: [testPad], goals: { franchiseStars: 1, goals: [] }, models: ROADSIDE.models, story: ROADSIDE.story, kind: 'carWash' };
 
 afterEach(() => setTown(ROADSIDE));
@@ -39,12 +39,12 @@ describe('towns', () => {
 
     setTown(TEST_TOWN);
     expect(padById('bay1')).toBeUndefined();
-    expect(padById('kiosk')).toBe(testPad);
+    expect(padById('stand')).toBe(testPad);
     expect(goalsSummary(state)).toMatchObject({ done: 0, total: 0, next: null });
     expect(allGoalsDone(state)).toBe(true);
 
     setTown(ROADSIDE);
-    expect(padById('kiosk')).toBeUndefined();
+    expect(padById('stand')).toBeUndefined();
     expect(goalsSummary(state).total).toBe(ROADSIDE.goals.goals.length);
   });
 });

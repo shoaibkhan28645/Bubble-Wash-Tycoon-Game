@@ -73,7 +73,7 @@ describe('the roadside story', () => {
     const state = newGame();
     state.flags = [storyStartFlag(TOWN), ...told('arrival')];
     state.unlocked = ['bay1'];
-    expect(catchUpFlags('beach', story, state)).toEqual([storyStartFlag('beach')]);
+    expect(catchUpFlags('willowbrook', story, state)).toEqual([storyStartFlag('willowbrook')]);
   });
 
   it('puts the speaker under the story', () => {
@@ -104,14 +104,14 @@ describe('the journey', () => {
 
   it('marks where the hero is, what he owns, and what is locked or still to come', () => {
     const state = newGame();
-    const [roadside, beach, market] = JOURNEY;
+    const [roadside, farm, market] = JOURNEY;
     expect(stopStatus(roadside!, state, exists)).toBe('here');
-    expect(stopStatus(beach!, state, exists)).toBe('locked');
+    expect(stopStatus(farm!, state, exists)).toBe('locked');
     state.franchiseStars = 8;
-    expect(stopStatus(beach!, state, exists)).toBe('soon');
-    expect(stopStatus(beach!, state, () => true)).toBe('open');
+    expect(stopStatus(farm!, state, exists)).toBe('soon');
+    expect(stopStatus(farm!, state, () => true)).toBe('open');
     expect(stopStatus(market!, state, () => true)).toBe('locked');
-    state.towns.beach = newTownState();
-    expect(stopStatus(beach!, state, exists)).toBe('owned');
+    state.towns.willowbrook = newTownState();
+    expect(stopStatus(farm!, state, exists)).toBe('owned');
   });
 });
