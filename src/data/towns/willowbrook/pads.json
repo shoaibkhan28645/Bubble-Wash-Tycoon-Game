@@ -1,0 +1,85 @@
+[
+  {
+    "id": "stand",
+    "name": "Farm stand",
+    "cost": 0,
+    "targetMinute": 0,
+    "adds": "Villagers buy fresh produce; stand behind the counter to serve them",
+    "effects": {
+      "counter": "stand"
+    }
+  },
+  {
+    "id": "field1",
+    "name": "Vegetable field",
+    "cost": 0,
+    "targetMinute": 0,
+    "adds": "Six plots of vegetables; stand on a ripe one to harvest it",
+    "effects": {
+      "field": "veg"
+    }
+  },
+  {
+    "id": "well",
+    "name": "Old well",
+    "cost": 400,
+    "targetMinute": 0.7,
+    "adds": "Water for the fields: crops grow 35% faster",
+    "effects": {
+      "growBonus": 0.35
+    }
+  },
+  {
+    "id": "field2",
+    "name": "Corn field",
+    "cost": 1500,
+    "targetMinute": 2,
+    "adds": "Six plots of corn, which sells for more",
+    "effects": {
+      "field": "corn"
+    }
+  },
+  {
+    "id": "standhand",
+    "name": "Stand helper",
+    "cost": 2500,
+    "targetMinute": 3.5,
+    "adds": "Serves at the farm stand",
+    "effects": {
+      "staff": "standhand"
+    }
+  },
+  {
+    "id": "farmhand",
+    "name": "Farmhand",
+    "cost": 4000,
+    "targetMinute": 5.5,
+    "adds": "Harvests the fields and stocks the stand",
+    "effects": {
+      "staff": "farmhand"
+    }
+  },
+  {
+    "id": "barn",
+    "name": "Red barn",
+    "cost": 6000,
+    "targetMinute": 8,
+    "buildSeconds": 30,
+    "adds": "Stores the harvest: the stand holds 10 more crates, and every sale pays 20% more",
+    "effects": {
+      "storage": 10,
+      "payBonus": 0.2
+    }
+  },
+  {
+    "id": "gate",
+    "name": "Farm gate sign",
+    "cost": 9000,
+    "targetMinute": 11,
+    "adds": "+30% villagers stopping by",
+    "effects": {
+      "arrivalBonus": 0.3,
+      "endOfContent": true
+    }
+  }
+]

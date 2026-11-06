@@ -1,0 +1,61 @@
+{
+  "paper": "The Willowbrook Herald",
+  "mentor": { "name": "Farmer Joe", "icon": "👨‍🌾" },
+  "rival": { "name": "Rex Goldsby", "icon": "😎", "business": "Goldsby Greens" },
+  "beats": [
+    {
+      "id": "arrival",
+      "when": { "built": "field1" },
+      "icon": "🚜",
+      "headline": "Car wash owner buys Joe's farm",
+      "body": "The owner of the roadside car wash has bought old Joe's farm outside Willowbrook. The vegetables are ripe, the stand is open and the village is already queueing.",
+      "speaker": "mentor",
+      "words": "Pick what's ripe, fill the stand, and never keep a neighbour waiting. Everyone here knows everyone."
+    },
+    {
+      "id": "corn",
+      "when": { "built": "field2" },
+      "icon": "🌽",
+      "headline": "Sweet corn returns to Willowbrook",
+      "body": "For the first time in years there's corn growing on Joe's old farm. Villagers say it's the sweetest they've tasted.",
+      "speaker": "mentor",
+      "words": "Corn takes its time, but folk pay more for it. Keep both fields busy."
+    },
+    {
+      "id": "firstHire",
+      "when": { "built": "standhand" },
+      "icon": "👩‍🌾",
+      "headline": "Farm stand hires a helper",
+      "body": "There's now a friendly face behind the farm stand all day, so the owner can spend more time in the fields.",
+      "speaker": "mentor",
+      "words": "Now you're farming like an owner. Let your helper sell; you keep the crates coming."
+    },
+    {
+      "id": "farmhand",
+      "when": { "built": "farmhand" },
+      "icon": "🧑‍🌾",
+      "headline": "A farmhand joins the crew",
+      "body": "The farm's new hand picks the fields and carries the crates to the stand. The village has never seen the place so busy.",
+      "speaker": "mentor",
+      "words": "Good help is worth every penny. The farm runs itself while you plan what's next."
+    },
+    {
+      "id": "barn",
+      "when": { "built": "barn" },
+      "icon": "🏚️",
+      "headline": "A new red barn on Joe's farm",
+      "body": "The farm's big red barn is open, storing crates by the dozen. Shoppers say the produce has never been fresher.",
+      "speaker": "mentor",
+      "words": "I always dreamed of a barn like that. You did it proper."
+    },
+    {
+      "id": "gate",
+      "when": { "built": "gate" },
+      "icon": "🌻",
+      "headline": "Willowbrook Farm puts up its sign",
+      "body": "A painted sign now hangs over the farm gate, and folk from the next valley are driving over for the produce. Talk is of a dairy and a hen house next.",
+      "speaker": "mentor",
+      "words": "Cows next, I reckon. And hens. This farm's only getting started."
+    }
+  ]
+}

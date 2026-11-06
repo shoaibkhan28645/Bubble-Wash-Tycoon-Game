@@ -1,0 +1,4 @@
+{
+  "veg": { "name": "Vegetables", "icon": "🥕", "growSeconds": 25, "price": 90 },
+  "corn": { "name": "Corn", "icon": "🌽", "growSeconds": 50, "price": 130 }
+}

@@ -11,6 +11,7 @@ import upgradesJson from '../data/upgrades.json';
 import dailyJson from '../data/daily.json';
 import adsJson from '../data/ads.json';
 import contractsJson from '../data/contracts.json';
+import cropsJson from '../data/crops.json';
 import { ROADSIDE, type TownDef } from './towns';
 
 export type Dirt = 'dusty' | 'muddy' | 'swamp';
@@ -72,6 +73,12 @@ export interface PadEffects {
   travel?: string;
   /** A walk-up counter (a farm stand, a market stall), of this station kind. */
   counter?: string;
+  /** A field of plots growing this crop (crops.json). */
+  field?: string;
+  /** Crops grow this much faster, e.g. 0.35 = 35% (the well). */
+  growBonus?: number;
+  /** More crates each stand holds (the barn). */
+  storage?: number;
 }
 
 export interface PadDef {
@@ -237,6 +244,40 @@ export interface WalkUpLayout {
   counters: Record<string, CounterSpot>;
 }
 
+/** A crop, from src/data/crops.json. Its key is the crop's id. */
+export interface CropDef {
+  name: string;
+  icon: string;
+  /** Seconds from harvest (it's replanted at once) until it's ripe again. */
+  growSeconds: number;
+  /** What one crate of it sells for at the stand. */
+  price: number;
+}
+
+/** A field on the farm: its plots' middles. Every plot is the same size (PLOT). */
+export interface FieldSpot {
+  plots: Point[];
+}
+
+/** A farm village's map (Chapter 2): the shared map, the walk-up stand, its fields and the village round it. */
+export interface FarmLayout extends TownLayout, WalkUpLayout {
+  /** The village road, along x (its middle). */
+  roadZ: number;
+  /** The farm's fence along the road, with a gap for the gate between these x. */
+  fenceZ: number;
+  gate: { minX: number; maxX: number };
+  /** The rest of the fence round the farm: from the road's fence down to here at either side. */
+  fenceSides: { minX: number; maxX: number; maxZ: number };
+  /** Dirt tracks across the farm. */
+  tracks: Rect[];
+  /** Each field by its pad id. */
+  fields: Record<string, FieldSpot>;
+  /** The duck pond (an ellipse in this rect). */
+  pond: Rect;
+  /** Low hills of the countryside beyond the farm. */
+  hills: { x: number; z: number; radius: number; height: number }[];
+}
+
 /** The car wash town's map (Chapter 1): the shared map plus its roads, lanes, stations and forecourt. */
 export interface LocationLayout extends TownLayout {
   roadZ: number;
@@ -395,6 +436,10 @@ export const DAILY = dailyJson as DailyData;
 /** Rewarded ad rewards (and their gem prices) and interstitial limits. */
 export const ADS = adsJson;
 export const CONTRACTS = contractsJson as ContractsData;
+/** Every crop a farm can grow, by id. */
+export const CROPS = cropsJson as Record<string, CropDef>;
+/** One crop plot's size on the ground (art/blender/farm.py plants it). */
+export const PLOT = { width: 2.6, depth: 2.8 };
 
 let current: TownDef = ROADSIDE;
 

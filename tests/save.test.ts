@@ -65,6 +65,7 @@ describe('parseSave', () => {
       stars: 3,
       autoRate: 0,
       supplies: {},
+      plots: {},
       flags: [],
       playSeconds: 0,
       daily: { ...newDaily(), loginDay: 6 },
@@ -97,6 +98,7 @@ describe('parseSave', () => {
       'padPaid',
       'piles',
       'playSeconds',
+      'plots',
       'savedAt',
       'staff',
       'stars',
@@ -211,6 +213,20 @@ describe('old saves', () => {
     expect(state.unlocked).toEqual(['field1']);
     expect(state.towns.roadside).toMatchObject({ autoRate: 240, stars: 5, goals: { done: ['fuel', 'mart'], claimed: ['fuel'] } });
     expect(state.towns.roadside!.unlocked).toContain('manager');
+  });
+
+  it('gives every town of a v8 save its crop plots', () => {
+    const { state } = parseSave(fixtures['./fixtures/save-v8.json']!);
+    expect(state.plots).toEqual({});
+    expect(state.towns.roadside!.plots).toEqual({});
+  });
+
+  it("keeps a v9 farm's plots and the crates at its stand", () => {
+    const { state } = parseSave(fixtures['./fixtures/save-v9.json']!);
+    expect(state.plots).toEqual({ 'field1.0': 1793400020000, 'field1.3': 1793400010000 });
+    expect(state.supplies).toEqual({ 'stand.veg': 3 });
+    expect(parseSave(serialize(state)).state.plots).toEqual(state.plots);
+    expect(parseSave(JSON.stringify({ version: 9, plots: { a: -5, b: 'x', c: 12.4 } })).state.plots).toEqual({ c: 12 });
   });
 
   it("repairs a town's fields and drops a copy of the town being played", () => {

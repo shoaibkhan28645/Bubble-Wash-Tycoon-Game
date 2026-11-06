@@ -784,3 +784,10 @@ body {
     translate: 5px 0;
   }
 }
+
+/* The farm stand asking for crops. */
+.shelf-stock.is-empty {
+  background: #fff1d6;
+  color: #b4521f;
+  box-shadow: 0 2px 0 rgba(180, 82, 31, 0.25);
+}

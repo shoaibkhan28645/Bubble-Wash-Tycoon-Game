@@ -3,7 +3,7 @@ import { CHARACTERS, TUNING, UPGRADES, fixedSolids, type TownLayout, type Point,
 import type { GameState } from '../core/gameState';
 import { PersonAvatar, type Tool } from '../render/models/person';
 import type { Label, WorldLabels } from '../ui/worldLabels';
-import { Carrier } from './carry';
+import { Carrier, type CarryItem } from './carry';
 import { levelFactor, levelStep } from './economy';
 import { NavGrid } from './nav';
 import { pickStation, planRunner, sideOf } from './staffPlan';
@@ -27,13 +27,16 @@ const ROLES = {
   garage: 'detailer',
   attendant: 'attendant',
   clerk: 'clerk',
+  standhand: 'standhand',
+  farmhand: 'farmhand',
 } as const;
 export type Role = keyof typeof ROLES;
 
 /**
  * Stations each role works: the washer both bays, the dryer staff the dryer
  * and wax, the detailer the garage (and wax when the garage is empty), the
- * attendant the fuel pumps and the clerk the Mini-Mart's till.
+ * attendant the fuel pumps and the clerk the Mini-Mart's till. On the farm
+ * the stand hand serves at the stand; the farmhand harvests and carries.
  */
 const WORKS: Record<Role, StationKind[]> = {
   washer: ['bay'],
@@ -45,7 +48,18 @@ const WORKS: Record<Role, StationKind[]> = {
   garage: ['garage', 'wax'],
   attendant: ['pump'],
   clerk: ['counter'],
+  standhand: ['stand'],
+  farmhand: [],
 };
+
+/** Roles that carry a stack on their back: supplies, or crates of produce. */
+const CARRIES: readonly Role[] = ['runner', 'farmhand'];
+
+/**
+ * Where a carrying helper goes next, for a town's own kind of carrying (the
+ * farmhand's harvest round). Null: home.
+ */
+export type CarryPlan = (carrier: Carrier<CarryItem>, helperAt: Point) => Point | null;
 
 /** What each worker holds while working a station. */
 const TOOLS: Partial<Record<Role, Tool>> = { washer: 'sponge', dryerStaff: 'towel', garage: 'polisher', attendant: 'nozzle' };
@@ -62,7 +76,7 @@ const CAR_WAIT_SECONDS = 1.5;
 /** One hired helper: walks a planned route, works a station or carries supplies, takes coffee breaks. */
 class Helper {
   readonly avatar: PersonAvatar;
-  readonly carrier: Carrier | null;
+  readonly carrier: Carrier<CarryItem> | null;
   target: Point;
   /** The station this helper has taken on (keeps it until that car is done). */
   assigned: AnyStation | null = null;
@@ -91,7 +105,7 @@ class Helper {
     this.avatar.root.position.set(start.x, 0, start.z);
     scene.add(this.avatar.root);
     this.target = start;
-    this.carrier = role === 'runner' ? new Carrier(this.avatar.root, () => this.position, capacity) : null;
+    this.carrier = CARRIES.includes(role) ? new Carrier<CarryItem>(this.avatar.root, () => this.position, capacity) : null;
     const coffee = document.createElement('div');
     coffee.className = 'coffee-bubble';
     coffee.textContent = '☕';
@@ -184,6 +198,8 @@ class Helper {
  */
 export class StaffSystem {
   private readonly helpers: Helper[] = [];
+  /** How the farmhand plans its round (set by a farm town). */
+  farmPlan: CarryPlan | null = null;
   private nav: NavGrid;
   private navKey = '';
 
@@ -213,8 +229,14 @@ export class StaffSystem {
     return this.helpers.map((h) => h.position);
   }
 
+  /** The runner's back: supplies. */
   carriers(): Carrier[] {
-    return this.helpers.flatMap((h) => (h.carrier ? [h.carrier] : []));
+    return this.helpers.flatMap((h) => (h.carrier && h.role === 'runner' ? [h.carrier as Carrier] : []));
+  }
+
+  /** The farmhand's back: crates. */
+  crateCarriers<T extends CarryItem>(): Carrier<T>[] {
+    return this.helpers.flatMap((h) => (h.carrier && h.role === 'farmhand' ? [h.carrier as Carrier<T>] : []));
   }
 
   /** How hard staff are working a station this frame (0 if nobody). */
@@ -255,6 +277,9 @@ export class StaffSystem {
       }
       if (helper.role === 'runner') {
         if (supplies) this.planRun(helper, stations, supplies);
+      } else if (helper.role === 'farmhand') {
+        helper.assigned = null;
+        helper.target = this.farmPlan?.(helper.carrier!, helper.position) ?? this.home('farmhand');
       }
       else if (helper.role === 'cashier') this.planCashier(dt, helper);
       else if (helper.role === 'valet' || helper.role === 'manager') {
@@ -269,7 +294,7 @@ export class StaffSystem {
       const station = helper.assigned;
       helper.working = station && insideRect(helper.position, station.zone) ? station : null;
       if (helper.working && there) helper.face(helper.working.at);
-      if (!there || helper.working || helper.role === 'runner') helper.worked += dt;
+      if (!there || helper.working || helper.carrier) helper.worked += dt;
       helper.carrier?.update(dt, !there);
       helper.avatar.update(dt, !!helper.working?.needsWork);
     }
@@ -292,7 +317,7 @@ export class StaffSystem {
   }
 
   private planRun(helper: Helper, stations: readonly AnyStation[], supplies: Supplies): void {
-    const plan = planRunner(helper.carrier!, stations, this.state, supplies);
+    const plan = planRunner(helper.carrier as Carrier, stations, this.state, supplies);
     const shelf = this.layout.pads.soap;
     helper.assigned = null;
     if (plan.kind === 'drop') helper.target = sideOf(plan.station, SIDE);

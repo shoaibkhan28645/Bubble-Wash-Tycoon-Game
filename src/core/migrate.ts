@@ -2,7 +2,7 @@ import { newDaily, newGame, newTownState, type Build, type Contract, type Contra
 import { START_TOWN_ID } from './towns';
 
 /** Bump when the save shape changes, and add a migration for the old version. */
-export const SAVE_VERSION = 8;
+export const SAVE_VERSION = 9;
 
 type SaveObject = Record<string, unknown>;
 export type Migration = (save: SaveObject) => SaveObject;
@@ -23,6 +23,12 @@ export const MIGRATIONS: Readonly<Record<number, Migration>> = {
   6: (save) => ({ ...save, contracts: { slots: [], doubledDate: '' }, goals: { done: [], claimed: [] }, counts: {}, franchiseStars: 0 }),
   // v8: the empire. Location 1 becomes the first town by id, and other towns get a place of their own.
   7: ({ location: _location, ...save }) => ({ ...save, currentTown: START_TOWN_ID, towns: {} }),
+  // v9: farms. Each town keeps when its crop plots are ripe (none yet: every plot starts ripe).
+  8: (save) => ({
+    ...save,
+    plots: {},
+    towns: isObject(save.towns) ? Object.fromEntries(Object.entries(save.towns).map(([id, town]) => [id, isObject(town) ? { ...town, plots: {} } : town])) : save.towns,
+  }),
 };
 
 /**
@@ -90,7 +96,7 @@ export function serialize(state: GameState): string {
 
 /** One town's progress as saved, with its rating and income rate rounded. */
 function townFields(town: TownState): TownState {
-  const { unlocked, levels, staff, padPaid, building, piles, supplies, goals } = town;
+  const { unlocked, levels, staff, padPaid, building, piles, supplies, plots, goals } = town;
   return {
     unlocked,
     levels,
@@ -101,6 +107,7 @@ function townFields(town: TownState): TownState {
     stars: Math.round(town.stars * 100) / 100,
     autoRate: Math.round(town.autoRate * 100) / 100,
     supplies,
+    plots,
     goals,
   };
 }
@@ -142,6 +149,7 @@ function townState(save: SaveObject): TownState {
     stars: Math.min(5, Math.max(1, nonNegative(save.stars, fresh.stars))),
     autoRate: nonNegative(save.autoRate, fresh.autoRate),
     supplies: levelMap(save.supplies),
+    plots: timeMap(save.plots),
     goals: goalsState(save.goals),
   };
 }
@@ -229,6 +237,16 @@ function buildMap(value: unknown): Record<string, Build> {
     if (isObject(build) && typeof build.endsAt === 'number' && Number.isFinite(build.endsAt)) builds[id] = { endsAt: build.endsAt, halved: build.halved === true };
   }
   return builds;
+}
+
+/** Wall-clock times by id (whole ms, from 0). */
+function timeMap(value: unknown): Record<string, number> {
+  const times: Record<string, number> = {};
+  if (!isObject(value)) return times;
+  for (const [id, time] of Object.entries(value)) {
+    if (typeof time === 'number' && Number.isFinite(time) && time >= 0) times[id] = Math.round(time);
+  }
+  return times;
 }
 
 function amountMap(value: unknown): Record<string, number> {

@@ -81,8 +81,10 @@ export interface GameState {
   stars: number;
   /** Automated income per minute, measured in play; drives offline earnings. */
   autoRate: number;
-  /** Supply counts: "shelf.soap", "bay1.soap", "dryer.towel"… */
+  /** Supply counts: "shelf.soap", "bay1.soap", "dryer.towel"; on a farm, crates at the stand: "stand.veg"… */
   supplies: Record<string, number>;
+  /** On a farm: when each crop plot is ripe again (wall-clock ms), by plot id ("field1.0"). A plot not listed is ripe. */
+  plots: Record<string, number>;
   /** One-off milestones for the tutorial hand: "washed", "collected", "supplied", "ended"… */
   flags: string[];
   /** Total seconds played (game clock), for the first-10-minutes timeline. */
@@ -101,14 +103,14 @@ export interface GameState {
 }
 
 /** The fields of GameState that belong to one town; the rest are the empire's. */
-export const TOWN_KEYS = ['unlocked', 'levels', 'staff', 'padPaid', 'building', 'piles', 'stars', 'autoRate', 'supplies', 'goals'] as const;
+export const TOWN_KEYS = ['unlocked', 'levels', 'staff', 'padPaid', 'building', 'piles', 'stars', 'autoRate', 'supplies', 'plots', 'goals'] as const;
 
 /** One town's progress: what's built there, its levels, staff, supplies, cash piles, rating and goals. */
 export type TownState = Pick<GameState, (typeof TOWN_KEYS)[number]>;
 
 /** A town nobody has built in yet. */
 export function newTownState(): TownState {
-  return { unlocked: [], levels: {}, staff: [], padPaid: {}, building: {}, piles: {}, stars: 3, autoRate: 0, supplies: {}, goals: { done: [], claimed: [] } };
+  return { unlocked: [], levels: {}, staff: [], padPaid: {}, building: {}, piles: {}, stars: 3, autoRate: 0, supplies: {}, plots: {}, goals: { done: [], claimed: [] } };
 }
 
 export function newGame(): GameState {

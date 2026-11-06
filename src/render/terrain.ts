@@ -24,7 +24,7 @@ const GROUND_SIZE = 140;
 const GROUND_SEGMENTS = 32;
 
 /** Small seeded random generator so the scenery is the same every time. */
-function seeded(seed: number): () => number {
+export function seeded(seed: number): () => number {
   return () => {
     seed = (seed * 1664525 + 1013904223) >>> 0;
     return seed / 4294967296;
@@ -128,7 +128,7 @@ function roads(layout: LocationLayout): Mesh {
 }
 
 /** Many copies of one Kenney model in a single draw call, standing at height `y`. */
-function scatter(id: string, items: { x: number; z: number; s: number; r: number }[], y = 0): InstancedMesh {
+export function scatter(id: string, items: { x: number; z: number; s: number; r: number }[], y = 0): InstancedMesh {
   const { geometry, material } = mergedModel(id);
   const mesh = new InstancedMesh(geometry, material, items.length);
   const dummy = new Object3D();

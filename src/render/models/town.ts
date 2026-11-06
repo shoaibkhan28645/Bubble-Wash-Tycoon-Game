@@ -8,12 +8,14 @@ import type { TownLayout, TownPiece } from '../../core/config';
 import { asset, plain } from '../assets';
 import { toyMaterial } from './build';
 import { plate } from './kit';
+import { farmPiece } from './farm';
 
 /** The shop sign board's front, from the shop's middle (art/blender/town.py). */
 const SIGN = { y: 3.55, z: 2.66, width: 3.4, height: 0.6 };
 
-/** The named model, from the homes, shops or props file. */
+/** The named model, from the homes, shops or props file, or the farm's (art/blender/farm.py). */
 function source(name: string): Object3D {
+  if (name.startsWith('fm_')) return farmPiece(name);
   const file = name.startsWith('prop_') ? 'building:props' : name.startsWith('house_') ? 'building:town-homes' : 'building:town-shops';
   const found = asset(file).scene.getObjectByName(name);
   if (!found) throw new Error(`No town model called ${name}`);

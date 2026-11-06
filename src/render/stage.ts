@@ -32,6 +32,30 @@ export function withShadows<T extends Object3D>(object: T, cast = true, receive 
   return object;
 }
 
+/** A town's light: the sky, the haze in the distance, the sky and ground light, and the sun. */
+export interface Look {
+  sky: number;
+  fogNear: number;
+  fogFar: number;
+  skyLight: number;
+  groundLight: number;
+  ambient: number;
+  sun: number;
+  sunStrength: number;
+}
+
+/** Chapter 1's bright midday. */
+export const DEFAULT_LOOK: Look = {
+  sky: BACKGROUND,
+  fogNear: 70,
+  fogFar: 160,
+  skyLight: 0xf4f8ff,
+  groundLight: 0x9fbf8a,
+  ambient: 1.35,
+  sun: 0xffeccc,
+  sunStrength: 2.7,
+};
+
 export interface Stage {
   readonly renderer: WebGLRenderer;
   readonly scene: Scene;
@@ -53,6 +77,8 @@ export interface Stage {
   shadowArea(rect: { minX: number; maxX: number; minZ: number; maxZ: number }): void;
   /** Called after every resize, once the camera's aspect is updated. */
   onResize(callback: () => void): void;
+  /** Sets the town's light (reset() brings back the default). */
+  setLook(look: Look): void;
   render(): void;
   /**
    * Empties the scene for the next town: everything but the sky lights goes,
@@ -68,13 +94,15 @@ export function createStage(container: HTMLElement): Stage {
   container.appendChild(renderer.domElement);
 
   const scene = new Scene();
-  scene.fog = new Fog(BACKGROUND, 70, 160);
+  const fog = new Fog(BACKGROUND, 70, 160);
+  scene.fog = fog;
   renderer.shadowMap.type = PCFShadowMap;
   // Only buildings, trees and the fence cast shadows (cars and people have soft
   // blob shadows), so the shadow map is drawn once and again only when the lot changes.
   renderer.shadowMap.autoUpdate = false;
   renderer.shadowMap.needsUpdate = true;
-  scene.add(new HemisphereLight(0xf4f8ff, 0x9fbf8a, 1.35));
+  const sky = new HemisphereLight(0xf4f8ff, 0x9fbf8a, 1.35);
+  scene.add(sky);
   const sun = new DirectionalLight(0xffeccc, 2.7);
   sun.shadow.mapSize.set(SHADOW_MAP_SIZE, SHADOW_MAP_SIZE);
   sun.shadow.bias = -0.0004;
@@ -82,6 +110,17 @@ export function createStage(container: HTMLElement): Stage {
   sun.shadow.radius = 2;
   scene.add(sun, sun.target);
   const lights = new Set<Object3D>(scene.children);
+  const setLook = (look: Look): void => {
+    renderer.setClearColor(look.sky);
+    fog.color.setHex(look.sky);
+    fog.near = look.fogNear;
+    fog.far = look.fogFar;
+    sky.color.setHex(look.skyLight);
+    sky.groundColor.setHex(look.groundLight);
+    sky.intensity = look.ambient;
+    sun.color.setHex(look.sun);
+    sun.intensity = look.sunStrength;
+  };
   const setShadows = (on: boolean): void => {
     renderer.shadowMap.enabled = on;
     sun.castShadow = on;
@@ -163,6 +202,7 @@ export function createStage(container: HTMLElement): Stage {
       cam.updateProjectionMatrix();
     },
     onResize: (callback) => void listeners.push(callback),
+    setLook,
     render() {
       const now = performance.now();
       if (lastFrame) resolution.tick((now - lastFrame) / 1000);
@@ -172,6 +212,7 @@ export function createStage(container: HTMLElement): Stage {
     },
     reset() {
       listeners.length = 0;
+      setLook(DEFAULT_LOOK);
       const leaving = scene.children.filter((child) => !lights.has(child));
       for (const child of leaving) {
         releaseFromRenderer(child);

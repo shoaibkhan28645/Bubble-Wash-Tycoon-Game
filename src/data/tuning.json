@@ -8,6 +8,8 @@
   "cars": { "speed": 8, "spawnSeconds": 4.5, "queueSpots": 2, "leaveDelay": 0.35 },
   "construction": { "gemSeconds": 120 },
   "snack": { "walkSpeed": 2.3 },
+  "villagers": { "spawnSeconds": 5, "patience": 45, "walkSpeed": 2.2, "pay": [90, 90] },
+  "farm": { "harvestSeconds": 0.7, "standCapacity": 10 },
   "fuel": { "patienceRefill": 0.5, "washWaitSeconds": 4 },
   "tickets": {
     "kinds": [

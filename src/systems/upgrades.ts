@@ -19,6 +19,9 @@ const TITLES: Record<string, string> = {
   tunnel: 'Brush tunnel',
   garage: 'Detailing garage',
   mart: 'Mini-Mart',
+  stand: 'Farm stand',
+  field1: 'Fields',
+  well: 'Farm crew',
 };
 /** Staff targets get their role in front of the upgrade name; the pumps (one panel for both) their number. */
 const STAFF_NAMES: Record<string, string> = {
@@ -28,6 +31,10 @@ const STAFF_NAMES: Record<string, string> = {
   attendant: 'Attendant',
   pump1: 'Pump 1',
   pump2: 'Pump 2',
+  standhand: 'Stand helper',
+  farmhand: 'Farmhand',
+  field1: 'Vegetables',
+  field2: 'Corn',
 };
 /** The staff room opens once the register is built (minute 2). */
 const STAFF_ROOM_AFTER = 'register';

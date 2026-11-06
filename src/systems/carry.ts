@@ -1,13 +1,26 @@
 import { Group, Mesh, type Object3D } from 'three';
-import { box, cylinder, mergeParts, toyMaterial } from '../render/models/build';
+import { box, cylinder, mergeParts, sphere, toyMaterial } from '../render/models/build';
 import type { Point } from '../core/config';
 
 /** Supply items: soap bottles, folded towels, wax tins. */
 export type SupplyType = 'soap' | 'towel' | 'wax';
+/** Anything carried: supplies, or a farm's crates of produce (by crop id). */
+export type CarryItem = SupplyType | 'veg' | 'corn';
 
 const ITEM_HEIGHT = 0.24;
 
-const itemMeshes: Record<SupplyType, () => Mesh> = (() => {
+/** A wooden crate heaped with produce in these colours (corn cobs lie across it). */
+const crate = (colors: string[], cobs: boolean): Parameters<typeof mergeParts>[0] => [
+  { geometry: box(0.44, 0.16, 0.32), color: '#c08a55', y: 0.08 },
+  { geometry: box(0.46, 0.04, 0.34), color: '#8f6036', y: 0.15 },
+  ...[-0.12, 0, 0.12].map((x, i) =>
+    cobs
+      ? { geometry: cylinder(0.045, 0.28, 8), color: colors[i % colors.length]!, x, y: 0.2, rx: Math.PI / 2 }
+      : { geometry: sphere(0.08, 8), color: colors[i % colors.length]!, x, y: 0.2, z: (i - 1) * 0.05 },
+  ),
+];
+
+const itemMeshes: Record<CarryItem, () => Mesh> = (() => {
   const make = (parts: Parameters<typeof mergeParts>[0]) => {
     const geometry = mergeParts(parts);
     return () => new Mesh(geometry, toyMaterial);
@@ -25,12 +38,14 @@ const itemMeshes: Record<SupplyType, () => Mesh> = (() => {
       { geometry: cylinder(0.17, 0.14, 14), color: '#ffc94d', y: 0.07 },
       { geometry: cylinder(0.12, 0.04, 14), color: '#ffffff', y: 0.16 },
     ]),
+    veg: make(crate(['#ff8a2a', '#9bd36a', '#ff4d3d'], false)),
+    corn: make(crate(['#ffd23f'], true)),
   };
 })();
 
-/** Anyone who carries supplies (the player, the runner): a stack on their back. */
-export class Carrier {
-  readonly stack: SupplyType[] = [];
+/** Anyone who carries supplies or crates (the player, the runner, the farmhand): a stack on their back. */
+export class Carrier<T extends CarryItem = SupplyType> {
+  readonly stack: T[] = [];
   /** Seconds until the next item can be picked up or handed over. */
   timer = 0;
   private readonly pile = new Group();
@@ -55,11 +70,11 @@ export class Carrier {
     return this.stack.length >= this.capacity();
   }
 
-  count(type: SupplyType): number {
+  count(type: T): number {
     return this.stack.filter((item) => item === type).length;
   }
 
-  push(type: SupplyType): void {
+  push(type: T): void {
     this.stack.push(type);
     const mesh = itemMeshes[type]();
     mesh.position.y = (this.stack.length - 1) * ITEM_HEIGHT;
@@ -68,7 +83,7 @@ export class Carrier {
   }
 
   /** Takes the top-most item of a type off the stack. */
-  remove(type: SupplyType): boolean {
+  remove(type: T): boolean {
     const index = this.stack.lastIndexOf(type);
     if (index < 0) return false;
     this.stack.splice(index, 1);
