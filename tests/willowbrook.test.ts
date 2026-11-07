@@ -78,6 +78,7 @@ describe('Willowbrook', () => {
     const names = [...layout.town.map((p) => p.model).filter((m) => m.startsWith('fm_')), 'fm_stand', 'fm_well', 'fm_barn', 'fm_gate', 'fm_duck'];
     names.push('fm_henhouse', 'fm_eggtable', 'fm_hen', 'fm_hen_brown', 'fm_trough', 'fm_feedstore');
     names.push('fm_cowbarn', 'fm_cow', 'fm_cow_brown', 'fm_dairy', 'fm_van', 'fm_tanker', 'fm_orders');
+    names.push('fm_tractor', 'fm_trailer', 'fm_shed', 'fm_pickup', 'fm_feedtruck', 'fm_combine');
     for (const crop of ['veg', 'corn']) for (const stage of [1, 2, 3]) names.push(`fm_${crop}_${stage}`);
     for (const name of new Set(names)) expect(farmFiles.includes(`"name":"${name}"`), name).toBe(true);
     for (const path of Object.values(WILLOWBROOK.models)) expect(modelFiles).toContain(path);
@@ -136,8 +137,28 @@ describe('Willowbrook', () => {
     }
     expect(padIds.indexOf('driver')).toBeGreaterThan(padIds.indexOf('van'));
     expect(pads.find((p) => p.id === 'driver')?.effects.driver).toBe(true);
-    expect(pads.at(-1)?.id).toBe('tanker');
-    expect(pads.filter((p) => p.effects.endOfContent).map((p) => p.id)).toEqual(['tanker']);
+    expect(pads.filter((p) => p.effects.endOfContent).map((p) => p.id)).toEqual([pads.at(-1)!.id]);
+  });
+
+  it("sends the machines where they belong: the driver round both fields to the barn doors, the combine over the corn, the feed truck through the gate", () => {
+    const { machines } = layout;
+    expect(pads.at(-1)?.effects.machine).toBe('combine');
+    const inside = (p: { x: number; z: number }, r: Rect) => p.x >= r.minX && p.x <= r.maxX && p.z >= r.minZ && p.z <= r.maxZ;
+    const shed = layout.areas.tractor!;
+    expect(inside(machines.tractorPark, shed)).toBe(true);
+    // The driver's loop passes every plot's row, and stops at the barn doors.
+    const rows = new Set(Object.values(layout.fields).flatMap((f) => f.plots.map((p) => p.z)));
+    for (const z of rows) expect(machines.tractorRoute.some((p) => Math.abs(p.z - z) < 0.01)).toBe(true);
+    expect(machines.tractorRoute.some((p) => inside(p, machines.barnDoor))).toBe(true);
+    for (const p of machines.tractorRoute) expect(inside(p, layout.walk)).toBe(true);
+    // The combine's loop starts and ends where it parks, and crosses the corn field's rows.
+    const combine = machines.combineRoute;
+    expect(combine[0]).toEqual(combine.at(-1));
+    for (const plot of layout.fields.field2!.plots) expect(combine.some((p) => Math.abs(p.z - plot.z) < 0.01)).toBe(true);
+    // The feed truck comes in through the farm gate.
+    const truck = machines.feedTruckRoute;
+    const gateX = truck.find((p, i) => i > 0 && (truck[i - 1]!.z - layout.fenceZ) * (p.z - layout.fenceZ) < 0);
+    expect(gateX).toBeDefined();
   });
 
   it('counts deliveries for a town goal', () => {

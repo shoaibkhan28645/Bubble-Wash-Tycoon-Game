@@ -206,6 +206,8 @@ export class StaffSystem {
   private readonly helpers: Helper[] = [];
   /** How each of a town's own carrying roles plans its round (the farm sets the farmhand's and the egg collector's). */
   readonly carryPlans: Partial<Record<Role, CarryPlan>> = {};
+  /** Extra speed (a multiplier) and carry (items) per role: the farmhand's pickup. */
+  readonly bonuses: Partial<Record<Role, { speed: number; carry: number }>> = {};
   private nav: NavGrid;
   private navKey = '';
 
@@ -224,10 +226,15 @@ export class StaffSystem {
     if (!(padId in ROLES) || this.helpers.some((h) => h.role === padId)) return;
     const role = padId as Role;
     const start = this.layout.pads[padId] ?? this.home(role);
-    const capacity = () => TUNING.supplies.carryBase + levelStep(UPGRADES.kinds.staffCarry, this.level(`${role}.staffCarry`));
+    const capacity = () => TUNING.supplies.carryBase + levelStep(UPGRADES.kinds.staffCarry, this.level(`${role}.staffCarry`)) + (this.bonuses[role]?.carry ?? 0);
     const helper = new Helper(role, this.scene, start, capacity, this.labels);
     helper.target = this.home(role);
     this.helpers.push(helper);
+  }
+
+  /** A helper's figure, by role (the farm draws the farmhand's pickup in its place). */
+  avatarOf(role: Role): PersonAvatar | null {
+    return this.helpers.find((h) => h.role === role)?.avatar ?? null;
   }
 
   /** Where everyone is (cars wait for people in front of them). */
@@ -276,7 +283,7 @@ export class StaffSystem {
       // Leave a station to the player, or to another helper already on it.
       const skip = (station: AnyStation) =>
         playerAt(station) || (!manager && !!station.customer?.vip) || this.helpers.some((o) => o !== helper && o.assigned === station);
-      const speed = TUNING.staff.walkSpeed / levelFactor(UPGRADES.kinds.staffSpeed, this.level(`${helper.role}.staffSpeed`));
+      const speed = (TUNING.staff.walkSpeed * (this.bonuses[helper.role]?.speed ?? 1)) / levelFactor(UPGRADES.kinds.staffSpeed, this.level(`${helper.role}.staffSpeed`));
       if (this.takeBreak(dt, helper)) {
         helper.avatar.update(dt);
         continue;

@@ -30,7 +30,7 @@ import { Particles } from '../render/effects/particles';
 import { farmland } from '../render/farmland';
 import { loadPeople } from '../render/assets';
 import { blobShadows } from '../render/models/actors';
-import { CropPlots, FARM_SOLIDS, farmModel, farmPadModel } from '../render/models/farm';
+import { CropPlots, FARM_SOLIDS, FARM_TURNS, farmModel, farmPadModel } from '../render/models/farm';
 import { PensView } from '../render/models/pens';
 import { VanFleet } from '../render/models/vans';
 import { PersonAvatar } from '../render/models/person';
@@ -43,6 +43,8 @@ import { takeFinished } from '../systems/construction';
 import { Crops, StandStock, type CropId, type CrateCarrier, type GoodId } from '../systems/crops';
 import { ANIMALS, Livestock, type AnimalKind } from '../systems/animals';
 import { Deliveries, VANS } from '../systems/deliveries';
+import { BarnStore } from '../systems/barn';
+import { createMachines } from './farmMachines';
 import { levelFactor, levelStep, nextStars, tipFor } from '../systems/economy';
 import { GuideHand, type GuideStep } from '../systems/guide';
 import { Input } from '../systems/input';
@@ -199,6 +201,7 @@ export function createFarmGame(
     const mesh = farmPadModel(id);
     if (!mesh || !at) return;
     mesh.position.set(at.x, 0, at.z);
+    mesh.rotation.y = FARM_TURNS[id] ?? 0;
     stage.scene.add(withShadows(mesh));
     if (animate) {
       mesh.scale.setScalar(0.001);
@@ -236,8 +239,11 @@ export function createFarmGame(
     sound.play('ching');
     onPaid({ amount: pay, tip: 0, automated: autoVans(), at });
   });
+  deliveries.tripScale = (van) => levelFactor(UPGRADES.kinds.trip, level(`${van}.trip`));
   const fleet = new VanFleet();
   stage.scene.add(fleet.group);
+  // The barn keeps what's unloaded at its doors, and passes it on to the stand and the vans.
+  const barn = new BarnStore(state, layout.machines.barnDoor, () => TUNING.barn.capacity + unlockedSum(state, (e) => e.storage));
   /** The bay of the first van in the yard waiting for a good, if any. */
   const bayWanting = (good: GoodId): Point | null => {
     for (const van of vanIds()) {
@@ -389,6 +395,23 @@ export function createFarmGame(
     );
   };
 
+  const machines = createMachines({
+    root,
+    scene: stage.scene,
+    layout,
+    state,
+    sound,
+    labels,
+    floaters,
+    player,
+    crops,
+    barn,
+    livestock,
+    staff,
+    flag,
+    townId: current.id,
+  });
+
   const addBuilt = (id: string, animate: boolean): void => {
     showBuilding(id, animate);
     const effects = current.pads.find((p) => p.id === id)?.effects;
@@ -422,6 +445,7 @@ export function createFarmGame(
       showBoard();
     }
     staff.hire(id);
+    machines.built(id);
   };
   // The stand and the first field come with the farm: they're there the moment the hero arrives.
   for (const pad of current.pads) if (pad.cost === 0 && !state.unlocked.includes(pad.id)) state.unlocked.push(pad.id);
@@ -528,6 +552,7 @@ export function createFarmGame(
     return { el, label, shown: '' };
   };
   const eggCount = counter(layout.pads.henhouse);
+  const barnCount = counter(layout.buildAt.barn ?? layout.pads.barn);
   const milkCount = counter(layout.pens.cowbarn?.table);
   const feedCount = counter(layout.pads.feedstore);
   const vanCounts = Object.fromEntries(Object.entries(layout.vans).map(([id, spot]) => [id, counter(spot.route[0])]));
@@ -540,6 +565,7 @@ export function createFarmGame(
     labels.remeasure(c.label);
   };
   const showAnimals = (): void => {
+    show(barnCount, barn.total > 0 ? `🏚️ ${t('barnStore', { n: barn.total })}` : null);
     const hens = livestock.first('hens');
     show(eggCount, hens ? `🥚 ${livestock.made(hens.id)} / ${ANIMALS.hens.cap}` : null);
     const cows = livestock.first('cows');
@@ -576,6 +602,8 @@ export function createFarmGame(
     return null;
   };
   const guide = (): GuideStep | null => {
+    const machineStep = machines.guide();
+    if (machineStep) return machineStep;
     const vanStep = vanGuide();
     if (vanStep) return vanStep;
     if (state.unlocked.includes(GUIDE_UNTIL)) {
@@ -631,18 +659,33 @@ export function createFarmGame(
     clock.advance(dt);
     state.playSeconds += dt;
     const now = Date.now();
-    player.update(dt, input.read(), [...solids, ...fixed], view.walkable);
+    // In the tractor, the stick drives it; on foot, the hero walks.
+    const move = input.read();
+    machines.update(dt, now, move, [...solids, ...fixed], view.walkable);
+    if (!machines.driving) player.update(dt, move, [...solids, ...fixed], view.walkable);
     pads.update(dt, player.position);
     upgrades.update(dt, player.position);
     staff.update(dt, walkups.counters, null, solids, (counter) => insideRect(player.position, counter.zone), null, []);
     const carriers = [playerCarry, ...staff.crateCarriers<GoodId>()];
+    const trailer = machines.trailer;
+    const withTrailer = trailer ? [...carriers, trailer] : carriers;
     // Only the hero and the farmhand pick crops (the egg collector just walks across the fields).
     crops.update(dt, now, [playerCarry, ...staff.crateCarriers<GoodId>('farmhand')]);
     livestock.update(dt, now, carriers);
     deliveries.update(now);
     for (const van of vanIds()) {
       const spot = layout.vans[van];
-      if (spot) deliveries.load(van, spot.bay, carriers, (carrier) => carrier === playerCarry && sound.play('chip'));
+      if (spot) deliveries.load(van, spot.bay, withTrailer, (carrier) => carrier === playerCarry && sound.play('chip'));
+    }
+    if (state.unlocked.includes('barn')) {
+      const stand = walkups.counters[0];
+      barn.update(
+        dt,
+        withTrailer,
+        new Set(trailer ? [trailer] : []),
+        stand ? { id: stand.id, stock } : null,
+        vanIds().map((v) => ({ wants: () => deliveries.wants(v), fill: () => deliveries.fill(v) })),
+      );
     }
     fleet.update((van) => deliveries.tripProgress(van, now), (van) => VANS[van]?.trip ?? 60);
     // Standing in front of the orders board opens it (once each time).
@@ -744,6 +787,7 @@ export function createFarmGame(
       for (const cleanup of cleanups) cleanup();
       input.dispose();
       panel.dispose();
+      machines.dispose();
       // The scene first, while the blob shadows are still in it, so the renderer lets go of everything.
       stage.reset();
       blobShadows.detach();

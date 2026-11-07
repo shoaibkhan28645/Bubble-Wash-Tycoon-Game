@@ -77,6 +77,15 @@ export class Deliveries {
     return true;
   }
 
+  /** How much shorter each van's trips are (its upgrade): 1 normally. */
+  tripScale: (van: string) => number = () => 1;
+
+  /** One more of what a waiting van wants goes in, straight from the barn. */
+  fill(van: string): void {
+    const order = this.orderOf(van);
+    if (order && this.atYard(van) && order.loaded < order.qty) order.loaded++;
+  }
+
   /** Goods a van in the yard is waiting for, and how many more. */
   wants(van: string): { good: GoodId; more: number } | null {
     const order = this.orderOf(van);
@@ -119,7 +128,7 @@ export class Deliveries {
     }
     for (const order of this.d.orders) {
       if (!order.van || order.loaded < order.qty || !this.atYard(order.van)) continue;
-      this.d.trips[order.van] = { order: order.id, leftAt: now, backAt: now + (VANS[order.van]?.trip ?? 60) * 1000 };
+      this.d.trips[order.van] = { order: order.id, leftAt: now, backAt: now + (VANS[order.van]?.trip ?? 60) * 1000 * this.tripScale(order.van) };
     }
   }
 

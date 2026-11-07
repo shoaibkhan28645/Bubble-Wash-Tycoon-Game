@@ -161,7 +161,58 @@
     "targetMinute": 25,
     "adds": "Big milk orders for the village; the rival loses his grip on Willowbrook",
     "effects": {
-      "van": true,
+      "van": true
+    }
+  },
+  {
+    "id": "pickup",
+    "name": "Farm pickup",
+    "cost": 38000,
+    "targetMinute": 28,
+    "adds": "The farmhand drives a pickup: nearly twice as fast, and carries three times as much",
+    "effects": {
+      "machine": "pickup"
+    }
+  },
+  {
+    "id": "tractor",
+    "name": "Tractor and shed",
+    "cost": 46000,
+    "targetMinute": 31,
+    "buildSeconds": 30,
+    "adds": "Climb in and drive over the fields: every ripe plot you pass is harvested into the trailer. Unload at the barn doors",
+    "effects": {
+      "machine": "tractor"
+    }
+  },
+  {
+    "id": "tractordriver",
+    "name": "Tractor driver",
+    "cost": 54000,
+    "targetMinute": 34,
+    "adds": "Drives the tractor round the fields by himself, and unloads at the barn",
+    "effects": {
+      "machine": "tractorDriver"
+    }
+  },
+  {
+    "id": "feedtruck",
+    "name": "Feed truck",
+    "cost": 62000,
+    "targetMinute": 37,
+    "adds": "Brings feed from town whenever the feed store runs low: the animals are always fed",
+    "effects": {
+      "machine": "feedTruck"
+    }
+  },
+  {
+    "id": "combine",
+    "name": "Combine harvester",
+    "cost": 75000,
+    "targetMinute": 41,
+    "adds": "Sweeps the corn field whenever it is ripe: two crates a plot, and straw for feed",
+    "effects": {
+      "machine": "combine",
       "endOfContent": true
     }
   }

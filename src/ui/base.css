@@ -791,3 +791,27 @@ body {
   color: #b4521f;
   box-shadow: 0 2px 0 rgba(180, 82, 31, 0.25);
 }
+
+/* Getting out of the tractor: a big button at the bottom, clear of the joystick's usual spot. */
+.drive-exit {
+  position: absolute;
+  left: 50%;
+  bottom: calc(18px + env(safe-area-inset-bottom, 0px));
+  transform: translateX(-50%);
+  padding: 10px 22px;
+  border: 0;
+  border-radius: 999px;
+  background: #ffffff;
+  box-shadow: 0 3px 0 rgba(0, 0, 0, 0.18);
+  font: 800 17px/1.2 system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  color: #2d3440;
+  pointer-events: auto;
+  z-index: 5;
+}
+.drive-exit[hidden] {
+  display: none;
+}
+.drive-prompt {
+  background: #d8432f;
+  color: #fff;
+}

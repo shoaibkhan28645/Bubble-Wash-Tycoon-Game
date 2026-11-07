@@ -90,6 +90,8 @@ export interface PadEffects {
   van?: boolean;
   /** A delivery driver: the vans take orders by themselves. */
   driver?: boolean;
+  /** A farm machine: the farmhand's pickup, the tractor (and its shed), its driver, the feed truck, the combine. */
+  machine?: 'pickup' | 'tractor' | 'tractorDriver' | 'feedTruck' | 'combine';
 }
 
 export interface PadDef {
@@ -308,6 +310,18 @@ export interface FarmLayout extends TownLayout, WalkUpLayout {
   /** The orders board, and where to stand to read it. */
   board: Point;
   boardSpot: Rect;
+  /** The machines: where the tractor parks (in the shed), the barn doors it unloads at, and the routes the machines drive. */
+  machines: {
+    tractorPark: Point;
+    tractorHeading: number;
+    barnDoor: Rect;
+    /** The tractor driver's loop round the fields and back to the barn doors. */
+    tractorRoute: Point[];
+    /** Where the feed truck stops, out to the edge of the map. */
+    feedTruckRoute: Point[];
+    /** The combine's round trip from where it parks, over the corn field and home. */
+    combineRoute: Point[];
+  };
   /** The duck pond (an ellipse in this rect). */
   pond: Rect;
   /** Low hills of the countryside beyond the farm. */

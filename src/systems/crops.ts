@@ -87,6 +87,14 @@ export class Crops {
     return this.plots.find((plot) => insideRect(p, plot.rect)) ?? null;
   }
 
+  /** A machine passing over a point harvests the ripe plot there at once (replanting it). Returns the plot, or null. */
+  harvestAt(p: Point, now: number, crop?: CropId): Plot | null {
+    const plot = this.plotAt(p);
+    if (!plot || !this.ripe(plot, now) || (crop && plot.crop !== crop)) return null;
+    this.state.plots[plot.id] = Math.round(now + this.growMs(plot));
+    return plot;
+  }
+
   /**
    * One frame: everyone standing on a ripe plot with room on their back
    * harvests it, a crate after `harvestSeconds`; it's replanted at once.

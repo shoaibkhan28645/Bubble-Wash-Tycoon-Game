@@ -22,6 +22,14 @@
     "refillSeconds": 25,
     "buyers": ["the Willowbrook Diner", "the school kitchen", "the Bakery", "the General Store", "the chapel fête", "Mabel's Mini-Mart", "the village café"]
   },
+  "barn": { "restockSeconds": 1, "capacity": 40 },
+  "machines": {
+    "trailer": 10,
+    "tractorHarvest": 8,
+    "pickup": { "speed": 1.8, "carry": 6 },
+    "feedTruck": { "trip": 50, "feed": 48 },
+    "combine": { "speed": 2.6, "every": 20, "yield": 2, "hay": 4 }
+  },
   "vans": {
     "van": { "goods": ["eggs", "veg", "corn"], "load": [5, 10], "trip": 70 },
     "tanker": { "goods": ["milk"], "load": [8, 16], "trip": 80 }

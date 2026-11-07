@@ -137,6 +137,45 @@
       "body": "With its own milk tanker on the road, the farm now delivers fresher milk than anyone. Goldsby Agri has sold its farms and left the valley. Talk is of tractors next.",
       "speaker": "mentor",
       "words": "Better service beats a bigger truck. Now, about that old tractor in my shed..."
+    },
+    {
+      "id": "tractor",
+      "when": {
+        "built": "tractor"
+      },
+      "icon": "🚜",
+      "headline": "Joe's old tractor rides again",
+      "body": "The little red tractor that sat in Joe's shed for twenty years is back in the fields, polished, oiled and towing a trailer of fresh produce to the barn.",
+      "speaker": "mentor",
+      "words": "Hop in and drive her over anything ripe. She does in a minute what takes us all morning by hand."
+    },
+    {
+      "id": "drought",
+      "when": {
+        "built": "combine"
+      },
+      "icon": "☀️",
+      "headline": "Heatwave dries out the valley",
+      "body": "The hottest week in years has dried up gardens all over Willowbrook. For the next three minutes villagers will pay double for anything fresh.",
+      "speaker": "mentor",
+      "words": "When the gardens dry up, folk come to us. Keep that stand full!",
+      "effect": {
+        "rush": {
+          "seconds": 180,
+          "dirt": "dusty",
+          "payMultiplier": 2
+        }
+      }
+    },
+    {
+      "id": "droughtOver",
+      "when": {
+        "beat": "drought",
+        "rushOver": true
+      },
+      "icon": "🌧️",
+      "headline": "Rain at last for Willowbrook",
+      "body": "The heatwave has broken and the fields are green again. While the valley was parched, Joe's old farm kept everyone fed, and the combine has already brought in the next harvest."
     }
   ]
 }

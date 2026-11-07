@@ -15,7 +15,7 @@ Crops, one plot each (2.6 x 2.8 m), three stages: fm_veg_1..3, fm_corn_1..3.
 Usage: python art/blender/farm.py <out.glb> [preview.png]
 (writes <out>.glb with the buildings, <out>-props.glb with the props and
 crops, <out>-poultry.glb with the poultry farm and <out>-dairy.glb with
-the dairy and the delivery vans)
+the dairy and the delivery vans, and <out>-machines.glb with the machines)
 """
 import math
 import random
@@ -663,6 +663,148 @@ for i, (nx, nz, col) in enumerate(((-0.6, 1.7, '#fffdf2'), (0.0, 1.75, '#ffe58a'
 p.append(kit.prism((2.5, 0.7, 0.4), (X, 0, 2.15), SHINGLE))
 finish(p, 'fm_orders', X)
 
+# --- The machines (Part D). -------------------------------------------------
+TRACTOR_RED = '#d8432f'
+TYRE = '#2b2b30'
+HUB = '#ffd23f'
+
+
+def wheel(q, x, y, r, width, hub=HUB):
+    q.append(kit.cylinder(r, width, (x, y, r), TYRE, verts=16, rot=(0, math.pi / 2, 0)))
+    q.append(kit.cylinder(r * 0.55, width + 0.04, (x, y, r), hub, verts=12, rot=(0, math.pi / 2, 0)))
+    # Chunky tread blocks round the tyre.
+    for k in range(10):
+        a = k * math.pi / 5
+        q.append(kit.box((width + 0.02, 0.1, 0.12), (x, y + math.cos(a) * r, r + math.sin(a) * r), '#1e1e22', bevel=0.0, rot=(-a, 0, 0)))
+
+
+# The tractor: a red hood with a grille, big tyres behind, small in front, a
+# roofed cab with a seat and steering wheel, a tall exhaust. Its front is -Y.
+X = 140.0
+p = [kit.box((0.9, 1.5, 0.75), (X, -0.55, 0.95), TRACTOR_RED, bevel=0.12, segments=2)]
+p.append(kit.box((0.8, 0.06, 0.55), (X, -1.31, 0.95), '#3b3b42', bevel=0.02))
+for k in range(4):
+    p.append(kit.box((0.7, 0.07, 0.04), (X, -1.35, 0.75 + k * 0.13), '#9aa3ad', bevel=0.0))
+for sx in (-1, 1):
+    p.append(kit.cylinder(0.09, 0.06, (X + sx * 0.3, -1.33, 1.28), '#fff3a0', verts=10, rot=(math.pi / 2, 0, 0)))
+p.append(kit.box((1.1, 1.0, 0.5), (X, 0.55, 0.85), TRACTOR_RED, bevel=0.08))
+p.append(kit.box((0.6, 0.55, 0.12), (X, 0.62, 1.22), '#2b2b30', bevel=0.04))
+p.append(kit.box((0.6, 0.12, 0.5), (X, 0.9, 1.45), '#2b2b30', bevel=0.04))
+p.append(kit.cylinder(0.2, 0.05, (X, 0.15, 1.45), '#2b2b30', verts=12, rot=(0.9, 0, 0)))
+p.append(kit.cylinder(0.03, 0.4, (X, 0.22, 1.3), '#2b2b30', verts=6, rot=(0.9, 0, 0)))
+for sx in (-1, 1):
+    for sy in (-0.1, 1.0):
+        p.append(kit.box((0.07, 0.07, 1.45), (X + sx * 0.62, sy, 1.85), '#3b3b42', bevel=0.0))
+p.append(kit.box((1.45, 1.4, 0.1), (X, 0.45, 2.6), '#f6f1e4', bevel=0.04))
+p.append(kit.cylinder(0.06, 1.0, (X + 0.3, -0.9, 1.75), '#3b3b42', verts=8))
+p.append(kit.cylinder(0.08, 0.1, (X + 0.3, -0.9, 2.27), '#3b3b42', verts=8))
+for sx in (-1, 1):
+    wheel(p, X + sx * 0.82, 0.6, 0.72, 0.42)
+    p.append(kit.box((0.5, 1.3, 0.1), (X + sx * 0.82, 0.6, 1.5), TRACTOR_RED, bevel=0.04, rot=(0, sx * 0.12, 0)))
+    wheel(p, X + sx * 0.62, -0.95, 0.4, 0.26)
+p.append(kit.box((0.2, 0.3, 0.2), (X, 1.15, 0.55), '#3b3b42', bevel=0.03))
+finish(p, 'fm_tractor', X)
+
+# Its trailer: a flatbed with low slatted sides on two wheels, a tow bar in front.
+X = 146.0
+p = [kit.box((1.6, 2.4, 0.14), (X, 0, 0.7), PLANK, bevel=0.03)]
+for sx in (-1, 1):
+    p.append(kit.box((0.08, 2.4, 0.35), (X + sx * 0.78, 0, 0.92), PLANK_DARK, bevel=0.0))
+for sy in (-1, 1):
+    p.append(kit.box((1.6, 0.08, 0.35), (X, sy * 1.18, 0.92), PLANK_DARK, bevel=0.0))
+p.append(kit.box((1.0, 2.0, 0.12), (X, 0, 0.55), '#3b3b42', bevel=0.0))
+p.append(kit.box((0.12, 1.0, 0.1), (X, -1.65, 0.58), '#3b3b42', bevel=0.0))
+for sx in (-1, 1):
+    wheel(p, X + sx * 0.88, 0.0, 0.42, 0.24)
+finish(p, 'fm_trailer', X)
+
+# The machinery shed: an open-fronted pole barn with a green tin roof, a
+# plank back wall hung with tools, and a workbench.
+X = 152.0
+W = 7.0
+D = 6.2
+p = [kit.box((W + 0.4, D + 0.4, 0.12), (X, 0, 0.06), '#b9b3a7', bevel=0.02)]
+for sx in (-1, 0, 1):
+    for sy in (-1, 1):
+        if sx == 0 and sy == -1:
+            continue  # the front stays open for the tractor
+        p.append(kit.box((0.22, 0.22, 3.2), (X + sx * (W / 2 - 0.15), sy * (D / 2 - 0.15), 1.6), PLANK_DARK, bevel=0.02))
+p.append(kit.box((W, 0.24, 0.3), (X, -D / 2 + 0.15, 3.05), PLANK_DARK, bevel=0.02))
+p.append(kit.box((W, 0.18, 3.0), (X, D / 2 - 0.1, 1.5), PLANK, bevel=0.02))
+for i in range(15):
+    p.append(kit.box((0.04, 0.04, 2.9), (X - W / 2 + 0.3 + i * 0.46, D / 2 - 0.2, 1.5), PLANK_DARK, bevel=0.0))
+for sx in (-1, 1):
+    p.append(kit.box((0.18, D, 1.4), (X + sx * (W / 2 - 0.09), 0.2, 2.3), PLANK, bevel=0.02))
+p.append(kit.box((W + 0.6, D + 0.9, 0.12), (X, 0.1, 3.35), '#5f8f6a', bevel=0.03, rot=(-0.08, 0, 0)))
+for i in range(12):
+    p.append(kit.box((0.05, D + 0.9, 0.06), (X - W / 2 + i * 0.64, 0.1, 3.43), '#4e7a58', bevel=0.0, rot=(-0.08, 0, 0)))
+p.append(kit.box((2.0, 0.6, 0.85), (X + 1.9, D / 2 - 0.55, 0.45), PLANK_DARK, bevel=0.03))
+p.append(kit.box((0.5, 0.4, 0.3), (X + 1.5, D / 2 - 0.55, 1.03), '#c94a3d', bevel=0.04))
+for k, (tx, h) in enumerate(((-2.4, 1.1), (-2.0, 1.3), (-1.6, 1.0))):
+    p.append(kit.box((0.06, 0.06, h), (X + tx, D / 2 - 0.25, 1.4), PLANK_DARK, bevel=0.0))
+    p.append(kit.box((0.28, 0.06, 0.18), (X + tx, D / 2 - 0.25, 1.4 + h / 2), '#9aa3ad', bevel=0.0))
+p.append(kit.cylinder(0.35, 0.8, (X - 2.8, D / 2 - 0.7, 0.4), '#3a7fb0', verts=12))
+finish(p, 'fm_shed', X)
+
+# The farm pickup: a sky-blue cab and an open bed with crates in it.
+X = 160.0
+p = [kit.box((1.7, 3.6, 0.4), (X, 0, 0.62), '#2b2b30', bevel=0.04)]
+p.append(kit.box((1.7, 1.5, 0.55), (X, -1.05, 1.0), '#5aa9e0', bevel=0.1, segments=2))
+p.append(kit.box((1.6, 1.1, 0.7), (X, -0.6, 1.55), '#5aa9e0', bevel=0.12, segments=2))
+p.append(kit.box((1.5, 0.08, 0.45), (X, -1.17, 1.6), '#cfeeff', bevel=0.02, rot=(0.3, 0, 0)))
+for sx in (-1, 1):
+    p.append(kit.box((0.06, 0.6, 0.4), (X + sx * 0.82, -0.55, 1.6), '#cfeeff', bevel=0.0))
+    p.append(kit.cylinder(0.1, 0.06, (X + sx * 0.55, -1.82, 0.95), '#fff3a0', verts=10, rot=(math.pi / 2, 0, 0)))
+p.append(kit.box((1.7, 1.9, 0.12), (X, 0.85, 0.88), '#4b8fc0', bevel=0.02))
+for sx in (-1, 1):
+    p.append(kit.box((0.08, 1.9, 0.4), (X + sx * 0.82, 0.85, 1.1), '#5aa9e0', bevel=0.02))
+p.append(kit.box((1.7, 0.08, 0.4), (X, 1.78, 1.1), '#5aa9e0', bevel=0.02))
+for i, (cx, cy) in enumerate(((-0.4, 0.5), (0.4, 0.5), (-0.4, 1.2), (0.4, 1.2))):
+    p.append(kit.box((0.6, 0.55, 0.32), (X + cx, cy, 1.1), PLANK, bevel=0.02))
+    p.append(kit.sphere(0.1, (X + cx, cy, 1.3), (CARROT, CABBAGE, CORN, TOMATO)[i], segments=6))
+vehicle_wheels(p, X, 3.6, 1.6, r=0.34)
+finish(p, 'fm_pickup', X)
+
+# The feed truck: a yellow cab and a green feed hopper body.
+X = 166.0
+p = [kit.box((1.9, 4.8, 0.4), (X, 0.2, 0.62), '#2b2b30', bevel=0.04)]
+p.append(kit.box((1.9, 1.5, 1.4), (X, -1.55, 1.45), '#ffc61a', bevel=0.14, segments=2))
+p.append(kit.box((1.7, 0.1, 0.6), (X, -2.3, 1.65), '#cfeeff', bevel=0.02, rot=(0.2, 0, 0)))
+for sx in (-1, 1):
+    p.append(kit.cylinder(0.13, 0.06, (X + sx * 0.62, -2.33, 0.95), '#fff3a0', verts=10, rot=(math.pi / 2, 0, 0)))
+p.append(kit.box((1.95, 3.0, 1.5), (X, 0.95, 1.6), '#3f7a5a', bevel=0.1))
+p.append(kit.box((1.5, 2.6, 0.5), (X, 0.95, 2.55), '#3f7a5a', bevel=0.1))
+p.append(kit.box((1.97, 1.2, 0.5), (X, 0.95, 1.75), '#fbf6ea', bevel=0.04))
+p.append(kit.cylinder(0.12, 1.6, (X + 0.9, 0.2, 2.4), '#9aa3ad', verts=8, rot=(0.5, 0, 0)))
+vehicle_wheels(p, X, 4.6, 1.7, r=0.4)
+finish(p, 'fm_feedtruck', X)
+
+# The combine harvester: a big green body, a cab on top at the front, a wide
+# reel header in front, a grain tank and an unloading auger folded along its side.
+X = 174.0
+GREEN = '#3c9a4c'
+p = [kit.box((2.2, 3.6, 1.6), (X, 0.4, 1.6), GREEN, bevel=0.12, segments=2)]
+p.append(kit.box((1.8, 1.4, 1.0), (X, 0.9, 2.85), '#c9d3dc', bevel=0.1))
+p.append(kit.box((1.5, 1.3, 1.1), (X, -1.1, 2.85), GREEN, bevel=0.1))
+p.append(kit.box((1.3, 0.08, 0.8), (X, -1.77, 2.95), '#cfeeff', bevel=0.02))
+for sx in (-1, 1):
+    p.append(kit.box((0.06, 1.0, 0.7), (X + sx * 0.76, -1.1, 2.95), '#cfeeff', bevel=0.0))
+p.append(kit.box((1.7, 1.5, 0.08), (X, -1.1, 3.45), '#f6f1e4', bevel=0.03))
+# The header: a wide trough with a reel of bats turning over it.
+p.append(kit.box((3.8, 0.9, 0.35), (X, -2.35, 0.45), '#ffd23f', bevel=0.05))
+p.append(kit.box((3.8, 0.12, 0.6), (X, -1.95, 0.75), '#e2b52c', bevel=0.0))
+p.append(kit.cylinder(0.06, 3.7, (X, -2.4, 1.05), '#9aa3ad', verts=8, rot=(0, math.pi / 2, 0)))
+for k in range(6):
+    a = k * math.pi / 3
+    p.append(kit.box((3.6, 0.06, 0.06), (X, -2.4 + math.cos(a) * 0.38, 1.05 + math.sin(a) * 0.38), '#e8463a', bevel=0.0))
+p.append(kit.box((0.8, 1.1, 0.6), (X, -1.4, 0.7), GREEN, bevel=0.05))
+p.append(kit.cylinder(0.14, 2.8, (X + 1.15, 0.6, 2.4), GREEN, verts=8, rot=(math.pi / 2, 0, 0)))
+for sx in (-1, 1):
+    wheel(p, X + sx * 1.05, -0.6, 0.8, 0.45)
+    wheel(p, X + sx * 0.95, 1.6, 0.48, 0.3)
+p.append(kit.cylinder(0.08, 0.7, (X - 0.7, 1.7, 2.7), '#3b3b42', verts=8))
+finish(p, 'fm_combine', X)
+
 toy = kit.toy_material('toy')
 for obj in models:
     kit.use_material(obj, toy)
@@ -672,13 +814,15 @@ print('triangles', {o.name: kit.triangles([o]) for o in models})
 BUILDINGS = {'fm_farmhouse', 'fm_barn', 'fm_stand', 'fm_well', 'fm_gate', 'fm_windmill', 'fm_chapel'}
 POULTRY = {'fm_henhouse', 'fm_eggtable', 'fm_hen', 'fm_hen_brown', 'fm_trough', 'fm_feedstore'}
 DAIRY = {'fm_cowbarn', 'fm_cow', 'fm_cow_brown', 'fm_dairy', 'fm_van', 'fm_tanker', 'fm_orders'}
+MACHINES = {'fm_tractor', 'fm_trailer', 'fm_shed', 'fm_pickup', 'fm_feedtruck', 'fm_combine'}
 glb = Path(sys.argv[1] if len(sys.argv) > 1 else 'farm.glb')
-for suffix, keep in (('', lambda n: n in BUILDINGS), ('-props', lambda n: n not in BUILDINGS | POULTRY | DAIRY),
-                     ('-poultry', lambda n: n in POULTRY), ('-dairy', lambda n: n in DAIRY)):
+for suffix, keep in (('', lambda n: n in BUILDINGS), ('-props', lambda n: n not in BUILDINGS | POULTRY | DAIRY | MACHINES),
+                     ('-poultry', lambda n: n in POULTRY), ('-dairy', lambda n: n in DAIRY),
+                     ('-machines', lambda n: n in MACHINES)):
     chosen = [b for b in bases if keep(b.name)]
     kit.export(chosen + [m for m in models if m.parent in chosen], str(glb.with_name(glb.stem + suffix + glb.suffix)))
 if len(sys.argv) > 2:
     out = Path(sys.argv[2])
-    for i, (cx, dist) in enumerate(((-30, 34), (2, 30), (38, 26), (80, 22), (106, 20), (124, 20))):
+    for i, (cx, dist) in enumerate(((-30, 34), (2, 30), (38, 26), (80, 22), (106, 20), (124, 20), (146, 22), (168, 22))):
         print(kit.preview(str(out.with_name(f'{out.stem}_{i}{out.suffix}')), look_at=(cx, 0, 1.5), distance=dist,
                           size=(1600, 800), ground='#8fd46a', angles=((0.0, -1, 0.75),)))

@@ -59,6 +59,8 @@ export class Carrier<T extends CarryItem = SupplyType> {
   readonly stack: T[] = [];
   /** Seconds until the next item can be picked up or handed over. */
   timer = 0;
+  /** Where the i-th item sits (x, y, z in the pile), if not one on top of another (a trailer's rows). */
+  arrange: ((i: number) => [number, number, number]) | null = null;
   private readonly pile = new Group();
   private sway = 0;
 
@@ -88,7 +90,7 @@ export class Carrier<T extends CarryItem = SupplyType> {
   push(type: T): void {
     this.stack.push(type);
     const mesh = itemMeshes[type]();
-    mesh.position.y = (this.stack.length - 1) * ITEM_HEIGHT;
+    this.put(mesh, this.stack.length - 1);
     mesh.rotation.y = (this.stack.length % 2) * 0.3;
     this.pile.add(mesh);
   }
@@ -99,8 +101,13 @@ export class Carrier<T extends CarryItem = SupplyType> {
     if (index < 0) return false;
     this.stack.splice(index, 1);
     this.pile.remove(this.pile.children[index]!);
-    this.pile.children.forEach((child, i) => (child.position.y = i * ITEM_HEIGHT));
+    this.pile.children.forEach((child, i) => this.put(child, i));
     return true;
+  }
+
+  private put(item: Object3D, i: number): void {
+    if (this.arrange) item.position.set(...this.arrange(i));
+    else item.position.set(0, i * ITEM_HEIGHT, 0);
   }
 
   /** A little wobble so the stack feels physical. */

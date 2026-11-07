@@ -41,6 +41,22 @@
       "count": "delivery",
       "goal": 10,
       "gems": 20
+    },
+    {
+      "id": "tractor",
+      "built": "tractor",
+      "gems": 20
+    },
+    {
+      "id": "tractorCrates",
+      "count": "tractorCrate",
+      "goal": 30,
+      "gems": 20
+    },
+    {
+      "id": "combine",
+      "built": "combine",
+      "gems": 25
     }
   ]
 }
