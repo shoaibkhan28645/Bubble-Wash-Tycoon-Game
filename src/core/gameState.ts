@@ -40,6 +40,31 @@ export interface ContractsState {
   doubledDate: string;
 }
 
+/** A delivery order on a farm's board (src/systems/deliveries.ts). */
+export interface Order {
+  id: number;
+  /** What's wanted (a good's id), how many, and what it pays. */
+  good: string;
+  qty: number;
+  pay: number;
+  buyer: string;
+  /** Wall-clock ms when it runs out, if no van takes it. */
+  endsAt: number;
+  /** The van that took it (its pad id), and how much is loaded so far. */
+  van: string | null;
+  loaded: number;
+}
+
+/** A farm's delivery orders and the vans out on the road (by van pad id), with wall-clock times. */
+export interface DeliveriesState {
+  orders: Order[];
+  trips: Record<string, { order: number; leftAt: number; backAt: number }>;
+  /** The next order's id. */
+  nextId: number;
+  /** Wall-clock ms when the board may take a new order. */
+  refillAt: number;
+}
+
 /** The town's goals: reached (they stay reached) and claimed. */
 export interface GoalsState {
   done: string[];
@@ -89,6 +114,8 @@ export interface GameState {
    * house's laying has been counted ("henhouse.laid").
    */
   plots: Record<string, number>;
+  /** On a farm: the delivery orders board and the vans out on the road. */
+  deliveries: DeliveriesState;
   /** One-off milestones for the tutorial hand: "washed", "collected", "supplied", "ended"… */
   flags: string[];
   /** Total seconds played (game clock), for the first-10-minutes timeline. */
@@ -107,14 +134,14 @@ export interface GameState {
 }
 
 /** The fields of GameState that belong to one town; the rest are the empire's. */
-export const TOWN_KEYS = ['unlocked', 'levels', 'staff', 'padPaid', 'building', 'piles', 'stars', 'autoRate', 'supplies', 'plots', 'goals'] as const;
+export const TOWN_KEYS = ['unlocked', 'levels', 'staff', 'padPaid', 'building', 'piles', 'stars', 'autoRate', 'supplies', 'plots', 'deliveries', 'goals'] as const;
 
 /** One town's progress: what's built there, its levels, staff, supplies, cash piles, rating and goals. */
 export type TownState = Pick<GameState, (typeof TOWN_KEYS)[number]>;
 
 /** A town nobody has built in yet. */
 export function newTownState(): TownState {
-  return { unlocked: [], levels: {}, staff: [], padPaid: {}, building: {}, piles: {}, stars: 3, autoRate: 0, supplies: {}, plots: {}, goals: { done: [], claimed: [] } };
+  return { unlocked: [], levels: {}, staff: [], padPaid: {}, building: {}, piles: {}, stars: 3, autoRate: 0, supplies: {}, plots: {}, deliveries: { orders: [], trips: {}, nextId: 1, refillAt: 0 }, goals: { done: [], claimed: [] } };
 }
 
 export function newGame(): GameState {

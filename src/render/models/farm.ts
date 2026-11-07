@@ -7,7 +7,7 @@ import { asset, hasModel } from '../assets';
 import { mergeParts, toyMaterial, type Part } from './build';
 import { plate } from './kit';
 
-const FILES = ['building:farm', 'building:farm-props', 'building:farm-poultry'];
+const FILES = ['building:farm', 'building:farm-props', 'building:farm-poultry', 'building:farm-dairy'];
 
 /** The named model's node in whichever farm file has it (not a copy). */
 export function farmPiece(name: string): Object3D {
@@ -36,12 +36,14 @@ const PAD_MODELS: Record<string, string> = {
   gate: 'fm_gate',
   henhouse: 'fm_henhouse',
   feedstore: 'fm_feedstore',
+  cowbarn: 'fm_cowbarn',
 };
 
 /** Sign boards painted in the game (art/blender/farm.py leaves them blank): words, colour, middle and size. */
 const SIGNS: Record<string, { text: string; color: string; y: number; z: number; width: number; height: number }> = {
   stand: { text: 'FRESH PRODUCE', color: '#3f7a5a', y: 2.75, z: 0.0, width: 2.05, height: 0.4 },
   gate: { text: 'WILLOWBROOK FARM', color: '#3f7a5a', y: 2.9, z: 0.12, width: 4.9, height: 0.62 },
+  cowbarn: { text: 'WILLOWBROOK DAIRY', color: '#3f7a5a', y: 3.55, z: 2.33, width: 3.2, height: 0.5 },
 };
 
 export function farmPadModel(id: string): Object3D | null {
@@ -80,6 +82,8 @@ export const FARM_SOLIDS: Record<string, [number, number, number?, number?][]> =
     [2.15, 1.55],
     [1.75, 0.4, 0.1, 1.75],
   ],
+  // The cow barn's walls (its stalls open to the front, but nobody walks in).
+  cowbarn: [[3.5, 2.4]],
   // The shed, the silo behind it and the hopper in front.
   feedstore: [
     [1.4, 1.1, 0, -0.2],

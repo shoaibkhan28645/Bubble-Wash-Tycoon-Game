@@ -30,6 +30,7 @@ const ROLES = {
   standhand: 'standhand',
   farmhand: 'farmhand',
   eggcollector: 'eggcollector',
+  milker: 'milker',
 } as const;
 export type Role = keyof typeof ROLES;
 
@@ -38,7 +39,8 @@ export type Role = keyof typeof ROLES;
  * and wax, the detailer the garage (and wax when the garage is empty), the
  * attendant the fuel pumps and the clerk the Mini-Mart's till. On the farm
  * the stand hand serves at the stand; the farmhand harvests and carries; the
- * egg collector packs eggs and carries the cartons.
+ * egg collector packs eggs and carries the cartons; the milker bottles milk
+ * and carries it.
  */
 const WORKS: Record<Role, StationKind[]> = {
   washer: ['bay'],
@@ -53,10 +55,11 @@ const WORKS: Record<Role, StationKind[]> = {
   standhand: ['stand'],
   farmhand: [],
   eggcollector: [],
+  milker: [],
 };
 
 /** Roles that carry a stack on their back: supplies, or crates of produce. */
-const CARRIES: readonly Role[] = ['runner', 'farmhand', 'eggcollector'];
+const CARRIES: readonly Role[] = ['runner', 'farmhand', 'eggcollector', 'milker'];
 
 /**
  * Where a carrying helper goes next, for a town's own kind of carrying (the

@@ -1,6 +1,8 @@
 // A farm village (Chapter 2, Willowbrook): no cars. Crops ripen in the
-// fields; the hero (later a farmhand) picks them into crates, carries them to
-// the farm stand, and serves the villagers who walk up to it from the road.
+// fields, hens lay and cows give milk; the hero (later the farm's staff) picks,
+// packs and bottles them, carries them to the farm stand, and serves the
+// villagers who walk up to it from the road, or loads the vans that deliver
+// big orders round the village.
 // The shared pieces (the player, pads, cash piles, upgrades, staff, the
 // camera, the side bar, the hero's career and the town's story) are the same
 // as in the car wash town.
@@ -28,8 +30,9 @@ import { Particles } from '../render/effects/particles';
 import { farmland } from '../render/farmland';
 import { loadPeople } from '../render/assets';
 import { blobShadows } from '../render/models/actors';
-import { CropPlots, FARM_SOLIDS, farmPadModel } from '../render/models/farm';
-import { PoultryView } from '../render/models/poultry';
+import { CropPlots, FARM_SOLIDS, farmModel, farmPadModel } from '../render/models/farm';
+import { PensView } from '../render/models/pens';
+import { VanFleet } from '../render/models/vans';
 import { PersonAvatar } from '../render/models/person';
 import { ConstructionSites } from '../render/models/site';
 import { unlockedSum } from '../systems/arrivals';
@@ -38,7 +41,8 @@ import { CashSystem } from '../systems/cash';
 import { Carrier } from '../systems/carry';
 import { takeFinished } from '../systems/construction';
 import { Crops, StandStock, type CropId, type CrateCarrier, type GoodId } from '../systems/crops';
-import { Poultry } from '../systems/animals';
+import { ANIMALS, Livestock, type AnimalKind } from '../systems/animals';
+import { Deliveries, VANS } from '../systems/deliveries';
 import { levelFactor, levelStep, nextStars, tipFor } from '../systems/economy';
 import { GuideHand, type GuideStep } from '../systems/guide';
 import { Input } from '../systems/input';
@@ -57,6 +61,7 @@ import { openEmpireMap } from '../ui/empireMap';
 import { Hud } from '../ui/hud';
 import { t } from '../ui/strings';
 import { UpgradePanel } from '../ui/upgradePanel';
+import { showOrders } from '../ui/ordersPanel';
 import { WorldLabels } from '../ui/worldLabels';
 
 /** A new building grows into place over this long. */
@@ -132,6 +137,8 @@ export function createFarmGame(
   const servedFlag = `served:${current.id}`;
   const stockedFlag = `stocked:${current.id}`;
   const packedFlag = `packed:${current.id}`;
+  const bottledFlag = `bottled:${current.id}`;
+  const sentFlag = `sent:${current.id}`;
 
   // The crops: each field's plots ripen on the clock; the well and the field's upgrades speed them up.
   const crops = new Crops(
@@ -149,26 +156,31 @@ export function createFarmGame(
   );
   const plots = new CropPlots(crops);
   stage.scene.add(plots.group);
-  // The hens: they lay on the clock, eggs are packed into cartons at the egg table, and corn in the feed store makes them lay faster.
-  const hens = (coopId: string) => TUNING.hens.count + levelStep(UPGRADES.kinds.flock, level(`${coopId}.flock`));
-  const poultry = new Poultry(
+  // The animals: hens lay and cows fill the milk tank on the clock; eggs are packed into cartons at the egg
+  // table, milk bottled at the dairy; corn in the feed store makes them all work faster.
+  const UPGRADE: Record<AnimalKind, string> = { hens: 'flock', cows: 'herd' };
+  const animals = (penId: string) => {
+    const kind = layout.pens[penId]?.animal;
+    return kind ? ANIMALS[kind].count + levelStep(UPGRADES.kinds[UPGRADE[kind]], level(`${penId}.${UPGRADE[kind]}`)) : 0;
+  };
+  const livestock = new Livestock(
     state,
     layout,
-    hens,
-    (carrier, coop) => {
+    animals,
+    (carrier, pen) => {
       if (carrier !== playerCarry) return;
-      flag(packedFlag);
-      floaters.show('+1 🥚', new Vector3(coop.table.x, 1.6, coop.table.z), 'star');
+      flag(pen.animal === 'hens' ? packedFlag : bottledFlag);
+      floaters.show(`+1 ${GOODS[ANIMALS[pen.animal].good]!.icon}`, new Vector3(pen.table.x, 1.6, pen.table.z), 'star');
       sound.play('pop');
     },
     (carrier) => {
-      const at = poultry.feedAt;
+      const at = livestock.feedAt;
       if (at) effects.burst('sparkle', new Vector3(at.x, 0.6, at.z - 1), 10, 3, 0.8);
       if (carrier === playerCarry) sound.play('chip');
     },
   );
-  const poultryView = new PoultryView(poultry, hens);
-  stage.scene.add(poultryView.group);
+  const pensView = new PensView(livestock, animals);
+  stage.scene.add(pensView.group);
   const stock = new StandStock(
     state,
     () => unlockedSum(state, (e) => e.storage) + levelStep(UPGRADES.kinds.crates, level('stand.crates')),
@@ -207,6 +219,42 @@ export function createFarmGame(
     stage.scene.add(avatar.root);
     return avatar;
   };
+  // Delivery orders: built vans take orders from the board, are loaded at their bays, and pay at the yard when back.
+  const vanIds = () => current.pads.filter((p) => p.effects.van && state.unlocked.includes(p.id)).map((p) => p.id);
+  const autoVans = () => current.pads.some((p) => p.effects.driver && state.unlocked.includes(p.id));
+  const madeGoods = (): GoodId[] => {
+    const goods: GoodId[] = ['veg'];
+    if (state.unlocked.includes('field2')) goods.push('corn');
+    for (const pen of livestock.pens) goods.push(ANIMALS[pen.animal].good);
+    return goods;
+  };
+  const deliveries = new Deliveries(state, vanIds, madeGoods, autoVans, (order, van) => {
+    const pay = Math.round(order.pay * (1 + unlockedSum(state, (e) => e.payBonus)));
+    cash.add('yard', pay);
+    const at = layout.piles.yard ?? layout.vans[van]!.route[0]!;
+    floaters.show(`+$${pay} 🚚`, new Vector3(at.x, 1.4, at.z), 'cash');
+    sound.play('ching');
+    onPaid({ amount: pay, tip: 0, automated: autoVans(), at });
+  });
+  const fleet = new VanFleet();
+  stage.scene.add(fleet.group);
+  /** The bay of the first van in the yard waiting for a good, if any. */
+  const bayWanting = (good: GoodId): Point | null => {
+    for (const van of vanIds()) {
+      const wants = deliveries.wants(van);
+      if (wants?.good === good) return dropAt(layout.vans[van]!.bay);
+    }
+    return null;
+  };
+  /** The first van bay waiting for something on a carrier's back, if any. */
+  const bayFor = (carrier: { count: (good: GoodId) => number }): Point | null => {
+    for (const van of vanIds()) {
+      const wants = deliveries.wants(van);
+      if (wants && carrier.count(wants.good) > 0) return dropAt(layout.vans[van]!.bay);
+    }
+    return null;
+  };
+
   const onPaid = (paid: Paid): void => {
     if (paid.automated) income.add(clock.now, paid.amount);
     else flag(servedFlag);
@@ -270,26 +318,75 @@ export function createFarmGame(
     const stand = walkups.counters[0];
     const now = Date.now();
     const carrying = carrier.stack.length > 0;
-    const feedAt = poultry.feedAt;
-    const feeding = !!feedAt && poultry.hungry && poultry.wantsFeed;
+    const feedAt = livestock.feedAt;
+    const feeding = !!feedAt && livestock.hungry && livestock.wantsFeed;
     if (feeding && carrier.count('corn') > 0 && (carrier.full || !crops.plots.some((p) => p.crop === 'corn' && crops.ripe(p, now)))) return feedAt;
     const taken = (p: { rect: Rect }) => insideRect(player.position, p.rect);
     const corn = feeding && !carrier.full && !deliverNow(carrier as CrateCarrier, stand) ? crops.nearestRipe(at, now, (p) => p.crop !== 'corn' || taken(p)) : null;
     if (corn) return corn.at;
     if (feeding && carrier.count('corn') > 0) return feedAt;
-    const ripe = carrier.full ? null : crops.nearestRipe(at, now, taken);
+    // A van waiting for a crop: pick that crop first, while any is ripe.
+    const wanted = vanIds().map((v) => deliveries.wants(v)?.good).find((g): g is CropId => g === 'veg' || g === 'corn');
+    const wantedRipe = !!wanted && crops.plots.some((p) => p.crop === wanted && crops.ripe(p, now) && !taken(p));
+    const ripe = carrier.full ? null : crops.nearestRipe(at, now, (p) => taken(p) || (wantedRipe && p.crop !== wanted));
+    const bay = bayFor(carrier as CrateCarrier);
+    if (bay && (carrier.full || !ripe)) return bay;
     if (ripe && !deliverNow(carrier as CrateCarrier, stand)) return ripe.at;
+    if (bay) return bay;
     if (carrying && stand && stock.hasRoom(stand.id)) return dropAt(stand.spot.zone);
     return null;
   };
-  // The egg collector's round: pack cartons at the egg table, then take them to the stand (straight away if it's empty).
-  staff.carryPlans.eggcollector = (carrier) => {
+  // The egg collector's and the milker's rounds: pack cartons or bottles at their pen, then take them to a van
+  // waiting for them, or else to the stand (sooner if it's empty).
+  const packerPlan = (kind: AnimalKind) => (carrier: CrateCarrier): Point | null => {
     const stand = walkups.counters[0];
-    const coop = poultry.coops[0];
+    const pen = livestock.first(kind);
+    const good = ANIMALS[kind].good;
+    const bay = bayWanting(good);
+    const wants = bay ? vanIds().map((v) => deliveries.wants(v)).find((w) => w?.good === good) : null;
+    const packs = pen ? livestock.packs(pen.id) : 0;
     const carrying = carrier.stack.length > 0;
-    if (coop && !carrier.full && poultry.cartons(coop.id) > 0 && !deliverNow(carrier as CrateCarrier, stand)) return dropAt(coop.zone);
+    if (bay && carrier.count(good) > 0 && (carrier.full || packs === 0 || carrier.count(good) >= (wants?.more ?? 1))) return bay;
+    if (pen && !carrier.full && packs > 0 && (bay || !deliverNow(carrier, stand))) return dropAt(pen.zone);
+    if (bay && carrier.count(good) > 0) return bay;
     if (carrying && stand && stock.hasRoom(stand.id)) return dropAt(stand.spot.zone);
     return null;
+  };
+  staff.carryPlans.eggcollector = (carrier) => packerPlan('hens')(carrier as CrateCarrier);
+  staff.carryPlans.milker = (carrier) => packerPlan('cows')(carrier as CrateCarrier);
+
+  // The orders board: built with the first van; standing in front of it opens it.
+  let boardShown = false;
+  const showBoard = (): void => {
+    if (boardShown) return;
+    boardShown = true;
+    const board = farmModel('fm_orders');
+    board.position.set(layout.board.x, 0, layout.board.z);
+    stage.scene.add(withShadows(board));
+    const { x, z } = layout.board;
+    solids.push({ minX: x - 1.1, maxX: x + 1.1, minZ: z - 0.25, maxZ: z + 0.25 });
+  };
+  let onBoardSpot = false;
+  const openBoard = (): void => {
+    showOrders(
+      root,
+      () => ({
+        orders: deliveries.orders,
+        now: Date.now(),
+        vans: vanIds(),
+        canSend: (order, van) => deliveries.atYard(van) && !deliveries.orderOf(van) && deliveries.canCarry(van, order.good),
+        backAt: (van) => state.deliveries.trips[van]?.backAt ?? null,
+        auto: autoVans(),
+        refillAt: state.deliveries.refillAt,
+        slots: deliveries.slots,
+      }),
+      (orderId, van) => {
+        if (!deliveries.assign(orderId, van)) return;
+        flag(sentFlag);
+        sound.play('click');
+        void saves.saveNow();
+      },
+    );
   };
 
   const addBuilt = (id: string, animate: boolean): void => {
@@ -300,17 +397,30 @@ export function createFarmGame(
       crops.addField(id, effects.field as CropId);
       plots.addField(id);
     }
-    if (effects?.coop) {
-      poultry.addCoop(id, Date.now());
-      const coop = poultry.coops.find((c) => c.id === id);
-      if (coop) {
-        poultryView.addCoop(coop, layout.buildAt[id] ?? layout.pads[id]!);
-        // Nobody walks through the run or the egg table.
-        const { table } = coop;
-        solids.push({ ...coop.run }, { minX: table.x - 0.9, maxX: table.x + 0.9, minZ: table.z - 0.45, maxZ: table.z + 0.45 });
+    if (effects?.pen) {
+      livestock.addPen(id, Date.now());
+      const pen = livestock.pen(id);
+      if (pen) {
+        pensView.addPen(pen, layout.buildAt[id] ?? layout.pads[id]!);
+        // Nobody walks through the run, the pasture, the egg table or the dairy.
+        const { table } = pen;
+        const [hw, hd] = pen.animal === 'cows' ? [1.45, 0.8] : [0.9, 0.45];
+        solids.push({ ...pen.run }, { minX: table.x - hw, maxX: table.x + hw, minZ: table.z - hd, maxZ: table.z + hd });
       }
     }
-    if (effects?.feeder) poultry.addFeeder(id);
+    if (effects?.feeder) livestock.addFeeder(id);
+    if (effects?.van) {
+      const spot = layout.vans[id];
+      if (spot) {
+        fleet.add(id, id === 'tanker' ? 'fm_tanker' : 'fm_van', spot.route);
+        // Where it parks is solid (people walk round to its bay), lengthwise along its way out.
+        const [at, next] = spot.route as [Point, Point];
+        const [half, side] = id === 'tanker' ? [2.75, 1.05] : [2.05, 1.0];
+        const alongX = Math.abs(next.x - at.x) > Math.abs(next.z - at.z);
+        solids.push({ minX: at.x - (alongX ? half : side), maxX: at.x + (alongX ? half : side), minZ: at.z - (alongX ? side : half), maxZ: at.z + (alongX ? side : half) });
+      }
+      showBoard();
+    }
     staff.hire(id);
   };
   // The stand and the first field come with the farm: they're there the moment the hero arrives.
@@ -398,7 +508,8 @@ export function createFarmGame(
     if (!stand) return;
     const total = stock.total(stand.id);
     // Each good the farm makes (corn once its field is planted, eggs once there are hens), and how many the stand holds.
-    const makes: Record<GoodId, boolean> = { veg: true, corn: state.unlocked.includes('field2'), eggs: poultry.coops.length > 0 };
+    const made = madeGoods();
+    const makes: Record<GoodId, boolean> = { veg: true, corn: made.includes('corn'), eggs: made.includes('eggs'), milk: made.includes('milk') };
     const sold = (Object.keys(GOODS) as GoodId[]).filter((g) => makes[g] || stock.stock(stand.id, g) > 0);
     const text = total === 0 ? `🧺 ${t('standEmpty')}` : `${sold.map((g) => `${GOODS[g]!.icon} ${stock.stock(stand.id, g)}`).join('  ')}  / ${stock.capacity}`;
     if (text === shownStock) return;
@@ -417,7 +528,9 @@ export function createFarmGame(
     return { el, label, shown: '' };
   };
   const eggCount = counter(layout.pads.henhouse);
+  const milkCount = counter(layout.pens.cowbarn?.table);
   const feedCount = counter(layout.pads.feedstore);
+  const vanCounts = Object.fromEntries(Object.entries(layout.vans).map(([id, spot]) => [id, counter(spot.route[0])]));
   const show = (c: ReturnType<typeof counter>, text: string | null, empty = false): void => {
     c.label.visible = text !== null;
     if (text === null || text === c.shown) return;
@@ -426,19 +539,49 @@ export function createFarmGame(
     c.el.classList.toggle('is-empty', empty);
     labels.remeasure(c.label);
   };
-  const showHens = (): void => {
-    const coop = poultry.coops[0];
-    show(eggCount, coop ? `🥚 ${poultry.eggs(coop.id)} / ${TUNING.hens.nestCap}` : null);
-    const fed = poultry.fed;
-    show(feedCount, poultry.hasFeeder ? (fed ? `🌽 ${poultry.feed} / ${TUNING.hens.feedCap}` : `🐔 ${t('feedEmpty')}`) : null, !fed);
+  const showAnimals = (): void => {
+    const hens = livestock.first('hens');
+    show(eggCount, hens ? `🥚 ${livestock.made(hens.id)} / ${ANIMALS.hens.cap}` : null);
+    const cows = livestock.first('cows');
+    show(milkCount, cows ? `🥛 ${livestock.made(cows.id)} / ${ANIMALS.cows.cap}` : null);
+    const fed = livestock.fed;
+    show(feedCount, livestock.hasFeeder ? (fed ? `🌽 ${livestock.feed} / ${TUNING.feed.cap}` : `🐮 ${t('feedEmpty')}`) : null, !fed);
+    // Over each van in the yard: what it's waiting for, or a nudge to pick an order.
+    const vans = vanIds();
+    for (const [id, c] of Object.entries(vanCounts)) {
+      const order = deliveries.orderOf(id);
+      if (!vans.includes(id) || !deliveries.atYard(id)) show(c, null);
+      else if (order) show(c, `${GOODS[order.good]?.icon ?? '📦'} ${order.loaded} / ${order.qty}`);
+      else show(c, autoVans() ? null : `📋 ${t('vanPick')}`, true);
+    }
   };
 
   const pointer = new EdgePointer(root);
   // A pointing hand for a newcomer to the farm: pick the ripe crops, carry them to the stand,
   // serve, collect the cash, then on to the next pad, until the stand has a helper.
   const hand = new GuideHand(labels);
+  /** Until the driver comes, the vans need the hero: pick an order on the board, then carry the goods into the van. */
+  const vanGuide = (): GuideStep | null => {
+    const vans = vanIds();
+    if (vans.length === 0 || autoVans()) return null;
+    for (const van of vans) {
+      const wants = deliveries.wants(van);
+      if (wants && playerCarry.count(wants.good) > 0) return { at: dropAt(layout.vans[van]!.bay), text: 'guideLoadVan' };
+    }
+    if (!state.flags.includes(sentFlag) && vans.some((v) => deliveries.atYard(v) && !deliveries.orderOf(v)) && deliveries.orders.length > 0) {
+      return { at: dropAt(layout.boardSpot), text: 'guideOrders' };
+    }
+    const cows = livestock.first('cows');
+    if (cows && !state.flags.includes(bottledFlag) && livestock.packs(cows.id) > 0) return { at: dropAt(cows.zone), text: 'guideMilk' };
+    return null;
+  };
   const guide = (): GuideStep | null => {
-    if (state.unlocked.includes(GUIDE_UNTIL)) return null;
+    const vanStep = vanGuide();
+    if (vanStep) return vanStep;
+    if (state.unlocked.includes(GUIDE_UNTIL)) {
+      const cows = livestock.first('cows');
+      return cows && !state.flags.includes(bottledFlag) && livestock.packs(cows.id) > 0 ? { at: dropAt(cows.zone), text: 'guideMilk' } : null;
+    }
     const stand = walkups.counters[0];
     if (!stand) return null;
     const waiting = stand.front;
@@ -457,8 +600,8 @@ export function createFarmGame(
     const pile = cash.fullestPile();
     if (pile) return { at: pile.at, text: 'guideCash' };
     // The first eggs: pack a carton, then take it to the stand.
-    const coop = poultry.coops[0];
-    if (coop && !state.flags.includes(packedFlag) && poultry.cartons(coop.id) > 0) return { at: dropAt(coop.zone), text: 'guideEggs' };
+    const coop = livestock.first('hens');
+    if (coop && !state.flags.includes(packedFlag) && livestock.packs(coop.id) > 0) return { at: dropAt(coop.zone), text: 'guideEggs' };
     if (playerCarry.count('eggs') > 0 && stock.stock(stand.id, 'eggs') === 0) return { at: dropAt(stand.spot.zone), text: 'guideStock' };
     // Someone waiting at an empty stand: go and pick more.
     if (waiting && stock.total(stand.id) === 0 && !state.unlocked.includes('farmhand')) return harvestOrStock();
@@ -495,15 +638,25 @@ export function createFarmGame(
     const carriers = [playerCarry, ...staff.crateCarriers<GoodId>()];
     // Only the hero and the farmhand pick crops (the egg collector just walks across the fields).
     crops.update(dt, now, [playerCarry, ...staff.crateCarriers<GoodId>('farmhand')]);
-    poultry.update(dt, now, carriers);
+    livestock.update(dt, now, carriers);
+    deliveries.update(now);
+    for (const van of vanIds()) {
+      const spot = layout.vans[van];
+      if (spot) deliveries.load(van, spot.bay, carriers, (carrier) => carrier === playerCarry && sound.play('chip'));
+    }
+    fleet.update((van) => deliveries.tripProgress(van, now), (van) => VANS[van]?.trip ?? 60);
+    // Standing in front of the orders board opens it (once each time).
+    const onSpot = boardShown && insideRect(player.position, layout.boardSpot);
+    if (onSpot && !onBoardSpot) openBoard();
+    onBoardSpot = onSpot;
     stock.update(standSpots(), carriers);
     playerCarry.update(dt, player.isMoving);
     const serving = walkups.update(dt, work);
-    player.scrubbing = serving || crops.harvesting.has(playerCarry) || poultry.packing.has(playerCarry);
+    player.scrubbing = serving || crops.harvesting.has(playerCarry) || livestock.packing.has(playerCarry);
     plots.update(dt, now);
-    poultryView.update(dt);
+    pensView.update(dt);
     showStock();
-    showHens();
+    showAnimals();
     if (cash.update(player.position)) flag('collected');
     floaters.update(dt);
     buildTimer -= dt;

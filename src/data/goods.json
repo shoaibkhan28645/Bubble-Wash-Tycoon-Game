@@ -3,5 +3,10 @@
     "name": "Eggs",
     "icon": "🥚",
     "price": 120
+  },
+  "milk": {
+    "name": "Milk",
+    "icon": "🥛",
+    "price": 160
   }
 }

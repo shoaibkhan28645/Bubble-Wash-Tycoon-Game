@@ -97,6 +97,13 @@
       "base": 150,
       "max": 4,
       "step": 1
+    },
+    "herd": {
+      "name": "More cows",
+      "effect": "+1 cow in the cow barn",
+      "base": 400,
+      "max": 3,
+      "step": 1
     }
   },
   "costScale": {
@@ -123,7 +130,9 @@
     "field1": 1,
     "field2": 1.5,
     "henhouse": 1.4,
-    "eggcollector": 1.4
+    "eggcollector": 1.4,
+    "cowbarn": 2,
+    "milker": 2
   },
   "panels": {
     "bay1": [
@@ -195,6 +204,11 @@
       "henhouse.flock",
       "eggcollector.staffSpeed",
       "eggcollector.staffCarry"
+    ],
+    "cowbarn": [
+      "cowbarn.herd",
+      "milker.staffSpeed",
+      "milker.staffCarry"
     ]
   }
 }

@@ -59,7 +59,7 @@ describe('Willowbrook', () => {
   });
 
   it('hires the stand helper and the farmhand, with somewhere to stand and a character each', () => {
-    for (const role of ['standhand', 'farmhand', 'eggcollector'] as const) {
+    for (const role of ['standhand', 'farmhand', 'eggcollector', 'milker'] as const) {
       expect(pads.find((p) => p.id === role)?.effects.staff).toBe(role);
       expect(layout.staffSpots[role]).toBeDefined();
       expect(modelFiles).toContain(`models/people/character-${CHARACTERS.staff[role]}.glb`);
@@ -77,17 +77,18 @@ describe('Willowbrook', () => {
   it('has every farm model it places, plus the crop stages', () => {
     const names = [...layout.town.map((p) => p.model).filter((m) => m.startsWith('fm_')), 'fm_stand', 'fm_well', 'fm_barn', 'fm_gate', 'fm_duck'];
     names.push('fm_henhouse', 'fm_eggtable', 'fm_hen', 'fm_hen_brown', 'fm_trough', 'fm_feedstore');
+    names.push('fm_cowbarn', 'fm_cow', 'fm_cow_brown', 'fm_dairy', 'fm_van', 'fm_tanker', 'fm_orders');
     for (const crop of ['veg', 'corn']) for (const stage of [1, 2, 3]) names.push(`fm_${crop}_${stage}`);
     for (const name of new Set(names)) expect(farmFiles.includes(`"name":"${name}"`), name).toBe(true);
     for (const path of Object.values(WILLOWBROOK.models)) expect(modelFiles).toContain(path);
   });
 
   it('gives the hen house its run, egg table and trough, and the feed store a place to tip corn, clear of everything else', () => {
-    const coop = pads.find((p) => p.effects.coop)!;
+    const coop = pads.find((p) => p.effects.pen === 'hens')!;
     const feeder = pads.find((p) => p.effects.feeder)!;
     expect(padIds.indexOf(coop.id)).toBeLessThan(padIds.indexOf('eggcollector'));
     expect(padIds.indexOf('eggcollector')).toBeLessThan(padIds.indexOf(feeder.id));
-    const spot = layout.coops[coop.id]!;
+    const spot = layout.pens[coop.id]!;
     const inside = (r: Rect, outer: Rect) => r.minX >= outer.minX && r.maxX <= outer.maxX && r.minZ >= outer.minZ && r.maxZ <= outer.maxZ;
     expect(spot.trough.x > spot.run.minX && spot.trough.x < spot.run.maxX && spot.trough.z > spot.run.minZ && spot.trough.z < spot.run.maxZ).toBe(true);
     for (const zone of [spot.zone, layout.feeders[feeder.id]!.zone]) expect(inside(zone, layout.walk)).toBe(true);
@@ -98,6 +99,50 @@ describe('Willowbrook', () => {
 
   it("lets cash pile up without limit once the stand helper minds the till, so the farm earns while the hero is away", () => {
     expect(pads.find((p) => p.id === 'standhand')?.effects.till).toBe(true);
+  });
+
+  it('gives every pen of animals its run, work spot and trough, apart from each other and the fields', () => {
+    const pens = pads.filter((p) => p.effects.pen);
+    expect(pens.map((p) => p.effects.pen)).toEqual(['hens', 'cows']);
+    const runs = pens.map((p) => layout.pens[p.id]!.run);
+    expect(overlaps(runs[0]!, runs[1]!)).toBe(false);
+    for (const pen of pens) {
+      const spot = layout.pens[pen.id]!;
+      expect(spot.animal).toBe(pen.effects.pen);
+      expect(spot.zone.minX >= layout.walk.minX && spot.zone.maxZ <= layout.walk.maxZ).toBe(true);
+      for (const field of Object.values(layout.fields)) for (const plot of field.plots) expect(overlaps(plotRect(plot), spot.run)).toBe(false);
+    }
+  });
+
+  it('parks each van at its pad, loads it at a bay on the farm, and drives it out through the farm gate', () => {
+    const vans = pads.filter((p) => p.effects.van).map((p) => p.id);
+    expect(vans).toEqual(['van', 'tanker']);
+    for (const id of vans) {
+      const spot = layout.vans[id]!;
+      expect(spot.route[0]).toEqual(layout.pads[id]);
+      const inside = (r: Rect) => r.minX >= layout.walk.minX && r.maxX <= layout.walk.maxX && r.minZ >= layout.walk.minZ && r.maxZ <= layout.walk.maxZ;
+      expect(inside(spot.bay)).toBe(true);
+      // Where the route crosses the fence line, it's through the gate.
+      for (let i = 1; i < spot.route.length; i++) {
+        const a = spot.route[i - 1]!;
+        const b = spot.route[i]!;
+        if ((a.z - layout.fenceZ) * (b.z - layout.fenceZ) >= 0) continue;
+        const k = (layout.fenceZ - a.z) / (b.z - a.z);
+        const x = a.x + (b.x - a.x) * k;
+        expect(x).toBeGreaterThan(layout.gate.minX + 0.9);
+        expect(x).toBeLessThan(layout.gate.maxX - 0.9);
+      }
+      expect(Math.abs(spot.route.at(-1)!.x)).toBeGreaterThan(layout.lot.maxX + 20);
+    }
+    expect(padIds.indexOf('driver')).toBeGreaterThan(padIds.indexOf('van'));
+    expect(pads.find((p) => p.id === 'driver')?.effects.driver).toBe(true);
+    expect(pads.at(-1)?.id).toBe('tanker');
+    expect(pads.filter((p) => p.effects.endOfContent).map((p) => p.id)).toEqual(['tanker']);
+  });
+
+  it('counts deliveries for a town goal', () => {
+    const goal = goals.goals.find((g) => g.count === 'delivery');
+    expect(goal?.goal).toBeGreaterThan(0);
   });
 
   it('offers upgrades for things that exist', () => {

@@ -46,8 +46,8 @@
     "targetMinute": 2.8,
     "adds": "Hens lay eggs; pack them into cartons at the egg table. Villagers love fresh eggs (+15% villagers)",
     "effects": {
-      "coop": true,
-      "arrivalBonus": 0.15
+      "arrivalBonus": 0.15,
+      "pen": "hens"
     }
   },
   {
@@ -110,7 +110,58 @@
     "targetMinute": 12.5,
     "adds": "+30% villagers stopping by",
     "effects": {
-      "arrivalBonus": 0.3,
+      "arrivalBonus": 0.3
+    }
+  },
+  {
+    "id": "cowbarn",
+    "name": "Cow barn",
+    "cost": 15000,
+    "targetMinute": 15,
+    "buildSeconds": 30,
+    "adds": "Three cows give milk; bottle it at the dairy. Milk sells for more than anything else",
+    "effects": {
+      "pen": "cows"
+    }
+  },
+  {
+    "id": "milker",
+    "name": "Milker",
+    "cost": 18000,
+    "targetMinute": 17,
+    "adds": "Bottles the milk and takes it to the stand or the vans",
+    "effects": {
+      "staff": "milker"
+    }
+  },
+  {
+    "id": "van",
+    "name": "Farm van",
+    "cost": 22000,
+    "targetMinute": 19,
+    "adds": "Delivery orders open: pick one on the board, load the van with eggs or crates, and it brings back far more than the stand",
+    "effects": {
+      "van": true
+    }
+  },
+  {
+    "id": "driver",
+    "name": "Delivery driver",
+    "cost": 27000,
+    "targetMinute": 22,
+    "adds": "The vans take the best orders by themselves",
+    "effects": {
+      "driver": true
+    }
+  },
+  {
+    "id": "tanker",
+    "name": "Milk tanker",
+    "cost": 33000,
+    "targetMinute": 25,
+    "adds": "Big milk orders for the village; the rival loses his grip on Willowbrook",
+    "effects": {
+      "van": true,
       "endOfContent": true
     }
   }

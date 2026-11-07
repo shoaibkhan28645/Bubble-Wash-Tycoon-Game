@@ -1,8 +1,8 @@
-import { newDaily, newGame, newTownState, type Build, type Contract, type ContractsState, type DailyState, type GameState, type GoalsState, type TownState } from './gameState';
+import { newDaily, newGame, newTownState, type Build, type Contract, type ContractsState, type DailyState, type DeliveriesState, type GameState, type GoalsState, type Order, type TownState } from './gameState';
 import { START_TOWN_ID } from './towns';
 
 /** Bump when the save shape changes, and add a migration for the old version. */
-export const SAVE_VERSION = 9;
+export const SAVE_VERSION = 10;
 
 type SaveObject = Record<string, unknown>;
 export type Migration = (save: SaveObject) => SaveObject;
@@ -29,7 +29,17 @@ export const MIGRATIONS: Readonly<Record<number, Migration>> = {
     plots: {},
     towns: isObject(save.towns) ? Object.fromEntries(Object.entries(save.towns).map(([id, town]) => [id, isObject(town) ? { ...town, plots: {} } : town])) : save.towns,
   }),
+  // v10: delivery orders and vans on the road (none yet).
+  9: (save) => ({
+    ...save,
+    deliveries: noDeliveries(),
+    towns: isObject(save.towns) ? Object.fromEntries(Object.entries(save.towns).map(([id, town]) => [id, isObject(town) ? { ...town, deliveries: noDeliveries() } : town])) : save.towns,
+  }),
 };
+
+function noDeliveries(): DeliveriesState {
+  return { orders: [], trips: {}, nextId: 1, refillAt: 0 };
+}
 
 /**
  * new: nothing saved. corrupt: unreadable JSON, start fresh.
@@ -96,7 +106,7 @@ export function serialize(state: GameState): string {
 
 /** One town's progress as saved, with its rating and income rate rounded. */
 function townFields(town: TownState): TownState {
-  const { unlocked, levels, staff, padPaid, building, piles, supplies, plots, goals } = town;
+  const { unlocked, levels, staff, padPaid, building, piles, supplies, plots, deliveries, goals } = town;
   return {
     unlocked,
     levels,
@@ -108,6 +118,7 @@ function townFields(town: TownState): TownState {
     autoRate: Math.round(town.autoRate * 100) / 100,
     supplies,
     plots,
+    deliveries,
     goals,
   };
 }
@@ -150,6 +161,7 @@ function townState(save: SaveObject): TownState {
     autoRate: nonNegative(save.autoRate, fresh.autoRate),
     supplies: levelMap(save.supplies),
     plots: timeMap(save.plots),
+    deliveries: deliveriesState(save.deliveries),
     goals: goalsState(save.goals),
   };
 }
@@ -237,6 +249,35 @@ function buildMap(value: unknown): Record<string, Build> {
     if (isObject(build) && typeof build.endsAt === 'number' && Number.isFinite(build.endsAt)) builds[id] = { endsAt: build.endsAt, halved: build.halved === true };
   }
   return builds;
+}
+
+/** The board's orders (any broken one dropped) and the vans on the road (any broken trip dropped). */
+function deliveriesState(value: unknown): DeliveriesState {
+  const fresh = noDeliveries();
+  if (!isObject(value)) return fresh;
+  const orders: Order[] = [];
+  for (const o of Array.isArray(value.orders) ? value.orders : []) {
+    if (!isObject(o) || typeof o.good !== 'string' || typeof o.buyer !== 'string' || !Number.isInteger(o.id)) continue;
+    const qty = Math.max(1, Math.floor(nonNegative(o.qty, 1)));
+    orders.push({
+      id: o.id as number,
+      good: o.good,
+      qty,
+      pay: nonNegative(o.pay, 0),
+      buyer: o.buyer,
+      endsAt: nonNegative(o.endsAt, 0),
+      van: typeof o.van === 'string' ? o.van : null,
+      loaded: Math.min(qty, Math.floor(nonNegative(o.loaded, 0))),
+    });
+  }
+  const trips: DeliveriesState['trips'] = {};
+  if (isObject(value.trips)) {
+    for (const [van, t] of Object.entries(value.trips)) {
+      if (isObject(t) && Number.isInteger(t.order) && typeof t.leftAt === 'number' && typeof t.backAt === 'number') trips[van] = { order: t.order as number, leftAt: t.leftAt, backAt: t.backAt };
+    }
+  }
+  const nextId = Math.max(Math.floor(nonNegative(value.nextId, 1)), ...orders.map((o) => o.id + 1), 1);
+  return { orders, trips, nextId, refillAt: nonNegative(value.refillAt, 0) };
 }
 
 /** Wall-clock times by id (whole ms, from 0). */

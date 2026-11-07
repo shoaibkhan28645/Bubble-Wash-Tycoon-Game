@@ -23,6 +23,7 @@ const TITLES: Record<string, string> = {
   field1: 'Fields',
   well: 'Farm crew',
   henhouse: 'Hen house',
+  cowbarn: 'Cow barn',
 };
 /** Staff targets get their role in front of the upgrade name; the pumps (one panel for both) their number. */
 const STAFF_NAMES: Record<string, string> = {
@@ -35,6 +36,7 @@ const STAFF_NAMES: Record<string, string> = {
   standhand: 'Stand helper',
   farmhand: 'Farmhand',
   eggcollector: 'Egg collector',
+  milker: 'Milker',
   field1: 'Vegetables',
   field2: 'Corn',
 };

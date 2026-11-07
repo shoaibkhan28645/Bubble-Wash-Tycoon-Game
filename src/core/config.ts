@@ -80,12 +80,16 @@ export interface PadEffects {
   growBonus?: number;
   /** More crates each stand holds (the barn). */
   storage?: number;
-  /** A hen house: hens lay eggs, packed into cartons at its table. */
-  coop?: boolean;
+  /** A pen of animals: hens (eggs, packed into cartons at the egg table) or cows (milk, bottled at the dairy). */
+  pen?: 'hens' | 'cows';
   /** A feed store: corn tipped in feeds the hens, who then lay faster. */
   feeder?: boolean;
   /** Minds the money, as the cashier does: cash piles grow past their cap (the farm's stand helper). */
   till?: boolean;
+  /** A delivery van (its kind is the pad's id in tuning.json `vans`); the first opens the orders board. */
+  van?: boolean;
+  /** A delivery driver: the vans take orders by themselves. */
+  driver?: boolean;
 }
 
 export interface PadDef {
@@ -265,11 +269,14 @@ export interface CropDef extends GoodDef {
   growSeconds: number;
 }
 
-/** A hen house's place on the map: the fenced run its hens peck about in, the egg table and its packing spot, the trough. */
-export interface CoopSpot {
+/** An animal pen's place on the map: the fenced run (or pasture) its animals roam, the work spot's table, where to stand to pack, the trough. */
+export interface PenSpot {
+  /** Which animals live here. */
+  animal: 'hens' | 'cows';
   run: Rect;
+  /** The egg table or the dairy. */
   table: Point;
-  /** Stand here to pack eggs into cartons. */
+  /** Stand here to pack eggs into cartons, or to bottle milk. */
   zone: Rect;
   trough: Point;
 }
@@ -292,10 +299,15 @@ export interface FarmLayout extends TownLayout, WalkUpLayout {
   tracks: Rect[];
   /** Each field by its pad id. */
   fields: Record<string, FieldSpot>;
-  /** Each hen house by its pad id. */
-  coops: Record<string, CoopSpot>;
+  /** Each animal pen (the hen house, the cow barn) by its pad id. */
+  pens: Record<string, PenSpot>;
   /** Each feed store by its pad id: where corn is tipped in. */
   feeders: Record<string, { zone: Rect }>;
+  /** Each van by its pad id: its way out (from where it parks, off the map), and the bay where it's loaded. */
+  vans: Record<string, { route: Point[]; bay: Rect }>;
+  /** The orders board, and where to stand to read it. */
+  board: Point;
+  boardSpot: Rect;
   /** The duck pond (an ellipse in this rect). */
   pond: Rect;
   /** Low hills of the countryside beyond the farm. */

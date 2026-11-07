@@ -14,7 +14,8 @@ Crops, one plot each (2.6 x 2.8 m), three stages: fm_veg_1..3, fm_corn_1..3.
 
 Usage: python art/blender/farm.py <out.glb> [preview.png]
 (writes <out>.glb with the buildings, <out>-props.glb with the props and
-crops, and <out>-poultry.glb with the poultry farm)
+crops, <out>-poultry.glb with the poultry farm and <out>-dairy.glb with
+the dairy and the delivery vans)
 """
 import math
 import random
@@ -527,6 +528,141 @@ for k in range(5):
 p.append(kit.box((1.1, 0.06, 0.32), (X, -1.47, 0.42), '#3f7a5a', bevel=0.02))
 finish(p, 'fm_feedstore', X)
 
+# --- The dairy and the deliveries (Part C). ---------------------------------
+# The cow barn: cream walls on a stone base, a terracotta roof, an open front
+# showing three straw-bedded stalls and a hay rack, and a sign board over them
+# (the game paints it).
+X = 100.0
+W = 6.6
+D = 4.4
+p = [kit.box((W + 0.4, D + 0.4, 0.2), (X, 0, 0.1), STONE, bevel=0.03)]
+p.append(kit.box((W, 0.25, 2.7), (X, D / 2 - 0.12, 1.55), CLAPBOARD, bevel=0.04))
+for sx in (-1, 1):
+    p.append(kit.box((0.25, D, 2.7), (X + sx * (W / 2 - 0.12), 0, 1.55), CLAPBOARD, bevel=0.04))
+    p.append(kit.box((0.3, 0.3, 2.8), (X + sx * (W / 2 - 0.1), -D / 2 + 0.1, 1.6), BARN_RED, bevel=0.03))
+p.append(kit.box((W + 0.1, D + 0.1, 0.5), (X, 0, 0.45), BARN_RED, bevel=0.02))
+p.append(kit.box((W - 0.4, D - 0.4, 0.06), (X, 0.1, 0.24), STRAW, bevel=0.0))
+for i in range(4):
+    sx = X - W / 2 + 0.3 + i * (W - 0.6) / 3
+    p.append(kit.box((0.1, 2.2, 1.1), (sx, 0.6, 0.85), PLANK_DARK, bevel=0.02))
+for i in range(3):
+    sx = X - W / 2 + 0.3 + (i + 0.5) * (W - 0.6) / 3
+    p.append(kit.box((1.5, 0.4, 0.5), (sx, D / 2 - 0.45, 1.5), PLANK, bevel=0.02))
+    for k in range(4):
+        p.append(kit.box((0.35, 0.3, 0.12), (sx - 0.5 + k * 0.33, D / 2 - 0.45, 1.8), STRAW, bevel=0.0, rot=(0.3, 0, k)))
+    p.append(kit.box((1.6, 0.1, 0.12), (sx, -D / 2 + 0.6, 1.0), PLANK, bevel=0.0))
+p.append(kit.box((W + 0.3, 0.3, 0.35), (X, -D / 2 + 0.1, 3.0), BARN_RED, bevel=0.03))
+p += gable_roof(W + 0.8, W, D / 2 + 0.45, D / 2, 3.1, 1.6, X, 0, '#b0563f', CLAPBOARD)
+p.append(kit.box((3.4, 0.12, 0.6), (X, -D / 2 - 0.05, 3.55), '#3f7a5a', bevel=0.04))
+p.append(kit.box((W + 1.0, 0.16, 0.16), (X, 0, 4.72), '#8a4f2a', bevel=0.03))
+# A little cupola on the ridge.
+p.append(kit.box((0.8, 0.8, 0.6), (X, 0, 4.9), CLAPBOARD, bevel=0.03))
+p.append(kit.cone(0.75, 0.0, 0.55, (X, 0, 5.47), '#b0563f', verts=4, rot=(0, 0, math.pi / 4)))
+finish(p, 'fm_cowbarn', X)
+
+
+def cow(name, x, coat, patch):
+    q = [kit.box((0.75, 1.45, 0.7), (x, 0.05, 0.95), coat, bevel=0.18, segments=2)]
+    if patch:
+        for (px, py, pz, sx, sy) in ((0.38, 0.3, 1.05, 0.04, 0.5), (-0.38, -0.25, 1.0, 0.04, 0.45), (0.1, 0.55, 1.31, 0.4, 0.35), (-0.15, -0.35, 1.31, 0.3, 0.3)):
+            q.append(kit.box((sx if sx > 0.1 else 0.04, sy, 0.04 if sx > 0.1 else 0.34), (x + px, py, pz), patch, bevel=0.0))
+    q.append(kit.box((0.5, 0.6, 0.5), (x, -0.9, 1.15), coat, bevel=0.14, segments=2))
+    q.append(kit.box((0.44, 0.2, 0.3), (x, -1.22, 1.02), '#f2a7b0', bevel=0.08, segments=2))
+    for sx in (-1, 1):
+        q.append(kit.sphere(0.045, (x + sx * 0.14, -1.2, 1.25), 'black', segments=6))
+        q.append(kit.box((0.22, 0.08, 0.12), (x + sx * 0.33, -0.85, 1.3), coat, bevel=0.03, rot=(0, sx * 0.3, 0)))
+        q.append(kit.cone(0.05, 0.0, 0.16, (x + sx * 0.16, -0.9, 1.45), '#efe6cf', verts=6))
+        for sy in (-1, 1):
+            q.append(kit.cylinder(0.1, 0.62, (x + sx * 0.24, sy * 0.48, 0.31), coat, verts=8))
+            q.append(kit.cylinder(0.11, 0.1, (x + sx * 0.24, sy * 0.48, 0.05), '#3b2a1c', verts=8))
+    q.append(kit.sphere(0.17, (x, 0.42, 0.58), '#f2a7b0', segments=8))
+    q.append(kit.cylinder(0.03, 0.55, (x, 0.82, 0.95), coat, verts=5, rot=(0.35, 0, 0)))
+    q.append(kit.sphere(0.07, (x, 0.9, 0.7), '#3b2a1c', segments=6))
+    finish(q, name, x)
+
+
+cow('fm_cow', 106.0, '#fbf6ea', '#2f2f35')
+cow('fm_cow_brown', 108.0, '#c98b52', None)
+
+# The dairy: a stainless milk tank on legs, a bottling table and crates of bottles.
+X = 112.0
+STEEL = '#c9d3dc'
+p = [kit.box((2.8, 1.5, 0.12), (X, 0, 0.06), STONE, bevel=0.03)]
+p.append(kit.cylinder(0.55, 1.4, (X - 0.6, 0.25, 1.15), STEEL, verts=16, rot=(0, math.pi / 2, 0)))
+for sx in (-1, 1):
+    p.append(kit.sphere(0.55, (X - 0.6 + sx * 0.7, 0.25, 1.15), STEEL, segments=14))
+    for sy in (-1, 1):
+        p.append(kit.cylinder(0.05, 0.6, (X - 0.6 + sx * 0.5, 0.25 + sy * 0.3, 0.42), '#94a4b3', verts=6))
+p.append(kit.cylinder(0.12, 0.12, (X - 0.6, 0.25, 1.75), '#94a4b3', verts=10))
+p.append(kit.box((1.0, 0.08, 0.3), (X - 0.6, -0.33, 1.15), '#3a7fb0', bevel=0.0))
+p.append(kit.box((1.2, 0.7, 0.08), (X + 0.75, -0.1, 0.8), PLANK, bevel=0.03))
+for sx in (-1, 1):
+    for sy in (-1, 1):
+        p.append(kit.box((0.07, 0.07, 0.78), (X + 0.75 + sx * 0.52, -0.1 + sy * 0.28, 0.39), PLANK_DARK, bevel=0.0))
+for k in range(4):
+    bx = X + 0.4 + (k % 2) * 0.22
+    by = -0.2 + (k // 2) * 0.2
+    p.append(kit.cylinder(0.07, 0.24, (bx, by, 0.96), '#ffffff', verts=8))
+    p.append(kit.cylinder(0.05, 0.04, (bx, by, 1.1), '#3a7fb0', verts=8))
+p.append(kit.box((0.5, 0.36, 0.22), (X + 1.0, -0.05, 0.95), '#3a7fb0', bevel=0.03))
+for sx in (-1, 1):
+    p.append(kit.box((0.5, 0.36, 0.22), (X + 0.95 + sx * 0.05, 0.45, 0.2 + (sx + 1) * 0.12), '#3a7fb0', bevel=0.03))
+finish(p, 'fm_dairy', X)
+
+# The farm van: a cab and a cream box body with green bands, round headlamps.
+def vehicle_wheels(q, x, length, width, r=0.36):
+    for sy in (-1, 1):
+        for sx in (-1, 1):
+            q.append(kit.cylinder(r, 0.26, (x + sx * width / 2, sy * length * 0.32, r), '#2b2b30', verts=14, rot=(0, math.pi / 2, 0)))
+            q.append(kit.cylinder(r * 0.5, 0.28, (x + sx * width / 2, sy * length * 0.32, r), '#c9d3dc', verts=10, rot=(0, math.pi / 2, 0)))
+
+
+X = 118.0
+p = []
+p.append(kit.box((1.8, 3.9, 0.45), (X, 0, 0.6), '#3f7a5a', bevel=0.06))
+p.append(kit.box((1.78, 1.2, 1.0), (X, -1.35, 1.3), '#3f7a5a', bevel=0.12, segments=2))
+p.append(kit.box((1.6, 0.1, 0.55), (X, -1.95, 1.45), '#cfeeff', bevel=0.02, rot=(0.25, 0, 0)))
+for sx in (-1, 1):
+    p.append(kit.box((0.06, 0.7, 0.5), (X + sx * 0.9, -1.35, 1.45), '#cfeeff', bevel=0.0))
+    p.append(kit.cylinder(0.12, 0.06, (X + sx * 0.6, -1.98, 0.9), '#fff3a0', verts=10, rot=(math.pi / 2, 0, 0)))
+p.append(kit.box((1.86, 2.7, 1.75), (X, 0.6, 1.65), CLAPBOARD, bevel=0.08))
+for z in (1.0, 2.35):
+    p.append(kit.box((1.9, 2.72, 0.14), (X, 0.6, z), '#3f7a5a', bevel=0.0))
+p.append(kit.box((1.9, 1.1, 0.5), (X, 0.6, 1.68), '#ffffff', bevel=0.04))
+p.append(kit.box((1.6, 0.12, 0.2), (X, -2.0, 0.55), '#2b2b30', bevel=0.03))
+vehicle_wheels(p, X, 3.9, 1.6)
+finish(p, 'fm_van', X)
+
+# The milk tanker: a red cab towing a polished tank with a blue stripe.
+X = 124.0
+p = [kit.box((1.9, 5.2, 0.4), (X, 0.3, 0.62), '#2b2b30', bevel=0.04)]
+p.append(kit.box((1.9, 1.5, 1.4), (X, -1.75, 1.45), '#c94a3d', bevel=0.14, segments=2))
+p.append(kit.box((1.7, 0.1, 0.6), (X, -2.5, 1.65), '#cfeeff', bevel=0.02, rot=(0.2, 0, 0)))
+for sx in (-1, 1):
+    p.append(kit.box((0.06, 0.8, 0.5), (X + sx * 0.96, -1.75, 1.7), '#cfeeff', bevel=0.0))
+    p.append(kit.cylinder(0.13, 0.06, (X + sx * 0.62, -2.53, 0.95), '#fff3a0', verts=10, rot=(math.pi / 2, 0, 0)))
+p.append(kit.cylinder(0.85, 3.4, (X, 0.95, 1.75), '#e9eef2', verts=18, rot=(math.pi / 2, 0, 0)))
+for sy in (-1, 1):
+    p.append(kit.sphere(0.85, (X, 0.95 + sy * 1.7, 1.75), '#e9eef2', segments=16))
+p.append(kit.cylinder(0.87, 0.3, (X, 0.95, 1.75), '#3a7fb0', verts=18, rot=(math.pi / 2, 0, 0)))
+p.append(kit.cylinder(0.25, 0.15, (X, 0.4, 2.62), '#94a4b3', verts=12))
+p.append(kit.box((1.7, 0.12, 0.2), (X, -2.55, 0.55), '#2b2b30', bevel=0.03))
+vehicle_wheels(p, X, 5.0, 1.7, r=0.4)
+finish(p, 'fm_tanker', X)
+
+# The orders board: a little roofed notice board on two posts, pinned with orders.
+X = 130.0
+p = []
+for sx in (-1, 1):
+    p.append(kit.box((0.16, 0.16, 2.4), (X + sx * 1.0, 0, 1.2), PLANK_DARK, bevel=0.02))
+p.append(kit.box((2.1, 0.12, 1.2), (X, 0, 1.5), '#8f6036', bevel=0.04))
+p.append(kit.box((1.9, 0.14, 1.0), (X, -0.01, 1.5), '#c9a36a', bevel=0.02))
+for i, (nx, nz, col) in enumerate(((-0.6, 1.7, '#fffdf2'), (0.0, 1.75, '#ffe58a'), (0.6, 1.68, '#fffdf2'), (-0.35, 1.25, '#bfe3ff'), (0.4, 1.25, '#fffdf2'))):
+    p.append(kit.box((0.45, 0.04, 0.38), (X + nx, -0.09, nz), col, bevel=0.0, rot=(0, 0.08 * (i - 2), 0)))
+    p.append(kit.sphere(0.035, (X + nx, -0.12, nz + 0.15), 'red', segments=4))
+p.append(kit.prism((2.5, 0.7, 0.4), (X, 0, 2.15), SHINGLE))
+finish(p, 'fm_orders', X)
+
 toy = kit.toy_material('toy')
 for obj in models:
     kit.use_material(obj, toy)
@@ -535,12 +671,14 @@ print('triangles', {o.name: kit.triangles([o]) for o in models})
 # buildings, the props and crops, and the poultry farm.
 BUILDINGS = {'fm_farmhouse', 'fm_barn', 'fm_stand', 'fm_well', 'fm_gate', 'fm_windmill', 'fm_chapel'}
 POULTRY = {'fm_henhouse', 'fm_eggtable', 'fm_hen', 'fm_hen_brown', 'fm_trough', 'fm_feedstore'}
+DAIRY = {'fm_cowbarn', 'fm_cow', 'fm_cow_brown', 'fm_dairy', 'fm_van', 'fm_tanker', 'fm_orders'}
 glb = Path(sys.argv[1] if len(sys.argv) > 1 else 'farm.glb')
-for suffix, keep in (('', lambda n: n in BUILDINGS), ('-props', lambda n: n not in BUILDINGS | POULTRY), ('-poultry', lambda n: n in POULTRY)):
+for suffix, keep in (('', lambda n: n in BUILDINGS), ('-props', lambda n: n not in BUILDINGS | POULTRY | DAIRY),
+                     ('-poultry', lambda n: n in POULTRY), ('-dairy', lambda n: n in DAIRY)):
     chosen = [b for b in bases if keep(b.name)]
     kit.export(chosen + [m for m in models if m.parent in chosen], str(glb.with_name(glb.stem + suffix + glb.suffix)))
 if len(sys.argv) > 2:
     out = Path(sys.argv[2])
-    for i, (cx, dist) in enumerate(((-30, 34), (2, 30), (38, 26), (80, 22))):
+    for i, (cx, dist) in enumerate(((-30, 34), (2, 30), (38, 26), (80, 22), (106, 20), (124, 20))):
         print(kit.preview(str(out.with_name(f'{out.stem}_{i}{out.suffix}')), look_at=(cx, 0, 1.5), distance=dist,
                           size=(1600, 800), ground='#8fd46a', angles=((0.0, -1, 0.75),)))

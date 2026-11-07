@@ -7,7 +7,7 @@
   "rival": {
     "name": "Rex Goldsby",
     "icon": "😎",
-    "business": "Goldsby Greens"
+    "business": "Goldsby Agri"
   },
   "beats": [
     {
@@ -97,6 +97,46 @@
       "body": "A painted sign now hangs over the farm gate, and folk from the next valley are driving over for the eggs and produce. Talk is of a dairy next.",
       "speaker": "mentor",
       "words": "Cows next, I reckon. Milk sells better than anything, if you can get it to the buyers."
+    },
+    {
+      "id": "cowbarn",
+      "when": {
+        "built": "cowbarn"
+      },
+      "icon": "🐄",
+      "headline": "Cows come home to Willowbrook",
+      "body": "Three cows have moved into a brand-new cow barn on the farm, and fresh milk is on sale in the village for the first time in years.",
+      "speaker": "mentor",
+      "words": "Milk them gently and bottle it cold. Nothing sells like fresh milk."
+    },
+    {
+      "id": "rival",
+      "when": {
+        "built": "van"
+      },
+      "icon": "😎",
+      "headline": "Goldsby Agri moves into the valley",
+      "body": "Rex Goldsby, the chain owner beaten in the car wash war, is back. His company Goldsby Agri is buying up farms and selling cheap to the village, and fewer shoppers are stopping at the farm stand.",
+      "speaker": "rival",
+      "words": "Deliveries? Cute. My trucks are bigger.",
+      "effect": {
+        "rival": {
+          "arrivalFactor": 0.75,
+          "until": "tanker"
+        }
+      }
+    },
+    {
+      "id": "rivalBeaten",
+      "when": {
+        "built": "tanker",
+        "beat": "rival"
+      },
+      "icon": "🏆",
+      "headline": "Goldsby Agri pulls out of Willowbrook",
+      "body": "With its own milk tanker on the road, the farm now delivers fresher milk than anyone. Goldsby Agri has sold its farms and left the valley. Talk is of tractors next.",
+      "speaker": "mentor",
+      "words": "Better service beats a bigger truck. Now, about that old tractor in my shed..."
     }
   ]
 }

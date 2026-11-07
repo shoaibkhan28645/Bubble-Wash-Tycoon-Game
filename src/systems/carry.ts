@@ -4,8 +4,8 @@ import type { Point } from '../core/config';
 
 /** Supply items: soap bottles, folded towels, wax tins. */
 export type SupplyType = 'soap' | 'towel' | 'wax';
-/** Anything carried: supplies, or a farm's goods (crates of produce by crop id, cartons of eggs). */
-export type CarryItem = SupplyType | 'veg' | 'corn' | 'eggs';
+/** Anything carried: supplies, or a farm's goods (crates of produce by crop id, cartons of eggs, crates of milk bottles). */
+export type CarryItem = SupplyType | 'veg' | 'corn' | 'eggs' | 'milk';
 
 const ITEM_HEIGHT = 0.24;
 
@@ -43,6 +43,13 @@ const itemMeshes: Record<CarryItem, () => Mesh> = (() => {
     eggs: make([
       { geometry: box(0.42, 0.12, 0.28), color: '#cdd8e4', y: 0.06 },
       ...[-0.13, 0, 0.13].flatMap((x) => [-0.06, 0.06].map((z) => ({ geometry: sphere(0.055, 8), color: '#fff8ec', x, y: 0.15, z }))),
+    ]),
+    milk: make([
+      { geometry: box(0.42, 0.1, 0.3), color: '#3a7fb0', y: 0.05 },
+      ...[-0.12, 0.12].flatMap((x) => [-0.07, 0.07].flatMap((z) => [
+        { geometry: cylinder(0.055, 0.2, 8), color: '#ffffff', x, y: 0.2, z },
+        { geometry: cylinder(0.035, 0.04, 8), color: '#3a7fb0', x, y: 0.32, z },
+      ])),
     ]),
   };
 })();

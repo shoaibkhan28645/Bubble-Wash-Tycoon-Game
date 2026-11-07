@@ -11,8 +11,8 @@ import { insideRect } from './stations';
 
 /** The crops a farm grows (crops.json). */
 export type CropId = 'veg' | 'corn';
-/** Everything a farm sells (crops, then goods.json): crates of produce, cartons of eggs. */
-export type GoodId = CropId | 'eggs';
+/** Everything a farm sells (crops, then goods.json): crates of produce, cartons of eggs, bottles of milk. */
+export type GoodId = CropId | 'eggs' | 'milk';
 
 /** One plot of a field: a patch of one crop. */
 export interface Plot {

@@ -66,6 +66,7 @@ describe('parseSave', () => {
       autoRate: 0,
       supplies: {},
       plots: {},
+      deliveries: { orders: [], trips: {}, nextId: 1, refillAt: 0 },
       flags: [],
       playSeconds: 0,
       daily: { ...newDaily(), loginDay: 6 },
@@ -90,6 +91,7 @@ describe('parseSave', () => {
       'counts',
       'currentTown',
       'daily',
+      'deliveries',
       'flags',
       'franchiseStars',
       'gems',
@@ -227,6 +229,23 @@ describe('old saves', () => {
     expect(state.supplies).toEqual({ 'stand.veg': 3 });
     expect(parseSave(serialize(state)).state.plots).toEqual(state.plots);
     expect(parseSave(JSON.stringify({ version: 9, plots: { a: -5, b: 'x', c: 12.4 } })).state.plots).toEqual({ c: 12 });
+  });
+
+  it('keeps a v10 farm\'s delivery orders and the vans on the road', () => {
+    const { state } = parseSave(fixtures['./fixtures/save-v10.json']!);
+    expect(state.deliveries.orders).toEqual([{ id: 4, good: 'eggs', qty: 8, pay: 1540, buyer: 'the village café', endsAt: 1793400300000, van: 'van', loaded: 3 }]);
+    expect(state.deliveries.trips.tanker).toEqual({ order: 3, leftAt: 1793399980000, backAt: 1793400060000 });
+    expect(state.deliveries.nextId).toBe(5);
+    expect(state.towns.roadside!.deliveries.orders).toEqual([]);
+    expect(parseSave(serialize(state)).state.deliveries).toEqual(state.deliveries);
+  });
+
+  it('drops broken orders and trips, and never reuses an order id', () => {
+    const text = JSON.stringify({ version: 10, deliveries: { orders: [{ id: 9, good: 'milk', qty: 4, pay: 900, buyer: 'x', loaded: 7 }, { id: 'a' }, null], trips: { van: { order: 1 }, tanker: { order: 9, leftAt: 1, backAt: 2 } }, nextId: 2 } });
+    const { deliveries } = parseSave(text).state;
+    expect(deliveries.orders).toEqual([{ id: 9, good: 'milk', qty: 4, pay: 900, buyer: 'x', endsAt: 0, van: null, loaded: 4 }]);
+    expect(Object.keys(deliveries.trips)).toEqual(['tanker']);
+    expect(deliveries.nextId).toBe(10);
   });
 
   it("repairs a town's fields and drops a copy of the town being played", () => {

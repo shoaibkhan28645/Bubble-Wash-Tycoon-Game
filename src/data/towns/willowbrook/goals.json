@@ -30,6 +30,17 @@
       "id": "farmgate",
       "built": "gate",
       "gems": 20
+    },
+    {
+      "id": "cowbarn",
+      "built": "cowbarn",
+      "gems": 20
+    },
+    {
+      "id": "deliveries",
+      "count": "delivery",
+      "goal": 10,
+      "gems": 20
     }
   ]
 }
