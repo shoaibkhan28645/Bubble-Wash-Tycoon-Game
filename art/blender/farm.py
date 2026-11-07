@@ -13,7 +13,8 @@ fm_sunflowers, fm_duck.
 Crops, one plot each (2.6 x 2.8 m), three stages: fm_veg_1..3, fm_corn_1..3.
 
 Usage: python art/blender/farm.py <out.glb> [preview.png]
-(writes <out>.glb with the buildings and <out>-props.glb with the rest)
+(writes <out>.glb with the buildings, <out>-props.glb with the props and
+crops, and <out>-poultry.glb with the poultry farm)
 """
 import math
 import random
@@ -403,19 +404,143 @@ for i, (name, plant) in enumerate((('fm_veg_1', veg_1), ('fm_veg_2', veg_2), ('f
                                     ('fm_corn_1', corn_1), ('fm_corn_2', corn_2), ('fm_corn_3', corn_3))):
     crop_plot(name, X + i * 3.2, plant)
 
+# --- The poultry farm (Part B). ----------------------------------------------
+# The hen house: a red coop on short stilts, nest boxes along its front (the
+# camera's side) with straw and eggs showing, a door and a ramp down to the
+# run on its right, and a rooster weathervane.
+X = 70.0
+p = []
+for sx in (-1, 1):
+    for sy in (-1, 1):
+        p.append(kit.box((0.14, 0.14, 0.55), (X + sx * 1.85, sy * 1.25, 0.27), PLANK_DARK, bevel=0.02))
+p.append(kit.box((4.2, 3.0, 0.14), (X, 0, 0.55), PLANK_DARK, bevel=0.03))
+p.append(kit.box((4.0, 2.8, 1.85), (X, 0, 1.52), BARN_RED, bevel=0.05))
+for i in range(9):
+    p.append(kit.box((0.04, 0.04, 1.8), (X - 1.8 + i * 0.45, -1.41, 1.52), BARN_DARK, bevel=0.0))
+for z in (0.64, 2.42):
+    p.append(kit.box((4.08, 2.88, 0.1), (X, 0, z), TRIM, bevel=0.02))
+p += gable_roof(4.7, 4.0, 1.85, 1.4, 2.45, 1.15, X, 0, SHINGLE, BARN_RED)
+p.append(kit.box((4.8, 0.14, 0.14), (X, 0, 3.6), '#8a4f2a', bevel=0.03))
+# A round window high in the front, framed in white.
+p.append(kit.cylinder(0.26, 0.1, (X - 0.9, -1.43, 2.0), '#cfeeff', verts=14, rot=(math.pi / 2, 0, 0)))
+p.append(kit.torus(0.27, 0.05, (X - 0.9, -1.46, 2.0), TRIM, rot=(math.pi / 2, 0, 0), major_segments=14, minor_segments=4))
+# The nest boxes: a shelf of four along the front, a sloping lid, straw and eggs in each.
+p.append(kit.box((3.4, 0.7, 0.62), (X + 0.1, -1.75, 1.05), PLANK, bevel=0.03))
+p.append(kit.box((3.5, 0.82, 0.07), (X + 0.1, -1.72, 1.42), SHINGLE, bevel=0.02, rot=(-0.28, 0, 0)))
+for i in range(4):
+    nx = X - 1.15 + i * 0.85
+    p.append(kit.box((0.62, 0.06, 0.4), (nx, -2.11, 1.02), '#5a3a22', bevel=0.0))
+    for k in range(3):
+        p.append(kit.box((0.16, 0.1, 0.05), (nx - 0.18 + k * 0.18, -2.15, 0.85), STRAW, bevel=0.0, rot=(0, 0.3 * (k - 1), 0)))
+    p.append(kit.sphere(0.075, (nx - 0.08 + (i % 2) * 0.16, -2.12, 0.95), '#fff8ec' if i % 2 else '#e9c9a0', segments=8))
+for i in range(5):
+    p.append(kit.box((0.05, 0.72, 0.62), (X - 1.58 + i * 0.85, -1.75, 1.05), PLANK_DARK, bevel=0.0))
+# The hens' door and ramp on the right, down to the run.
+p.append(kit.box((0.06, 0.6, 0.75), (X + 2.02, 0.3, 1.0), '#3b2a1c', bevel=0.0))
+p.append(kit.box((0.08, 0.7, 0.08), (X + 2.04, 0.3, 1.42), TRIM, bevel=0.0))
+p.append(kit.box((1.5, 0.5, 0.06), (X + 2.65, 0.3, 0.38), PLANK, bevel=0.0, rot=(0, 0.42, 0)))
+for k in range(5):
+    p.append(kit.box((0.05, 0.5, 0.04), (X + 2.15 + k * 0.26, 0.3, 0.6 - k * 0.11), PLANK_DARK, bevel=0.0))
+# A rooster weathervane on the ridge.
+p.append(kit.cylinder(0.035, 0.7, (X + 1.2, 0, 3.95), 'dark', verts=6))
+p.append(kit.box((0.4, 0.05, 0.26), (X + 1.2, 0, 4.36), 'dark', bevel=0.02))
+p.append(kit.box((0.12, 0.05, 0.18), (X + 1.0, 0, 4.52), 'dark', bevel=0.02))
+p.append(kit.box((0.1, 0.05, 0.28), (X + 1.42, 0, 4.48), 'dark', bevel=0.02, rot=(0, -0.5, 0)))
+finish(p, 'fm_henhouse', X)
+
+# The egg table: where eggs are packed into cartons (the hen house's job spot).
+X = 76.0
+p = [kit.box((1.7, 0.8, 0.08), (X, 0, 0.82), PLANK, bevel=0.03)]
+for sx in (-1, 1):
+    for sy in (-1, 1):
+        p.append(kit.box((0.08, 0.08, 0.8), (X + sx * 0.75, sy * 0.32, 0.4), PLANK_DARK, bevel=0.0))
+p.append(kit.box((1.5, 0.6, 0.05), (X, 0, 0.25), PLANK_DARK, bevel=0.0))
+CARTON = '#cdd8e4'
+for i, (cx, cz) in enumerate(((-0.45, 0.9), (-0.45, 1.02), (0.05, 0.9))):
+    p.append(kit.box((0.42, 0.28, 0.1), (X + cx, -0.05, cz), CARTON, bevel=0.03))
+    for k in range(3):
+        p.append(kit.sphere(0.045, (X + cx - 0.12 + k * 0.12, -0.05, cz + 0.07), '#fff8ec', segments=6))
+# A basket of eggs, and cartons stacked on the shelf below.
+p.append(kit.cylinder(0.22, 0.16, (X + 0.55, 0.05, 0.94), '#c08a55', verts=12))
+p.append(kit.torus(0.22, 0.03, (X + 0.55, 0.05, 1.04), PLANK_DARK, major_segments=12, minor_segments=4))
+for k in range(5):
+    p.append(kit.sphere(0.06, (X + 0.45 + (k % 3) * 0.09, 0.0 + (k // 3) * 0.1, 1.05), '#fff8ec' if k % 2 else '#e9c9a0', segments=6))
+for k in range(3):
+    p.append(kit.box((0.42, 0.28, 0.1), (X - 0.3 + k * 0.32, 0, 0.36 + (k % 2) * 0.11), CARTON, bevel=0.03))
+finish(p, 'fm_eggtable', X)
+
+
+def hen(name, x, body, tail):
+    q = [kit.box((0.34, 0.42, 0.3), (x, 0.02, 0.3), body, bevel=0.12, segments=2)]
+    q.append(kit.sphere(0.12, (x, -0.2, 0.52), body, segments=10))
+    q.append(kit.box((0.05, 0.12, 0.09), (x, -0.2, 0.67), '#e8463a', bevel=0.02))
+    q.append(kit.cone(0.04, 0.0, 0.1, (x, -0.33, 0.51), '#ffb52e', verts=6, rot=(math.pi / 2, 0, 0)))
+    q.append(kit.sphere(0.035, (x, -0.29, 0.44), '#e8463a', segments=6))
+    for sx in (-1, 1):
+        q.append(kit.sphere(0.02, (x + sx * 0.08, -0.29, 0.55), 'black', segments=4))
+        q.append(kit.box((0.04, 0.24, 0.16), (x + sx * 0.17, 0.04, 0.32), tail, bevel=0.03))
+        q.append(kit.cylinder(0.018, 0.16, (x + sx * 0.07, 0.02, 0.08), '#ffb52e', verts=5))
+    q.append(kit.box((0.2, 0.1, 0.26), (x, 0.24, 0.45), tail, bevel=0.05, rot=(-0.6, 0, 0)))
+    finish(q, name, x)
+
+
+hen('fm_hen', 79.0, '#fbf6ea', '#ede3cc')
+hen('fm_hen_brown', 80.0, '#b8672e', '#8f4a1f')
+
+# A feeding trough for the run (the game fills it with corn when the hens are fed).
+X = 82.0
+p = [kit.box((1.3, 0.42, 0.08), (X, 0, 0.12), PLANK_DARK, bevel=0.0)]
+for sy in (-1, 1):
+    p.append(kit.box((1.3, 0.06, 0.24), (X, sy * 0.2, 0.22), PLANK, bevel=0.0))
+for sx in (-1, 1):
+    p.append(kit.box((0.06, 0.46, 0.3), (X + sx * 0.64, 0, 0.2), PLANK_DARK, bevel=0.0))
+finish(p, 'fm_trough', X)
+
+# The feed store: a little open-fronted shed of feed sacks, a tall feed silo
+# behind it, and a hopper in front where corn is tipped in.
+X = 88.0
+p = [kit.box((2.8, 2.2, 0.16), (X, 0.2, 0.08), STONE, bevel=0.03)]
+for sx in (-1, 1):
+    p.append(kit.box((0.12, 2.0, 2.2), (X + sx * 1.3, 0.3, 1.2), PLANK, bevel=0.02))
+p.append(kit.box((2.6, 0.12, 2.4), (X, 1.25, 1.3), PLANK_DARK, bevel=0.02))
+for i in range(6):
+    p.append(kit.box((0.04, 0.04, 2.3), (X - 1.1 + i * 0.44, 1.18, 1.3), '#7a5230', bevel=0.0))
+p.append(kit.box((3.0, 2.5, 0.1), (X, 0.25, 2.55), ROOF_GREEN, bevel=0.03, rot=(0.16, 0, 0)))
+SACK = '#e6d3a8'
+for i, (sx, sy, sz) in enumerate(((-0.7, 0.7, 0.45), (0.0, 0.75, 0.45), (0.7, 0.7, 0.45), (-0.35, 0.72, 0.95), (0.35, 0.74, 0.95), (0.85, 0.2, 0.45))):
+    p.append(kit.box((0.62, 0.44, 0.5), (X + sx, sy, sz), SACK, bevel=0.14, segments=2))
+    p.append(kit.box((0.2, 0.02, 0.16), (X + sx, sy - 0.23, sz + 0.04), '#c94a3d', bevel=0.0))
+# The silo behind, silver-blue with a cone cap and a ladder.
+p.append(kit.cylinder(0.8, 3.6, (X + 1.9, 1.6, 1.8), '#b9c7d4', verts=16))
+for z in (0.9, 1.8, 2.7):
+    p.append(kit.cylinder(0.83, 0.08, (X + 1.9, 1.6, z), '#94a4b3', verts=16))
+p.append(kit.cone(0.88, 0.0, 0.9, (X + 1.9, 1.6, 4.05), '#94a4b3', verts=16))
+for k in range(9):
+    p.append(kit.box((0.3, 0.04, 0.04), (X + 1.9, 0.8, 0.4 + k * 0.38), 'dark', bevel=0.0))
+for sx in (-1, 1):
+    p.append(kit.box((0.04, 0.04, 3.4), (X + 1.9 + sx * 0.15, 0.79, 1.8), 'dark', bevel=0.0))
+# The hopper in front, half full of corn.
+p.append(kit.box((1.5, 0.6, 0.5), (X, -1.15, 0.35), PLANK_DARK, bevel=0.03))
+p.append(kit.box((1.36, 0.46, 0.06), (X, -1.15, 0.58), CORN, bevel=0.0))
+for k in range(5):
+    p.append(kit.sphere(0.07, (X - 0.5 + k * 0.25, -1.15, 0.62), '#ffc61a', segments=6))
+p.append(kit.box((1.1, 0.06, 0.32), (X, -1.47, 0.42), '#3f7a5a', bevel=0.02))
+finish(p, 'fm_feedstore', X)
+
 toy = kit.toy_material('toy')
 for obj in models:
     kit.use_material(obj, toy)
 print('triangles', {o.name: kit.triangles([o]) for o in models})
-# Two files, each well under the 512 KiB a Playables file may weigh: the
-# buildings, and the props and crops.
+# Three files, each well under the 512 KiB a Playables file may weigh: the
+# buildings, the props and crops, and the poultry farm.
 BUILDINGS = {'fm_farmhouse', 'fm_barn', 'fm_stand', 'fm_well', 'fm_gate', 'fm_windmill', 'fm_chapel'}
+POULTRY = {'fm_henhouse', 'fm_eggtable', 'fm_hen', 'fm_hen_brown', 'fm_trough', 'fm_feedstore'}
 glb = Path(sys.argv[1] if len(sys.argv) > 1 else 'farm.glb')
-for suffix, keep in (('', lambda n: n in BUILDINGS), ('-props', lambda n: n not in BUILDINGS)):
+for suffix, keep in (('', lambda n: n in BUILDINGS), ('-props', lambda n: n not in BUILDINGS | POULTRY), ('-poultry', lambda n: n in POULTRY)):
     chosen = [b for b in bases if keep(b.name)]
     kit.export(chosen + [m for m in models if m.parent in chosen], str(glb.with_name(glb.stem + suffix + glb.suffix)))
 if len(sys.argv) > 2:
     out = Path(sys.argv[2])
-    for i, (cx, dist) in enumerate(((-30, 34), (2, 30), (38, 26))):
+    for i, (cx, dist) in enumerate(((-30, 34), (2, 30), (38, 26), (80, 22))):
         print(kit.preview(str(out.with_name(f'{out.stem}_{i}{out.suffix}')), look_at=(cx, 0, 1.5), distance=dist,
                           size=(1600, 800), ground='#8fd46a', angles=((0.0, -1, 0.75),)))

@@ -2,14 +2,17 @@
 // plot ripens on the clock (also while the game is closed). Whoever stands on
 // a ripe plot for a moment harvests a crate of it onto their back, and the
 // plot is planted again at once. Crates carried to the stand become its
-// stock, and every villager served takes one crate.
-import { CROPS, PLOT, TUNING, type FarmLayout, type Point, type Rect } from '../core/config';
+// stock, and every villager served fills a basket with one of each good the
+// stand has (eggs come from the hen house: animals.ts).
+import { CROPS, GOODS, PLOT, TUNING, type FarmLayout, type Point, type Rect } from '../core/config';
 import type { GameState } from '../core/gameState';
 import type { Carrier } from './carry';
 import { insideRect } from './stations';
 
-/** The crops a farm grows (crops.json), and so the crates there are. */
+/** The crops a farm grows (crops.json). */
 export type CropId = 'veg' | 'corn';
+/** Everything a farm sells (crops, then goods.json): crates of produce, cartons of eggs. */
+export type GoodId = CropId | 'eggs';
 
 /** One plot of a field: a patch of one crop. */
 export interface Plot {
@@ -22,8 +25,8 @@ export interface Plot {
   readonly rect: Rect;
 }
 
-/** Someone carrying crates: the hero, or a farmhand. */
-export type CrateCarrier = Carrier<CropId>;
+/** Someone carrying crates and cartons: the hero, the farmhand, the egg collector. */
+export type CrateCarrier = Carrier<GoodId>;
 
 export class Crops {
   readonly plots: Plot[] = [];
@@ -120,7 +123,7 @@ export interface StandSpot {
 const DROP_REACH = 0.8;
 
 /**
- * The crates at each stand, kept in the town's supplies ("stand.veg").
+ * The crates and cartons at each stand, kept in the town's supplies ("stand.veg", "stand.eggs").
  * Carriers in reach hand theirs over one at a time, up to what it holds.
  */
 export class StandStock {
@@ -136,13 +139,13 @@ export class StandStock {
     return TUNING.farm.standCapacity + this.extra();
   }
 
-  stock(standId: string, crop: CropId): number {
-    return this.state.supplies[`${standId}.${crop}`] ?? 0;
+  stock(standId: string, good: GoodId): number {
+    return this.state.supplies[`${standId}.${good}`] ?? 0;
   }
 
-  /** Every crate at a stand, whatever the crop. */
+  /** Everything at a stand, whatever the good. */
   total(standId: string): number {
-    return (Object.keys(CROPS) as CropId[]).reduce((sum, crop) => sum + this.stock(standId, crop), 0);
+    return (Object.keys(GOODS) as GoodId[]).reduce((sum, good) => sum + this.stock(standId, good), 0);
   }
 
   /** Room for more. */
@@ -162,25 +165,24 @@ export class StandStock {
       if (carrier.timer > 0 || carrier.stack.length === 0) continue;
       const stand = stands.find((s) => this.inReach(carrier.position, s) && this.hasRoom(s.id));
       if (!stand) continue;
-      const crop = carrier.stack[carrier.stack.length - 1]!;
-      carrier.remove(crop);
-      const key = `${stand.id}.${crop}`;
+      const good = carrier.stack[carrier.stack.length - 1]!;
+      carrier.remove(good);
+      const key = `${stand.id}.${good}`;
       this.state.supplies[key] = (this.state.supplies[key] ?? 0) + 1;
       carrier.timer = TUNING.supplies.handSeconds;
       this.onDrop(carrier, stand.id);
     }
   }
 
-  /** A villager is served: one crate goes, the one the stand has most of (the dearer on a tie). Null if it's empty. */
-  take(standId: string): CropId | null {
-    let best: CropId | null = null;
-    for (const crop of Object.keys(CROPS) as CropId[]) {
-      const n = this.stock(standId, crop);
-      if (n <= 0) continue;
-      const bestN = best ? this.stock(standId, best) : 0;
-      if (!best || n > bestN || (n === bestN && CROPS[crop]!.price > CROPS[best]!.price)) best = crop;
-    }
-    if (best) this.state.supplies[`${standId}.${best}`] = this.stock(standId, best) - 1;
-    return best;
+  /**
+   * A villager is served: they fill a basket with one of everything the stand
+   * has (a crate of each crop, a carton of eggs), so each good the farm adds
+   * is another sale. Empty if the stand is.
+   */
+  takeBasket(standId: string): GoodId[] {
+    const basket = (Object.keys(GOODS) as GoodId[]).filter((good) => this.stock(standId, good) > 0);
+    for (const good of basket) this.state.supplies[`${standId}.${good}`] = this.stock(standId, good) - 1;
+    return basket;
   }
+
 }

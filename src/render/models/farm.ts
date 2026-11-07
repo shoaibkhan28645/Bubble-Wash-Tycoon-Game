@@ -7,7 +7,7 @@ import { asset, hasModel } from '../assets';
 import { mergeParts, toyMaterial, type Part } from './build';
 import { plate } from './kit';
 
-const FILES = ['building:farm', 'building:farm-props'];
+const FILES = ['building:farm', 'building:farm-props', 'building:farm-poultry'];
 
 /** The named model's node in whichever farm file has it (not a copy). */
 export function farmPiece(name: string): Object3D {
@@ -34,6 +34,8 @@ const PAD_MODELS: Record<string, string> = {
   well: 'fm_well',
   barn: 'fm_barn',
   gate: 'fm_gate',
+  henhouse: 'fm_henhouse',
+  feedstore: 'fm_feedstore',
 };
 
 /** Sign boards painted in the game (art/blender/farm.py leaves them blank): words, colour, middle and size. */
@@ -72,6 +74,17 @@ export const FARM_SOLIDS: Record<string, [number, number, number?, number?][]> =
   gate: [
     [0.25, 0.25, -2.4, 0],
     [0.25, 0.25, 2.4, 0],
+  ],
+  // The coop and its nest boxes along the front (its run is solid too: see the farm game).
+  henhouse: [
+    [2.15, 1.55],
+    [1.75, 0.4, 0.1, 1.75],
+  ],
+  // The shed, the silo behind it and the hopper in front.
+  feedstore: [
+    [1.4, 1.1, 0, -0.2],
+    [0.85, 0.85, 1.9, -1.6],
+    [0.75, 0.3, 0, 1.15],
   ],
 };
 

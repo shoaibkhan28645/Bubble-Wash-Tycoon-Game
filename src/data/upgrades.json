@@ -90,6 +90,13 @@
       "base": 120,
       "max": 10,
       "step": 2
+    },
+    "flock": {
+      "name": "More hens",
+      "effect": "+1 hen in the hen house",
+      "base": 150,
+      "max": 4,
+      "step": 1
     }
   },
   "costScale": {
@@ -114,7 +121,9 @@
     "standhand": 1.3,
     "farmhand": 1.6,
     "field1": 1,
-    "field2": 1.5
+    "field2": 1.5,
+    "henhouse": 1.4,
+    "eggcollector": 1.4
   },
   "panels": {
     "bay1": [
@@ -181,6 +190,11 @@
       "player.carry",
       "farmhand.staffSpeed",
       "farmhand.staffCarry"
+    ],
+    "henhouse": [
+      "henhouse.flock",
+      "eggcollector.staffSpeed",
+      "eggcollector.staffCarry"
     ]
   }
 }

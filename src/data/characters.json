@@ -11,7 +11,8 @@
     "attendant": "male-b-staff",
     "clerk": "female-f-staff",
     "standhand": "female-c-staff",
-    "farmhand": "male-b-staff"
+    "farmhand": "male-b-staff",
+    "eggcollector": "female-e-staff"
   },
   "shoppers": ["female-a", "male-e"],
   "villagers": ["female-a", "male-e", "female-d", "male-c", "female-e", "male-a"],

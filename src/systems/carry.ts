@@ -4,8 +4,8 @@ import type { Point } from '../core/config';
 
 /** Supply items: soap bottles, folded towels, wax tins. */
 export type SupplyType = 'soap' | 'towel' | 'wax';
-/** Anything carried: supplies, or a farm's crates of produce (by crop id). */
-export type CarryItem = SupplyType | 'veg' | 'corn';
+/** Anything carried: supplies, or a farm's goods (crates of produce by crop id, cartons of eggs). */
+export type CarryItem = SupplyType | 'veg' | 'corn' | 'eggs';
 
 const ITEM_HEIGHT = 0.24;
 
@@ -40,6 +40,10 @@ const itemMeshes: Record<CarryItem, () => Mesh> = (() => {
     ]),
     veg: make(crate(['#ff8a2a', '#9bd36a', '#ff4d3d'], false)),
     corn: make(crate(['#ffd23f'], true)),
+    eggs: make([
+      { geometry: box(0.42, 0.12, 0.28), color: '#cdd8e4', y: 0.06 },
+      ...[-0.13, 0, 0.13].flatMap((x) => [-0.06, 0.06].map((z) => ({ geometry: sphere(0.055, 8), color: '#fff8ec', x, y: 0.15, z }))),
+    ]),
   };
 })();
 

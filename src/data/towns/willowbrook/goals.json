@@ -7,6 +7,11 @@
       "gems": 10
     },
     {
+      "id": "henhouse",
+      "built": "henhouse",
+      "gems": 15
+    },
+    {
       "id": "farmhand",
       "built": "farmhand",
       "gems": 15
@@ -14,6 +19,11 @@
     {
       "id": "barn",
       "built": "barn",
+      "gems": 15
+    },
+    {
+      "id": "feed",
+      "built": "feedstore",
       "gems": 15
     },
     {

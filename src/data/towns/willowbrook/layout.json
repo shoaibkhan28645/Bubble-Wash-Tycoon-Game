@@ -118,14 +118,14 @@
   },
   {
    "model": "fm_haybale",
-   "x": -15.3,
-   "z": 4.2,
+   "x": -15.4,
+   "z": 1.6,
    "rot": 0.9
   },
   {
    "model": "fm_haybale",
-   "x": -14.6,
-   "z": 6.4,
+   "x": -14.8,
+   "z": -0.2,
    "rot": 2.2
   },
   {
@@ -288,6 +288,14 @@
   "barn": {
    "x": 9.5,
    "z": 0.6
+  },
+  "henhouse": {
+   "x": -10.5,
+   "z": 3.2
+  },
+  "feedstore": {
+   "x": -1.9,
+   "z": 3.0
   }
  },
  "areas": {
@@ -308,6 +316,18 @@
    "maxX": 14.2,
    "minZ": -3.0,
    "maxZ": 6.2
+  },
+  "henhouse": {
+   "minX": -13.2,
+   "maxX": -3.4,
+   "minZ": 0.8,
+   "maxZ": 8.0
+  },
+  "feedstore": {
+   "minX": -3.4,
+   "maxX": 0.6,
+   "minZ": 0.4,
+   "maxZ": 5.8
   }
  },
  "piles": {
@@ -348,6 +368,18 @@
   "gate": {
    "x": 4.4,
    "z": -15.6
+  },
+  "henhouse": {
+   "x": -10.5,
+   "z": 3.4
+  },
+  "eggcollector": {
+   "x": -6.0,
+   "z": 7.2
+  },
+  "feedstore": {
+   "x": -1.9,
+   "z": 3.0
   }
  },
  "upgradePads": {
@@ -360,8 +392,12 @@
    "z": -8.3
   },
   "well": {
-   "x": 0.2,
+   "x": -4.0,
    "z": -3.0
+  },
+  "henhouse": {
+   "x": -13.8,
+   "z": 7.0
   }
  },
  "staffSpots": {
@@ -372,6 +408,10 @@
   "farmhand": {
    "x": 4.4,
    "z": -8.6
+  },
+  "eggcollector": {
+   "x": -8.4,
+   "z": 7.4
   }
  },
  "entrances": [
@@ -598,5 +638,39 @@
    "radius": 12,
    "height": 3
   }
- ]
+ ],
+ "coops": {
+  "henhouse": {
+   "run": {
+    "minX": -8.2,
+    "maxX": -3.8,
+    "minZ": 1.2,
+    "maxZ": 5.6
+   },
+   "table": {
+    "x": -10.5,
+    "z": 6.3
+   },
+   "zone": {
+    "minX": -11.5,
+    "maxX": -9.5,
+    "minZ": 6.75,
+    "maxZ": 7.8
+   },
+   "trough": {
+    "x": -5.4,
+    "z": 4.4
+   }
+  }
+ },
+ "feeders": {
+  "feedstore": {
+   "zone": {
+    "minX": -2.8,
+    "maxX": -1.0,
+    "minZ": 4.6,
+    "maxZ": 5.6
+   }
+  }
+ }
 }

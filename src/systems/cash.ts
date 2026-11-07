@@ -1,6 +1,6 @@
 import { BoxGeometry, InstancedMesh, MeshLambertMaterial, Object3D, Vector3, type Scene } from 'three';
 import type { GameState } from '../core/gameState';
-import type { TownLayout, Point, Tuning } from '../core/config';
+import { town, type TownLayout, type Point, type Tuning } from '../core/config';
 import type { Particles } from '../render/effects/particles';
 import type { SoundManager } from '../audio/sound';
 import { blobShadow } from '../render/models/actors';
@@ -48,9 +48,14 @@ export class CashSystem {
    */
   add(pileId: string, amount: number): void {
     const current = this.state.piles[pileId] ?? 0;
-    const cap = this.state.unlocked.includes('cashier') ? Number.POSITIVE_INFINITY : this.tuning.pileCap;
+    const cap = this.unlimited() ? Number.POSITIVE_INFINITY : this.tuning.pileCap;
     this.state.piles[pileId] = Math.min(cap, current + amount);
     this.refresh(this.pile(pileId));
+  }
+
+  /** Past the cap, cash keeps piling up once someone minds the money: the cashier, or a pad that keeps a till (the farm's stand helper). */
+  private unlimited(): boolean {
+    return this.state.unlocked.includes('cashier') || town().pads.some((p) => p.effects.till && this.state.unlocked.includes(p.id));
   }
 
   /** The pile holding the most cash, for the cashier to walk to. */

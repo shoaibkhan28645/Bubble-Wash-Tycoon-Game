@@ -99,13 +99,14 @@ describe('the farm stand', () => {
     expect(new StandStock(state, () => 5).hasRoom('stand')).toBe(true);
   });
 
-  it('sells the crop it has most of, the dearer on a tie, until it is empty', () => {
+  it("fills each villager's basket with one of everything it has, until it is empty", () => {
     const state = newGame();
-    state.supplies = { 'stand.veg': 2, 'stand.corn': 2 };
+    state.supplies = { 'stand.veg': 2, 'stand.corn': 1, 'stand.eggs': 1 };
     const stock = new StandStock(state, () => 0);
-    expect(stock.take('stand')).toBe(CROPS.corn!.price > CROPS.veg!.price ? 'corn' : 'veg');
-    expect([stock.take('stand'), stock.take('stand'), stock.take('stand')].sort()).toEqual(['corn', 'veg', 'veg'].sort());
-    expect(stock.take('stand')).toBeNull();
+    expect(stock.takeBasket('stand').sort()).toEqual(['corn', 'eggs', 'veg']);
+    expect(stock.takeBasket('stand')).toEqual(['veg']);
+    expect(stock.takeBasket('stand')).toEqual([]);
     expect(stock.total('stand')).toBe(0);
   });
+
 });

@@ -10,6 +10,7 @@
   "snack": { "walkSpeed": 2.3 },
   "villagers": { "spawnSeconds": 5, "patience": 45, "walkSpeed": 2.2, "pay": [90, 90] },
   "farm": { "harvestSeconds": 0.7, "standCapacity": 10 },
+  "hens": { "count": 4, "layEvery": 12, "nestCap": 36, "eggsPerCarton": 6, "packSeconds": 0.6, "fedSpeed": 2, "feedPerCrate": 24, "feedCap": 96, "awayHours": 8 },
   "fuel": { "patienceRefill": 0.5, "washWaitSeconds": 4 },
   "tickets": {
     "kinds": [

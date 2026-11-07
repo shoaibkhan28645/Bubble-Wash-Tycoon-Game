@@ -29,6 +29,7 @@ const ROLES = {
   clerk: 'clerk',
   standhand: 'standhand',
   farmhand: 'farmhand',
+  eggcollector: 'eggcollector',
 } as const;
 export type Role = keyof typeof ROLES;
 
@@ -36,7 +37,8 @@ export type Role = keyof typeof ROLES;
  * Stations each role works: the washer both bays, the dryer staff the dryer
  * and wax, the detailer the garage (and wax when the garage is empty), the
  * attendant the fuel pumps and the clerk the Mini-Mart's till. On the farm
- * the stand hand serves at the stand; the farmhand harvests and carries.
+ * the stand hand serves at the stand; the farmhand harvests and carries; the
+ * egg collector packs eggs and carries the cartons.
  */
 const WORKS: Record<Role, StationKind[]> = {
   washer: ['bay'],
@@ -50,14 +52,15 @@ const WORKS: Record<Role, StationKind[]> = {
   clerk: ['counter'],
   standhand: ['stand'],
   farmhand: [],
+  eggcollector: [],
 };
 
 /** Roles that carry a stack on their back: supplies, or crates of produce. */
-const CARRIES: readonly Role[] = ['runner', 'farmhand'];
+const CARRIES: readonly Role[] = ['runner', 'farmhand', 'eggcollector'];
 
 /**
  * Where a carrying helper goes next, for a town's own kind of carrying (the
- * farmhand's harvest round). Null: home.
+ * farmhand's harvest round, the egg collector's). Null: home.
  */
 export type CarryPlan = (carrier: Carrier<CarryItem>, helperAt: Point) => Point | null;
 
@@ -198,8 +201,8 @@ class Helper {
  */
 export class StaffSystem {
   private readonly helpers: Helper[] = [];
-  /** How the farmhand plans its round (set by a farm town). */
-  farmPlan: CarryPlan | null = null;
+  /** How each of a town's own carrying roles plans its round (the farm sets the farmhand's and the egg collector's). */
+  readonly carryPlans: Partial<Record<Role, CarryPlan>> = {};
   private nav: NavGrid;
   private navKey = '';
 
@@ -234,9 +237,9 @@ export class StaffSystem {
     return this.helpers.flatMap((h) => (h.carrier && h.role === 'runner' ? [h.carrier as Carrier] : []));
   }
 
-  /** The farmhand's back: crates. */
-  crateCarriers<T extends CarryItem>(): Carrier<T>[] {
-    return this.helpers.flatMap((h) => (h.carrier && h.role === 'farmhand' ? [h.carrier as Carrier<T>] : []));
+  /** The farm helpers' backs (crates and cartons), all of them or one role's. */
+  crateCarriers<T extends CarryItem>(role?: Role): Carrier<T>[] {
+    return this.helpers.flatMap((h) => (h.carrier && h.role !== 'runner' && (!role || h.role === role) ? [h.carrier as Carrier<T>] : []));
   }
 
   /** How hard staff are working a station this frame (0 if nobody). */
@@ -277,9 +280,9 @@ export class StaffSystem {
       }
       if (helper.role === 'runner') {
         if (supplies) this.planRun(helper, stations, supplies);
-      } else if (helper.role === 'farmhand') {
+      } else if (helper.carrier) {
         helper.assigned = null;
-        helper.target = this.farmPlan?.(helper.carrier!, helper.position) ?? this.home('farmhand');
+        helper.target = this.carryPlans[helper.role]?.(helper.carrier, helper.position) ?? this.home(helper.role);
       }
       else if (helper.role === 'cashier') this.planCashier(dt, helper);
       else if (helper.role === 'valet' || helper.role === 'manager') {

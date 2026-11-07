@@ -40,20 +40,42 @@
     }
   },
   {
+    "id": "henhouse",
+    "name": "Hen house",
+    "cost": 2200,
+    "targetMinute": 2.8,
+    "adds": "Hens lay eggs; pack them into cartons at the egg table. Villagers love fresh eggs (+15% villagers)",
+    "effects": {
+      "coop": true,
+      "arrivalBonus": 0.15
+    }
+  },
+  {
     "id": "standhand",
     "name": "Stand helper",
-    "cost": 2500,
-    "targetMinute": 3.5,
-    "adds": "Serves at the farm stand",
+    "cost": 3000,
+    "targetMinute": 3.6,
+    "adds": "Serves at the farm stand and minds the till: cash keeps piling up while you are away",
     "effects": {
-      "staff": "standhand"
+      "staff": "standhand",
+      "till": true
+    }
+  },
+  {
+    "id": "eggcollector",
+    "name": "Egg collector",
+    "cost": 4200,
+    "targetMinute": 4.5,
+    "adds": "Packs the eggs and takes the cartons to the stand",
+    "effects": {
+      "staff": "eggcollector"
     }
   },
   {
     "id": "farmhand",
     "name": "Farmhand",
-    "cost": 4000,
-    "targetMinute": 5.5,
+    "cost": 5500,
+    "targetMinute": 6,
     "adds": "Harvests the fields and stocks the stand",
     "effects": {
       "staff": "farmhand"
@@ -62,7 +84,7 @@
   {
     "id": "barn",
     "name": "Red barn",
-    "cost": 6000,
+    "cost": 7000,
     "targetMinute": 8,
     "buildSeconds": 30,
     "adds": "Stores the harvest: the stand holds 10 more crates, and every sale pays 20% more",
@@ -72,10 +94,20 @@
     }
   },
   {
+    "id": "feedstore",
+    "name": "Feed store",
+    "cost": 8500,
+    "targetMinute": 10,
+    "adds": "Corn tipped in feeds the hens: fed hens lay twice as fast",
+    "effects": {
+      "feeder": true
+    }
+  },
+  {
     "id": "gate",
     "name": "Farm gate sign",
-    "cost": 9000,
-    "targetMinute": 11,
+    "cost": 12000,
+    "targetMinute": 12.5,
     "adds": "+30% villagers stopping by",
     "effects": {
       "arrivalBonus": 0.3,

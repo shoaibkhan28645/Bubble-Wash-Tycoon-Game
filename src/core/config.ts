@@ -12,6 +12,7 @@ import dailyJson from '../data/daily.json';
 import adsJson from '../data/ads.json';
 import contractsJson from '../data/contracts.json';
 import cropsJson from '../data/crops.json';
+import goodsJson from '../data/goods.json';
 import { ROADSIDE, type TownDef } from './towns';
 
 export type Dirt = 'dusty' | 'muddy' | 'swamp';
@@ -79,6 +80,12 @@ export interface PadEffects {
   growBonus?: number;
   /** More crates each stand holds (the barn). */
   storage?: number;
+  /** A hen house: hens lay eggs, packed into cartons at its table. */
+  coop?: boolean;
+  /** A feed store: corn tipped in feeds the hens, who then lay faster. */
+  feeder?: boolean;
+  /** Minds the money, as the cashier does: cash piles grow past their cap (the farm's stand helper). */
+  till?: boolean;
 }
 
 export interface PadDef {
@@ -244,14 +251,27 @@ export interface WalkUpLayout {
   counters: Record<string, CounterSpot>;
 }
 
-/** A crop, from src/data/crops.json. Its key is the crop's id. */
-export interface CropDef {
+/** Something a farm makes and sells by the crate or carton: a crop (crops.json) or another good (goods.json). */
+export interface GoodDef {
   name: string;
   icon: string;
+  /** What one crate or carton of it sells for at the stand. */
+  price: number;
+}
+
+/** A crop, from src/data/crops.json. Its key is the crop's id. */
+export interface CropDef extends GoodDef {
   /** Seconds from harvest (it's replanted at once) until it's ripe again. */
   growSeconds: number;
-  /** What one crate of it sells for at the stand. */
-  price: number;
+}
+
+/** A hen house's place on the map: the fenced run its hens peck about in, the egg table and its packing spot, the trough. */
+export interface CoopSpot {
+  run: Rect;
+  table: Point;
+  /** Stand here to pack eggs into cartons. */
+  zone: Rect;
+  trough: Point;
 }
 
 /** A field on the farm: its plots' middles. Every plot is the same size (PLOT). */
@@ -272,6 +292,10 @@ export interface FarmLayout extends TownLayout, WalkUpLayout {
   tracks: Rect[];
   /** Each field by its pad id. */
   fields: Record<string, FieldSpot>;
+  /** Each hen house by its pad id. */
+  coops: Record<string, CoopSpot>;
+  /** Each feed store by its pad id: where corn is tipped in. */
+  feeders: Record<string, { zone: Rect }>;
   /** The duck pond (an ellipse in this rect). */
   pond: Rect;
   /** Low hills of the countryside beyond the farm. */
@@ -438,6 +462,8 @@ export const ADS = adsJson;
 export const CONTRACTS = contractsJson as ContractsData;
 /** Every crop a farm can grow, by id. */
 export const CROPS = cropsJson as Record<string, CropDef>;
+/** Everything a farm sells: its crops, then eggs. */
+export const GOODS: Record<string, GoodDef> = { ...CROPS, ...(goodsJson as Record<string, GoodDef>) };
 /** One crop plot's size on the ground (art/blender/farm.py plants it). */
 export const PLOT = { width: 2.6, depth: 2.8 };
 

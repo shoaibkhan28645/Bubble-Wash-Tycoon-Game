@@ -59,7 +59,7 @@ describe('Willowbrook', () => {
   });
 
   it('hires the stand helper and the farmhand, with somewhere to stand and a character each', () => {
-    for (const role of ['standhand', 'farmhand'] as const) {
+    for (const role of ['standhand', 'farmhand', 'eggcollector'] as const) {
       expect(pads.find((p) => p.id === role)?.effects.staff).toBe(role);
       expect(layout.staffSpots[role]).toBeDefined();
       expect(modelFiles).toContain(`models/people/character-${CHARACTERS.staff[role]}.glb`);
@@ -76,9 +76,28 @@ describe('Willowbrook', () => {
 
   it('has every farm model it places, plus the crop stages', () => {
     const names = [...layout.town.map((p) => p.model).filter((m) => m.startsWith('fm_')), 'fm_stand', 'fm_well', 'fm_barn', 'fm_gate', 'fm_duck'];
+    names.push('fm_henhouse', 'fm_eggtable', 'fm_hen', 'fm_hen_brown', 'fm_trough', 'fm_feedstore');
     for (const crop of ['veg', 'corn']) for (const stage of [1, 2, 3]) names.push(`fm_${crop}_${stage}`);
     for (const name of new Set(names)) expect(farmFiles.includes(`"name":"${name}"`), name).toBe(true);
     for (const path of Object.values(WILLOWBROOK.models)) expect(modelFiles).toContain(path);
+  });
+
+  it('gives the hen house its run, egg table and trough, and the feed store a place to tip corn, clear of everything else', () => {
+    const coop = pads.find((p) => p.effects.coop)!;
+    const feeder = pads.find((p) => p.effects.feeder)!;
+    expect(padIds.indexOf(coop.id)).toBeLessThan(padIds.indexOf('eggcollector'));
+    expect(padIds.indexOf('eggcollector')).toBeLessThan(padIds.indexOf(feeder.id));
+    const spot = layout.coops[coop.id]!;
+    const inside = (r: Rect, outer: Rect) => r.minX >= outer.minX && r.maxX <= outer.maxX && r.minZ >= outer.minZ && r.maxZ <= outer.maxZ;
+    expect(spot.trough.x > spot.run.minX && spot.trough.x < spot.run.maxX && spot.trough.z > spot.run.minZ && spot.trough.z < spot.run.maxZ).toBe(true);
+    for (const zone of [spot.zone, layout.feeders[feeder.id]!.zone]) expect(inside(zone, layout.walk)).toBe(true);
+    const busy = [...Object.values(layout.fields).flatMap((f) => f.plots.map(plotRect)), ...layout.tracks];
+    for (const r of busy) expect(overlaps(r, spot.run)).toBe(false);
+    for (const at of Object.values(layout.pads)) expect(at.x > spot.run.minX && at.x < spot.run.maxX && at.z > spot.run.minZ && at.z < spot.run.maxZ).toBe(false);
+  });
+
+  it("lets cash pile up without limit once the stand helper minds the till, so the farm earns while the hero is away", () => {
+    expect(pads.find((p) => p.id === 'standhand')?.effects.till).toBe(true);
   });
 
   it('offers upgrades for things that exist', () => {

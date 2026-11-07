@@ -83,7 +83,11 @@ export interface GameState {
   autoRate: number;
   /** Supply counts: "shelf.soap", "bay1.soap", "dryer.towel"; on a farm, crates at the stand: "stand.veg"… */
   supplies: Record<string, number>;
-  /** On a farm: when each crop plot is ripe again (wall-clock ms), by plot id ("field1.0"). A plot not listed is ripe. */
+  /**
+   * A farm's clocks (wall-clock ms): when each crop plot is ripe again, by
+   * plot id ("field1.0"; a plot not listed is ripe), and up to when each hen
+   * house's laying has been counted ("henhouse.laid").
+   */
   plots: Record<string, number>;
   /** One-off milestones for the tutorial hand: "washed", "collected", "supplied", "ended"… */
   flags: string[];
