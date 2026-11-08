@@ -20,6 +20,7 @@ export const WILLOWBROOK: FarmTown = {
     'building:farm-poultry': 'models/buildings/farm-poultry.glb',
     'building:farm-dairy': 'models/buildings/farm-dairy.glb',
     'building:farm-machines': 'models/buildings/farm-machines.glb',
+    'building:farm-valley': 'models/buildings/farm-valley.glb',
     'building:town-shops': 'models/buildings/town-shops.glb',
     'building:town-homes': 'models/buildings/town-homes.glb',
   },

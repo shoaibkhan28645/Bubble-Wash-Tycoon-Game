@@ -815,3 +815,9 @@ body {
   background: #d8432f;
   color: #fff;
 }
+
+/* Buyer of the Day and the county fair stand out on the orders board. */
+.contract-card.order-special {
+  background: #fff6d6;
+  box-shadow: inset 0 0 0 2px #ffcf4d;
+}

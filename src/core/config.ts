@@ -310,6 +310,12 @@ export interface FarmLayout extends TownLayout, WalkUpLayout {
   /** The orders board, and where to stand to read it. */
   board: Point;
   boardSpot: Rect;
+  /** More gaps in the fence along the road (the farmers' market's way in). */
+  sideGates: { minX: number; maxX: number }[];
+  /** The bakery's bread table, and where to stand to pick up the baking. */
+  bakery: { table: Point; zone: Rect };
+  /** The old windmill on its hill (restored as the landmark). */
+  windmill: Point;
   /** The machines: where the tractor parks (in the shed), the barn doors it unloads at, and the routes the machines drive. */
   machines: {
     tractorPark: Point;

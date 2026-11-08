@@ -8,5 +8,15 @@
     "name": "Milk",
     "icon": "🥛",
     "price": 160
+  },
+  "bread": {
+    "name": "Bread",
+    "icon": "🍞",
+    "price": 260
+  },
+  "pie": {
+    "name": "Apple pie",
+    "icon": "🥧",
+    "price": 480
   }
 }

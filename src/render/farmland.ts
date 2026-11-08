@@ -57,7 +57,7 @@ const clamp01 = (v: number) => Math.min(1, Math.max(0, v));
  */
 function flatAt(layout: FarmLayout, x: number, z: number): number {
   const { lot, roadZ, pond } = layout;
-  if (inside(x, z, pond, 2)) return 0;
+  if (inside(x, z, pond, 2) || Object.values(layout.areas).some((a) => inside(x, z, a, 2))) return 0;
   const outside = Math.max(lot.minX - x, x - lot.maxX, lot.minZ - z, z - lot.maxZ, 0);
   // The road and the village make a flat strip right across, behind the farm.
   const behindVillage = z >= lot.minZ ? 1 : clamp01((roadZ - 16 - z) / 6);
@@ -65,7 +65,7 @@ function flatAt(layout: FarmLayout, x: number, z: number): number {
 }
 
 /** Height of the countryside: the hills, and gentle bumps everywhere else off the flat ground. */
-function heightAt(layout: FarmLayout, x: number, z: number): number {
+export function heightAt(layout: FarmLayout, x: number, z: number): number {
   let h = Math.max(0, wobble(x, z)) * 0.35;
   for (const hill of layout.hills) {
     // A little flat top, room for something to stand on it (the windmill).
@@ -176,8 +176,14 @@ function fence(layout: FarmLayout): Mesh {
       parts.push({ geometry: new BoxGeometry(length, 0.1, 0.07), color: RAIL, x: (x0 + x1) / 2, y, z: (z0 + z1) / 2, ry: -angle });
     }
   };
-  run(sides.minX, fenceZ, gate.minX, fenceZ);
-  run(gate.maxX, fenceZ, sides.maxX, fenceZ);
+  // Along the road, open at the farm gate and at any side gates (the market's).
+  const gaps = [gate, ...layout.sideGates].sort((a, b) => a.minX - b.minX);
+  let from = sides.minX;
+  for (const g of gaps) {
+    if (g.minX > from) run(from, fenceZ, g.minX, fenceZ);
+    from = g.maxX;
+  }
+  if (from < sides.maxX) run(from, fenceZ, sides.maxX, fenceZ);
   run(sides.minX, fenceZ, sides.minX, sides.maxZ);
   run(sides.maxX, fenceZ, sides.maxX, sides.maxZ);
   // Along the front, open where the track comes through.
@@ -286,10 +292,6 @@ function scenery(layout: FarmLayout): Group {
   // Trees along the far side of the road, in front of the village.
   const row: { x: number; z: number; s: number; r: number }[] = layout.streetTrees.map((t) => ({ ...t, s: 2.8 + rand() * 0.6, r: rand() * 6 }));
   group.add(scatter('nature:tree_oak', row));
-  // An orchard behind the farmhouse, in tidy rows.
-  const orchard: { x: number; z: number; s: number; r: number }[] = [];
-  for (let x = 20; x <= 30; x += 3.4) for (let z = 4; z <= 14; z += 3.6) orchard.push({ x: x + (rand() - 0.5) * 0.4, z, s: 2.1 + rand() * 0.3, r: rand() * 6 });
-  group.add(scatter('nature:tree_fat', orchard));
   return group;
 }
 

@@ -83,6 +83,38 @@ describe('walk-up counters', () => {
     expect(walkups.counters[0]!.line.length).toBeLessThanOrEqual(LAYOUT.counters.stand!.queue.length);
   });
 
+  it('takes a place in line only on getting there, so a long walk in does not hold the line up', () => {
+    const far: WalkUpLayout = { ...LAYOUT, entrances: [{ x: -60, z: -4 }, { x: 60, z: -4 }] };
+    const served: ServedVisitor[] = [];
+    const walkups = new WalkUps(far, newGame(), { ...RULES, patience: 1000 }, () => 0, () => 0, null, (s) => served.push(s), () => {}, () => 0);
+    walkups.open = true;
+    walkups.addCounter('stand', KIND, null);
+    const counter = walkups.counters[0]!;
+    let most = 0;
+    for (let t = 0; t < 180; t += 0.1) {
+      walkups.update(0.1, () => ({ rate: 1, byPlayer: false }));
+      most = Math.max(most, counter.line.length);
+    }
+    // A visitor every 2 s, half a minute away: over 40 served in three minutes (it was 20 when
+    // visitors held their place in line from the moment they set off).
+    expect(served.length).toBeGreaterThan(40);
+    expect(most).toBeLessThanOrEqual(far.counters.stand!.queue.length);
+  });
+
+  it('waits patiently at a counter with nothing to sell, and walks on by a full line', () => {
+    const { walkups, gaveUp } = stand(5);
+    walkups.stocked = () => false;
+    run(walkups, 120, 0);
+    const counter = walkups.counters[0]!;
+    expect(gaveUp).toEqual([]);
+    expect(counter.line.length).toBe(LAYOUT.counters.stand!.queue.length);
+    // Others came by, found the line full and went on their way.
+    expect(walkups.visitors.some((v) => v.state === 'leaving')).toBe(true);
+    walkups.stocked = () => true;
+    run(walkups, 6, 0);
+    expect(gaveUp.length).toBeGreaterThan(0);
+  });
+
   it('loses visitors kept waiting too long, unserved', () => {
     const { walkups, served, gaveUp } = stand(5);
     run(walkups, 40, 0);

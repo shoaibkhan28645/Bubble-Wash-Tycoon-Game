@@ -2,49 +2,13 @@
   "franchiseStars": 1,
   "goals": [
     {
-      "id": "corn",
-      "built": "field2",
-      "gems": 10
-    },
-    {
       "id": "henhouse",
       "built": "henhouse",
       "gems": 15
     },
     {
-      "id": "farmhand",
-      "built": "farmhand",
-      "gems": 15
-    },
-    {
-      "id": "barn",
-      "built": "barn",
-      "gems": 15
-    },
-    {
-      "id": "feed",
-      "built": "feedstore",
-      "gems": 15
-    },
-    {
-      "id": "farmgate",
-      "built": "gate",
-      "gems": 20
-    },
-    {
       "id": "cowbarn",
       "built": "cowbarn",
-      "gems": 20
-    },
-    {
-      "id": "deliveries",
-      "count": "delivery",
-      "goal": 10,
-      "gems": 20
-    },
-    {
-      "id": "tractor",
-      "built": "tractor",
       "gems": 20
     },
     {
@@ -54,9 +18,30 @@
       "gems": 20
     },
     {
-      "id": "combine",
-      "built": "combine",
+      "id": "stars",
+      "stars": 5,
+      "gems": 15
+    },
+    {
+      "id": "deliveries",
+      "count": "delivery",
+      "goal": 30,
       "gems": 25
+    },
+    {
+      "id": "orchard",
+      "built": "orchard",
+      "gems": 20
+    },
+    {
+      "id": "bakery",
+      "built": "bakery",
+      "gems": 25
+    },
+    {
+      "id": "windmill",
+      "built": "windmill",
+      "gems": 30
     }
   ]
 }

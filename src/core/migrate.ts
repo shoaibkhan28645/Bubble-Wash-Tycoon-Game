@@ -38,7 +38,7 @@ export const MIGRATIONS: Readonly<Record<number, Migration>> = {
 };
 
 function noDeliveries(): DeliveriesState {
-  return { orders: [], trips: {}, nextId: 1, refillAt: 0 };
+  return { orders: [], trips: {}, nextId: 1, refillAt: 0, buyerDay: '', fairDay: '' };
 }
 
 /**
@@ -268,6 +268,8 @@ function deliveriesState(value: unknown): DeliveriesState {
       endsAt: nonNegative(o.endsAt, 0),
       van: typeof o.van === 'string' ? o.van : null,
       loaded: Math.min(qty, Math.floor(nonNegative(o.loaded, 0))),
+      ...(o.special === 'buyer' || o.special === 'fair' ? { special: o.special } : {}),
+      ...(typeof o.gems === 'number' && o.gems > 0 ? { gems: Math.floor(o.gems) } : {}),
     });
   }
   const trips: DeliveriesState['trips'] = {};
@@ -277,7 +279,8 @@ function deliveriesState(value: unknown): DeliveriesState {
     }
   }
   const nextId = Math.max(Math.floor(nonNegative(value.nextId, 1)), ...orders.map((o) => o.id + 1), 1);
-  return { orders, trips, nextId, refillAt: nonNegative(value.refillAt, 0) };
+  const day = (v: unknown) => (typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : '');
+  return { orders, trips, nextId, refillAt: nonNegative(value.refillAt, 0), buyerDay: day(value.buyerDay), fairDay: day(value.fairDay) };
 }
 
 /** Wall-clock times by id (whole ms, from 0). */

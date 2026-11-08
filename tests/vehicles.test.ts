@@ -127,4 +127,20 @@ describe('the barn store', () => {
     expect(barn.hasRoom).toBe(false);
     expect(TUNING.barn.restockSeconds).toBeGreaterThan(0);
   });
+
+  it('keeps crates back for the mill, passing on only what is over', () => {
+    const state = newGame();
+    state.supplies['barnstore.corn'] = 6;
+    const barn = new BarnStore(state, DOOR, () => 40);
+    barn.keep = (good) => (good === 'corn' ? 4 : 0);
+    const stock = new StandStock(state, () => 0);
+    let loaded = 0;
+    const van = { wants: () => ({ good: 'corn' as GoodId, more: 10 }), fill: () => void loaded++ };
+    for (let i = 0; i < 200; i++) barn.update(0.05, [], new Set(), { id: 'stand', stock }, [van]);
+    expect(barn.count('corn')).toBe(4);
+    expect(stock.stock('stand', 'corn') + loaded).toBe(2);
+    // The mill still takes them.
+    expect(barn.take('corn')).toBe(true);
+    expect(barn.count('corn')).toBe(3);
+  });
 });

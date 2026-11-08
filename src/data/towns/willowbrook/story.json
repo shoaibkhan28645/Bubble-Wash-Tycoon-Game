@@ -82,10 +82,10 @@
         "built": "feedstore"
       },
       "icon": "🌽",
-      "headline": "Willowbrook hens go corn-fed",
-      "body": "The farm's new feed store turns its own corn into hen feed. Corn-fed hens lay twice as fast, and the egg cartons are flying off the stand.",
+      "headline": "Willowbrook animals go corn-fed",
+      "body": "The farm's new feed store turns its own corn into feed. Corn-fed hens lay twice as fast, the cows give more milk, and the stand can hardly keep up.",
       "speaker": "mentor",
-      "words": "Every crate of corn in that hopper comes back as eggs. Keep it topped up and the hens will do the rest."
+      "words": "Every crate of corn in that hopper comes back as eggs and milk. Keep it topped up and the animals will do the rest."
     },
     {
       "id": "gate",
@@ -94,9 +94,9 @@
       },
       "icon": "🌻",
       "headline": "Willowbrook Farm puts up its sign",
-      "body": "A painted sign now hangs over the farm gate, and folk from the next valley are driving over for the eggs and produce. Talk is of a dairy next.",
+      "body": "A painted sign now hangs over the farm gate, and folk from the next valley are driving over for the eggs, the milk and the produce.",
       "speaker": "mentor",
-      "words": "Cows next, I reckon. Milk sells better than anything, if you can get it to the buyers."
+      "words": "A good sign brings folk from miles around. Now feed those animals proper and they'll give you twice as much."
     },
     {
       "id": "cowbarn",
@@ -176,6 +176,50 @@
       "icon": "🌧️",
       "headline": "Rain at last for Willowbrook",
       "body": "The heatwave has broken and the fields are green again. While the valley was parched, Joe's old farm kept everyone fed, and the combine has already brought in the next harvest."
+    },
+    {
+      "id": "orchard",
+      "when": {
+        "built": "orchard"
+      },
+      "icon": "🍎",
+      "headline": "Apple trees planted on Joe's farm",
+      "body": "Six young apple trees now stand on the farm's east meadow. They're slow to fruit, but the village is already asking about apple pies.",
+      "speaker": "mentor",
+      "words": "Trees are patient business. Plant them, wait, and they pay you every year after."
+    },
+    {
+      "id": "bakery",
+      "when": {
+        "built": "bakery"
+      },
+      "icon": "🍞",
+      "headline": "Willowbrook has a bakery again",
+      "body": "The farm's new mill and bakery turns its own corn into warm bread, and its apples into pies. Bread sells for twice what the corn did.",
+      "speaker": "mentor",
+      "words": "Corn is cheap, bread is not. Every step you add to a crate is money in your pocket."
+    },
+    {
+      "id": "market",
+      "when": {
+        "built": "market"
+      },
+      "icon": "🎪",
+      "headline": "Farmers' market draws weekend crowds",
+      "body": "Striped stalls by the road, fresh food and music: the farm's new market brings shoppers from all over the valley, and they pay top prices.",
+      "speaker": "mentor",
+      "words": "People come for the food and stay for the fun. Keep those stalls full!"
+    },
+    {
+      "id": "landmark",
+      "when": {
+        "built": "windmill"
+      },
+      "icon": "🌬️",
+      "headline": "The old windmill turns again",
+      "body": "After thirty years standing still, Willowbrook's windmill is restored and its sails are turning. The village fair was held under it, and every shop in the valley is busier for it. Talk is turning to Maple Market Town, down the road.",
+      "speaker": "mentor",
+      "words": "You've made this valley proud. Mabel says the market town needs someone like you. The road's open whenever you're ready."
     }
   ]
 }

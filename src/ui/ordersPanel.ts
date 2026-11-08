@@ -37,7 +37,7 @@ function timeText(order: Order, view: OrdersView): string {
   const back = order.van ? view.backAt(order.van) : null;
   if (!order.van) return `⏱ ${t('contractLeft', { time: formatClock(Math.max(0, order.endsAt - view.now) / 1000) })}`;
   if (back !== null) return `🚚 ${t('orderOnRoad', { time: formatClock(Math.max(0, back - view.now) / 1000) })}`;
-  return `📦 ${t('orderLoading', { van: vanName(order.van) })}`;
+  return `📦 ${t('orderLoading', { van: vanName(order.van), time: formatClock(Math.max(0, order.endsAt - view.now) / 1000) })}`;
 }
 
 function card(order: Order, view: OrdersView, onSend: (van: string) => void): HTMLElement {
@@ -50,7 +50,9 @@ function card(order: Order, view: OrdersView, onSend: (van: string) => void): HT
   head.className = 'contract-head';
   const client = document.createElement('div');
   client.className = 'contract-client';
-  client.textContent = t('orderFor', { buyer: order.buyer });
+  const badge = order.special === 'buyer' ? `⭐ ${t('buyerOfDay')} · ` : order.special === 'fair' ? `🎀 ${t('countyFair')} · ` : '';
+  client.textContent = badge + t('orderFor', { buyer: order.buyer });
+  if (order.special) el.classList.add('order-special');
   const task = document.createElement('div');
   task.className = 'mission-text';
   task.textContent = orderText(order);
@@ -70,7 +72,7 @@ function card(order: Order, view: OrdersView, onSend: (van: string) => void): HT
   count.textContent = `${order.loaded} / ${order.qty}`;
   const reward = document.createElement('div');
   reward.className = 'contract-reward';
-  reward.textContent = `💵 ${formatCash(order.pay)}`;
+  reward.textContent = `💵 ${formatCash(order.pay)}${order.gems ? `  💎 ${order.gems}` : ''}`;
   const foot = document.createElement('div');
   foot.className = 'contract-foot';
   const buttons = document.createElement('div');

@@ -259,7 +259,7 @@ export function createMachines(deps: {
         }
         // Whatever ripe crop the tractor passes over goes into the trailer, far faster than by hand.
         const before = trailer.stack.length;
-        crops.update(dt * TUNING.machines.tractorHarvest, now, [trailer]);
+        crops.update(dt * TUNING.machines.tractorHarvest, now, [trailer], (crop) => crop !== 'apple');
         if (trailer.stack.length > before) {
           state.counts.tractorCrate = (state.counts.tractorCrate ?? 0) + 1;
           if (driving) {

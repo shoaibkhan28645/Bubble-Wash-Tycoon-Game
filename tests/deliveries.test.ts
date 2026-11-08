@@ -35,8 +35,9 @@ describe('delivery orders', () => {
   it('fill the board with orders for what the farm makes and its vans carry, paying more than the stand', () => {
     const { deliveries } = farm();
     for (let t = 0; t <= TUNING.deliveries.refillSeconds * 1000 * 3; t += 1000) deliveries.update(t);
-    expect(deliveries.orders.length).toBe(TUNING.deliveries.slots);
-    for (const order of deliveries.orders) {
+    const usual = deliveries.orders.filter((o) => !o.special);
+    expect(usual.length).toBe(TUNING.deliveries.slots);
+    for (const order of usual) {
       expect(VANS.van!.goods).toContain(order.good);
       expect(order.qty).toBeGreaterThanOrEqual(VANS.van!.load[0]);
       expect(order.qty).toBeLessThanOrEqual(VANS.van!.load[1]);
@@ -83,6 +84,58 @@ describe('delivery orders', () => {
     if (van) expect(VANS.van!.goods).toContain(van.good);
     if (tanker) expect(tanker.good).toBe('milk');
     expect(van ?? tanker).toBeDefined();
+  });
+
+  it('run out while the van is still loading: the van is free again, and what was loaded comes back off it', () => {
+    const { deliveries, carrier } = farm();
+    const dropped: Order[] = [];
+    deliveries.onDropped = (order) => dropped.push(order);
+    deliveries.update(0);
+    const order = deliveries.orders[0]!;
+    deliveries.assign(order.id, 'van');
+    carrier.push(order.good as GoodId);
+    carrier.timer = 0;
+    deliveries.load('van', BAY, [carrier]);
+    deliveries.update(order.endsAt + 1);
+    expect(deliveries.orders.some((o) => o.id === order.id)).toBe(false);
+    expect(dropped.map((o) => [o.id, o.loaded])).toEqual([[order.id, 1]]);
+    expect(deliveries.orderOf('van')).toBeUndefined();
+  });
+
+  it('are taken by the driver as he can fill them: a smaller order to hand before a bigger one not yet made, and none with nothing to hand', () => {
+    const order = (id: number, good: GoodId, qty: number, pay: number): Order => ({ id, good, qty, pay, buyer: 'the Bakery', endsAt: 600_000, van: null, loaded: 0 });
+    /** A board of just these two orders (no new ones, no specials today). */
+    const board = () => {
+      const f = farm({ auto: true });
+      const day = new Date(0);
+      const today = `${day.getFullYear()}-${String(day.getMonth() + 1).padStart(2, '0')}-${String(day.getDate()).padStart(2, '0')}`;
+      Object.assign(f.state.deliveries, { orders: [order(1, 'eggs', 10, 5000), order(2, 'veg', 6, 1500)], refillAt: 1e12, buyerDay: today, fairDay: today });
+      return f;
+    };
+    const ready = board();
+    ready.deliveries.onHand = (good) => (good === 'veg' ? 20 : 0);
+    ready.deliveries.update(0);
+    expect(ready.deliveries.orderOf('van')?.id).toBe(2);
+    // Everything to hand: the bigger pay wins.
+    const both = board();
+    both.deliveries.update(0);
+    expect(both.deliveries.orderOf('van')?.id).toBe(1);
+    // Nothing towards either: the van waits in the yard.
+    const neither = board();
+    neither.deliveries.onHand = () => 0;
+    neither.deliveries.update(0);
+    expect(neither.deliveries.orderOf('van')).toBeUndefined();
+    expect(neither.deliveries.orders.length).toBe(2);
+  });
+
+  it('find a van with nothing on the board for it an order of its own, even on a full board', () => {
+    const { deliveries, state } = farm({ vans: ['van', 'tanker'] });
+    const eggs = (id: number): Order => ({ id, good: 'eggs', qty: 6, pay: 1200, buyer: 'the Bakery', endsAt: 600_000, van: null, loaded: 0 });
+    const day = new Date(0);
+    const today = `${day.getFullYear()}-${String(day.getMonth() + 1).padStart(2, '0')}-${String(day.getDate()).padStart(2, '0')}`;
+    Object.assign(state.deliveries, { orders: [1, 2, 3, 4].map(eggs), nextId: 5, buyerDay: today, fairDay: today });
+    deliveries.update(0);
+    expect(deliveries.orders.some((o) => o.good === 'milk' && !o.special)).toBe(true);
   });
 
   it("finish their trips while the game is closed (Part C's gate)", () => {

@@ -53,6 +53,9 @@ export interface Order {
   /** The van that took it (its pad id), and how much is loaded so far. */
   van: string | null;
   loaded: number;
+  /** Buyer of the Day (once a day) or the weekend county fair, off the board's usual slots; the fair also pays gems. */
+  special?: 'buyer' | 'fair';
+  gems?: number;
 }
 
 /** A farm's delivery orders and the vans out on the road (by van pad id), with wall-clock times. */
@@ -63,6 +66,9 @@ export interface DeliveriesState {
   nextId: number;
   /** Wall-clock ms when the board may take a new order. */
   refillAt: number;
+  /** The local dates (YYYY-MM-DD) of the last Buyer of the Day and the last county fair order. */
+  buyerDay: string;
+  fairDay: string;
 }
 
 /** The town's goals: reached (they stay reached) and claimed. */
@@ -141,7 +147,7 @@ export type TownState = Pick<GameState, (typeof TOWN_KEYS)[number]>;
 
 /** A town nobody has built in yet. */
 export function newTownState(): TownState {
-  return { unlocked: [], levels: {}, staff: [], padPaid: {}, building: {}, piles: {}, stars: 3, autoRate: 0, supplies: {}, plots: {}, deliveries: { orders: [], trips: {}, nextId: 1, refillAt: 0 }, goals: { done: [], claimed: [] } };
+  return { unlocked: [], levels: {}, staff: [], padPaid: {}, building: {}, piles: {}, stars: 3, autoRate: 0, supplies: {}, plots: {}, deliveries: { orders: [], trips: {}, nextId: 1, refillAt: 0, buyerDay: '', fairDay: '' }, goals: { done: [], claimed: [] } };
 }
 
 export function newGame(): GameState {

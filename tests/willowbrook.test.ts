@@ -19,7 +19,7 @@ describe('Willowbrook', () => {
     expect(WILLOWBROOK.kind).toBe('farm');
   });
 
-  it('opens with the stand and a ripe vegetable field for free, then costs only go up, ending at the gate sign', () => {
+  it('opens with the stand and a ripe vegetable field for free, then costs only go up, ending at the road to the next town', () => {
     expect(pads.slice(0, 2).map((p) => [p.id, p.cost])).toEqual([
       ['stand', 0],
       ['field1', 0],
@@ -27,7 +27,8 @@ describe('Willowbrook', () => {
     expect(pads[0]!.effects.counter).toBe('stand');
     expect(pads[1]!.effects.field).toBe('veg');
     for (let i = 3; i < pads.length; i++) expect(pads[i]!.cost).toBeGreaterThan(pads[i - 1]!.cost);
-    expect(pads.at(-1)!.effects.endOfContent).toBe(true);
+    expect(pads.at(-1)).toMatchObject({ id: 'road', afterGoals: true, effects: { travel: 'market' } });
+    expect(pads.filter((p) => p.effects.endOfContent)).toEqual([]);
     expect(new Set(padIds).size).toBe(padIds.length);
   });
 
@@ -137,17 +138,17 @@ describe('Willowbrook', () => {
     }
     expect(padIds.indexOf('driver')).toBeGreaterThan(padIds.indexOf('van'));
     expect(pads.find((p) => p.id === 'driver')?.effects.driver).toBe(true);
-    expect(pads.filter((p) => p.effects.endOfContent).map((p) => p.id)).toEqual([pads.at(-1)!.id]);
   });
 
   it("sends the machines where they belong: the driver round both fields to the barn doors, the combine over the corn, the feed truck through the gate", () => {
     const { machines } = layout;
-    expect(pads.at(-1)?.effects.machine).toBe('combine');
+    expect(pads.some((p) => p.effects.machine === 'combine')).toBe(true);
     const inside = (p: { x: number; z: number }, r: Rect) => p.x >= r.minX && p.x <= r.maxX && p.z >= r.minZ && p.z <= r.maxZ;
     const shed = layout.areas.tractor!;
     expect(inside(machines.tractorPark, shed)).toBe(true);
-    // The driver's loop passes every plot's row, and stops at the barn doors.
-    const rows = new Set(Object.values(layout.fields).flatMap((f) => f.plots.map((p) => p.z)));
+    // The driver's loop passes every row of the crop fields (not the orchard: the tractor leaves trees alone), and stops at the barn doors.
+    const cropFields = pads.filter((p) => p.effects.field && p.effects.field !== 'apple').map((p) => layout.fields[p.id]!);
+    const rows = new Set(cropFields.flatMap((f) => f.plots.map((p) => p.z)));
     for (const z of rows) expect(machines.tractorRoute.some((p) => Math.abs(p.z - z) < 0.01)).toBe(true);
     expect(machines.tractorRoute.some((p) => inside(p, machines.barnDoor))).toBe(true);
     for (const p of machines.tractorRoute) expect(inside(p, layout.walk)).toBe(true);

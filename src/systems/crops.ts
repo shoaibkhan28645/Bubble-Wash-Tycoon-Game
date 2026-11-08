@@ -10,9 +10,9 @@ import type { Carrier } from './carry';
 import { insideRect } from './stations';
 
 /** The crops a farm grows (crops.json). */
-export type CropId = 'veg' | 'corn';
-/** Everything a farm sells (crops, then goods.json): crates of produce, cartons of eggs, bottles of milk. */
-export type GoodId = CropId | 'eggs' | 'milk';
+export type CropId = 'veg' | 'corn' | 'apple';
+/** Everything a farm sells (crops, then goods.json): crates of produce, cartons of eggs, bottles of milk, the bakery's bread and pies. */
+export type GoodId = CropId | 'eggs' | 'milk' | 'bread' | 'pie';
 
 /** One plot of a field: a patch of one crop. */
 export interface Plot {
@@ -100,10 +100,10 @@ export class Crops {
    * harvests it, a crate after `harvestSeconds`; it's replanted at once.
    * `now` is wall-clock ms.
    */
-  update(dt: number, now: number, carriers: readonly CrateCarrier[]): void {
+  update(dt: number, now: number, carriers: readonly CrateCarrier[], picks: (crop: CropId) => boolean = () => true): void {
     for (const carrier of carriers) {
       const plot = carrier.full ? null : this.plotAt(carrier.position);
-      if (!plot || !this.ripe(plot, now)) {
+      if (!plot || !this.ripe(plot, now) || !picks(plot.crop)) {
         this.harvesting.delete(carrier);
         continue;
       }

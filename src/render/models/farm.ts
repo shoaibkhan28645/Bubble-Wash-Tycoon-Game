@@ -7,7 +7,7 @@ import { asset, hasModel } from '../assets';
 import { mergeParts, toyMaterial, type Part } from './build';
 import { plate } from './kit';
 
-const FILES = ['building:farm', 'building:farm-props', 'building:farm-poultry', 'building:farm-dairy', 'building:farm-machines'];
+const FILES = ['building:farm', 'building:farm-props', 'building:farm-poultry', 'building:farm-dairy', 'building:farm-machines', 'building:farm-valley'];
 
 /** The named model's node in whichever farm file has it (not a copy). */
 export function farmPiece(name: string): Object3D {
@@ -38,6 +38,8 @@ const PAD_MODELS: Record<string, string> = {
   feedstore: 'fm_feedstore',
   cowbarn: 'fm_cowbarn',
   tractor: 'fm_shed',
+  bakery: 'fm_bakery',
+  market: 'fm_market',
 };
 
 /** Sign boards painted in the game (art/blender/farm.py leaves them blank): words, colour, middle and size. */
@@ -45,6 +47,8 @@ const SIGNS: Record<string, { text: string; color: string; y: number; z: number;
   stand: { text: 'FRESH PRODUCE', color: '#3f7a5a', y: 2.75, z: 0.0, width: 2.05, height: 0.4 },
   gate: { text: 'WILLOWBROOK FARM', color: '#3f7a5a', y: 2.9, z: 0.12, width: 4.9, height: 0.62 },
   cowbarn: { text: 'WILLOWBROOK DAIRY', color: '#3f7a5a', y: 3.55, z: 2.33, width: 3.2, height: 0.5 },
+  bakery: { text: 'FARM BAKERY', color: '#3f7a5a', y: 2.75, z: 1.74, width: 3.4, height: 0.45 },
+  market: { text: "FARMERS' MARKET", color: '#d8432f', y: 3.45, z: -1.85, width: 3.2, height: 0.5 },
 };
 
 /** Pads whose building is turned (radians about the vertical): the machinery shed opens west, onto the yard. */
@@ -88,6 +92,16 @@ export const FARM_SOLIDS: Record<string, [number, number, number?, number?][]> =
   ],
   // The cow barn's walls (its stalls open to the front, but nobody walks in).
   cowbarn: [[3.5, 2.4]],
+  // The bakery's walls, and the bread table in front.
+  bakery: [
+    [2.6, 2.1, 0, -0.4],
+    [1.15, 0.45, -0.9, 2.7],
+  ],
+  // The market's counters, and the shelves behind them (whoever serves stands between).
+  market: [
+    [3.6, 0.35, 0, 0.3],
+    [3.6, 0.25, 0, -1.35],
+  ],
   // The machinery shed's back wall and sides (it's turned to open west, onto the yard; the tractor parks inside).
   tractor: [
     [0.2, 3.5, 2.95, 0],
@@ -121,7 +135,10 @@ function bed(at: Point): Part[] {
 const STAGES: Record<string, string[]> = {
   veg: ['fm_veg_1', 'fm_veg_2', 'fm_veg_3'],
   corn: ['fm_corn_1', 'fm_corn_2', 'fm_corn_3'],
+  apple: ['fm_apple_1', 'fm_apple_2', 'fm_apple_3'],
 };
+/** Crops grown in grass, not ploughed beds (trees). */
+const NO_BED = new Set(['apple']);
 /** Grown this far, a plot shows its middle stage. */
 const MIDDLE = 0.4;
 
@@ -150,10 +167,13 @@ export class CropPlots {
   addField(padId: string): void {
     const plots = this.crops.plots.filter((p) => p.field === padId && !this.views.some((v) => v.plot === p));
     if (plots.length === 0) return;
-    const soil = new Mesh(mergeParts(plots.flatMap((p) => bed(p.at))), toyMaterial);
-    soil.receiveShadow = true;
-    soil.name = `soil:${padId}`;
-    this.group.add(soil);
+    const beds = plots.filter((p) => !NO_BED.has(p.crop));
+    if (beds.length > 0) {
+      const soil = new Mesh(mergeParts(beds.flatMap((p) => bed(p.at))), toyMaterial);
+      soil.receiveShadow = true;
+      soil.name = `soil:${padId}`;
+      this.group.add(soil);
+    }
     plots.forEach((plot, i) => {
       const stages = STAGES[plot.crop]!.map((name) => {
         const model = farmModel(name);

@@ -125,6 +125,13 @@
       "base": 700,
       "max": 5,
       "factor": 0.9
+    },
+    "oven": {
+      "name": "Bigger oven",
+      "effect": "Bakes 10% faster",
+      "base": 900,
+      "max": 5,
+      "factor": 1.1
     }
   },
   "costScale": {
@@ -156,7 +163,11 @@
     "milker": 2,
     "tractor": 3,
     "van": 3,
-    "tanker": 3
+    "tanker": 3,
+    "bakery": 3,
+    "baker": 3,
+    "market": 3,
+    "marketstaff": 3
   },
   "panels": {
     "bay1": [
@@ -239,6 +250,14 @@
       "tractor.trailer",
       "van.trip",
       "tanker.trip"
+    ],
+    "bakery": [
+      "bakery.oven",
+      "baker.staffSpeed",
+      "baker.staffCarry",
+      "market.speed",
+      "market.quality",
+      "marketstaff.staffSpeed"
     ]
   }
 }

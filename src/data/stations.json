@@ -38,5 +38,10 @@
     "name": "Farm stand", "type": "service", "customer": "walker", "flow": "till", "serves": "produce", "stages": [],
     "seconds": 1.4, "supply": null, "size": null, "padding": 0.4, "workSpot": null,
     "ring": "beside", "fx": "none", "queueSpots": 5
+  },
+  "stall": {
+    "name": "Farmers' market", "type": "service", "customer": "walker", "flow": "till", "serves": "produce", "stages": [],
+    "seconds": 1.4, "supply": null, "size": null, "padding": 0.4, "workSpot": null,
+    "ring": "beside", "fx": "none", "queueSpots": 5
   }
 }

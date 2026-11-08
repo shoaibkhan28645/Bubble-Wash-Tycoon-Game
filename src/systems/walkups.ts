@@ -45,6 +45,8 @@ export class Visitor implements Customer {
   path: Point[] = [];
   /** The counter they're lining up at (null once served or gone). */
   counter: WalkUpCounter | null = null;
+  /** The counter they're walking in to, before they take a place in its line. */
+  heading: WalkUpCounter | null = null;
   /** The base price they pay (their mood decides the tip). */
   readonly basePay: number;
 
@@ -74,6 +76,8 @@ export class Visitor implements Customer {
 export class WalkUpCounter extends Station<Visitor> {
   /** Visitors lined up, front first (the front one is at the window once there). */
   readonly line: Visitor[] = [];
+  /** Visitors walking in to it, not in line yet. */
+  coming = 0;
 
   constructor(
     id: string,
@@ -101,9 +105,14 @@ export class WalkUpCounter extends Station<Visitor> {
     return this.line.length === 0;
   }
 
+  /** Spots in its line. */
+  get spots(): number {
+    return Math.min(this.spot.queue.length, stationDef(this.kind).queueSpots ?? this.spot.queue.length);
+  }
+
   /** Room for one more in line. */
   get hasRoom(): boolean {
-    return this.line.length < Math.min(this.spot.queue.length, stationDef(this.kind).queueSpots ?? this.spot.queue.length);
+    return this.line.length < this.spots;
   }
 }
 
@@ -130,6 +139,8 @@ export class WalkUps {
   boost = 1;
   /** Visitors come only once their models have loaded. */
   open = false;
+  /** Whether a counter has anything to sell: while it hasn't, its line waits for the next delivery without losing patience. */
+  stocked: (counter: WalkUpCounter) => boolean = () => true;
   private spawnTimer = 0;
   private readonly spare: WalkerAvatar[] = [];
 
@@ -203,22 +214,28 @@ export class WalkUps {
     }
     for (const visitor of [...this.visitors]) {
       if (visitor.state !== 'queued' && visitor.state !== 'waiting') continue;
+      if (visitor.counter && !this.stocked(visitor.counter)) continue;
       visitor.patience -= dt;
       if (visitor.patience <= 0) this.giveUp(visitor);
     }
     return playerWorking;
   }
 
-  /** A new visitor when the timer says (the stars and what's built speed it up), heading for the shortest line. */
+  /**
+   * A new visitor when the timer says (the stars and what's built speed it up), heading for the shortest line.
+   * They take a place in it when they get there, so a long walk in doesn't hold up the line; as many again as
+   * it has spots can be on their way. One who finds the line full walks on by.
+   */
   private spawn(dt: number): void {
     if (!this.open || this.counters.length === 0) return;
     const interval = spawnSeconds(this.rules.spawnSeconds, this.state.stars, TUNING.stars.arrivalPerStar, this.arrivalBonus()) / this.rateFactor;
     this.spawnTimer += dt;
     if (this.spawnTimer < interval) return;
-    const open = this.counters.filter((c) => c.hasRoom);
+    const busy = (c: WalkUpCounter) => c.line.length + c.coming;
+    const open = this.counters.filter((c) => busy(c) < c.spots * 2);
     if (open.length === 0) return;
     this.spawnTimer = 0;
-    const counter = open.reduce((best, c) => (c.line.length < best.line.length ? c : best));
+    const counter = open.reduce((best, c) => (busy(c) < busy(best) ? c : best));
     const from = this.layout.entrances[Math.floor(this.random() * this.layout.entrances.length)]!;
     const [low, high] = this.rules.pay;
     const pay = Math.round(low + (high - low) * this.random()) * (this.rush?.payMultiplier ?? 1);
@@ -231,18 +248,22 @@ export class WalkUps {
     }
     const visitor = new Visitor(avatar, from, stationDef(counter.kind).serves ?? '', pay, patience);
     this.visitors.push(visitor);
-    this.join(visitor, counter);
+    // Along the walkway and round the counter's side.
+    const { approach } = counter.spot;
+    visitor.heading = counter;
+    counter.coming++;
+    visitor.path = [{ x: approach.x, z: this.layout.walkwayZ }, approach];
   }
 
-  /** Lines up at a counter: along the walkway, round the counter's side, then to the next free spot in its line. */
+  /** Lines up at a counter, from beside it: to the next free spot in its line. */
   private join(visitor: Visitor, counter: WalkUpCounter): void {
+    if (visitor.heading) visitor.heading.coming--;
+    visitor.heading = null;
     visitor.counter = counter;
     visitor.state = 'arriving';
     counter.line.push(visitor);
     const spot = counter.spot.queue[counter.line.length - 1]!;
-    const { approach } = counter.spot;
-    const mid = this.layout.walkwayZ;
-    visitor.path = [{ x: approach.x, z: mid }, approach, { x: approach.x, z: spot.z }, spot];
+    visitor.path = [{ x: counter.spot.approach.x, z: spot.z }, spot];
   }
 
   private serve(counter: WalkUpCounter, visitor: Visitor): void {
@@ -315,6 +336,18 @@ export class WalkUps {
   }
 
   private arrive(visitor: Visitor): void {
+    // Beside the counter they came for: into its line, or on their way if it's full (no harm done).
+    const heading = visitor.heading;
+    if (heading && !visitor.counter) {
+      if (heading.hasRoom) this.join(visitor, heading);
+      else {
+        heading.coming--;
+        visitor.heading = null;
+        visitor.state = 'leaving';
+        this.strollOff(visitor, heading);
+      }
+      return;
+    }
     const counter = visitor.counter;
     if (counter) {
       // At the window (front of the line): wait to be served, facing the counter. Further back: wait in line.

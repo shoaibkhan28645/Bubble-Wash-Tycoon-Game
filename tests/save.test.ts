@@ -66,7 +66,7 @@ describe('parseSave', () => {
       autoRate: 0,
       supplies: {},
       plots: {},
-      deliveries: { orders: [], trips: {}, nextId: 1, refillAt: 0 },
+      deliveries: { orders: [], trips: {}, nextId: 1, refillAt: 0, buyerDay: '', fairDay: '' },
       flags: [],
       playSeconds: 0,
       daily: { ...newDaily(), loginDay: 6 },

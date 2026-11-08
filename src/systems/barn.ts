@@ -13,6 +13,8 @@ const KEY = 'barnstore';
 export class BarnStore {
   private restockTimer = 0;
   private vanTimer = 0;
+  /** Crates of a good kept back, not passed on (the mill's corn and apples). */
+  keep: (good: GoodId) => number = () => 0;
 
   constructor(
     private readonly state: GameState,
@@ -64,7 +66,7 @@ export class BarnStore {
     if (stand && this.restockTimer >= restockSeconds) {
       this.restockTimer = 0;
       // The good the stand has least of, among what the barn holds.
-      const goods = (Object.keys(GOODS) as GoodId[]).filter((g) => this.count(g) > 0);
+      const goods = (Object.keys(GOODS) as GoodId[]).filter((g) => this.count(g) > this.keep(g));
       const good = goods.sort((a, b) => stand.stock.stock(stand.id, a) - stand.stock.stock(stand.id, b))[0];
       if (good && stand.stock.hasRoom(stand.id)) {
         this.add(good, -1);
@@ -76,11 +78,18 @@ export class BarnStore {
       this.vanTimer = 0;
       for (const van of vans) {
         const wants = van.wants();
-        if (!wants || this.count(wants.good) === 0) continue;
+        if (!wants || this.count(wants.good) <= this.keep(wants.good)) continue;
         this.add(wants.good, -1);
         van.fill();
       }
     }
+  }
+
+  /** Takes a crate out (the bakery's mill). False if there's none. */
+  take(good: GoodId): boolean {
+    if (this.count(good) <= 0) return false;
+    this.add(good, -1);
+    return true;
   }
 
   /** Puts crates straight into the barn (the combine), as many as fit. Returns how many went in. */
