@@ -1,5 +1,5 @@
-import { Group, Mesh, type Object3D } from 'three';
-import { box, cylinder, mergeParts, sphere, toyMaterial } from '../render/models/build';
+import { Group, InstancedMesh, Object3D, Scene, type BufferGeometry } from 'three';
+import { box, cylinder, instancedToyMaterial, mergeParts, sphere } from '../render/models/build';
 import type { Point } from '../core/config';
 
 /** Supply items: soap bottles, folded towels, wax tins. */
@@ -20,11 +20,8 @@ const crate = (colors: string[], cobs: boolean): Parameters<typeof mergeParts>[0
   ),
 ];
 
-const itemMeshes: Record<CarryItem, () => Mesh> = (() => {
-  const make = (parts: Parameters<typeof mergeParts>[0]) => {
-    const geometry = mergeParts(parts);
-    return () => new Mesh(geometry, toyMaterial);
-  };
+const itemGeometries: Record<CarryItem, BufferGeometry> = (() => {
+  const make = (parts: Parameters<typeof mergeParts>[0]) => mergeParts(parts);
   return {
     soap: make([
       { geometry: cylinder(0.13, 0.26), color: '#6cc4ff', y: 0.13 },
@@ -64,6 +61,74 @@ const itemMeshes: Record<CarryItem, () => Mesh> = (() => {
   };
 })();
 
+/** Most of one kind of item drawn at once (every carrier's together). */
+const MAX_ITEMS = 96;
+
+/**
+ * Every carried item in the town, drawn as one instanced mesh per kind: a
+ * farmhand's stack, the pickup's bed and the packers' cartons were a draw
+ * call an item, the biggest share of a busy farm's frame on a phone. Each
+ * carrier keeps an empty marker per item (placed and turned as before);
+ * each frame the markers of the carriers on show go into the meshes.
+ */
+class CarriedItems {
+  private readonly meshes = new Map<CarryItem, InstancedMesh>();
+  private readonly carriers = new Set<Carrier<CarryItem>>();
+  private readonly counts = new Map<CarryItem, number>();
+
+  /** A town's scene: its meshes go in (hidden while nothing is carried). */
+  attach(scene: Scene): void {
+    for (const [type, geometry] of Object.entries(itemGeometries) as [CarryItem, BufferGeometry][]) {
+      const mesh = new InstancedMesh(geometry, instancedToyMaterial, MAX_ITEMS);
+      mesh.name = `carried:${type}`;
+      mesh.count = 0;
+      mesh.visible = false;
+      mesh.frustumCulled = false;
+      scene.add(mesh);
+      this.meshes.set(type, mesh);
+    }
+  }
+
+  /** Leaving a town: forgets its carriers and meshes. */
+  detach(): void {
+    for (const mesh of this.meshes.values()) {
+      mesh.removeFromParent();
+      mesh.dispose();
+    }
+    this.meshes.clear();
+    this.carriers.clear();
+  }
+
+  track(carrier: Carrier<CarryItem>): void {
+    this.carriers.add(carrier);
+  }
+
+  /** Before each frame is drawn: every item on show, where its carrier has it now. */
+  update(): void {
+    if (this.meshes.size === 0) return;
+    this.counts.clear();
+    for (const carrier of this.carriers) carrier.draw(this.meshes, this.counts);
+    for (const [type, mesh] of this.meshes) {
+      const n = this.counts.get(type) ?? 0;
+      if (n === 0 && mesh.count === 0) continue;
+      mesh.count = n;
+      mesh.instanceMatrix.needsUpdate = true;
+      mesh.visible = n > 0;
+    }
+  }
+}
+
+export const carriedItems = new CarriedItems();
+
+/** Visible all the way up to the scene. */
+function shown(object: Object3D): boolean {
+  for (let node: Object3D | null = object; node; node = node.parent) {
+    if (!node.visible) return false;
+    if (node instanceof Scene) return true;
+  }
+  return false;
+}
+
 /** Anyone who carries supplies or crates (the player, the runner, the farmhand): a stack on their back. */
 export class Carrier<T extends CarryItem = SupplyType> {
   readonly stack: T[] = [];
@@ -83,6 +148,7 @@ export class Carrier<T extends CarryItem = SupplyType> {
     this.pile.position.set(0, 1.0, -0.5);
     this.pile.scale.setScalar(1.6);
     attachTo.add(this.pile);
+    carriedItems.track(this as Carrier<CarryItem>);
   }
 
   get position(): Point {
@@ -99,10 +165,27 @@ export class Carrier<T extends CarryItem = SupplyType> {
 
   push(type: T): void {
     this.stack.push(type);
-    const mesh = itemMeshes[type]();
-    this.put(mesh, this.stack.length - 1);
-    mesh.rotation.y = (this.stack.length % 2) * 0.3;
-    this.pile.add(mesh);
+    // An empty marker: the item itself is drawn with all the others of its kind (CarriedItems).
+    const marker = new Object3D();
+    this.put(marker, this.stack.length - 1);
+    marker.rotation.y = (this.stack.length % 2) * 0.3;
+    this.pile.add(marker);
+  }
+
+  /** Adds this carrier's items, where they are now, to the meshes of their kinds (if it's on show). */
+  draw(meshes: ReadonlyMap<CarryItem, InstancedMesh>, counts: Map<CarryItem, number>): void {
+    if (this.stack.length === 0 || !shown(this.pile)) return;
+    this.pile.updateWorldMatrix(true, false);
+    this.stack.forEach((type, i) => {
+      const marker = this.pile.children[i];
+      const mesh = meshes.get(type);
+      const n = counts.get(type) ?? 0;
+      if (!marker || !mesh || n >= MAX_ITEMS) return;
+      marker.updateMatrix();
+      marker.matrixWorld.multiplyMatrices(this.pile.matrixWorld, marker.matrix);
+      mesh.setMatrixAt(n, marker.matrixWorld);
+      counts.set(type, n + 1);
+    });
   }
 
   /** Takes the top-most item of a type off the stack. */

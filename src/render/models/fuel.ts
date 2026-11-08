@@ -114,7 +114,14 @@ export class FuelHoses {
   constructor(
     private readonly scene: Object3D,
     private readonly layout: LocationLayout,
-  ) {}
+  ) {
+    // A hidden nozzle in each paint, so their look is compiled with the town's, not when the first car pulls up.
+    for (const material of [this.material, this.nozzleMaterial]) {
+      const warm = new Mesh(nozzleGeometry, material);
+      warm.visible = false;
+      scene.add(warm);
+    }
+  }
 
   update(pumps: readonly Station[]): void {
     for (const pump of pumps) {

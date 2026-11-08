@@ -126,12 +126,15 @@ export class Particles {
       if (n === 0 && pool.mesh.count === 0) continue;
       pool.mesh.count = n;
       pool.mesh.instanceMatrix.needsUpdate = true;
+      // Kinds with nothing flying aren't drawn (an empty pool still costs a draw call).
+      pool.mesh.visible = n > 0;
     }
   }
 
   private addKind(scene: Scene, kind: ParticleKind, geometry: BufferGeometry, material: MeshBasicMaterial): void {
     const mesh = new InstancedMesh(geometry, material, POOL);
     mesh.count = 0;
+    mesh.visible = false;
     mesh.frustumCulled = false;
     mesh.name = `fx:${kind}`;
     const tints = TINTS[kind];

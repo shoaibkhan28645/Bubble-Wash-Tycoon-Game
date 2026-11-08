@@ -1,11 +1,13 @@
 // Willowbrook's buildings, props, crops, animals and vehicles, modelled in
 // Blender (art/blender/farm.py), in several files (each under 512 KiB).
-import { BoxGeometry, Group, Mesh, type Object3D } from 'three';
+import { Box3, BoxGeometry, Group, Mesh, Vector3, type Object3D } from 'three';
 import { PLOT, type Point } from '../../core/config';
 import type { Crops, Plot } from '../../systems/crops';
 import { asset, hasModel } from '../assets';
 import { swayMaterial } from '../wind';
-import { mergeParts, toyMaterial, type Part } from './build';
+import { blobShadow } from './actors';
+import { mergeParts, skinnedToyMaterial, toyMaterial, type Part } from './build';
+import { rigidSkin } from './rigid';
 import { plate } from './kit';
 
 const FILES = [
@@ -36,6 +38,28 @@ export function farmModel(name: string): Object3D {
     if (node instanceof Mesh) node.material = toyMaterial;
   });
   return copy;
+}
+
+/**
+ * A copy of an animal or a machine: its moving parts drawn as one (rigid.ts),
+ * with a soft blob shadow under it, like the people and cars. The sun's
+ * shadows are drawn once, for what stays put: a moving thing's would be left
+ * behind where it stood.
+ */
+export function farmMover(name: string, shadow: 'round' | 'box' = 'round'): Object3D {
+  const model = farmModel(name);
+  const size = new Box3().setFromObject(model).getSize(new Vector3());
+  rigidSkin(model, toyMaterial, name, skinnedToyMaterial);
+  model.traverse((node) => {
+    node.castShadow = false;
+    node.receiveShadow = true;
+  });
+  model.add(
+    shadow === 'box'
+      ? blobShadow(size.x + size.y * 0.35, size.z + size.y * 0.2, size.y, 'box')
+      : blobShadow(size.x * 1.2, size.z * 1.15, size.y),
+  );
+  return model;
 }
 
 /** Which model each of the farm's pads shows once built (fields and staff have their own). */

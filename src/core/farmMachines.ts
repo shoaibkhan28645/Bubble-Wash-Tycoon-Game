@@ -6,7 +6,7 @@
 import { Group, Vector3, type Object3D, type Scene } from 'three';
 import { GOODS, TUNING, type FarmLayout, type Rect } from './config';
 import type { GameState } from './gameState';
-import { farmModel } from '../render/models/farm';
+import { farmMover } from '../render/models/farm';
 import { VanFleet } from '../render/models/vans';
 import type { FarmMotion } from '../render/farmMotion';
 import type { Livestock } from '../systems/animals';
@@ -95,8 +95,7 @@ export function createMachines(deps: {
     if (pickup) return;
     // With the pickup parked by the plots the farmhand never walks to the barn: they pick faster and stack more.
     deps.staff.bonuses.farmhand = TUNING.machines.pickup.farmhand;
-    const model = farmModel('fm_pickup');
-    model.traverse((node) => (node.castShadow = true));
+    const model = farmMover('fm_pickup', 'box');
     group.add(model);
     deps.motion.vehicle(model);
     // Crates stand in the bed in two rows of three, two layers (the carrier draws its stack 1 m up and half a metre back).

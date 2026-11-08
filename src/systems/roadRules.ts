@@ -39,7 +39,7 @@ const JOIN_LOOK = 5;
 const JOIN_AHEAD = 10;
 
 /** What the rules need of a car. */
-type RoadCar = Pick<Car, 'position' | 'aim' | 'facing' | 'def' | 'model' | 'state' | 'station' | 'serial' | 'held' | 'heldFor'>;
+type RoadCar = Pick<Car, 'position' | 'aim' | 'facing' | 'def' | 'model' | 'state' | 'station' | 'serial' | 'held' | 'heldFor'> & Partial<Pick<Car, 'pathKey'>>;
 
 /** A car's body: centre, which way it points (unit), half length and half width. */
 interface Body {
@@ -134,8 +134,48 @@ export class RoadRules {
   }
 }
 
+/**
+ * A car's sweeps and heading, kept while it stays where it is on the same
+ * route: every car checks every other car each frame, and working each
+ * one's way out again for every car checking it was most of a busy lot's
+ * frame on a phone. Anything that changes them (moving, turning, a new
+ * route, a new model) makes them be worked out again.
+ */
+interface Memo {
+  x: number;
+  z: number;
+  facing: number;
+  path: readonly Point[];
+  length: number;
+  first: Point | undefined;
+  def: RoadCar['def'];
+  heading?: Point | null;
+  sweeps: Map<number, Body[]>;
+}
+const memos = new WeakMap<RoadCar, Memo>();
+
+function memoOf(car: RoadCar): Memo | null {
+  const path = car.pathKey;
+  if (!path) return null;
+  const { x, z } = car.position;
+  let memo = memos.get(car);
+  if (!memo || memo.x !== x || memo.z !== z || memo.facing !== car.facing || memo.path !== path || memo.length !== path.length || memo.first !== path[0] || memo.def !== car.def) {
+    memo = { x, z, facing: car.facing, path, length: path.length, first: path[0], def: car.def, sweeps: new Map() };
+    memos.set(car, memo);
+  }
+  return memo;
+}
+
 /** Which way a car is driving (towards where its route takes it next), or null if it's standing still. */
 function heading(car: RoadCar): Point | null {
+  const memo = memoOf(car);
+  if (memo && memo.heading !== undefined) return memo.heading;
+  const found = headingNow(car);
+  if (memo) memo.heading = found;
+  return found;
+}
+
+function headingNow(car: RoadCar): Point | null {
   const next = car.aim(STEP);
   if (!next) return null;
   const dx = next.x - car.position.x;
@@ -150,6 +190,16 @@ function heading(car: RoadCar): Point | null {
  * route ahead, so round a corner it cuts across it as a real car does, rather than sticking out straight.
  */
 function sweep(car: RoadCar, distance: number, wide = 0): Body[] {
+  const memo = memoOf(car);
+  const key = distance * 100 + wide;
+  const kept = memo?.sweeps.get(key);
+  if (kept) return kept;
+  const bodies = sweepNow(car, distance, wide);
+  memo?.sweeps.set(key, bodies);
+  return bodies;
+}
+
+function sweepNow(car: RoadCar, distance: number, wide: number): Body[] {
   const [width, , length] = car.def.size;
   const hl = length / 2;
   const back = { x: -Math.sin(car.facing), z: -Math.cos(car.facing) };

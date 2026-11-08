@@ -32,6 +32,8 @@ import { FarmMotion } from '../render/farmMotion';
 import { tickWind } from '../render/wind';
 import { loadPeople } from '../render/assets';
 import { blobShadows } from '../render/models/actors';
+import { skinnedToyMaterial } from '../render/models/build';
+import { warmRigidSkin } from '../render/models/rigid';
 import { CropPlots, FARM_SOLIDS, farmModel, farmPadModel } from '../render/models/farm';
 import { PensView } from '../render/models/pens';
 import { VanFleet } from '../render/models/vans';
@@ -40,7 +42,7 @@ import { ConstructionSites } from '../render/models/site';
 import { unlockedSum } from '../systems/arrivals';
 import { perk } from '../systems/career';
 import { CashSystem } from '../systems/cash';
-import { Carrier } from '../systems/carry';
+import { Carrier, carriedItems } from '../systems/carry';
 import { takeFinished } from '../systems/construction';
 import { Crops, StandStock, type CropId, type CrateCarrier, type GoodId } from '../systems/crops';
 import { ANIMALS, Livestock, type AnimalKind } from '../systems/animals';
@@ -125,6 +127,8 @@ export function createFarmGame(
   const input = new Input(root, lifecycle);
   const effects = new Particles(stage.scene);
   blobShadows.attach(stage.scene);
+  carriedItems.attach(stage.scene);
+  warmRigidSkin(stage.scene, skinnedToyMaterial);
   const ground = farmland(layout);
   stage.scene.add(withShadows(ground.group, false, true));
   // Weathervanes, the chapel bell, chimney smoke and the vehicles' wheels.
@@ -870,6 +874,7 @@ export function createFarmGame(
     town.update(dt, player.position);
     view.update(dt, player.position);
     blobShadows.update();
+    carriedItems.update();
     stage.render();
     labels.update(stage.camera, stage.size.width, stage.size.height);
     const step = guide();
@@ -915,6 +920,7 @@ export function createFarmGame(
     renderOnce() {
       stage.renderer.compile(stage.scene, stage.camera);
       blobShadows.update();
+      carriedItems.update();
       stage.render();
       labels.update(stage.camera, stage.size.width, stage.size.height);
     },
@@ -930,6 +936,7 @@ export function createFarmGame(
       // The scene first, while the blob shadows are still in it, so the renderer lets go of everything.
       stage.reset();
       blobShadows.detach();
+      carriedItems.detach();
       tickers.length = 0;
       root.remove();
     },

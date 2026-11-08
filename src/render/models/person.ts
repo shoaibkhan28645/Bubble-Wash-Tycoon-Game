@@ -4,6 +4,7 @@ import { AnimationMixer, LoopOnce, Mesh, Group, Vector3, type AnimationAction, t
 import { clone as cloneSkinned } from 'three/addons/utils/SkeletonUtils.js';
 import { CHARACTERS } from '../../core/config';
 import { asset } from '../assets';
+import { onScreen } from '../onScreen';
 import { blobShadow } from './actors';
 import { box, cylinder, mergeParts, rbox, toyMaterial, type Part } from './build';
 import { footfalls, pickGait, type GaitPose, type Gaits } from './gait';
@@ -20,6 +21,14 @@ const SPEED_SMOOTHING = 12;
 const TELEPORT = 1.5;
 /** How quickly the body leans into a start, a stop or a turn (per second). */
 const LEAN_RATE = 8;
+/**
+ * Someone this close to the edge of the screen (metres) counts as on it: off
+ * screen a person's animation and bones are left alone, and this margin has
+ * them moving again before they step into view.
+ */
+const VIEW_MARGIN = 2.5;
+/** Animation time saved up off screen is played on, up to this much (seconds). */
+const MAX_CATCH_UP = 1;
 
 type Pose = 'idle' | GaitPose | 'scrub';
 /** What a person holds while working. */
@@ -63,6 +72,9 @@ export class PersonAvatar {
   private readonly gestureAction: AnimationAction | null = null;
   private gestureLeft = 0;
   private readonly lean = { forward: 0, side: 0, wantForward: 0, wantSide: 0 };
+  private readonly seenAt = new Vector3();
+  /** Animation time not yet played while off screen. */
+  private offScreen = 0;
   /** Shows the tool all the time, e.g. a shopping bag being carried. */
   holding = false;
 
@@ -139,7 +151,17 @@ export class PersonAvatar {
       }
     }
     if (this.tool) this.tool.visible = this.holding || (scrubbing && !moving);
-    this.mixer.update(dt);
+    // Off screen: no animating, and the skeleton's bones aren't worked out each frame (a big
+    // share of a busy town's frame on a phone). The walk carries on from where it would be.
+    this.seenAt.setFromMatrixPosition(this.root.matrixWorld);
+    const seen = onScreen(this.seenAt, VIEW_MARGIN);
+    this.model.matrixWorldAutoUpdate = seen;
+    if (!seen) {
+      this.offScreen = Math.min(MAX_CATCH_UP, this.offScreen + dt);
+      return;
+    }
+    this.mixer.update(dt + this.offScreen);
+    this.offScreen = 0;
     this.countSteps();
     const lean = this.lean;
     const k = Math.min(1, dt * LEAN_RATE);

@@ -3,6 +3,7 @@ import {
   CanvasTexture,
   Group,
   InstancedMesh,
+  Matrix4,
   Mesh,
   MeshBasicMaterial,
   MeshPhongMaterial,
@@ -23,42 +24,69 @@ const MUD: Record<string, string> = { dusty: '#a4825c', muddy: '#7a5a3a', swamp:
 /** Mud threshold on a dirty car (lower = more mud): see mud.ts. */
 const DIRT_START: Record<string, number> = { dusty: 0.56, muddy: 0.48, swamp: 0.36 };
 
-let shadowMaterial: MeshBasicMaterial | null = null;
+/** A blob shadow's outline: round under people and animals, a soft-edged box under vehicles. */
+export type BlobShape = 'round' | 'box';
 
-/** Soft round shadow texture, drawn once on first use. */
-function getShadowMaterial(): MeshBasicMaterial {
-  if (shadowMaterial) return shadowMaterial;
+const shadowMaterials = new Map<BlobShape, MeshBasicMaterial>();
+
+/** Soft shadow textures, drawn once on first use. */
+function getShadowMaterial(shape: BlobShape): MeshBasicMaterial {
+  const made = shadowMaterials.get(shape);
+  if (made) return made;
   const canvas = document.createElement('canvas');
   canvas.width = canvas.height = 64;
   const ctx = canvas.getContext('2d')!;
-  const gradient = ctx.createRadialGradient(32, 32, 0, 32, 32, 32);
-  gradient.addColorStop(0, 'rgba(0,0,0,0.42)');
-  gradient.addColorStop(0.6, 'rgba(0,0,0,0.25)');
-  gradient.addColorStop(1, 'rgba(0,0,0,0)');
-  ctx.fillStyle = gradient;
-  ctx.fillRect(0, 0, 64, 64);
-  shadowMaterial = new MeshBasicMaterial({ map: new CanvasTexture(canvas), transparent: true, depthWrite: false });
-  return shadowMaterial;
+  if (shape === 'round') {
+    const gradient = ctx.createRadialGradient(32, 32, 0, 32, 32, 32);
+    gradient.addColorStop(0, 'rgba(0,0,0,0.42)');
+    gradient.addColorStop(0.6, 'rgba(0,0,0,0.25)');
+    gradient.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, 0, 64, 64);
+  } else {
+    // A rounded box, darkest inside and fading out over its outer fifth, like a vehicle's shadow in the sun.
+    const image = ctx.createImageData(64, 64);
+    for (let y = 0; y < 64; y++) {
+      for (let x = 0; x < 64; x++) {
+        const u = Math.max(0, Math.abs((x + 0.5) / 32 - 1) - 0.6) / 0.4;
+        const v = Math.max(0, Math.abs((y + 0.5) / 32 - 1) - 0.6) / 0.4;
+        const t = Math.min(1, Math.hypot(u, v));
+        image.data[(y * 64 + x) * 4 + 3] = Math.round(255 * 0.4 * (1 - t * t * (3 - 2 * t)));
+      }
+    }
+    ctx.putImageData(image, 0, 0);
+  }
+  const material = new MeshBasicMaterial({ map: new CanvasTexture(canvas), transparent: true, depthWrite: false });
+  shadowMaterials.set(shape, material);
+  return material;
 }
 const shadowGeometry = new PlaneGeometry(1, 1).rotateX(-Math.PI / 2);
 
-const MAX_BLOBS = 64;
+/** Room for everyone in a busy town: people, cars, a farm's animals and machines, the cash piles. */
+const MAX_BLOBS = 128;
+/** How far the middle of a shadow falls from what casts it, per metre of its height (the sun of render/stage.ts). */
+const SUN_SHIFT = { x: 0.22, z: -0.12 };
 
 /**
- * Every soft blob shadow in one draw call. Objects carry an invisible marker;
- * each frame the visible markers' positions go into one InstancedMesh.
+ * Every soft blob shadow in one draw call a shape. Objects carry an invisible
+ * marker; each frame the visible markers' positions go into one InstancedMesh.
  */
 class BlobShadows {
-  private mesh: InstancedMesh | null = null;
+  private readonly meshes = new Map<BlobShape, InstancedMesh>();
   private readonly markers = new Set<Object3D>();
+  private readonly shifted = new Matrix4();
+  private readonly counts = new Map<BlobShape, number>();
 
   attach(scene: Scene): void {
-    this.mesh = new InstancedMesh(shadowGeometry, getShadowMaterial(), MAX_BLOBS);
-    this.mesh.name = 'blob-shadows';
-    this.mesh.frustumCulled = false;
-    this.mesh.renderOrder = -1;
-    this.mesh.count = 0;
-    scene.add(this.mesh);
+    for (const shape of ['round', 'box'] as const) {
+      const mesh = new InstancedMesh(shadowGeometry, getShadowMaterial(shape), MAX_BLOBS);
+      mesh.name = shape === 'round' ? 'blob-shadows' : 'box-shadows';
+      mesh.frustumCulled = false;
+      mesh.renderOrder = -1;
+      mesh.count = 0;
+      scene.add(mesh);
+      this.meshes.set(shape, mesh);
+    }
   }
 
   add(marker: Object3D): void {
@@ -67,23 +95,40 @@ class BlobShadows {
 
   /** Forgets the scene and everyone in it (leaving a town). */
   detach(): void {
-    this.mesh?.removeFromParent();
-    this.mesh?.dispose();
-    this.mesh = null;
+    for (const mesh of this.meshes.values()) {
+      mesh.removeFromParent();
+      mesh.dispose();
+    }
+    this.meshes.clear();
     this.markers.clear();
   }
 
   update(): void {
-    const mesh = this.mesh;
-    if (!mesh) return;
-    let n = 0;
+    if (this.meshes.size === 0) return;
+    this.counts.clear();
     for (const marker of this.markers) {
+      const shape = (marker.userData.shape as BlobShape | undefined) ?? 'round';
+      const mesh = this.meshes.get(shape)!;
+      const n = this.counts.get(shape) ?? 0;
       if (n >= MAX_BLOBS || !shown(marker)) continue;
       marker.updateWorldMatrix(true, false);
-      mesh.setMatrixAt(n++, marker.matrixWorld);
+      const cast = marker.userData.cast as number | undefined;
+      if (cast) {
+        // A tall thing's shadow falls away from the sun, like the buildings' do (render/stage.ts).
+        this.shifted.copy(marker.matrixWorld);
+        this.shifted.elements[12]! += SUN_SHIFT.x * cast;
+        this.shifted.elements[14]! += SUN_SHIFT.z * cast;
+        mesh.setMatrixAt(n, this.shifted);
+      } else mesh.setMatrixAt(n, marker.matrixWorld);
+      this.counts.set(shape, n + 1);
     }
-    mesh.count = n;
-    mesh.instanceMatrix.needsUpdate = true;
+    for (const [shape, mesh] of this.meshes) {
+      const n = this.counts.get(shape) ?? 0;
+      if (n === 0 && mesh.count === 0) continue;
+      mesh.count = n;
+      mesh.instanceMatrix.needsUpdate = true;
+      mesh.visible = n > 0;
+    }
   }
 }
 
@@ -101,10 +146,13 @@ function shown(object: Object3D): boolean {
 export const blobShadows = new BlobShadows();
 
 /** Soft blob shadow just above the ground, as a child of the object it belongs to. */
-export function blobShadow(width: number, length: number): Object3D {
+export function blobShadow(width: number, length: number, height = 0, shape: BlobShape = 'round'): Object3D {
   const marker = new Object3D();
   marker.scale.set(width, 1, length);
   marker.position.y = 0.03;
+  // Something tall (a van, a cow) has its shadow fall away from the sun; people's sit under their feet.
+  marker.userData.cast = height;
+  marker.userData.shape = shape;
   blobShadows.add(marker);
   return marker;
 }

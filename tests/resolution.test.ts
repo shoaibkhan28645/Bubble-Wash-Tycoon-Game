@@ -24,15 +24,27 @@ describe('adaptive resolution', () => {
     expect(res.scale).toBe(0.7);
   });
 
-  it('undoes a step that did not help, and stops trying', () => {
+  it('undoes a step that did not help, and stops trying while the game runs as before', () => {
     const changes: number[] = [];
     const res = new AdaptiveResolution((s) => changes.push(s));
     run(res, 40, 7.5);
     run(res, 41, 3.1); // no real gain: back to full and done
     expect(res.scale).toBe(1);
-    run(res, 30, 20);
+    run(res, 36, 20);
     expect(res.scale).toBe(1);
     expect(changes).toEqual([0.85, 1]);
+  });
+
+  it('tries again once the game gets clearly slower (a phone that has warmed up)', () => {
+    const changes: number[] = [];
+    const res = new AdaptiveResolution((s) => changes.push(s));
+    run(res, 40, 7.5);
+    run(res, 41, 3.1); // no real gain: back to full
+    run(res, 30, 3.1); // ten frames a second slower now: another try
+    expect(res.scale).toBe(0.85);
+    run(res, 40, 3.1); // and this time it helps
+    expect(res.scale).toBe(0.7);
+    expect(changes).toEqual([0.85, 1, 0.85, 0.7]);
   });
 
   it('ignores long gaps from pauses', () => {

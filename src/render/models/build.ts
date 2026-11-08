@@ -24,6 +24,14 @@ export interface Part {
 
 /** Shared flat material for all static, vertex-coloured models. */
 export const toyMaterial = new MeshLambertMaterial({ vertexColors: true });
+/**
+ * The same paint for models drawn skinned (an animal or a machine, rigid.ts)
+ * and for instanced ones (carried crates). Each needs its own shader, and the
+ * renderer draws things grouped by material: sharing toyMaterial, they were
+ * mixed in with everything else and the shader was swapped over and over a frame.
+ */
+export const skinnedToyMaterial = toyMaterial.clone();
+export const instancedToyMaterial = toyMaterial.clone();
 
 export const box = (w: number, h: number, d: number) => new BoxGeometry(w, h, d);
 /** Box with bevelled edges (reads as a toy rather than a raw cube); one bevel step keeps it cheap. */

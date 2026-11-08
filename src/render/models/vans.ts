@@ -7,7 +7,7 @@
 import { Group, type Object3D } from 'three';
 import type { Point } from '../../core/config';
 import { routeAt, routeMarks } from '../../systems/vehicles';
-import { farmModel } from './farm';
+import { farmMover } from './farm';
 
 /** How fast the vans drive on the farm and the road (m/s). */
 const SPEED = 7;
@@ -35,8 +35,7 @@ export class VanFleet {
   /** A vehicle on a route (`route[0]` is where it parks, or for a visit where it stops). */
   add(id: string, model: string, route: Point[], mode: RouteMode = 'trip'): void {
     if (this.vans.has(id) || route.length < 2) return;
-    const mesh = farmModel(model);
-    mesh.traverse((node) => (node.castShadow = node.receiveShadow = true));
+    const mesh = farmMover(model, 'box');
     const marks = routeMarks(route);
     const van: Vehicle = { model: mesh, route, marks, length: marks[marks.length - 1]!, mode };
     this.vans.set(id, van);

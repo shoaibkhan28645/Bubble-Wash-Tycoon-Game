@@ -12,6 +12,15 @@ export class NavGrid {
   private readonly cols: number;
   private readonly rows: number;
   private readonly blocked: Uint8Array;
+  // A search's working memory, reused (see findPath).
+  private readonly cost: Float32Array;
+  private readonly came: Int32Array;
+  private readonly seen: Uint32Array;
+  private readonly closed: Uint32Array;
+  private search = 0;
+  private heapCells = new Int32Array(1024);
+  private heapF = new Float32Array(1024);
+  private heapSize = 0;
 
   constructor(
     private readonly bounds: Rect,
@@ -21,6 +30,11 @@ export class NavGrid {
     this.cols = Math.ceil((bounds.maxX - bounds.minX) / CELL);
     this.rows = Math.ceil((bounds.maxZ - bounds.minZ) / CELL);
     this.blocked = new Uint8Array(this.cols * this.rows);
+    const cells = this.cols * this.rows;
+    this.cost = new Float32Array(cells);
+    this.came = new Int32Array(cells);
+    this.seen = new Uint32Array(cells);
+    this.closed = new Uint32Array(cells);
     for (let r = 0; r < this.rows; r++) {
       for (let c = 0; c < this.cols; c++) {
         const p = this.center(c, r);
@@ -39,30 +53,35 @@ export class NavGrid {
     if (start === null || goal === null) return [to];
     if (start === goal) return [to];
 
-    const total = this.cols * this.rows;
-    const cost = new Float32Array(total).fill(Infinity);
-    const came = new Int32Array(total).fill(-1);
-    const closed = new Uint8Array(total);
-    const open: { i: number; f: number }[] = [{ i: start, f: 0 }];
-    cost[start] = 0;
-    const gx = goal % this.cols;
-    const gr = Math.floor(goal / this.cols);
+    // The search's working memory is kept from one search to the next (helpers search every
+    // second or so, and fresh arrays each time were a steady stream of garbage on a phone);
+    // a cell's numbers count only if it was stamped in this search.
+    const search = this.nextSearch();
+    const { cost, came, seen, closed } = this;
+    const cols = this.cols;
+    const gx = goal % cols;
+    const gr = Math.floor(goal / cols);
     const guess = (i: number) => {
-      const dx = Math.abs((i % this.cols) - gx);
-      const dr = Math.abs(Math.floor(i / this.cols) - gr);
+      const dx = Math.abs((i % cols) - gx);
+      const dr = Math.abs(Math.floor(i / cols) - gr);
       return Math.max(dx, dr) + (DIAGONAL - 1) * Math.min(dx, dr);
     };
-
-    while (open.length > 0) {
-      // Small grids: a linear scan for the best node is fast enough and simple.
-      let best = 0;
-      for (let k = 1; k < open.length; k++) if (open[k]!.f < open[best]!.f) best = k;
-      const { i } = open.splice(best, 1)[0]!;
-      if (i === goal) break;
-      if (closed[i]) continue;
-      closed[i] = 1;
-      const c = i % this.cols;
-      const r = Math.floor(i / this.cols);
+    seen[start] = search;
+    cost[start] = 0;
+    came[start] = -1;
+    this.heapSize = 0;
+    this.push(start, 0);
+    let found = false;
+    while (this.heapSize > 0) {
+      const i = this.pop();
+      if (i === goal) {
+        found = true;
+        break;
+      }
+      if (closed[i] === search) continue;
+      closed[i] = search;
+      const c = i % cols;
+      const r = Math.floor(i / cols);
       for (let dr = -1; dr <= 1; dr++) {
         for (let dc = -1; dc <= 1; dc++) {
           if (dr === 0 && dc === 0) continue;
@@ -71,24 +90,84 @@ export class NavGrid {
           if (!this.free(nc, nr)) continue;
           // No cutting corners past a blocked cell.
           if (dc !== 0 && dr !== 0 && (!this.free(c + dc, r) || !this.free(c, r + dr))) continue;
-          const n = nr * this.cols + nc;
+          const n = nr * cols + nc;
           const g = cost[i]! + (dc !== 0 && dr !== 0 ? DIAGONAL : 1);
-          if (g < cost[n]!) {
+          if (seen[n] !== search || g < cost[n]!) {
+            seen[n] = search;
             cost[n] = g;
             came[n] = i;
-            open.push({ i: n, f: g + guess(n) });
+            this.push(n, g + guess(n));
           }
         }
       }
     }
-    if (came[goal] === -1) return [to];
+    if (!found) return [to];
 
     const cells: number[] = [];
     for (let i = goal; i !== start; i = came[i]!) cells.push(i);
     cells.reverse();
-    const points = cells.map((i) => this.center(i % this.cols, Math.floor(i / this.cols)));
+    const points = cells.map((i) => this.center(i % cols, Math.floor(i / cols)));
     points[points.length - 1] = this.isFree(to) ? to : points[points.length - 1]!;
     return this.straighten(from, points);
+  }
+
+  /** A new search's stamp (the stamps start again, cleared, after four billion searches). */
+  private nextSearch(): number {
+    if (this.search >= 0xfffffffe) {
+      this.search = 0;
+      this.seen.fill(0);
+      this.closed.fill(0);
+    }
+    return ++this.search;
+  }
+
+  /** Adds a cell to the open list, a binary heap on its estimated total cost. */
+  private push(cell: number, f: number): void {
+    if (this.heapSize >= this.heapCells.length) {
+      const cells = new Int32Array(this.heapCells.length * 2);
+      const fs = new Float32Array(this.heapF.length * 2);
+      cells.set(this.heapCells);
+      fs.set(this.heapF);
+      this.heapCells = cells;
+      this.heapF = fs;
+    }
+    const heapCells = this.heapCells;
+    const heapF = this.heapF;
+    let at = this.heapSize++;
+    while (at > 0) {
+      const up = (at - 1) >> 1;
+      if (heapF[up]! <= f) break;
+      heapCells[at] = heapCells[up]!;
+      heapF[at] = heapF[up]!;
+      at = up;
+    }
+    heapCells[at] = cell;
+    heapF[at] = f;
+  }
+
+  /** Takes the open cell with the lowest estimated total cost. */
+  private pop(): number {
+    const heapCells = this.heapCells;
+    const heapF = this.heapF;
+    const top = heapCells[0]!;
+    const size = --this.heapSize;
+    if (size === 0) return top;
+    const cell = heapCells[size]!;
+    const f = heapF[size]!;
+    let at = 0;
+    for (;;) {
+      const left = at * 2 + 1;
+      if (left >= size) break;
+      const right = left + 1;
+      const child = right < size && heapF[right]! < heapF[left]! ? right : left;
+      if (heapF[child]! >= f) break;
+      heapCells[at] = heapCells[child]!;
+      heapF[at] = heapF[child]!;
+      at = child;
+    }
+    heapCells[at] = cell;
+    heapF[at] = f;
+    return top;
   }
 
   /** True if a point is outside every grown obstacle. */

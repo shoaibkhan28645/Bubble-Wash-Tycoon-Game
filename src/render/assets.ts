@@ -67,6 +67,13 @@ interface Merged {
 }
 
 const assets = new Map<string, ModelAsset>();
+/** Gets a model loaded mid-game ready to draw (its shaders compiled) before anything uses it. */
+let warmModel: ((model: Object3D) => Promise<void>) | null = null;
+
+/** The stage's way of readying a model loaded after the start (render/stage.ts). */
+export function setModelWarmer(warm: (model: Object3D) => Promise<void>): void {
+  warmModel = warm;
+}
 const mergedCache = new Map<string, Merged>();
 const lambertCache = new Map<Material, MeshLambertMaterial>();
 /** Every Mini Characters and Nature Kit model points at a shared colour texture; keep one copy per image. */
@@ -143,6 +150,7 @@ export async function loadModel(id: string, path: string): Promise<void> {
   const gltf = await new GLTFLoader().loadAsync(import.meta.env.BASE_URL + path);
   prepare(gltf.scene);
   if (id.startsWith('person:')) mergeSkinnedParts(gltf.scene);
+  await warmModel?.(gltf.scene);
   assets.set(id, { scene: gltf.scene, animations: gltf.animations });
 }
 

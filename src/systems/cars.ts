@@ -92,6 +92,11 @@ export class Car implements Customer {
     return this.heading;
   }
 
+  /** The route it's on now (a new one is a new array; driving it shortens it): the road rules keep their sums while it's the same. */
+  get pathKey(): readonly Point[] {
+    return this.path;
+  }
+
   /** The next point it's driving to, if it's on the move. */
   get nextPoint(): Point | null {
     return this.path[0] ?? null;
@@ -220,7 +225,13 @@ export class CarPool {
   /** Every car out on the lot or the road now. */
   readonly active = new Set<Car>();
 
-  constructor(private readonly scene: Scene) {}
+  constructor(private readonly scene: Scene) {
+    // One car waits in the scene, hidden, so the paint's look is compiled with the town's, not at the first arrival.
+    const spare = new Car(new CarModel());
+    spare.model.mesh.visible = false;
+    scene.add(spare.model.mesh);
+    this.free.push(spare);
+  }
 
   acquire(): Car {
     const car = this.free.pop() ?? new Car(new CarModel());

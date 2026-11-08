@@ -25,7 +25,7 @@ import { Traffic, type Paid, type Work } from '../systems/traffic';
 import { insideRect, type Station } from '../systems/stations';
 import { IncomeTracker } from '../systems/offline';
 import { Floaters } from '../ui/carBubbles';
-import { Carrier } from '../systems/carry';
+import { Carrier, carriedItems } from '../systems/carry';
 import { Supplies } from '../systems/supplies';
 import { StaffSystem } from '../systems/staff';
 import { UpgradePads } from '../systems/upgrades';
@@ -84,6 +84,7 @@ export function createRoadsideGame(
   const effects = new Particles(stage.scene);
   CarModel.exhaust = (at, back) => effects.puff(at, back);
   blobShadows.attach(stage.scene);
+  carriedItems.attach(stage.scene);
 
   const bayIds = current.pads.filter((pad) => pad.effects.bay).map((pad) => pad.effects.bay!);
   stage.scene.add(terrain(layout, bayIds.map((id) => layout.pads[id]!.x), layout.pads.tunnel?.x ?? null));
@@ -274,6 +275,7 @@ export function createRoadsideGame(
     town.update(dt, player.position);
     view.update(dt, player.position);
     blobShadows.update();
+    carriedItems.update();
     stage.render();
     labels.update(stage.camera, stage.size.width, stage.size.height);
     // Off screen, the tutorial's next step or a pad the player can now afford gets an arrow at the edge.
@@ -320,6 +322,7 @@ export function createRoadsideGame(
       // Compile every material now, behind the loading screen, not mid-game.
       stage.renderer.compile(stage.scene, stage.camera);
       blobShadows.update();
+      carriedItems.update();
       stage.render();
       labels.update(stage.camera, stage.size.width, stage.size.height);
     },
@@ -335,6 +338,7 @@ export function createRoadsideGame(
       // The scene first, while the blob shadows are still in it, so the renderer lets go of everything.
       stage.reset();
       blobShadows.detach();
+      carriedItems.detach();
       Car.rules = null;
       CarModel.exhaust = null;
       tickers.length = 0;

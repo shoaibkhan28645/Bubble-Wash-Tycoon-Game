@@ -12,10 +12,19 @@ import {
   Texture,
   WebGLRenderer,
 } from 'three';
+import { setModelWarmer } from './assets';
 import { GRAPHICS } from './graphics';
+import { forgetOnScreen, updateOnScreen } from './onScreen';
 import { AdaptiveResolution } from './resolution';
 
-const MAX_PIXEL_RATIO = 2;
+/**
+ * Most pixels drawn per CSS pixel. A phone's screen is small and dense: past
+ * 1.5 the extra pixels barely show but cost the GPU dearly (2× is 78% more
+ * pixels to shade), and a hot phone slows down. A computer can take 2.
+ */
+const MAX_PIXEL_RATIO = typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches ? 1.5 : 2;
+/** A model loaded mid-game waits at most this long for its shaders before it's used anyway. */
+const WARM_TIMEOUT_MS = 4000;
 const FOV_DEG = 35;
 const BACKGROUND = 0xbfe9ff;
 /** Where the sunlight comes from: high, from the left and a little in front, so shadows fall back and right. */
@@ -69,6 +78,8 @@ export interface Stage {
   readonly shadows: boolean;
   /** Pixels drawn per CSS pixel right now (drops if the phone can't keep up). */
   readonly pixelRatio: number;
+  /** Shader programs compiled so far (the debug panel: any after the start are hitches). */
+  readonly programs: number;
   /** Turns real shadows on or off (they're turned off for good after a GPU crash). */
   setShadows(on: boolean): void;
   /** Only still things cast shadows, so the shadow map is redrawn only when the lot changes. */
@@ -146,6 +157,18 @@ export function createStage(container: HTMLElement): Stage {
   const gpu = String(gl.getParameter(info ? info.UNMASKED_RENDERER_WEBGL : gl.RENDERER) ?? 'unknown');
 
   const camera = new PerspectiveCamera(FOV_DEG, 1, 0.5, 200);
+  // Models loaded mid-game (people, the Car of the Day) have their shaders compiled and textures
+  // uploaded before they're first drawn, without stalling the game where the GPU allows (a phone
+  // can take a second or more to compile one shader, which froze the game when a villager first showed up).
+  setModelWarmer(async (model) => {
+    model.traverse((node) => {
+      const mesh = node as Partial<{ material: Material | Material[] }>;
+      for (const material of [mesh.material ?? []].flat()) {
+        for (const value of Object.values(material)) if (value instanceof Texture) renderer.initTexture(value);
+      }
+    });
+    await Promise.race([renderer.compileAsync(model, camera, scene), new Promise((done) => setTimeout(done, WARM_TIMEOUT_MS))]);
+  });
   const size = { width: 1, height: 1 };
   const listeners: (() => void)[] = [];
   const resolution = new AdaptiveResolution(() => fit());
@@ -187,6 +210,9 @@ export function createStage(container: HTMLElement): Stage {
     get pixelRatio() {
       return renderer.getPixelRatio();
     },
+    get programs() {
+      return renderer.info.programs?.length ?? 0;
+    },
     shadowArea(rect) {
       const cx = (rect.minX + rect.maxX) / 2;
       const cz = (rect.minZ + rect.maxZ) / 2;
@@ -209,9 +235,11 @@ export function createStage(container: HTMLElement): Stage {
       lastFrame = now;
       if (contextLost) return;
       renderer.render(scene, camera);
+      updateOnScreen(camera);
     },
     reset() {
       listeners.length = 0;
+      forgetOnScreen();
       setLook(DEFAULT_LOOK);
       const leaving = scene.children.filter((child) => !lights.has(child));
       for (const child of leaving) {

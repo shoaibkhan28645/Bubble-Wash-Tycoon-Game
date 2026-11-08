@@ -1,4 +1,4 @@
-import { ADS, CARS, TUNING, UPGRADES, stationDef, town, type CarDef, type Dirt, type PadEffects, type LocationLayout, type Point } from '../core/config';
+import { ADS, CARS, TUNING, UPGRADES, stationDef, town, type CarDef, type Dirt, type PadDef, type PadEffects, type LocationLayout, type Point } from '../core/config';
 import type { GameState } from '../core/gameState';
 import type { SoundManager } from '../audio/sound';
 import type { Car, CarPool } from './cars';
@@ -34,9 +34,22 @@ export function queueRoom(lane: Lane, layout: LocationLayout): number {
   return room;
 }
 
+/** The built pads, worked out again only when something's built (it's asked for many times a frame). */
+let built: { unlocked: readonly string[]; count: number; last: string | undefined; pads: readonly PadDef[]; list: PadDef[] } | null = null;
+function builtPads(state: GameState): PadDef[] {
+  const pads = town().pads;
+  const { unlocked } = state;
+  const last = unlocked[unlocked.length - 1];
+  if (built && built.unlocked === unlocked && built.count === unlocked.length && built.last === last && built.pads === pads) return built.list;
+  built = { unlocked, count: unlocked.length, last, pads, list: pads.filter((p) => unlocked.includes(p.id)) };
+  return built.list;
+}
+
 /** Sum of a pad effect over everything built (the bench's patience, the sign's arrivals). */
 export function unlockedSum(state: GameState, pick: (effects: PadEffects) => number | undefined): number {
-  return town().pads.filter((p) => state.unlocked.includes(p.id)).reduce((sum, p) => sum + (pick(p.effects) ?? 0), 0);
+  let sum = 0;
+  for (const pad of builtPads(state)) sum += pick(pad.effects) ?? 0;
+  return sum;
 }
 
 /**

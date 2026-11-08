@@ -39,7 +39,8 @@ export class CashSystem {
     private readonly effects: Particles,
     private readonly sound: SoundManager,
   ) {
-    for (const id of Object.keys(state.piles)) this.refresh(this.pile(id));
+    // Every pile is made now (hidden while empty), so its look is ready before the first cash lands on it.
+    for (const id of new Set([...Object.keys(layout.piles), ...Object.keys(state.piles)])) this.refresh(this.pile(id));
   }
 
   /**
@@ -116,8 +117,11 @@ export class CashSystem {
       this.dummy.updateMatrix();
       pile.mesh.setMatrixAt(i, this.dummy.matrix);
     }
+    if (bills !== pile.shown) pile.mesh.boundingSphere = null; // grown or emptied: worked out again when next drawn
     pile.mesh.count = bills;
     pile.mesh.instanceMatrix.needsUpdate = true;
+    // An empty pile isn't drawn at all (an instanced mesh with no bills still costs a draw).
+    pile.mesh.visible = bills > 0;
     pile.mesh.children[0]!.visible = bills > 0;
     pile.shown = bills;
   }

@@ -10,7 +10,7 @@ import { BoxGeometry, Group, Mesh, type Object3D } from 'three';
 import type { Point, Rect } from '../../core/config';
 import type { AnimalKind, Livestock, Pen } from '../../systems/animals';
 import { mergeParts, toyMaterial, type Part } from './build';
-import { farmModel } from './farm';
+import { farmModel, farmMover } from './farm';
 
 const CORN = '#ffcf33';
 
@@ -173,14 +173,13 @@ export class PensView {
     const look = LOOKS[view.pen.animal];
     while (view.animals.length < this.count(view.pen.id)) {
       const name = look.models[view.animals.length % look.models.length]!;
-      const model = farmModel(name);
+      const model = farmMover(name);
       const at = this.spotIn(view.pen.run, look.margin);
       model.position.set(at.x, 0, at.z);
       const heading = this.random() * Math.PI * 2;
       // Turned first, then tipped and rolled about its own axes as it walks.
       model.rotation.order = 'YXZ';
       model.rotation.y = heading;
-      model.traverse((node) => (node.castShadow = true));
       this.group.add(model);
       const part = (id: string) => model.getObjectByName(`${name}_${id}`) ?? undefined;
       const parts = {

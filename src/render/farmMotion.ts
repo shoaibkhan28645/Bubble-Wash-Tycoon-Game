@@ -59,6 +59,8 @@ export class FarmMotion {
 
   constructor(private readonly random: () => number = Math.random) {
     this.group.name = 'farm-motion';
+    // One puff made now (hidden), so its look is compiled with the town's, not at the first chimney puff.
+    this.makePuff();
   }
 
   /** Picks up what moves by itself in a building or prop: weathervanes, a bell, a chimney. */
@@ -79,7 +81,9 @@ export class FarmMotion {
     model.updateMatrixWorld(true);
     const box = new Box3();
     model.traverse((node) => {
-      if (/_wheel_[a-z]+$/.test(node.name)) wheels.push({ node, radius: Math.max(0.1, box.setFromObject(node).getSize(this.at).y / 2) });
+      // A part drawn with the rest of its model (rigid.ts) keeps its height; a plain one is measured.
+      const height = (node.userData.height as number | undefined) ?? box.setFromObject(node).getSize(this.at).y;
+      if (/_wheel_[a-z]+$/.test(node.name)) wheels.push({ node, radius: Math.max(0.1, height / 2) });
       else if (node.name.endsWith('_reel')) reel = node;
       else if (node.name.endsWith('_smoke')) smoke = node;
     });
@@ -145,16 +149,22 @@ export class FarmMotion {
     }
   }
 
+  private makePuff(): Puff {
+    const material = new MeshLambertMaterial({ transparent: true, depthWrite: false });
+    const mesh = new Mesh(PUFF, material);
+    mesh.name = 'puff';
+    mesh.visible = false;
+    this.group.add(mesh);
+    const puff = { mesh, material, active: false, age: 0, life: 1, size: 1, rise: 1 };
+    this.puffs.push(puff);
+    return puff;
+  }
+
   private puff(at: Vector3, kind: typeof CHIMNEY): void {
     let puff = this.puffs.find((p) => !p.active);
     if (!puff) {
       if (this.puffs.length >= MAX_PUFFS) return;
-      const material = new MeshLambertMaterial({ transparent: true, depthWrite: false });
-      const mesh = new Mesh(PUFF, material);
-      mesh.name = 'puff';
-      this.group.add(mesh);
-      puff = { mesh, material, active: false, age: 0, life: 1, size: 1, rise: 1 };
-      this.puffs.push(puff);
+      puff = this.makePuff();
     }
     puff.active = true;
     puff.age = 0;
