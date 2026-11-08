@@ -370,10 +370,14 @@ export function farmland(layout: FarmLayout): Farmland {
     update(dt) {
       time += dt;
       water.ducks.forEach((duck, i) => {
-        // Slow circles round the pond, bobbing.
-        const a = time * 0.18 + (duck.userData.phase as number);
+        // Slow circles round the pond, bobbing, now and then dipping a head under.
+        const phase = duck.userData.phase as number;
+        const a = time * 0.18 + phase;
         duck.position.set(cx + Math.cos(a) * (r.maxX - r.minX) * 0.28, 0.02 + Math.sin(time * 2 + i) * 0.02, cz + Math.sin(a) * (r.maxZ - r.minZ) * 0.22);
         duck.rotation.y = -a + (i % 2 ? Math.PI : 0);
+        const head = duck.getObjectByName('fm_duck_head');
+        if (head) head.rotation.x = Math.max(0, Math.sin(time * 0.6 + phase * 3)) ** 10 * 1.3;
+        duck.rotation.x = Math.max(0, Math.sin(time * 0.6 + phase * 3)) ** 10 * 0.25;
       });
     },
   };

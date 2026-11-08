@@ -1,13 +1,23 @@
-// Willowbrook's buildings, props and crops, modelled in Blender
-// (art/blender/farm.py) in two files: the buildings, and the props and crops.
+// Willowbrook's buildings, props, crops, animals and vehicles, modelled in
+// Blender (art/blender/farm.py), in several files (each under 512 KiB).
 import { BoxGeometry, Group, Mesh, type Object3D } from 'three';
 import { PLOT, type Point } from '../../core/config';
 import type { Crops, Plot } from '../../systems/crops';
 import { asset, hasModel } from '../assets';
+import { swayMaterial } from '../wind';
 import { mergeParts, toyMaterial, type Part } from './build';
 import { plate } from './kit';
 
-const FILES = ['building:farm', 'building:farm-props', 'building:farm-poultry', 'building:farm-dairy', 'building:farm-machines', 'building:farm-valley'];
+const FILES = [
+  'building:farm',
+  'building:farm-village',
+  'building:farm-props',
+  'building:farm-poultry',
+  'building:farm-dairy',
+  'building:farm-vehicles',
+  'building:farm-machines',
+  'building:farm-valley',
+];
 
 /** The named model's node in whichever farm file has it (not a copy). */
 export function farmPiece(name: string): Object3D {
@@ -147,12 +157,19 @@ interface PlotView {
   stages: Object3D[];
   shown: number;
   bob: number;
+  /** A new stage pops up: 1 when it appears, down to 0. */
+  pop: number;
 }
+
+/** How much plants sway in the breeze (render/wind.ts): trees stand tall, so less. */
+const SWAY: Record<string, number> = { veg: 0.05, corn: 0.05, apple: 0.012 };
+/** Seconds a new stage takes to pop up. */
+const POP_SECONDS = 0.45;
 
 /**
  * The fields as drawn: each plot's bed and its plants at the stage they've
- * grown to. Ripe plants sway gently; a plot being harvested shrinks into
- * its crate.
+ * grown to. Plants sway in the breeze and pop up into each new stage; ripe
+ * ones swell gently; a plot being harvested shrinks into its crate.
  */
 export class CropPlots {
   readonly group = new Group();
@@ -179,11 +196,15 @@ export class CropPlots {
         const model = farmModel(name);
         model.position.set(plot.at.x, 0.1, plot.at.z);
         model.visible = false;
-        model.traverse((node) => (node.receiveShadow = true));
+        const sway = swayMaterial(SWAY[plot.crop] ?? 0.03);
+        model.traverse((node) => {
+          node.receiveShadow = true;
+          if (node instanceof Mesh) node.material = sway;
+        });
         this.group.add(model);
         return model;
       });
-      this.views.push({ plot, stages, shown: -1, bob: i * 1.3 });
+      this.views.push({ plot, stages, shown: -1, bob: i * 1.3, pop: 0 });
     });
   }
 
@@ -197,20 +218,25 @@ export class CropPlots {
       const stage = growth >= 1 ? 2 : growth >= MIDDLE ? 1 : 0;
       if (stage !== view.shown) {
         view.stages.forEach((s, i) => (s.visible = i === stage));
+        if (view.shown !== -1) view.pop = 1;
         view.shown = stage;
       }
       const model = view.stages[stage]!;
       const picked = harvesting.get(view.plot) ?? 0;
+      // Popping up into a new stage: from half size, a little past full, and settling.
+      view.pop = Math.max(0, view.pop - dt / POP_SECONDS);
+      const k = 1 - view.pop;
+      const pop = view.pop > 0 ? 0.5 + 0.5 * k + 0.22 * Math.sin(k * Math.PI) : 1;
       if (picked > 0) {
         model.scale.set(1, Math.max(0.2, 1 - picked * 0.8), 1);
       } else if (stage === 2) {
-        // Ripe: a gentle sway, so the eye finds what's ready.
+        // Ripe: a gentle swell, so the eye finds what's ready.
         const sway = Math.sin(this.time * 2.2 + view.bob) * 0.04;
-        model.scale.set(1 + sway, 1 - sway, 1 + sway);
+        model.scale.set((1 + sway) * pop, (1 - sway) * pop, (1 + sway) * pop);
       } else {
         // Growing: the plants swell as they near the next stage.
         const into = stage === 0 ? growth / MIDDLE : (growth - MIDDLE) / (1 - MIDDLE);
-        model.scale.set(1, 0.7 + 0.3 * into, 1);
+        model.scale.set(pop, (0.7 + 0.3 * into) * pop, pop);
       }
     }
   }

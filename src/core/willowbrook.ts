@@ -16,9 +16,11 @@ export const WILLOWBROOK: FarmTown = {
   story: story as StoryData,
   models: {
     'building:farm': 'models/buildings/farm.glb',
+    'building:farm-village': 'models/buildings/farm-village.glb',
     'building:farm-props': 'models/buildings/farm-props.glb',
     'building:farm-poultry': 'models/buildings/farm-poultry.glb',
     'building:farm-dairy': 'models/buildings/farm-dairy.glb',
+    'building:farm-vehicles': 'models/buildings/farm-vehicles.glb',
     'building:farm-machines': 'models/buildings/farm-machines.glb',
     'building:farm-valley': 'models/buildings/farm-valley.glb',
     'building:town-shops': 'models/buildings/town-shops.glb',

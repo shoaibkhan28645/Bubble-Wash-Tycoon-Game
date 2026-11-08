@@ -29,6 +29,9 @@ export class VanFleet {
   readonly group = new Group();
   private readonly vans = new Map<string, Vehicle>();
 
+  /** `onAdd` hears of each vehicle drawn (its wheels turn, render/farmMotion.ts). */
+  constructor(private readonly onAdd: (model: Object3D) => void = () => {}) {}
+
   /** A vehicle on a route (`route[0]` is where it parks, or for a visit where it stops). */
   add(id: string, model: string, route: Point[], mode: RouteMode = 'trip'): void {
     if (this.vans.has(id) || route.length < 2) return;
@@ -39,6 +42,7 @@ export class VanFleet {
     this.vans.set(id, van);
     this.idle(van);
     this.group.add(mesh);
+    this.onAdd(mesh);
   }
 
   /** Where a vehicle is drawn now (the combine's harvesting follows it). */

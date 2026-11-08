@@ -10,6 +10,7 @@ import type { GameState } from './gameState';
 import type { SoundManager } from '../audio/sound';
 import { farmModel } from '../render/models/farm';
 import { VanFleet } from '../render/models/vans';
+import type { FarmMotion } from '../render/farmMotion';
 import type { Livestock } from '../systems/animals';
 import type { BarnStore } from '../systems/barn';
 import { Carrier } from '../systems/carry';
@@ -64,10 +65,12 @@ export function createMachines(deps: {
   flag: (name: string) => void;
   /** The town's id, for its flags. */
   townId: string;
+  /** Turns wheels and puffs exhaust (render/farmMotion.ts). */
+  motion: FarmMotion;
 }): Machines {
   const { root, scene, layout, state, sound, labels, floaters, player, crops, barn, livestock, staff, flag } = deps;
   // The feed truck and the combine drive their routes (the delivery vans are the farm game's own).
-  const fleet = new VanFleet();
+  const fleet = new VanFleet((model) => deps.motion.vehicle(model));
   scene.add(fleet.group);
   const { machines: spots } = layout;
   const level = (key: string) => state.levels[key] ?? 0;
@@ -139,6 +142,7 @@ export function createMachines(deps: {
     for (const m of [tractorModel, trailerModel]) {
       m.traverse((node) => (node.castShadow = node.receiveShadow = true));
       group.add(m);
+      deps.motion.vehicle(m);
     }
     // Crates sit in rows on the trailer's bed (the carrier draws its stack 1 m up and half a metre back).
     const pile = new Group();
@@ -175,6 +179,7 @@ export function createMachines(deps: {
     pickup = farmModel('fm_pickup');
     pickup.traverse((node) => (node.castShadow = true));
     group.add(pickup);
+    deps.motion.vehicle(pickup);
   };
 
   // The feed truck: a visit from town whenever the feed store runs low.

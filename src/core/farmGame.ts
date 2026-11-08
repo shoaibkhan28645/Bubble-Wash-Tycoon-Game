@@ -28,6 +28,8 @@ import { withShadows } from '../render/stage';
 import { CameraRig } from '../render/cameraRig';
 import { Particles } from '../render/effects/particles';
 import { farmland, heightAt } from '../render/farmland';
+import { FarmMotion } from '../render/farmMotion';
+import { tickWind } from '../render/wind';
 import { loadPeople } from '../render/assets';
 import { blobShadows } from '../render/models/actors';
 import { CropPlots, FARM_SOLIDS, FARM_TURNS, farmModel, farmPadModel } from '../render/models/farm';
@@ -123,6 +125,10 @@ export function createFarmGame(
   blobShadows.attach(stage.scene);
   const ground = farmland(layout);
   stage.scene.add(withShadows(ground.group, false, true));
+  // Weathervanes, the chapel bell, chimney smoke and the vehicles' wheels.
+  const motion = new FarmMotion();
+  stage.scene.add(motion.group);
+  motion.watch(ground.group);
   // The fence, trees and buildings cast shadows; the ground only takes them.
   ground.group.traverse((node) => {
     if (node.name === 'fence' || /^town:|tree/.test(node.name)) node.castShadow = true;
@@ -211,6 +217,7 @@ export function createFarmGame(
     mesh.position.set(at.x, 0, at.z);
     mesh.rotation.y = FARM_TURNS[id] ?? 0;
     stage.scene.add(withShadows(mesh));
+    motion.watch(mesh);
     if (animate) {
       mesh.scale.setScalar(0.001);
       growing.push({ mesh, age: 0 });
@@ -256,7 +263,7 @@ export function createFarmGame(
     onPaid({ amount: pay, tip: 0, automated: autoVans(), at });
   });
   deliveries.tripScale = (van) => levelFactor(UPGRADES.kinds.trip, level(`${van}.trip`));
-  const fleet = new VanFleet();
+  const fleet = new VanFleet((model) => motion.vehicle(model));
   stage.scene.add(fleet.group);
   // The barn keeps what's unloaded at its doors, and passes it on to the stand and the vans.
   const barn = new BarnStore(state, layout.machines.barnDoor, () => TUNING.barn.capacity + unlockedSum(state, (e) => e.storage));
@@ -469,6 +476,7 @@ export function createFarmGame(
   };
 
   const machines = createMachines({
+    motion,
     root,
     scene: stage.scene,
     layout,
@@ -840,6 +848,8 @@ export function createFarmGame(
     }
     if (growing.length > 0) stage.refreshShadows();
     ground.update(dt);
+    tickWind(dt);
+    motion.update(dt);
     effects.update(dt);
     saves.update(dt);
     meta.update(dt);
