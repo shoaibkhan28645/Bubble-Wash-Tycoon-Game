@@ -12,9 +12,9 @@
       "gems": 20
     },
     {
-      "id": "tractorCrates",
-      "count": "tractorCrate",
-      "goal": 30,
+      "id": "harvest",
+      "count": "harvest",
+      "goal": 100,
       "gems": 20
     },
     {

@@ -134,20 +134,9 @@
       },
       "icon": "🏆",
       "headline": "Goldsby Agri pulls out of Willowbrook",
-      "body": "With its own milk tanker on the road, the farm now delivers fresher milk than anyone. Goldsby Agri has sold its farms and left the valley. Talk is of tractors next.",
+      "body": "With its own milk tanker on the road, the farm now delivers fresher milk than anyone. Goldsby Agri has sold its farms and left the valley. Talk is of an orchard next.",
       "speaker": "mentor",
-      "words": "Better service beats a bigger truck. Now, about that old tractor in my shed..."
-    },
-    {
-      "id": "tractor",
-      "when": {
-        "built": "tractor"
-      },
-      "icon": "🚜",
-      "headline": "Joe's old tractor rides again",
-      "body": "The little red tractor that sat in Joe's shed for twenty years is back in the fields, polished, oiled and towing a trailer of fresh produce to the barn.",
-      "speaker": "mentor",
-      "words": "Hop in and drive her over anything ripe. She does in a minute what takes us all morning by hand."
+      "words": "Better service beats a bigger truck. Now, a few apple trees down by the lane would do nicely..."
     },
     {
       "id": "drought",
@@ -184,7 +173,7 @@
       },
       "icon": "🍎",
       "headline": "Apple trees planted on Joe's farm",
-      "body": "Six young apple trees now stand on the farm's east meadow. They're slow to fruit, but the village is already asking about apple pies.",
+      "body": "Six apple trees now stand in a row down by the farm lane. Once their blossom sets they fruit again and again, and the village is already asking about apple pies.",
       "speaker": "mentor",
       "words": "Trees are patient business. Plant them, wait, and they pay you every year after."
     },

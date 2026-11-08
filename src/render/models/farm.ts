@@ -47,7 +47,6 @@ const PAD_MODELS: Record<string, string> = {
   henhouse: 'fm_henhouse',
   feedstore: 'fm_feedstore',
   cowbarn: 'fm_cowbarn',
-  tractor: 'fm_shed',
   bakery: 'fm_bakery',
   market: 'fm_market',
 };
@@ -61,8 +60,6 @@ const SIGNS: Record<string, { text: string; color: string; y: number; z: number;
   market: { text: "FARMERS' MARKET", color: '#d8432f', y: 3.45, z: -1.85, width: 3.2, height: 0.5 },
 };
 
-/** Pads whose building is turned (radians about the vertical): the machinery shed opens west, onto the yard. */
-export const FARM_TURNS: Record<string, number> = { tractor: -Math.PI / 2 };
 
 export function farmPadModel(id: string): Object3D | null {
   const name = PAD_MODELS[id];
@@ -112,18 +109,6 @@ export const FARM_SOLIDS: Record<string, [number, number, number?, number?][]> =
     [3.6, 0.35, 0, 0.3],
     [3.6, 0.25, 0, -1.35],
   ],
-  // The machinery shed's back wall and sides (it's turned to open west, onto the yard; the tractor parks inside).
-  tractor: [
-    [0.2, 3.5, 2.95, 0],
-    [3.1, 0.2, 0, -3.35],
-    [3.1, 0.2, 0, 3.35],
-  ],
-  // The shed, the silo behind it and the hopper in front.
-  feedstore: [
-    [1.4, 1.1, 0, -0.2],
-    [0.85, 0.85, 1.9, -1.6],
-    [0.75, 0.3, 0, 1.15],
-  ],
 };
 
 const SOIL = '#7a5236';
@@ -141,12 +126,14 @@ function bed(at: Point): Part[] {
   return parts;
 }
 
-/** Crop stage models by crop (art/blender/farm.py): sprouts, growing, ripe. */
+/** Crop stage models by crop (art/blender/farm.py): sprouts, growing, ripe ('' for nothing). */
 const STAGES: Record<string, string[]> = {
   veg: ['fm_veg_1', 'fm_veg_2', 'fm_veg_3'],
   corn: ['fm_corn_1', 'fm_corn_2', 'fm_corn_3'],
-  apple: ['fm_apple_1', 'fm_apple_2', 'fm_apple_3'],
+  apple: ['', 'fm_apple_blossom', 'fm_apple_fruit'],
 };
+/** Crops that grow on something that stays, picked or not (the apple trees): the stages come and go on it. */
+const STANDING: Record<string, string> = { apple: 'fm_apple_tree' };
 /** Crops grown in grass, not ploughed beds (trees). */
 const NO_BED = new Set(['apple']);
 /** Grown this far, a plot shows its middle stage. */
@@ -168,8 +155,9 @@ const POP_SECONDS = 0.45;
 
 /**
  * The fields as drawn: each plot's bed and its plants at the stage they've
- * grown to. Plants sway in the breeze and pop up into each new stage; ripe
- * ones swell gently; a plot being harvested shrinks into its crate.
+ * grown to (an apple tree stands for good; its blossom and apples come and
+ * go). Plants sway in the breeze and pop up into each new stage; ripe ones
+ * swell gently; what's being harvested shrinks into its crate.
  */
 export class CropPlots {
   readonly group = new Group();
@@ -192,16 +180,21 @@ export class CropPlots {
       this.group.add(soil);
     }
     plots.forEach((plot, i) => {
-      const stages = STAGES[plot.crop]!.map((name) => {
-        const model = farmModel(name);
+      const sway = swayMaterial(SWAY[plot.crop] ?? 0.03);
+      const place = (model: Object3D): Object3D => {
         model.position.set(plot.at.x, 0.1, plot.at.z);
-        model.visible = false;
-        const sway = swayMaterial(SWAY[plot.crop] ?? 0.03);
         model.traverse((node) => {
           node.receiveShadow = true;
           if (node instanceof Mesh) node.material = sway;
         });
         this.group.add(model);
+        return model;
+      };
+      const standing = STANDING[plot.crop];
+      if (standing) place(farmModel(standing));
+      const stages = STAGES[plot.crop]!.map((name) => {
+        const model = place(name ? farmModel(name) : new Group());
+        model.visible = false;
         return model;
       });
       this.views.push({ plot, stages, shown: -1, bob: i * 1.3, pop: 0 });

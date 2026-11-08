@@ -32,7 +32,7 @@ import { FarmMotion } from '../render/farmMotion';
 import { tickWind } from '../render/wind';
 import { loadPeople } from '../render/assets';
 import { blobShadows } from '../render/models/actors';
-import { CropPlots, FARM_SOLIDS, FARM_TURNS, farmModel, farmPadModel } from '../render/models/farm';
+import { CropPlots, FARM_SOLIDS, farmModel, farmPadModel } from '../render/models/farm';
 import { PensView } from '../render/models/pens';
 import { VanFleet } from '../render/models/vans';
 import { PersonAvatar } from '../render/models/person';
@@ -82,6 +82,8 @@ const GUIDE_UNTIL = 'standhand';
 const STOCK_LABEL_Y = 3.4;
 /** After the road to the next town is built, the hero sets off this long after (the pad's pop first). */
 const TRAVEL_DELAY_MS = 1500;
+/** Pads taken out of the game, and what they cost: a save that bought one is paid back. */
+const RETIRED_PADS: Record<string, number> = { tractor: 8250, tractordriver: 17000 };
 /** The restored windmill's sails turn this fast (radians a second). */
 const SAILS_TURN = 0.6;
 
@@ -162,6 +164,7 @@ export function createFarmGame(
     layout,
     (field) => (1 + unlockedSum(state, (e) => e.growBonus)) / levelFactor(UPGRADES.kinds.grow, level(`${field}.grow`)),
     (carrier, plot) => {
+      state.counts.harvest = (state.counts.harvest ?? 0) + 1;
       const crop = CROPS[plot.crop]!;
       if (carrier === playerCarry) {
         floaters.show(`+1 ${crop.icon}`, new Vector3(plot.at.x, 1.6, plot.at.z), 'star');
@@ -195,7 +198,8 @@ export function createFarmGame(
       if (carrier === playerCarry) sound.play('chip');
     },
   );
-  const pensView = new PensView(livestock, animals);
+  // A cow that stops to moo says so.
+  const pensView = new PensView(livestock, animals, (at) => floaters.show('Moo!', new Vector3(at.x, 2.4, at.z), 'star'));
   stage.scene.add(pensView.group);
   const stock = new StandStock(
     state,
@@ -215,7 +219,6 @@ export function createFarmGame(
     const mesh = farmPadModel(id);
     if (!mesh || !at) return;
     mesh.position.set(at.x, 0, at.z);
-    mesh.rotation.y = FARM_TURNS[id] ?? 0;
     stage.scene.add(withShadows(mesh));
     motion.watch(mesh);
     if (animate) {
@@ -395,6 +398,13 @@ export function createFarmGame(
     const corn = feeding && !carrier.full && !deliverNow(carrier as CrateCarrier, stand) ? crops.nearestRipe(at, now, (p) => p.crop !== 'corn' || taken(p)) : null;
     if (corn) return corn.at;
     if (feeding && carrier.count('corn') > 0) return feedAt;
+    // The pickup parked between the fields: pick, and hand it all up at the tailgate (it takes it to the barn).
+    const tailgate = machines.pickupBay();
+    if (tailgate) {
+      const next = carrier.full ? null : crops.nearestRipe(at, now, taken);
+      if (carrying && (carrier.full || !next)) return dropAt(tailgate);
+      return next ? next.at : null;
+    }
     // A van waiting for a crop: pick that crop first, while any is ripe.
     const wanted = vanIds().map((v) => deliveries.wants(v)?.good).find((g): g is CropId => g === 'veg' || g === 'corn');
     const wantedRipe = !!wanted && crops.plots.some((p) => p.crop === wanted && crops.ripe(p, now) && !taken(p));
@@ -437,6 +447,8 @@ export function createFarmGame(
     if (bay && (carrier.full || bakery.total === 0)) return bay;
     if (!carrier.full && bakery.total > 0 && !deliverNow(carrier, stand)) return dropAt(bakery.spot.zone);
     if (bay) return bay;
+    // The barn is nearer than the counters, and passes the baking on to them and the vans.
+    if (carrying && barn.hasRoom) return dropAt(layout.machines.barnDoor);
     if (carrying && stand && stock.hasRoom(stand.id)) return dropAt(stand.spot.zone);
     return null;
   };
@@ -477,20 +489,15 @@ export function createFarmGame(
 
   const machines = createMachines({
     motion,
-    root,
     scene: stage.scene,
     layout,
     state,
-    sound,
     labels,
     floaters,
-    player,
     crops,
     barn,
     livestock,
     staff,
-    flag,
-    townId: current.id,
   });
 
   let windmill: Object3D | null = null;
@@ -554,6 +561,15 @@ export function createFarmGame(
     if (id === 'bakery') bakery.start(Date.now());
     if (id === 'windmill') showWindmill(true);
   };
+  // The tractor and its driver were retired (the pickup does their job): a save that had bought them, or
+  // was building them, gets their price back, and anything part-paid on their pads.
+  for (const [id, price] of Object.entries(RETIRED_PADS)) {
+    const owned = state.unlocked.includes(id) || !!state.building[id];
+    state.cash += owned ? price : (state.padPaid[id] ?? 0);
+    for (const list of [state.unlocked, state.staff]) if (list.includes(id)) list.splice(list.indexOf(id), 1);
+    delete state.building[id];
+    delete state.padPaid[id];
+  }
   // The stand and the first field come with the farm: they're there the moment the hero arrives.
   for (const pad of current.pads) if (pad.cost === 0 && !state.unlocked.includes(pad.id)) state.unlocked.push(pad.id);
   for (const id of state.unlocked) addBuilt(id, false);
@@ -723,8 +739,6 @@ export function createFarmGame(
     return null;
   };
   const guide = (): GuideStep | null => {
-    const machineStep = machines.guide();
-    if (machineStep) return machineStep;
     const vanStep = vanGuide();
     if (vanStep) return vanStep;
     // The first baking: pick it up at the bread table.
@@ -784,16 +798,13 @@ export function createFarmGame(
     clock.advance(dt);
     state.playSeconds += dt;
     const now = Date.now();
-    // In the tractor, the stick drives it; on foot, the hero walks.
     const move = input.read();
-    machines.update(dt, now, move, [...solids, ...fixed], view.walkable);
-    if (!machines.driving) player.update(dt, move, [...solids, ...fixed], view.walkable);
+    player.update(dt, move, [...solids, ...fixed], view.walkable);
     pads.update(dt, player.position);
     upgrades.update(dt, player.position);
     staff.update(dt, walkups.counters, null, solids, (counter) => insideRect(player.position, counter.zone), null, []);
     const carriers = [playerCarry, ...staff.crateCarriers<GoodId>()];
-    const trailer = machines.trailer;
-    const withTrailer = trailer ? [...carriers, trailer] : carriers;
+    machines.update(dt, now, carriers);
     // Only the hero and the farmhand pick crops (the egg collector just walks across the fields).
     crops.update(dt, now, [playerCarry, ...staff.crateCarriers<GoodId>('farmhand')]);
     livestock.update(dt, now, carriers);
@@ -801,14 +812,14 @@ export function createFarmGame(
     deliveries.update(now);
     for (const van of vanIds()) {
       const spot = layout.vans[van];
-      if (spot) deliveries.load(van, spot.bay, withTrailer, (carrier) => carrier === playerCarry && sound.play('chip'));
+      if (spot) deliveries.load(van, spot.bay, carriers, (carrier) => carrier === playerCarry && sound.play('chip'));
     }
     if (state.unlocked.includes('barn')) {
       const stand = outlet();
       barn.update(
         dt,
-        withTrailer,
-        new Set(trailer ? [trailer] : []),
+        carriers,
+        new Set(),
         stand ? { id: stand.id, stock } : null,
         vanIds().map((v) => ({ wants: () => deliveries.wants(v), fill: () => deliveries.fill(v) })),
       );
@@ -916,7 +927,6 @@ export function createFarmGame(
       for (const cleanup of cleanups) cleanup();
       input.dispose();
       panel.dispose();
-      machines.dispose();
       // The scene first, while the blob shadows are still in it, so the renderer lets go of everything.
       stage.reset();
       blobShadows.detach();

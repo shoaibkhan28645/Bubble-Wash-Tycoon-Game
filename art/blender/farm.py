@@ -1042,34 +1042,66 @@ tail_lamps(p, X, 1.98, 1.8, 0.9)
 p.append(kit.box((1.6, 0.12, 0.2), (X, 2.02, 0.55), '#2b2b30', bevel=0.03))
 finish(p, 'fm_van', X, moving=road_wheels(X, 3.9, 1.6))
 
-# The milk tanker: a red cab towing a polished tank with a blue band, a ladder and a catwalk.
+# The milk tanker: a rounded blue cab-over with a white roof and an amber
+# light bar, towing a white tank in black cow spots, lettered MILK down each
+# side, with steel end rings, a hatch and catwalk on top, a ladder and a hose
+# reel behind, and twin rear axles.
 X = 124.0
-p = [kit.box((1.9, 5.2, 0.4), (X, 0.3, 0.62), '#2b2b30', bevel=0.04)]
-p.append(kit.box((1.9, 1.5, 1.4), (X, -1.75, 1.45), '#c94a3d', bevel=0.14, segments=2))
-p.append(kit.box((1.7, 0.1, 0.6), (X, -2.5, 1.65), GLASS, bevel=0.02, rot=(0.2, 0, 0)))
+DAIRY_BLUE = '#3a7fb0'
+TANK = '#f7f4ee'
+p = [kit.box((1.6, 5.0, 0.3), (X, 0.4, 0.66), '#2b2b30', bevel=0.04)]
+p.append(kit.box((1.96, 1.55, 1.3), (X, -1.82, 1.38), DAIRY_BLUE, bevel=0.22, segments=3))
+p.append(kit.box((1.9, 1.45, 0.36), (X, -1.78, 2.16), '#ffffff', bevel=0.16, segments=2))
+p.append(kit.box((1.0, 0.2, 0.12), (X, -2.25, 2.4), '#ffb52e', bevel=0.04))
+p.append(kit.box((1.66, 0.08, 0.56), (X, -2.6, 1.66), GLASS, bevel=0.03, rot=(0.12, 0, 0)))
 for sx in (-1, 1):
-    p.append(kit.box((0.06, 0.8, 0.5), (X + sx * 0.96, -1.75, 1.7), GLASS, bevel=0.0))
-    p.append(kit.box((0.08, 0.9, 0.08), (X + sx * 0.92, -1.75, 0.62), CHROME, bevel=0.02))
-cab_front(p, X, -2.51, 1.9, 0.98)
-mirrors(p, X, -2.2, 1.9, 1.8)
-p.append(kit.box((1.5, 0.3, 0.12), (X, -1.75, 2.2), '#ffd23f', bevel=0.04))
-p.append(kit.cylinder(0.85, 3.4, (X, 0.95, 1.75), '#e9eef2', verts=20, rot=(math.pi / 2, 0, 0)))
+    p.append(kit.box((0.06, 0.72, 0.5), (X + sx * 0.99, -1.72, 1.66), GLASS, bevel=0.0))
+    p.append(kit.box((0.03, 1.5, 0.1), (X + sx * 0.99, -1.82, 1.08), '#ffffff', bevel=0.0))
+    p.append(kit.box((0.04, 0.14, 0.04), (X + sx * 1.0, -1.35, 1.32), CHROME, bevel=0.0))
+    # A step up to the cab, a chrome fuel tank, a fender over each rear axle.
+    p.append(kit.box((0.25, 0.4, 0.06), (X + sx * 0.9, -1.25, 0.5), '#3b3b42', bevel=0.0))
+    p.append(kit.cylinder(0.2, 0.6, (X + sx * 0.82, -0.55, 0.66), CHROME, verts=12, rot=(math.pi / 2, 0, 0)))
+    p.append(kit.box((0.36, 1.45, 0.08), (X + sx * 0.84, 2.0, 0.98), '#2b2b30', bevel=0.03))
+cab_front(p, X, -2.6, 1.96, 0.95)
+mirrors(p, X, -2.25, 1.96, 1.8)
+# The tank, with rounded ends and steel rings.
+p.append(kit.cylinder(0.88, 3.0, (X, 0.95, 1.8), TANK, verts=22, rot=(math.pi / 2, 0, 0)))
 for sy in (-1, 1):
-    p.append(kit.sphere(0.85, (X, 0.95 + sy * 1.7, 1.75), '#e9eef2', segments=18))
-for band in (0.25, 1.65):
-    p.append(kit.cylinder(0.87, 0.12, (X, band, 1.75), '#94a4b3', verts=20, rot=(math.pi / 2, 0, 0)))
-p.append(kit.cylinder(0.875, 0.36, (X, 0.95, 1.75), '#3a7fb0', verts=20, rot=(math.pi / 2, 0, 0)))
-p.append(kit.cylinder(0.25, 0.15, (X, 0.4, 2.62), '#94a4b3', verts=12))
-p.append(kit.box((0.5, 2.6, 0.05), (X, 1.0, 2.6), '#94a4b3', bevel=0.0))
-for k in range(5):
-    p.append(kit.box((0.05, 0.05, 0.25), (X + 0.25, 0.0 + k * 0.5, 2.73), '#94a4b3', bevel=0.0))
-p.append(kit.box((0.5, 0.05, 0.05), (X, 0.0, 2.86), '#94a4b3', bevel=0.0))
-for k in range(6):
-    p.append(kit.box((0.4, 0.04, 0.04), (X, 2.75, 0.9 + k * 0.28), CHROME, bevel=0.0))
+    p.append(blob((0.88, 0.42, 0.88), (X, 0.95 + sy * 1.5, 1.8), TANK, segments=18))
+    p.append(kit.cylinder(0.9, 0.12, (X, 0.95 + sy * 1.45, 1.8), '#c9d3dc', verts=22, rot=(math.pi / 2, 0, 0)))
+# Black cow spots round the tank (each a flat patch lying on its curve).
+for (a, y, sy, st) in ((0.35, 0.05, 0.34, 0.26), (1.05, 1.55, 0.3, 0.24), (2.1, 0.4, 0.32, 0.26), (2.75, 1.65, 0.3, 0.22),
+                       (math.pi / 2, 0.95, 0.22, 0.2), (1.25, -0.05, 0.22, 0.18), (1.9, 1.75, 0.2, 0.18),
+                       (-0.45, 1.7, 0.26, 0.22), (math.pi + 0.45, 0.2, 0.28, 0.24)):
+    p.append(blob((0.05, sy, st), (X + math.cos(a) * 0.88, y, 1.8 + math.sin(a) * 0.88), '#2f2f35', segments=10, rot=(0, -a, 0)))
+# MILK down each side.
 for sx in (-1, 1):
-    p.append(kit.box((0.04, 0.04, 1.6), (X + sx * 0.2, 2.75, 1.6), CHROME, bevel=0.0))
-tail_lamps(p, X, 2.92, 1.9, 0.7)
-finish(p, 'fm_tanker', X, moving=road_wheels(X, 5.0, 1.7, r=0.4))
+    p.append(kit.box((0.04, 1.7, 0.6), (X + sx * 0.885, 0.95, 1.8), '#ffffff', bevel=0.02))
+    # (kit.text's letters lie flat once made: stood up here, facing out.)
+    letters = kit.text('MILK', 0.5, (X + sx * 0.92, 0.95, 1.8), DAIRY_BLUE, depth=0.05)
+    letters.rotation_euler = (math.pi / 2, 0, sx * math.pi / 2)
+    kit._apply_all(letters)
+    p.append(letters)
+# The hatch and catwalk on top, a ladder and a hose reel behind, tail lamps.
+p.append(kit.cylinder(0.28, 0.14, (X, 0.55, 2.7), '#c9d3dc', verts=14))
+p.append(kit.cylinder(0.2, 0.06, (X, 0.55, 2.79), '#94a4b3', verts=12))
+p.append(kit.box((0.5, 2.4, 0.05), (X, 1.15, 2.69), '#94a4b3', bevel=0.0))
+for k in range(5):
+    p.append(kit.box((0.04, 0.04, 0.28), (X + 0.25, 0.1 + k * 0.5, 2.83), '#94a4b3', bevel=0.0))
+p.append(kit.box((0.04, 2.0, 0.04), (X + 0.25, 1.1, 2.97), '#94a4b3', bevel=0.0))
+for k in range(6):
+    p.append(kit.box((0.42, 0.04, 0.04), (X - 0.4, 2.82, 0.95 + k * 0.28), CHROME, bevel=0.0))
+for dx in (-0.6, -0.2):
+    p.append(kit.box((0.04, 0.04, 1.6), (X + dx, 2.82, 1.65), CHROME, bevel=0.0))
+p.append(kit.cylinder(0.26, 0.4, (X + 0.45, 2.75, 1.0), DAIRY_BLUE, verts=14, rot=(0, math.pi / 2, 0)))
+p.append(kit.torus(0.19, 0.05, (X + 0.45, 2.75, 1.0), '#2b2b30', rot=(0, math.pi / 2, 0), major_segments=12, minor_segments=4))
+tail_lamps(p, X, 2.92, 1.6, 0.72)
+for sx in (-1, 1):
+    p.append(kit.box((0.36, 0.04, 0.4), (X + sx * 0.84, 2.78, 0.45), '#2b2b30', bevel=0.0))
+wheels = road_wheels(X, 5.0, 1.72, r=0.42, front=-1.7, back=1.55)
+for side, sx in (('l', -1), ('r', 1)):
+    wheels[f'wheel_c{side}'] = (road_wheel(X + sx * 0.86, 2.45, 0.42), (X + sx * 0.86, 2.45, 0.42))
+finish(p, 'fm_tanker', X, moving=wheels)
 
 # The orders board: a little roofed notice board on two posts, pinned with orders.
 X = 130.0
@@ -1084,14 +1116,13 @@ for i, (nx, nz, col) in enumerate(((-0.6, 1.7, '#fffdf2'), (0.0, 1.75, '#ffe58a'
 p.append(kit.prism((2.5, 0.7, 0.4), (X, 0, 2.15), SHINGLE))
 finish(p, 'fm_orders', X)
 
-# --- The machines (Part D). -------------------------------------------------
-TRACTOR_RED = '#d8432f'
+# --- The machines (Part D): the combine (the tractor is gone). --------------
 TYRE = '#2b2b30'
 HUB = '#ffd23f'
 
 
 def wheel(x, y, r, width, hub=HUB):
-    """A chunky tractor tyre with tread blocks and a yellow hub (a part of its own: it turns)."""
+    """A chunky tyre with tread blocks and a yellow hub (a part of its own: it turns)."""
     q = [kit.cylinder(r, width, (x, y, r), TYRE, verts=18, rot=(0, math.pi / 2, 0))]
     q.append(kit.cylinder(r * 0.55, width + 0.04, (x, y, r), hub, verts=12, rot=(0, math.pi / 2, 0)))
     q.append(kit.cylinder(r * 0.2, width + 0.08, (x, y, r), '#3b3b42', verts=8, rot=(0, math.pi / 2, 0)))
@@ -1104,107 +1135,9 @@ def wheel(x, y, r, width, hub=HUB):
     return q
 
 
-# The tractor: a red hood with a grille and front weights, big tyres behind,
-# small in front, a roofed cab with a seat and steering wheel, a tall exhaust
-# (it smokes in the game), lamps on the mudguards. Its front is -Y.
-X = 140.0
-p = [kit.box((0.9, 1.5, 0.75), (X, -0.55, 0.95), TRACTOR_RED, bevel=0.12, segments=2)]
-p.append(kit.box((0.92, 1.3, 0.08), (X, -0.6, 1.33), '#b8341f', bevel=0.03))
-p.append(kit.box((0.8, 0.06, 0.55), (X, -1.31, 0.95), '#3b3b42', bevel=0.02))
-for k in range(4):
-    p.append(kit.box((0.7, 0.07, 0.04), (X, -1.35, 0.75 + k * 0.13), '#9aa3ad', bevel=0.0))
-for sx in (-1, 1):
-    p.append(kit.cylinder(0.09, 0.06, (X + sx * 0.3, -1.33, 1.28), CHROME, verts=12, rot=(math.pi / 2, 0, 0)))
-    p.append(kit.cylinder(0.07, 0.07, (X + sx * 0.3, -1.34, 1.28), LAMP, verts=12, rot=(math.pi / 2, 0, 0)))
-    for k in range(3):
-        p.append(kit.box((0.03, 0.4, 0.05), (X + sx * 0.46, -0.6 + k * 0.0, 0.85 + k * 0.12), '#3b3b42', bevel=0.0))
-# The front weights, a stack of grey slabs on the nose.
-for k in range(5):
-    p.append(kit.box((0.18, 0.16, 0.4), (X - 0.36 + k * 0.18, -1.5, 0.62), '#5d6b7a', bevel=0.03))
-p.append(kit.box((0.95, 0.14, 0.1), (X, -1.5, 0.86), '#3b3b42', bevel=0.02))
-p.append(kit.box((1.1, 1.0, 0.5), (X, 0.55, 0.85), TRACTOR_RED, bevel=0.08))
-p.append(kit.box((0.6, 0.55, 0.12), (X, 0.62, 1.22), '#2b2b30', bevel=0.04))
-p.append(kit.box((0.6, 0.12, 0.5), (X, 0.9, 1.45), '#2b2b30', bevel=0.04))
-p.append(kit.cylinder(0.2, 0.05, (X, 0.15, 1.45), '#2b2b30', verts=14, rot=(0.9, 0, 0)))
-p.append(kit.cylinder(0.03, 0.4, (X, 0.22, 1.3), '#2b2b30', verts=6, rot=(0.9, 0, 0)))
-for sx in (-1, 1):
-    for sy in (-0.1, 1.0):
-        p.append(kit.box((0.07, 0.07, 1.45), (X + sx * 0.62, sy, 1.85), '#3b3b42', bevel=0.0))
-p.append(kit.box((1.45, 1.4, 0.1), (X, 0.45, 2.6), '#f6f1e4', bevel=0.04))
-p.append(kit.box((1.5, 1.45, 0.06), (X, 0.45, 2.53), TRACTOR_RED, bevel=0.02))
-p.append(kit.box((0.25, 0.25, 0.12), (X, 0.45, 2.7), '#ffb52e', bevel=0.04))
-# The exhaust, with a chrome cap.
-p.append(kit.cylinder(0.06, 1.0, (X + 0.3, -0.9, 1.75), '#3b3b42', verts=8))
-p.append(kit.cylinder(0.08, 0.12, (X + 0.3, -0.9, 2.28), CHROME, verts=10))
-for sx in (-1, 1):
-    p.append(kit.box((0.5, 1.3, 0.1), (X + sx * 0.82, 0.6, 1.5), TRACTOR_RED, bevel=0.04, rot=(0, sx * 0.12, 0)))
-    p.append(kit.box((0.12, 0.08, 0.1), (X + sx * 0.98, 1.2, 1.5), TAIL_LAMP, bevel=0.02))
-    p.append(kit.box((0.12, 0.08, 0.1), (X + sx * 0.98, 0.0, 1.5), '#ffb52e', bevel=0.02))
-    # A step up into the cab.
-    p.append(kit.box((0.25, 0.3, 0.05), (X + sx * 0.6, -0.15, 0.55), '#3b3b42', bevel=0.0))
-p.append(kit.box((0.2, 0.3, 0.2), (X, 1.15, 0.55), '#3b3b42', bevel=0.03))
-wheels = {}
-for side, sx in (('l', -1), ('r', 1)):
-    wheels[f'wheel_b{side}'] = (wheel(X + sx * 0.82, 0.6, 0.72, 0.42), (X + sx * 0.82, 0.6, 0.72))
-    wheels[f'wheel_f{side}'] = (wheel(X + sx * 0.62, -0.95, 0.4, 0.26), (X + sx * 0.62, -0.95, 0.4))
-finish(p, 'fm_tractor', X, moving=wheels, markers={'smoke': (X + 0.3, -0.9, 2.36)})
 
-# Its trailer: a flatbed with low slatted sides on two wheels, a tow bar in front.
-X = 146.0
-p = [kit.box((1.6, 2.4, 0.14), (X, 0, 0.7), PLANK, bevel=0.03)]
-for sx in (-1, 1):
-    p.append(kit.box((0.08, 2.4, 0.35), (X + sx * 0.78, 0, 0.92), PLANK_DARK, bevel=0.0))
-    for k in range(4):
-        p.append(kit.box((0.1, 0.06, 0.4), (X + sx * 0.8, -0.9 + k * 0.6, 0.92), '#7a5230', bevel=0.0))
-for sy in (-1, 1):
-    p.append(kit.box((1.6, 0.08, 0.35), (X, sy * 1.18, 0.92), PLANK_DARK, bevel=0.0))
-p.append(kit.box((1.0, 2.0, 0.12), (X, 0, 0.55), '#3b3b42', bevel=0.0))
-p.append(kit.box((0.12, 1.0, 0.1), (X, -1.65, 0.58), '#3b3b42', bevel=0.0))
-p.append(kit.torus(0.08, 0.025, (X, -2.15, 0.58), '#3b3b42', major_segments=10, minor_segments=4))
-tail_lamps(p, X, 1.24, 1.6, 0.68)
-for sx in (-1, 1):
-    p.append(kit.box((0.3, 0.9, 0.06), (X + sx * 0.88, 0.0, 0.92), '#b8341f', bevel=0.02))
-wheels = {f'wheel_{side}': (wheel(X + sx * 0.88, 0.0, 0.42, 0.24), (X + sx * 0.88, 0.0, 0.42)) for side, sx in (('l', -1), ('r', 1))}
-finish(p, 'fm_trailer', X, moving=wheels)
 
-# The machinery shed: an open-fronted pole barn with a green tin roof, a
-# plank back wall hung with tools, and a workbench.
-X = 152.0
-W = 7.0
-D = 6.2
-p = [kit.box((W + 0.4, D + 0.4, 0.12), (X, 0, 0.06), '#b9b3a7', bevel=0.02)]
-for sx in (-1, 0, 1):
-    for sy in (-1, 1):
-        if sx == 0 and sy == -1:
-            continue  # the front stays open for the tractor
-        p.append(kit.box((0.22, 0.22, 3.2), (X + sx * (W / 2 - 0.15), sy * (D / 2 - 0.15), 1.6), PLANK_DARK, bevel=0.02))
-p.append(kit.box((W, 0.24, 0.3), (X, -D / 2 + 0.15, 3.05), PLANK_DARK, bevel=0.02))
-p.append(kit.box((W, 0.18, 3.0), (X, D / 2 - 0.1, 1.5), PLANK, bevel=0.02))
-for i in range(15):
-    p.append(kit.box((0.04, 0.04, 2.9), (X - W / 2 + 0.3 + i * 0.46, D / 2 - 0.2, 1.5), PLANK_DARK, bevel=0.0))
-for sx in (-1, 1):
-    p.append(kit.box((0.18, D, 1.4), (X + sx * (W / 2 - 0.09), 0.2, 2.3), PLANK, bevel=0.02))
-p.append(kit.box((W + 0.6, D + 0.9, 0.12), (X, 0.1, 3.35), '#5f8f6a', bevel=0.03, rot=(-0.08, 0, 0)))
-for i in range(12):
-    p.append(kit.box((0.05, D + 0.9, 0.06), (X - W / 2 + i * 0.64, 0.1, 3.43), '#4e7a58', bevel=0.0, rot=(-0.08, 0, 0)))
-p.append(kit.box((2.0, 0.6, 0.85), (X + 1.9, D / 2 - 0.55, 0.45), PLANK_DARK, bevel=0.03))
-p.append(kit.box((0.5, 0.4, 0.3), (X + 1.5, D / 2 - 0.55, 1.03), '#c94a3d', bevel=0.04))
-for k, (tx, h) in enumerate(((-2.4, 1.1), (-2.0, 1.3), (-1.6, 1.0))):
-    p.append(kit.box((0.06, 0.06, h), (X + tx, D / 2 - 0.25, 1.4), PLANK_DARK, bevel=0.0))
-    p.append(kit.box((0.28, 0.06, 0.18), (X + tx, D / 2 - 0.25, 1.4 + h / 2), '#9aa3ad', bevel=0.0))
-p.append(kit.cylinder(0.35, 0.8, (X - 2.8, D / 2 - 0.7, 0.4), '#3a7fb0', verts=12))
-p.append(kit.cylinder(0.35, 0.8, (X - 2.1, D / 2 - 0.6, 0.4), '#c94a3d', verts=12))
-p.append(kit.cylinder(0.35, 0.8, (X - 2.45, D / 2 - 1.15, 0.4), '#3a7fb0', verts=12))
-for k in range(2):
-    p.append(kit.torus(0.36, 0.13, (X + W / 2 - 0.7, -D / 2 + 1.2, 0.13 + k * 0.26), '#2b2b30', major_segments=14, minor_segments=6))
-# A wheelbarrow.
-p.append(kit.box((0.7, 0.9, 0.3), (X + 0.3, D / 2 - 1.0, 0.55), '#3f9a55', bevel=0.05))
-p.append(kit.cylinder(0.18, 0.08, (X + 0.3, D / 2 - 1.55, 0.2), '#2b2b30', verts=10, rot=(0, math.pi / 2, 0)))
-for sx in (-1, 1):
-    p.append(kit.box((0.05, 1.0, 0.05), (X + 0.3 + sx * 0.3, D / 2 - 0.65, 0.5), PLANK_DARK, bevel=0.0, rot=(0.25, 0, 0)))
-finish(p, 'fm_shed', X)
-
-# The farm pickup: a sky-blue cab and an open bed with crates in it.
+# The farm pickup: a sky-blue cab and an open bed, parked by the fields to be loaded.
 X = 160.0
 p = [kit.box((1.7, 3.6, 0.4), (X, 0, 0.62), '#2b2b30', bevel=0.04)]
 p.append(kit.box((1.7, 1.5, 0.55), (X, -1.05, 1.0), '#5aa9e0', bevel=0.1, segments=2))
@@ -1222,10 +1155,7 @@ for sx in (-1, 1):
 p.append(kit.box((1.7, 0.08, 0.4), (X, 1.78, 1.1), '#5aa9e0', bevel=0.02))
 tail_lamps(p, X, 1.83, 1.7, 1.1)
 p.append(kit.box((1.6, 0.12, 0.16), (X, 1.86, 0.6), CHROME, bevel=0.03))
-for i, (cx, cy) in enumerate(((-0.4, 0.5), (0.4, 0.5), (-0.4, 1.2), (0.4, 1.2))):
-    p.append(kit.box((0.6, 0.55, 0.32), (X + cx, cy, 1.1), PLANK, bevel=0.02))
-    for k in range(3):
-        p.append(kit.sphere(0.085, (X + cx - 0.15 + k * 0.15, cy, 1.28), (CARROT, CABBAGE, CORN, TOMATO)[i], segments=6))
+# (Its bed is empty: the game stacks what's loaded in it.)
 finish(p, 'fm_pickup', X, moving=road_wheels(X, 3.6, 1.6, r=0.34))
 
 # The feed truck: a yellow cab and a green feed hopper body, its loading
@@ -1302,52 +1232,64 @@ for side, sx in (('l', -1), ('r', 1)):
 finish(p, 'fm_combine', X, moving={'reel': (reel, (X, -2.4, 1.05)), **wheels}, markers={'smoke': (X - 0.7, 1.7, 3.15)})
 
 # --- The valley's value (Part E). -----------------------------------------
-# Apple trees, one per plot, in three stages: a staked sapling, a leafy tree
-# in blossom, a tree heavy with red apples and a basket under it.
+# Apple trees, one per plot: the tree itself, which stays, and what comes and
+# goes on it: blossom while the apples set, then ripe apples (picked, they go,
+# and the blossom comes again).
 CANOPY = '#4fae4a'
 CANOPY_LIGHT = '#68c35a'
 BARK = '#8a5a34'
 
 
-def apple_tree(name, x, stage):
+APPLE_H = 1.5
+
+
+def apple_spots(n=14):
+    """Where blossom opens and apples hang, round the canopy (the same spots for both)."""
+    rng2 = random.Random(41)
+    spots = []
+    for _ in range(n):
+        a = rng2.uniform(0, 2 * math.pi)
+        e = rng2.uniform(-0.2, 1.0)
+        r = 0.9
+        spots.append((math.cos(a) * r * math.cos(e * 0.6), math.sin(a) * r * math.cos(e * 0.6), APPLE_H + 0.5 + math.sin(e) * 0.55))
+    return spots
+
+
+def apple_tree(x):
+    """An apple tree, which stays when its apples are picked: the trunk, two boughs and the canopy."""
+    q = [kit.cylinder(0.13, APPLE_H, (x, 0, APPLE_H / 2), BARK, verts=8)]
+    for sx in (-1, 1):
+        q.append(kit.cylinder(0.06, 0.8, (x + sx * 0.25, 0, APPLE_H - 0.05), BARK, verts=6, rot=(0, sx * 0.7, 0)))
+    blobs = ((0, 0, 0.55, 0.85), (-0.55, 0.2, 0.25, 0.6), (0.55, -0.15, 0.3, 0.62), (0.15, 0.5, 0.35, 0.55), (-0.2, -0.5, 0.3, 0.55), (0, 0, 0.95, 0.55))
+    for i, (bx, by, bz, r) in enumerate(blobs):
+        q.append(kit.sphere(r, (x + bx, by, APPLE_H + bz), CANOPY if i % 2 else CANOPY_LIGHT, segments=8))
+    q.append(kit.cylinder(0.75, 0.04, (x, 0, 0.02), '#6aa84f', verts=12))
+    finish(q, 'fm_apple_tree', x)
+
+
+def apple_blossom(x):
+    """Pink and white blossom over the canopy (shown on the tree while the apples set)."""
+    q = [kit.sphere(0.075, (x + px, py, pz), '#fff0f4' if k % 2 else '#ffc2d6', segments=5) for k, (px, py, pz) in enumerate(apple_spots())]
+    finish(q, 'fm_apple_blossom', x)
+
+
+def apple_fruit(x):
+    """Ripe apples on the tree, a basket of them at its foot and a few fallen: what's picked."""
     q = []
-    if stage == 1:
-        q.append(kit.cylinder(0.06, 1.1, (x, 0, 0.55), BARK, verts=6))
-        q.append(kit.cylinder(0.03, 1.3, (x + 0.15, 0, 0.65), PLANK, verts=4))
-        for k in range(4):
-            a = k * math.pi / 2
-            q.append(kit.sphere(0.22, (x + math.cos(a) * 0.18, math.sin(a) * 0.18, 1.15 + (k % 2) * 0.08), CANOPY_LIGHT, segments=6))
-        q.append(kit.cylinder(0.5, 0.05, (x, 0, 0.03), '#7a5236', verts=12))
-    else:
-        h = 1.4 if stage == 2 else 1.5
-        q.append(kit.cylinder(0.13, h, (x, 0, h / 2), BARK, verts=8))
-        for sx in (-1, 1):
-            q.append(kit.cylinder(0.06, 0.8, (x + sx * 0.25, 0, h - 0.05), BARK, verts=6, rot=(0, sx * 0.7, 0)))
-        blobs = ((0, 0, 0.55, 0.85), (-0.55, 0.2, 0.25, 0.6), (0.55, -0.15, 0.3, 0.62), (0.15, 0.5, 0.35, 0.55), (-0.2, -0.5, 0.3, 0.55), (0, 0, 0.95, 0.55))
-        for i, (bx, by, bz, r) in enumerate(blobs):
-            q.append(kit.sphere(r, (x + bx, by, h + bz), CANOPY if i % 2 else CANOPY_LIGHT, segments=8))
-        rng2 = random.Random(int(x * 10))
-        dots = 10 if stage == 2 else 14
-        for k in range(dots):
-            a = rng2.uniform(0, 2 * math.pi)
-            e = rng2.uniform(-0.2, 1.0)
-            r = 0.85
-            px, py, pz = math.cos(a) * r * math.cos(e * 0.6), math.sin(a) * r * math.cos(e * 0.6), h + 0.5 + math.sin(e) * 0.55
-            if stage == 2:
-                q.append(kit.sphere(0.07, (x + px, py, pz), '#fff0f4' if k % 2 else '#ffc2d6', segments=5))
-            else:
-                q.append(kit.sphere(0.12, (x + px, py, pz), '#e53b30' if k % 3 else '#ff6a3d', segments=6))
-        if stage == 3:
-            q.append(kit.cylinder(0.3, 0.28, (x + 0.55, -0.55, 0.14), PLANK, verts=12))
-            for k in range(5):
-                q.append(kit.sphere(0.1, (x + 0.45 + (k % 3) * 0.1, -0.6 + (k // 3) * 0.12, 0.32), '#e53b30', segments=6))
-            for k in range(3):
-                q.append(kit.sphere(0.1, (x - 0.4 + k * 0.35, 0.5 - k * 0.3, 0.08), '#e53b30', segments=6))
-    finish(q, name, x)
+    for k, (px, py, pz) in enumerate(apple_spots()):
+        q.append(kit.sphere(0.12, (x + px, py, pz), '#e53b30' if k % 3 else '#ff6a3d', segments=6))
+        q.append(kit.box((0.02, 0.02, 0.07), (x + px, py, pz + 0.12), BARK, bevel=0.0))
+    q.append(kit.cylinder(0.3, 0.28, (x + 0.55, -0.55, 0.14), PLANK, verts=12))
+    for k in range(5):
+        q.append(kit.sphere(0.1, (x + 0.45 + (k % 3) * 0.1, -0.6 + (k // 3) * 0.12, 0.32), '#e53b30', segments=6))
+    for k in range(3):
+        q.append(kit.sphere(0.1, (x - 0.4 + k * 0.35, 0.5 - k * 0.3, 0.08), '#e53b30', segments=6))
+    finish(q, 'fm_apple_fruit', x)
 
 
-for i in range(3):
-    apple_tree(f'fm_apple_{i + 1}', 190.0 + i * 3.2, i + 1)
+apple_tree(190.0)
+apple_blossom(193.2)
+apple_fruit(196.4)
 
 # The bakery: red brick, a cream-trimmed shop window full of loaves, a door, a
 # chimney, a sign board over the window (the game paints it), and a bread
@@ -1483,8 +1425,8 @@ VILLAGE = {'fm_well', 'fm_gate', 'fm_windmill', 'fm_chapel'}
 POULTRY = {'fm_henhouse', 'fm_eggtable', 'fm_hen', 'fm_hen_brown', 'fm_rooster', 'fm_trough', 'fm_feedstore'}
 DAIRY = {'fm_cowbarn', 'fm_cow', 'fm_cow_brown', 'fm_dairy', 'fm_orders'}
 VEHICLES = {'fm_van', 'fm_tanker', 'fm_pickup', 'fm_feedtruck'}
-MACHINES = {'fm_tractor', 'fm_trailer', 'fm_shed', 'fm_combine'}
-VALLEY = {'fm_apple_1', 'fm_apple_2', 'fm_apple_3', 'fm_bakery', 'fm_market', 'fm_windmill_fixed', 'fm_sails'}
+MACHINES = {'fm_combine'}
+VALLEY = {'fm_apple_tree', 'fm_apple_blossom', 'fm_apple_fruit', 'fm_bakery', 'fm_market', 'fm_windmill_fixed', 'fm_sails'}
 SETS = (('', BUILDINGS), ('-village', VILLAGE), ('-poultry', POULTRY), ('-dairy', DAIRY), ('-vehicles', VEHICLES), ('-machines', MACHINES), ('-valley', VALLEY))
 glb = Path(sys.argv[1] if len(sys.argv) > 1 else 'farm.glb')
 # Each file well under the 512 KiB a Playables file may weigh; the props and crops take whatever's left.

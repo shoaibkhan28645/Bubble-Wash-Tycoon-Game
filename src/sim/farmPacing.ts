@@ -9,8 +9,8 @@
 // (crops, hens, cows, the bakery), moved as fast as the people and machines
 // built can move them, and sold to villagers (one of everything per
 // basket) at the stand and the market, with the rest going out in vans at
-// order prices. Upgrades, the day's specials and the hero driving the
-// tractor are left out, so a real player is usually a little faster. The
+// order prices. Upgrades and the day's specials are left out, so a real
+// player is usually a little faster. The
 // helpers' rates come from the game itself, played hands off for several
 // minutes at four stages of the farm; the model comes within about 10% of
 // what each earned.
@@ -33,7 +33,7 @@ export interface FarmPacingOptions {
 export const FARM_PACING: FarmPacingOptions = { stars: 4, heroPerMinute: 16, step: 1, maxMinutes: 240 };
 
 /** Goods a minute each helper moves (round trips with a full back, less breaks), measured in play. */
-const HELPERS = { farmhand: 18, pickup: 20, tractordriver: 4, eggcollector: 6, milker: 6, baker: 6 };
+const HELPERS = { farmhand: 18, pickup: 28, eggcollector: 6, milker: 6, baker: 6 };
 /** Serving takes this share of the hero's time at each counter nobody else serves (a basket sells several goods at once). */
 const SERVING = 0.25;
 /** Villagers served quickly tip. */
@@ -105,7 +105,7 @@ export function farmFlows(pads: readonly PadDef[], unlocked: ReadonlySet<string>
   // Moved, per second: who carries each chain.
   const crops = ['veg', 'corn', 'apple'].filter((g) => made[g]);
   const helpers: Record<string, number> = {
-    crops: (staff.has('farmhand') ? (machine.has('pickup') ? HELPERS.pickup : HELPERS.farmhand) : 0) + (machine.has('tractorDriver') ? HELPERS.tractordriver : 0),
+    crops: staff.has('farmhand') ? (machine.has('pickup') ? HELPERS.pickup : HELPERS.farmhand) : 0,
     eggs: staff.has('eggcollector') ? HELPERS.eggcollector : 0,
     milk: staff.has('milker') ? HELPERS.milker : 0,
     baked: staff.has('baker') ? HELPERS.baker : 0,

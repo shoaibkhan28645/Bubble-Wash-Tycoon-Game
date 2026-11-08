@@ -1,8 +1,8 @@
 // The barn as a store (Chapter 2, Part D): crates unloaded at its doors (from
-// the tractor's trailer, or anyone's back) are kept in the barn, and the barn
-// hands them on by itself: a crate to the stand whenever it has room, and to
-// any van in the yard waiting for that good. The tractor can harvest far more
-// than anyone could carry, and the barn makes sure none of it waits.
+// the pickup, the combine, the baker, or anyone's back) are kept in the barn,
+// and the barn hands them on by itself: a crate to the stand whenever it has
+// room, and to any van in the yard waiting for that good. The machines bring
+// in far more than anyone could carry, and the barn makes sure none of it waits.
 import { GOODS, TUNING, type Rect } from '../core/config';
 import type { GameState } from '../core/gameState';
 import type { CrateCarrier, GoodId, StandStock } from './crops';
@@ -36,14 +36,14 @@ export class BarnStore {
     return this.total < this.capacity();
   }
 
-  /** In reach of the barn doors (the tractor's middle, or someone on foot). */
+  /** In reach of the barn doors. */
   atDoor(p: { x: number; z: number }): boolean {
     return insideRect(p, this.door);
   }
 
   /**
    * One frame: carriers at the doors unload a crate each `handSeconds`
-   * (`fast` ones, the trailer, ten times as quick); then the barn passes a
+   * (`fast` ones ten times as quick); then the barn passes a
    * crate on to the stand every `restockSeconds` if it has room, and loads
    * vans waiting for what it holds.
    */

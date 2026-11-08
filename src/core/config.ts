@@ -90,8 +90,8 @@ export interface PadEffects {
   van?: boolean;
   /** A delivery driver: the vans take orders by themselves. */
   driver?: boolean;
-  /** A farm machine: the farmhand's pickup, the tractor (and its shed), its driver, the feed truck, the combine. */
-  machine?: 'pickup' | 'tractor' | 'tractorDriver' | 'feedTruck' | 'combine';
+  /** A farm machine: the farmhand's pickup, the feed truck, the combine. */
+  machine?: 'pickup' | 'feedTruck' | 'combine';
 }
 
 export interface PadDef {
@@ -316,13 +316,13 @@ export interface FarmLayout extends TownLayout, WalkUpLayout {
   bakery: { table: Point; zone: Rect };
   /** The old windmill on its hill (restored as the landmark). */
   windmill: Point;
-  /** The machines: where the tractor parks (in the shed), the barn doors it unloads at, and the routes the machines drive. */
+  /** The machines: the barn doors where crates are unloaded, and the routes the machines drive. */
   machines: {
-    tractorPark: Point;
-    tractorHeading: number;
     barnDoor: Rect;
-    /** The tractor driver's loop round the fields and back to the barn doors. */
-    tractorRoute: Point[];
+    /** The pickup's run from where it parks, between the fields, to the barn doors. */
+    pickupRoute: Point[];
+    /** Behind the parked pickup's tailgate, where it's loaded. */
+    pickupBay: Rect;
     /** Where the feed truck stops, out to the edge of the map. */
     feedTruckRoute: Point[];
     /** The combine's round trip from where it parks, over the corn field and home. */

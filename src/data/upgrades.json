@@ -105,20 +105,6 @@
       "max": 3,
       "step": 1
     },
-    "engine": {
-      "name": "Engine",
-      "effect": "Drives 10% faster",
-      "base": 600,
-      "max": 5,
-      "factor": 1.1
-    },
-    "trailer": {
-      "name": "Bigger trailer",
-      "effect": "+2 crates on the trailer",
-      "base": 500,
-      "max": 5,
-      "step": 2
-    },
     "trip": {
       "name": "Faster trips",
       "effect": "Trips 10% shorter",
@@ -161,7 +147,6 @@
     "eggcollector": 1.4,
     "cowbarn": 2,
     "milker": 2,
-    "tractor": 3,
     "van": 3,
     "tanker": 3,
     "bakery": 3,
@@ -245,12 +230,6 @@
       "milker.staffSpeed",
       "milker.staffCarry"
     ],
-    "tractor": [
-      "tractor.engine",
-      "tractor.trailer",
-      "van.trip",
-      "tanker.trip"
-    ],
     "bakery": [
       "bakery.oven",
       "baker.staffSpeed",
@@ -258,6 +237,10 @@
       "market.speed",
       "market.quality",
       "marketstaff.staffSpeed"
+    ],
+    "van": [
+      "van.trip",
+      "tanker.trip"
     ]
   }
 }

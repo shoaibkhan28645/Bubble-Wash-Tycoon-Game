@@ -1,185 +1,192 @@
-// The farm's machines (Chapter 2, Part D), as played: the tractor the hero
-// climbs into and drives over the fields (its trailer fills with whatever
-// ripe crops it passes, and empties at the barn doors), the tractor driver
-// who takes it over, the farmhand's pickup, the feed truck that comes from
-// town when the feed store runs low, and the combine that sweeps the corn
-// field whenever it's ripe.
+// The farm's machines (Chapter 2, Part D), as played: the farm pickup, parked
+// on the track between the fields, which the farmhand loads as he picks and
+// which takes each full load to the barn doors and comes back; the feed truck
+// that comes from town when the feed store runs low; and the combine that
+// sweeps the corn field whenever it's ripe.
 import { Group, Vector3, type Object3D, type Scene } from 'three';
-import { TUNING, UPGRADES, type FarmLayout, type Point, type Rect } from './config';
+import { GOODS, TUNING, type FarmLayout, type Rect } from './config';
 import type { GameState } from './gameState';
-import type { SoundManager } from '../audio/sound';
 import { farmModel } from '../render/models/farm';
 import { VanFleet } from '../render/models/vans';
 import type { FarmMotion } from '../render/farmMotion';
 import type { Livestock } from '../systems/animals';
 import type { BarnStore } from '../systems/barn';
-import { Carrier } from '../systems/carry';
-import { GOODS } from './config';
-import type { CrateCarrier, Crops, GoodId } from '../systems/crops';
-import { levelFactor, levelStep } from '../systems/economy';
-import type { GuideStep } from '../systems/guide';
-import type { MoveInput } from '../systems/input';
-import type { Player } from '../systems/player';
 import type { StaffSystem } from '../systems/staff';
-import { Rig, TractorDriver, routeAt, routeMarks } from '../systems/vehicles';
+import { Carrier } from '../systems/carry';
+import type { CrateCarrier, Crops, GoodId } from '../systems/crops';
+import { insideRect } from '../systems/stations';
+import { routeAt, routeMarks } from '../systems/vehicles';
 import type { Floaters } from '../ui/carBubbles';
-import { t } from '../ui/strings';
 import type { Label, WorldLabels } from '../ui/worldLabels';
 
-/** How close to the tractor's door the hero climbs in, and how long after getting out before climbing back in is allowed. */
-const DOOR_REACH = 1.6;
-const REBOARD_SECONDS = 1.2;
-/** The hero sits this high in the tractor. */
-const SEAT = { y: 0.85, back: 0.55 };
+/** Seconds the pickup takes to turn round at either end of its run. */
+const TURN_SECONDS = 1.1;
+/** It sets off with this many crates aboard once nobody has loaded it for a while (or with a full bed). */
+const MIN_LOAD = 4;
 
 export interface Machines {
-  /** The hero is driving the tractor (the player doesn't walk). */
-  readonly driving: boolean;
-  /** The trailer, for unloading at the barn and van bays (null before the tractor is built). */
-  readonly trailer: CrateCarrier | null;
+  /** Where to load the pickup while it's parked (null while it's away, or not bought). */
+  pickupBay(): Rect | null;
   /** A pad was built (or was already built on arrival). */
   built(id: string): void;
-  /**
-   * One frame, before the hero walks: the tractor drives (by the stick, or
-   * its driver), harvests what it passes, and the other machines run.
-   */
-  update(dt: number, now: number, move: MoveInput, obstacles: readonly Rect[], bounds: Rect): void;
-  /** What the guide hand should point at for the machines, if anything. */
-  guide(): GuideStep | null;
-  dispose(): void;
+  /** One frame: the pickup is loaded from `carriers` at its bay and runs to the barn; the other machines run. */
+  update(dt: number, now: number, carriers: readonly CrateCarrier[]): void;
 }
 
+type PickupPhase = 'parked' | 'out' | 'unloading' | 'turnBack' | 'back' | 'turnHome';
+
 export function createMachines(deps: {
-  root: HTMLElement;
   scene: Scene;
   layout: FarmLayout;
   state: GameState;
-  sound: SoundManager;
   labels: WorldLabels;
   floaters: Floaters;
-  player: Player;
   crops: Crops;
   barn: BarnStore;
   livestock: Livestock;
+  /** The farm's staff: the pickup speeds the farmhand up (no more walks to the barn). */
   staff: StaffSystem;
-  flag: (name: string) => void;
-  /** The town's id, for its flags. */
-  townId: string;
   /** Turns wheels and puffs exhaust (render/farmMotion.ts). */
   motion: FarmMotion;
 }): Machines {
-  const { root, scene, layout, state, sound, labels, floaters, player, crops, barn, livestock, staff, flag } = deps;
+  const { scene, layout, state, labels, floaters, crops, barn, livestock } = deps;
   // The feed truck and the combine drive their routes (the delivery vans are the farm game's own).
   const fleet = new VanFleet((model) => deps.motion.vehicle(model));
   scene.add(fleet.group);
   const { machines: spots } = layout;
-  const level = (key: string) => state.levels[key] ?? 0;
   const has = (id: string) => state.unlocked.includes(id);
-  const droveFlag = `drove:${deps.townId}`;
   const group = new Group();
   scene.add(group);
 
-  // The tractor and its trailer.
-  let rig: Rig | null = null;
-  let tractorModel: Object3D | null = null;
-  let trailerModel: Object3D | null = null;
-  let trailer: CrateCarrier | null = null;
-  let driver: TractorDriver | null = null;
-  let driving = false;
-  let sinceOut = REBOARD_SECONDS;
-  const engine = () => levelFactor(UPGRADES.kinds.engine, level('tractor.engine'));
-  const trailerSize = () => TUNING.machines.trailer + levelStep(UPGRADES.kinds.trailer, level('tractor.trailer'));
+  // Crates left on the old tractor's trailer (a save from before it was retired) go into the barn.
+  for (const good of Object.keys(GOODS) as GoodId[]) {
+    const key = `trailer.${good}`;
+    if (state.supplies[key]) barn.store(good, state.supplies[key]!);
+    delete state.supplies[key];
+  }
 
-  const doorPoint = (): Point | null => {
-    if (!rig) return null;
-    // The door is on the tractor's left side.
-    return { x: rig.at.x + Math.cos(rig.heading) * 1.3, z: rig.at.z - Math.sin(rig.heading) * 1.3 };
-  };
-  const prompt = document.createElement('div');
-  prompt.className = 'upgrade-icon drive-prompt';
-  prompt.textContent = t('driveIn');
-  const promptAt = new Vector3();
-  const promptLabel: Label = labels.add(prompt, promptAt);
-  promptLabel.visible = false;
-  const trailerText = document.createElement('div');
-  trailerText.className = 'shelf-stock';
-  const trailerAt = new Vector3();
-  const trailerLabel: Label = labels.add(trailerText, trailerAt);
-  trailerLabel.visible = false;
-  let trailerShown = '';
+  // The pickup: parked between the fields, its bed loaded from behind the tailgate; off to the barn when full.
+  const route = spots.pickupRoute;
+  const marks = routeMarks(route);
+  const length = marks[marks.length - 1] ?? 0;
+  const { bed: bedSize, speed, wait, unloadSeconds } = TUNING.machines.pickup;
+  let pickup: {
+    model: Object3D;
+    bed: CrateCarrier;
+    phase: PickupPhase;
+    along: number;
+    turn: number;
+    idle: number;
+    timer: number;
+  } | null = null;
+  const bedText = document.createElement('div');
+  bedText.className = 'shelf-stock';
+  const bedAt = new Vector3();
+  const bedLabel: Label = labels.add(bedText, bedAt);
+  bedLabel.visible = false;
+  let bedShown = '';
 
-  // The "Get out" button while driving.
-  const exitButton = document.createElement('button');
-  exitButton.type = 'button';
-  exitButton.className = 'drive-exit';
-  exitButton.textContent = `🚶 ${t('getOut')}`;
-  exitButton.hidden = true;
-  root.appendChild(exitButton);
-  const getOut = (): void => {
-    if (!driving) return;
-    driving = false;
-    sinceOut = 0;
-    exitButton.hidden = true;
-    const door = doorPoint();
-    if (door) player.mesh.position.set(door.x, 0, door.z);
-    sound.play('click');
+  /** Keeps the bed's crates in the save. */
+  const saveBed = (): void => {
+    if (!pickup) return;
+    for (const good of Object.keys(GOODS) as GoodId[]) state.supplies[`pickup.${good}`] = pickup.bed.count(good);
   };
-  exitButton.addEventListener('click', getOut);
-  // A tap on the button is the button's, not the start of a joystick drag.
-  exitButton.addEventListener('pointerdown', (e) => e.stopPropagation());
-
-  /** Keeps the trailer's crates in the save (they're on the trailer, not in any store). */
-  const saveTrailer = (): void => {
-    if (!trailer) return;
-    for (const good of Object.keys(GOODS) as GoodId[]) state.supplies[`trailer.${good}`] = trailer.count(good);
-  };
-
-  const buildTractor = (): void => {
-    if (rig) return;
-    rig = new Rig(spots.tractorPark, spots.tractorHeading);
-    tractorModel = farmModel('fm_tractor');
-    trailerModel = farmModel('fm_trailer');
-    for (const m of [tractorModel, trailerModel]) {
-      m.traverse((node) => (node.castShadow = node.receiveShadow = true));
-      group.add(m);
-      deps.motion.vehicle(m);
-    }
-    // Crates sit in rows on the trailer's bed (the carrier draws its stack 1 m up and half a metre back).
-    const pile = new Group();
-    pile.position.set(0, -0.2, 0.5);
-    trailerModel.add(pile);
-    trailer = new Carrier<GoodId>(pile, () => rig!.at, trailerSize);
-    trailer.arrange = (i) => [((i % 2) - 0.5) * 0.5, Math.floor(i / 6) * 0.2, ((Math.floor(i / 2) % 3) - 1) * 0.42];
-    for (const good of Object.keys(GOODS) as GoodId[]) for (let i = 0; i < (state.supplies[`trailer.${good}`] ?? 0); i++) trailer.push(good);
-    placeModels();
-  };
-  const placeModels = (): void => {
-    if (!rig || !tractorModel || !trailerModel) return;
-    tractorModel.position.set(rig.at.x, 0, rig.at.z);
-    tractorModel.rotation.y = rig.heading;
-    trailerModel.position.set(rig.trailer.at.x, 0, rig.trailer.at.z);
-    trailerModel.rotation.y = rig.trailer.heading;
-  };
-  const hireDriver = (): void => {
-    if (!rig || driver) return;
-    driver = new TractorDriver(spots.tractorRoute);
-    if (driving) getOut();
-    // He takes the tractor out to the fields.
-    const start = spots.tractorRoute[0]!;
-    rig.place(start, -Math.PI / 2);
-    driver.rejoin(start);
-    placeModels();
-  };
-
-  // The farmhand's pickup: drawn in the farmhand's place, faster and carrying more.
-  let pickup: Object3D | null = null;
   const buildPickup = (): void => {
     if (pickup) return;
-    staff.bonuses.farmhand = { speed: TUNING.machines.pickup.speed, carry: TUNING.machines.pickup.carry };
-    pickup = farmModel('fm_pickup');
-    pickup.traverse((node) => (node.castShadow = true));
-    group.add(pickup);
-    deps.motion.vehicle(pickup);
+    // With the pickup parked by the plots the farmhand never walks to the barn: they pick faster and stack more.
+    deps.staff.bonuses.farmhand = TUNING.machines.pickup.farmhand;
+    const model = farmModel('fm_pickup');
+    model.traverse((node) => (node.castShadow = true));
+    group.add(model);
+    deps.motion.vehicle(model);
+    // Crates stand in the bed in two rows of three, two layers (the carrier draws its stack 1 m up and half a metre back).
+    const pile = new Group();
+    pile.position.set(0, -0.08, -0.35);
+    model.add(pile);
+    const bed = new Carrier<GoodId>(pile, () => ({ x: model.position.x, z: model.position.z }), () => bedSize);
+    bed.arrange = (i) => [((i % 2) - 0.5) * 0.55, Math.floor(i / 6) * 0.22, ((Math.floor(i / 2) % 3) - 1) * 0.5];
+    for (const good of Object.keys(GOODS) as GoodId[]) for (let i = 0; i < (state.supplies[`pickup.${good}`] ?? 0); i++) bed.push(good);
+    pickup = { model, bed, phase: 'parked', along: 0, turn: 0, idle: 0, timer: 0 };
+    place(0, 0);
+  };
+  /** Puts the pickup `distance` along its run, turned `extra` radians from the way the run goes. */
+  const place = (distance: number, extra: number): void => {
+    if (!pickup) return;
+    const { at, heading } = routeAt(route, marks, distance);
+    pickup.model.position.set(at.x, 0, at.z);
+    pickup.model.rotation.y = heading + extra;
+  };
+  const runPickup = (dt: number, carriers: readonly CrateCarrier[]): void => {
+    if (!pickup) return;
+    const { bed } = pickup;
+    pickup.idle += dt;
+    switch (pickup.phase) {
+      case 'parked': {
+        // Anyone carrying crops behind the tailgate hands them up, one crate at a time.
+        for (const carrier of carriers) {
+          if (bed.full) break;
+          if (carrier.timer > 0 || carrier.stack.length === 0 || !insideRect(carrier.position, spots.pickupBay)) continue;
+          const good = carrier.stack[carrier.stack.length - 1]!;
+          carrier.remove(good);
+          bed.push(good);
+          carrier.timer = TUNING.supplies.handSeconds;
+          pickup.idle = 0;
+        }
+        if (bed.full || (bed.stack.length >= MIN_LOAD && pickup.idle >= wait)) pickup.phase = 'out';
+        place(0, 0);
+        break;
+      }
+      case 'out':
+        pickup.along = Math.min(length, pickup.along + speed * dt);
+        place(pickup.along, 0);
+        if (pickup.along >= length) pickup.phase = 'unloading';
+        break;
+      case 'unloading':
+        // Crate by crate in at the barn doors; if the barn's full, it brings the rest back.
+        pickup.timer -= dt;
+        if (pickup.timer <= 0 && bed.stack.length > 0 && barn.hasRoom) {
+          pickup.timer = unloadSeconds;
+          const good = bed.stack[bed.stack.length - 1]!;
+          bed.remove(good);
+          barn.store(good, 1);
+        }
+        if (bed.stack.length === 0 || !barn.hasRoom) {
+          pickup.phase = 'turnBack';
+          pickup.turn = 0;
+        }
+        break;
+      case 'turnBack':
+      case 'turnHome': {
+        // A neat turn on the spot, round to face the other way.
+        pickup.turn = Math.min(1, pickup.turn + dt / TURN_SECONDS);
+        const k = pickup.turn * pickup.turn * (3 - 2 * pickup.turn);
+        const home = pickup.phase === 'turnHome';
+        place(pickup.along, home ? Math.PI * (1 + k) : Math.PI * k);
+        if (pickup.turn >= 1) {
+          pickup.phase = home ? 'parked' : 'back';
+          pickup.idle = 0;
+        }
+        break;
+      }
+      case 'back':
+        pickup.along = Math.max(0, pickup.along - speed * dt);
+        place(pickup.along, Math.PI);
+        if (pickup.along <= 0) {
+          pickup.phase = 'turnHome';
+          pickup.turn = 0;
+        }
+        break;
+    }
+    bed.update(dt, pickup.phase === 'out' || pickup.phase === 'back');
+    saveBed();
+    const text = `🛻 ${bed.stack.length} / ${bed.capacity()}`;
+    bedLabel.visible = bed.stack.length > 0 || pickup.phase === 'parked';
+    bedAt.set(pickup.model.position.x, 2.3, pickup.model.position.z);
+    if (text !== bedShown) {
+      bedShown = text;
+      bedText.textContent = text;
+      labels.remeasure(bedLabel);
+    }
   };
 
   // The feed truck: a visit from town whenever the feed store runs low.
@@ -225,6 +232,7 @@ export function createMachines(deps: {
     if (!plot) return;
     const { yield: crates, hay } = TUNING.machines.combine;
     barn.store('corn', crates);
+    state.counts.harvest = (state.counts.harvest ?? 0) + crates;
     // The straw is baled into hay for the animals.
     if (livestock.hasFeeder) state.supplies.feed = Math.min(TUNING.feed.cap, (state.supplies.feed ?? 0) + hay);
     floaters.show(`+${crates} 🌽`, new Vector3(plot.at.x, 2.2, plot.at.z), 'star');
@@ -232,78 +240,17 @@ export function createMachines(deps: {
   const combineProgress = (now: number) => (combineStart === null ? null : Math.min(1, (now - combineStart) / 1000 / combineSeconds()));
 
   return {
-    get driving() {
-      return driving;
-    },
-    get trailer() {
-      return trailer;
+    pickupBay() {
+      return pickup?.phase === 'parked' ? spots.pickupBay : null;
     },
     built(id) {
       if (!state.unlocked.includes(id)) return;
-      if (id === 'tractor') buildTractor();
-      if (id === 'tractordriver' && has('tractor')) hireDriver();
       if (id === 'pickup') buildPickup();
       if (id === 'feedtruck') buildFeedTruck();
       if (id === 'combine') buildCombine();
-      // The tractor arrives after its driver was hired in an old save: let him drive it.
-      if (id === 'tractor' && has('tractordriver')) hireDriver();
     },
-    update(dt, now, move, obstacles, bounds) {
-      sinceOut += dt;
-      if (rig && trailer) {
-        if (driving) {
-          rig.drive(dt, move, obstacles, bounds, engine());
-          // The hero sits in the seat; the camera follows the tractor.
-          player.mesh.position.set(rig.at.x - Math.sin(rig.heading) * SEAT.back, SEAT.y, rig.at.z - Math.cos(rig.heading) * SEAT.back);
-          player.mesh.rotation.y = rig.heading;
-        } else if (driver) {
-          const unloading = trailer.stack.length > 0 && barn.atDoor(rig.at) && barn.hasRoom;
-          driver.update(dt, rig, unloading, obstacles, bounds, engine());
-        } else {
-          rig.brake(dt);
-        }
-        // Whatever ripe crop the tractor passes over goes into the trailer, far faster than by hand.
-        const before = trailer.stack.length;
-        crops.update(dt * TUNING.machines.tractorHarvest, now, [trailer], (crop) => crop !== 'apple');
-        if (trailer.stack.length > before) {
-          state.counts.tractorCrate = (state.counts.tractorCrate ?? 0) + 1;
-          if (driving) {
-            flag(droveFlag);
-            sound.play('pop');
-            floaters.show(`+1 ${GOODS[trailer.stack[trailer.stack.length - 1]!]!.icon}`, new Vector3(rig.at.x, 2.6, rig.at.z), 'star');
-          }
-        }
-        trailer.update(dt, rig.speed > 0.2);
-        placeModels();
-        saveTrailer();
-        // Climbing in: walk up to the door (not while someone else drives it).
-        const door = doorPoint()!;
-        const near = Math.hypot(player.position.x - door.x, player.position.z - door.z);
-        const canBoard = !driving && !driver && sinceOut >= REBOARD_SECONDS;
-        promptLabel.visible = canBoard && near < 5;
-        promptAt.set(door.x, 0.4, door.z);
-        if (canBoard && near < DOOR_REACH) {
-          driving = true;
-          exitButton.hidden = false;
-          sound.play('click');
-        }
-        const text = trailer.stack.length > 0 || driving ? `🛻 ${trailer.stack.length} / ${trailer.capacity()}` : null;
-        trailerLabel.visible = text !== null;
-        trailerAt.set(rig.trailer.at.x, 2.0, rig.trailer.at.z);
-        if (text && text !== trailerShown) {
-          trailerShown = text;
-          trailerText.textContent = text;
-          labels.remeasure(trailerLabel);
-        }
-      }
-      if (pickup) {
-        const hand = staff.avatarOf('farmhand');
-        if (hand) {
-          hand.root.visible = false;
-          pickup.position.set(hand.root.position.x, 0, hand.root.position.z);
-          pickup.rotation.y = hand.root.rotation.y;
-        }
-      }
+    update(dt, now, carriers) {
+      runPickup(dt, carriers);
       if (has('feedtruck')) runFeedTruck(now);
       if (has('combine')) runCombine(now);
       fleet.update(
@@ -314,20 +261,6 @@ export function createMachines(deps: {
         },
         (id) => (id === 'combine' ? combineSeconds() : TUNING.machines.feedTruck.trip),
       );
-    },
-    guide() {
-      if (!rig || !trailer || driver) return null;
-      if (!driving) return state.flags.includes(droveFlag) ? null : { at: doorPoint()!, text: 'guideDrive' };
-      const now = Date.now();
-      const ripe = crops.nearestRipe(rig.at, now);
-      if (trailer.stack.length > 0 && (trailer.full || !ripe)) {
-        const d = spots.barnDoor;
-        return { at: { x: (d.minX + d.maxX) / 2, z: (d.minZ + d.maxZ) / 2 }, text: 'guideBarnDoor' };
-      }
-      return !state.flags.includes(droveFlag) && ripe ? { at: ripe.at, text: 'guideTractorHarvest' } : null;
-    },
-    dispose() {
-      exitButton.remove();
     },
   };
 }
