@@ -1,4 +1,5 @@
 import { Loop } from './loop';
+import * as platform from '../platform/youtube';
 import { GameClock } from './clock';
 import { TUNING, UPGRADES, fixedSolids, roadLaneAt, type Rect } from './config';
 import type { Game } from './game';
@@ -284,7 +285,7 @@ export function createRoadsideGame(
     pointer.update(stage.camera, stage.size.width, stage.size.height, goal, { top: view.topInset, right: SIDE_BAR_PX });
     hud.update(dt, state.cash, state.stars, state.gems);
     for (const ticker of tickers) ticker(dt);
-  });
+  }, (error) => platform.logError(error));
 
   // Any tap or key unlocks audio (browsers need a gesture first).
   const unlockAudio = (): void => {
@@ -317,6 +318,9 @@ export function createRoadsideGame(
     welcomeBack: (earned) => meta.welcomeBack(earned),
     get frameMs() {
       return loop.busyMs;
+    },
+    get frameErrors() {
+      return { count: loop.errors, last: loop.lastError };
     },
     renderOnce() {
       // Compile every material now, behind the loading screen, not mid-game.

@@ -101,7 +101,9 @@ export function createDebugOverlay({ root, game, state, saves, lifecycle, dev, r
     const memory = (performance as { memory?: { usedJSHeapSize: number } }).memory;
     const heap = memory ? ` · heap ${Math.round(memory.usedJSHeapSize / 1048576)} MB` : '';
     const ready = readyMs() ? ` · ready ${(readyMs() / 1000).toFixed(1)} s` : '';
-    gpu.textContent = `GPU ${game().stage.gpu} · res ${game().stage.pixelRatio.toFixed(2)}× · shaders ${game().stage.programs}${ready}${heap}${lost ? ` · crashed ${lost}×` : ''}`;
+    const { count, last } = game().frameErrors;
+    const errors = count ? ` · errors ${count}: ${last.slice(0, 80)}` : '';
+    gpu.textContent = `GPU ${game().stage.gpu} · res ${game().stage.pixelRatio.toFixed(2)}× · shaders ${game().stage.programs}${ready}${heap}${lost ? ` · crashed ${lost}×` : ''}${errors}`;
     // Shadows also switch off by themselves after a GPU crash.
     shadowButton.textContent = shadowLabel();
   }

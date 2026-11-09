@@ -24,6 +24,8 @@ export interface Game {
   readonly staff: StaffSystem | null;
   /** Average JavaScript milliseconds per frame, for the debug panel. */
   readonly frameMs: number;
+  /** Frames that threw an error, and the last one's message (the debug panel). */
+  readonly frameErrors: { count: number; last: string };
   /** Draws one frame without starting the loop (behind the loading screen). */
   renderOnce(): void;
   start(): void;

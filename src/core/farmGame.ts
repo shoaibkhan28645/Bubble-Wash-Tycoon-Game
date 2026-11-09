@@ -884,7 +884,7 @@ export function createFarmGame(
     pointer.update(stage.camera, stage.size.width, stage.size.height, goal, { top: view.topInset, right: SIDE_BAR_PX });
     hud.update(dt, state.cash, state.stars, state.gems);
     for (const ticker of tickers) ticker(dt);
-  });
+  }, (error) => platform.logError(error));
 
   // Any tap or key unlocks audio (browsers need a gesture first).
   const unlockAudio = (): void => {
@@ -916,6 +916,9 @@ export function createFarmGame(
     welcomeBack: (earned) => meta.welcomeBack(earned),
     get frameMs() {
       return loop.busyMs;
+    },
+    get frameErrors() {
+      return { count: loop.errors, last: loop.lastError };
     },
     renderOnce() {
       stage.renderer.compile(stage.scene, stage.camera);

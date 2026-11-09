@@ -1,9 +1,13 @@
 // The ways a busy town is drawn with fewer draw calls (and less work a frame)
 // still draw the same thing: animals and machines as one skinned mesh, every
-// carried item instanced, and the road rules' kept sums.
+// carried item instanced, and the road rules' kept sums. And nothing a frame
+// does can stop the game: words for every key made at run time.
 import { describe, expect, it } from 'vitest';
 import { Bone, BoxGeometry, Group, InstancedMesh, Matrix4, Mesh, MeshLambertMaterial, Scene, SkinnedMesh, Vector3 } from 'three';
-import type { Point } from '../src/core/config';
+import { CONTRACTS, DAILY, GOODS, TUNING, type Point } from '../src/core/config';
+import type { GoodId } from '../src/systems/crops';
+import { orderText } from '../src/ui/ordersPanel';
+import { hasString, t, type StringKey } from '../src/ui/strings';
 import { rigidSkin } from '../src/render/models/rigid';
 import { Carrier, carriedItems, type CarryItem } from '../src/systems/carry';
 import type { Car } from '../src/systems/cars';
@@ -137,5 +141,23 @@ describe('road rules keep their sums only while nothing has changed', () => {
     me.path = [{ x: 0, z: -10 }];
     me.facing = Math.PI;
     expect(blocked(me)).toBe(false);
+  });
+});
+
+describe('words for everything named at run time', () => {
+  // A missing one used to throw, and an apple order on the farm's board stopped the whole game.
+  it('has a unit for every good, a name for every van, every mission and every contract task', () => {
+    const keys = [
+      ...Object.keys(GOODS).map((good) => `unit_${good}`),
+      ...Object.keys(TUNING.vans).map((van) => `vanName_${van}`),
+      ...DAILY.missions.map((m) => `m_${m.id}`),
+      ...CONTRACTS.kinds.map((k) => `task_${k.task}`),
+    ];
+    expect(keys.filter((key) => !hasString(key))).toEqual([]);
+    for (const good of Object.keys(GOODS)) expect(orderText({ good: good as GoodId, qty: 3 })).toMatch(/^3 /);
+  });
+
+  it('shows a key with no words as itself instead of throwing', () => {
+    expect(t('no_such_words' as StringKey)).toBe('no_such_words');
   });
 });

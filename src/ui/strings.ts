@@ -103,6 +103,9 @@ const EN = {
   unit_corn: '{n} crates of corn',
   unit_eggs: '{n} cartons of eggs',
   unit_milk: '{n} bottles of milk',
+  unit_apple: '{n} crates of apples',
+  unit_bread: '{n} trays of bread',
+  unit_pie: '{n} apple pies',
   firstCombo: 'Combo! Fuel and a wash pay more',
   hired: '{name} hired: {adds}',
   contractsTitle: 'Contracts board',
@@ -178,6 +181,18 @@ export function hasString(key: string): key is StringKey {
 
 /** A string with {placeholders} filled in, e.g. t('day', { n: 3 }). */
 export function t(key: StringKey, values: Record<string, string | number> = {}): string {
-  const text: string = table[key] ?? EN[key];
+  const text: string | undefined = table[key] ?? EN[key];
+  // A key made up at run time (`unit_${good}`) with no words yet shows as itself rather than
+  // throwing: a missing string once stopped the whole game (the orders board, for apple orders).
+  if (text === undefined) {
+    if (!missing.has(key)) {
+      missing.add(key);
+      console.warn(`No words for "${key}"`);
+    }
+    return key;
+  }
   return text.replace(/\{(\w+)\}/g, (match, name: string) => (name in values ? String(values[name]) : match));
 }
+
+/** Keys already warned about. */
+const missing = new Set<string>();
