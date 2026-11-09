@@ -153,9 +153,12 @@ export class PersonAvatar {
     if (this.tool) this.tool.visible = this.holding || (scrubbing && !moving);
     // Off screen: no animating, and the skeleton's bones aren't worked out each frame (a big
     // share of a busy town's frame on a phone). The walk carries on from where it would be.
+    // The body is hidden meanwhile: left as it was, it stayed drawn where the person walked off
+    // screen, and showed there (stuck, then gone) when the camera came round.
     this.seenAt.setFromMatrixPosition(this.root.matrixWorld);
     const seen = onScreen(this.seenAt, VIEW_MARGIN);
     this.model.matrixWorldAutoUpdate = seen;
+    this.model.visible = seen;
     if (!seen) {
       this.offScreen = Math.min(MAX_CATCH_UP, this.offScreen + dt);
       return;
