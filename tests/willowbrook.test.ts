@@ -60,7 +60,7 @@ describe('Willowbrook', () => {
   });
 
   it('hires the stand helper and the farmhand, with somewhere to stand and a character each', () => {
-    for (const role of ['standhand', 'farmhand', 'eggcollector', 'milker'] as const) {
+    for (const role of ['standhand', 'farmhand', 'eggcollector', 'milker', 'orchardhand', 'cashier'] as const) {
       expect(pads.find((p) => p.id === role)?.effects.staff).toBe(role);
       expect(layout.staffSpots[role]).toBeDefined();
       expect(modelFiles).toContain(`models/people/character-${CHARACTERS.staff[role]}.glb`);

@@ -33,7 +33,7 @@ export interface FarmPacingOptions {
 export const FARM_PACING: FarmPacingOptions = { stars: 4, heroPerMinute: 16, step: 1, maxMinutes: 240 };
 
 /** Goods a minute each helper moves (round trips with a full back, less breaks), measured in play. */
-const HELPERS = { farmhand: 18, pickup: 28, eggcollector: 6, milker: 6, baker: 6 };
+const HELPERS = { farmhand: 18, pickup: 28, eggcollector: 6, milker: 6, baker: 6, orchardhand: 10 };
 /** Serving takes this share of the hero's time at each counter nobody else serves (a basket sells several goods at once). */
 const SERVING = 0.25;
 /** Villagers served quickly tip. */
@@ -101,17 +101,25 @@ export function farmFlows(pads: readonly PadDef[], unlocked: ReadonlySet<string>
     made.corn = Math.max(0, (made.corn ?? 0) - feedPerSecond / TUNING.feed.perCrate);
   }
 
-  // Moved, per second: who carries each chain.
-  const crops = ['veg', 'corn', 'apple'].filter((g) => made[g]);
+  // Moved, per second: who carries each chain. Once the orchard has its own picker, the apples are a chain of their own.
+  const picker = staff.has('orchardhand');
+  const crops = ['veg', 'corn', ...(picker ? [] : ['apple'])].filter((g) => made[g]);
   const helpers: Record<string, number> = {
     crops: staff.has('farmhand') ? (machine.has('pickup') ? HELPERS.pickup : HELPERS.farmhand) : 0,
+    apples: picker ? HELPERS.orchardhand : 0,
     eggs: staff.has('eggcollector') ? HELPERS.eggcollector : 0,
     milk: staff.has('milker') ? HELPERS.milker : 0,
     baked: staff.has('baker') ? HELPERS.baker : 0,
   };
   // The hero works the chains the helpers can't keep up with (all of them, at first), sharing out his time.
   const bakes = built('bakery') ? (60 / TUNING.bakery.seconds) * 2 : 0;
-  const output: Record<string, number> = { crops: crops.reduce((s, g) => s + made[g]! * 60, 0), eggs: (made.eggs ?? 0) * 60, milk: (made.milk ?? 0) * 60, baked: bakes };
+  const output: Record<string, number> = {
+    crops: crops.reduce((s, g) => s + made[g]! * 60, 0),
+    apples: picker ? (made.apple ?? 0) * 60 : 0,
+    eggs: (made.eggs ?? 0) * 60,
+    milk: (made.milk ?? 0) * 60,
+    baked: bakes,
+  };
   // Serving takes the hero's time too, at the stand until there's a stand helper, and at the market until its staff come.
   const market = has((e) => e.counter === 'stall');
   const serving = (staff.has('standhand') ? 0 : SERVING) + (market && !staff.has('marketstaff') ? SERVING : 0);
@@ -132,6 +140,7 @@ export function farmFlows(pads: readonly PadDef[], unlocked: ReadonlySet<string>
   const moved: Goods = {};
   const cropShare = movers('crops') / Math.max(1e-9, crops.reduce((s, g) => s + made[g]!, 0));
   for (const g of crops) moved[g] = Math.min(made[g]!, made[g]! * Math.min(1, cropShare));
+  if (picker && made.apple) moved.apple = Math.min(made.apple, movers('apples'));
   for (const g of ['eggs', 'milk']) if (made[g]) moved[g] = Math.min(made[g]!, movers(g));
   if (built('bakery')) {
     const batches = Math.min(1 / TUNING.bakery.seconds, moved.corn ?? 0);

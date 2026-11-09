@@ -398,7 +398,9 @@ export function createFarmGame(
     const feedAt = livestock.feedAt;
     const feeding = !!feedAt && livestock.hungry && livestock.wantsFeed;
     if (feeding && carrier.count('corn') > 0 && (carrier.full || !crops.plots.some((p) => p.crop === 'corn' && crops.ripe(p, now)))) return feedAt;
-    const taken = (p: { rect: Rect }) => insideRect(player.position, p.rect);
+    // Plots to leave alone: the one the hero is picking, and the apple trees once the orchard has its own picker.
+    const picker = state.unlocked.includes('orchardhand');
+    const taken = (p: { rect: Rect; crop: CropId }) => insideRect(player.position, p.rect) || (picker && p.crop === 'apple');
     const corn = feeding && !carrier.full && !deliverNow(carrier as CrateCarrier, stand) ? crops.nearestRipe(at, now, (p) => p.crop !== 'corn' || taken(p)) : null;
     if (corn) return corn.at;
     if (feeding && carrier.count('corn') > 0) return feedAt;
@@ -423,6 +425,19 @@ export function createFarmGame(
     if (mill) return dropAt(layout.machines.barnDoor);
     if (carrying && stand && stock.hasRoom(stand.id)) return dropAt(stand.spot.zone);
     return null;
+  };
+  // The orchard picker's round: the nearest ripe apple tree until their back is full (or none is ripe), then
+  // in at the barn doors (the barn passes the apples on: the bakery's pies, the stalls, the vans). With the
+  // barn full, to whichever stall has room.
+  staff.carryPlans.orchardhand = (carrier, at) => {
+    const now = Date.now();
+    const next = carrier.full ? null : crops.nearestRipe(at, now, (p) => p.crop !== 'apple' || insideRect(player.position, p.rect));
+    if (carrier.stack.length > 0 && (carrier.full || !next)) {
+      if (barn.hasRoom) return dropAt(layout.machines.barnDoor);
+      const stall = outlet(at);
+      if (stall && stock.hasRoom(stall.id)) return dropAt(stall.spot.zone);
+    }
+    return next ? next.at : null;
   };
   // The egg collector's and the milker's rounds: pack cartons or bottles at their pen, then take them to a van
   // waiting for them, or else to the stand (sooner if it's empty).
@@ -807,8 +822,9 @@ export function createFarmGame(
     staff.update(dt, walkups.counters, null, solids, (counter) => insideRect(player.position, counter.zone), null, []);
     const carriers = [playerCarry, ...staff.crateCarriers<GoodId>()];
     machines.update(dt, now, carriers);
-    // Only the hero and the farmhand pick crops (the egg collector just walks across the fields).
+    // Only the hero and the farmhand pick crops (the egg collector just walks across the fields), and the orchard picker apples.
     crops.update(dt, now, [playerCarry, ...staff.crateCarriers<GoodId>('farmhand')]);
+    crops.update(dt, now, staff.crateCarriers<GoodId>('orchardhand'), (crop) => crop === 'apple');
     livestock.update(dt, now, carriers);
     bakery.update(dt, now, carriers);
     deliveries.update(now);

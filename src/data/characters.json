@@ -13,9 +13,10 @@
     "standhand": "female-c-staff",
     "farmhand": "male-b-staff",
     "eggcollector": "female-e-staff",
-    "milker": "female-d-staff",
+    "milker": "female-b-staff",
     "baker": "female-f-staff",
-    "marketstaff": "female-c-staff"
+    "marketstaff": "female-c-staff",
+    "orchardhand": "male-f-staff"
   },
   "shoppers": ["female-a", "male-e"],
   "villagers": ["female-a", "male-e", "female-d", "male-c", "female-e", "male-a"],
