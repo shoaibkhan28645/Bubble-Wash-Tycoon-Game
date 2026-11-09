@@ -769,3 +769,25 @@
   color: #fff;
   font: 800 14px system-ui, sans-serif;
 }
+
+/* A phone on its side: the cash bar, the town goals and the side buttons a
+   little smaller and tucked up, so more of the town shows under them. */
+@media (orientation: landscape) and (max-height: 420px) {
+  .hud {
+    top: calc(env(safe-area-inset-top) + 6px);
+    transform: scale(0.85);
+    transform-origin: 50% 0;
+  }
+
+  .goals-bar {
+    top: calc(env(safe-area-inset-top) + 6px);
+    transform: scale(0.85);
+    transform-origin: 0 0;
+  }
+
+  .side-bar {
+    top: calc(env(safe-area-inset-top) + 50px);
+    transform: scale(0.85);
+    transform-origin: 100% 0;
+  }
+}

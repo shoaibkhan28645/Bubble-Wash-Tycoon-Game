@@ -7,6 +7,9 @@ import type { Stage } from '../render/stage';
 export const SIDE_BAR_PX = 64;
 /** Height of the cash and stars bar at the top (the forecourt across the road sits just under it). */
 const HUD_PX = 56;
+/** On a phone on its side (no taller than this) the bar is drawn smaller and higher up (meta.css). */
+const SHORT_SCREEN_PX = 420;
+const SHORT_HUD_PX = 44;
 /** On a tall screen the town goals bar sits under it. */
 const GOALS_BAR_PX = 40;
 /** How far past the built area the following camera may look, in metres. */
@@ -37,7 +40,9 @@ export class LotView {
 
   /** Pixels at the top kept clear: the HUD, and on a tall screen the goals bar under it. */
   get topInset(): number {
-    return this.stage.size.height > this.stage.size.width ? HUD_PX + GOALS_BAR_PX : HUD_PX;
+    const { width, height } = this.stage.size;
+    if (height > width) return HUD_PX + GOALS_BAR_PX;
+    return height <= SHORT_SCREEN_PX ? SHORT_HUD_PX : HUD_PX;
   }
 
   /** At the start and whenever the screen changes size: the lot is framed beside the side buttons, under the HUD. */
