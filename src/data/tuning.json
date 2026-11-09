@@ -32,8 +32,7 @@
   "market": { "premium": 1.5 },
   "machines": {
     "pickup": { "bed": 12, "speed": 6, "wait": 12, "unloadSeconds": 0.12, "farmhand": { "speed": 1.35, "carry": 3 } },
-    "feedTruck": { "trip": 50, "feed": 48 },
-    "combine": { "speed": 2.6, "every": 20, "yield": 2, "hay": 4 }
+    "feedTruck": { "trip": 50, "feed": 48 }
   },
   "vans": {
     "van": { "goods": ["eggs", "veg", "corn", "apple", "bread", "pie"], "load": [5, 10], "trip": 70 },

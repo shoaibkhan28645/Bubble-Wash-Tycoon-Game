@@ -13,11 +13,11 @@ Props: fm_scarecrow, fm_cart, fm_haybale, fm_fence (one 2 m rail section),
 fm_sunflowers, fm_duck.
 Crops, one plot each (2.6 x 2.8 m), three stages: fm_veg_1..3, fm_corn_1..3.
 Then the poultry farm and its hens and rooster, the dairy and its cows, the
-vehicles and machines, and the valley's orchard, bakery, market and windmill.
+vehicles, and the valley's orchard, bakery, market and windmill.
 
 Parts the game moves are their own meshes, each in an empty named
 <model>_<part> standing at its pivot (see finish()): the animals' heads,
-legs, wings and tails, every vehicle's wheels, the combine's reel, the
+legs, wings and tails, every vehicle's wheels, the
 weathervanes and the chapel bell. Empty spots named <model>_smoke mark
 where chimneys and exhausts puff (render/farmMotion.ts).
 
@@ -25,9 +25,8 @@ Usage: python art/blender/farm.py <out.glb> [preview.png]
 (writes <out>.glb with the farmhouse, barn and stand, <out>-village.glb with
 the well, gate, old windmill and chapel, <out>-props.glb with the props and
 crops, <out>-poultry.glb with the poultry farm, <out>-dairy.glb with the
-dairy, <out>-vehicles.glb with the road vehicles, <out>-machines.glb with
-the machines, and <out>-valley.glb with the orchard, bakery, market and
-restored windmill)
+dairy, <out>-vehicles.glb with the road vehicles and the farm's machines,
+and <out>-valley.glb with the orchard, bakery, market and restored windmill)
 """
 import math
 import random
@@ -1116,27 +1115,7 @@ for i, (nx, nz, col) in enumerate(((-0.6, 1.7, '#fffdf2'), (0.0, 1.75, '#ffe58a'
 p.append(kit.prism((2.5, 0.7, 0.4), (X, 0, 2.15), SHINGLE))
 finish(p, 'fm_orders', X)
 
-# --- The machines (Part D): the combine (the tractor is gone). --------------
-TYRE = '#2b2b30'
-HUB = '#ffd23f'
-
-
-def wheel(x, y, r, width, hub=HUB):
-    """A chunky tyre with tread blocks and a yellow hub (a part of its own: it turns)."""
-    q = [kit.cylinder(r, width, (x, y, r), TYRE, verts=18, rot=(0, math.pi / 2, 0))]
-    q.append(kit.cylinder(r * 0.55, width + 0.04, (x, y, r), hub, verts=12, rot=(0, math.pi / 2, 0)))
-    q.append(kit.cylinder(r * 0.2, width + 0.08, (x, y, r), '#3b3b42', verts=8, rot=(0, math.pi / 2, 0)))
-    # Chevron tread blocks round the tyre.
-    n = 12 if r > 0.6 else 10
-    for k in range(n):
-        a = k * 2 * math.pi / n
-        for side in (-1, 1):
-            q.append(kit.box((width * 0.5, 0.1, 0.12), (x + side * width * 0.24, y + math.cos(a) * r, r + math.sin(a) * r), '#1e1e22', bevel=0.0, rot=(-a, 0, side * 0.3)))
-    return q
-
-
-
-
+# --- The machines (Part D): the pickup and the feed truck. -----------------
 # The farm pickup: a sky-blue cab and an open bed, parked by the fields to be loaded.
 X = 160.0
 p = [kit.box((1.7, 3.6, 0.4), (X, 0, 0.62), '#2b2b30', bevel=0.04)]
@@ -1180,56 +1159,6 @@ p.append(kit.cylinder(0.06, 1.2, (X - 0.8, -0.72, 2.1), '#3b3b42', verts=8))
 p.append(kit.cylinder(0.08, 0.1, (X - 0.8, -0.72, 2.72), CHROME, verts=10))
 tail_lamps(p, X, 2.48, 1.95, 0.9)
 finish(p, 'fm_feedtruck', X, moving=road_wheels(X, 4.6, 1.7, r=0.4), markers={'smoke': (X - 0.8, -0.72, 2.8)})
-
-# The combine harvester: a big green body, a cab on top at the front with a
-# beacon, a wide header in front whose reel of bats turns (in the game), a
-# grain tank, an unloading auger along its side, a ladder up to the cab.
-X = 174.0
-GREEN = '#3c9a4c'
-p = [kit.box((2.2, 3.6, 1.6), (X, 0.4, 1.6), GREEN, bevel=0.12, segments=2)]
-p.append(kit.box((2.22, 3.62, 0.12), (X, 0.4, 1.1), '#ffd23f', bevel=0.02))
-p.append(kit.box((1.8, 1.4, 1.0), (X, 0.9, 2.85), '#c9d3dc', bevel=0.1))
-p.append(kit.box((1.6, 1.2, 0.1), (X, 0.9, 3.36), '#ffd23f', bevel=0.02))
-for sx in (-1, 1):
-    p.append(kit.box((0.05, 1.4, 0.05), (X + sx * 0.88, 0.9, 3.5), '#3b3b42', bevel=0.0))
-p.append(kit.box((1.5, 1.3, 1.1), (X, -1.1, 2.85), GREEN, bevel=0.1))
-p.append(kit.box((1.3, 0.08, 0.8), (X, -1.77, 2.95), GLASS, bevel=0.02))
-for sx in (-1, 1):
-    p.append(kit.box((0.06, 1.0, 0.7), (X + sx * 0.76, -1.1, 2.95), GLASS, bevel=0.0))
-    p.append(kit.cylinder(0.08, 0.06, (X + sx * 0.55, -1.78, 3.4), LAMP, verts=10, rot=(math.pi / 2, 0, 0)))
-p.append(kit.box((1.7, 1.5, 0.08), (X, -1.1, 3.45), '#f6f1e4', bevel=0.03))
-p.append(kit.cylinder(0.11, 0.18, (X + 0.5, -1.1, 3.58), '#ffb52e', verts=10))
-# A ladder up the side to the cab.
-for sx in (1,):
-    for k in range(7):
-        p.append(kit.box((0.04, 0.4, 0.04), (X + sx * 1.14, -1.3, 0.6 + k * 0.3), '#3b3b42', bevel=0.0))
-    for dy in (-0.2, 0.2):
-        p.append(kit.box((0.04, 0.04, 2.1), (X + sx * 1.14, -1.3 + dy, 1.55), '#3b3b42', bevel=0.0))
-# The header: a wide trough with crop dividers and fingers in front.
-p.append(kit.box((3.8, 0.9, 0.35), (X, -2.35, 0.45), '#ffd23f', bevel=0.05))
-p.append(kit.box((3.8, 0.12, 0.6), (X, -1.95, 0.75), '#e2b52c', bevel=0.0))
-for k in range(12):
-    p.append(kit.cone(0.05, 0.0, 0.3, (X - 1.75 + k * 0.32, -2.85, 0.38), '#c9d3dc', verts=4, rot=(math.pi / 2, 0, 0)))
-for sx in (-1, 1):
-    p.append(kit.cone(0.16, 0.0, 0.6, (X + sx * 1.92, -2.85, 0.5), '#ffd23f', verts=4, rot=(math.pi / 2, 0, 0)))
-    p.append(kit.box((0.08, 0.5, 0.06), (X + sx * 1.86, -2.2, 1.05), '#9aa3ad', bevel=0.0, rot=(0.5, 0, 0)))
-p.append(kit.box((0.8, 1.1, 0.6), (X, -1.4, 0.7), GREEN, bevel=0.05))
-p.append(kit.cylinder(0.14, 2.8, (X + 1.15, 0.6, 2.4), GREEN, verts=8, rot=(math.pi / 2, 0, 0)))
-p.append(kit.box((1.4, 0.3, 0.5), (X, 2.25, 1.2), '#2f7a3c', bevel=0.05))
-p.append(kit.cylinder(0.08, 0.7, (X - 0.7, 1.7, 2.7), '#3b3b42', verts=8))
-p.append(kit.cylinder(0.1, 0.1, (X - 0.7, 1.7, 3.08), CHROME, verts=10))
-# The reel: a shaft and six red bats on spiders at each end.
-reel = [kit.cylinder(0.06, 3.7, (X, -2.4, 1.05), '#9aa3ad', verts=8, rot=(0, math.pi / 2, 0))]
-for k in range(6):
-    a = k * math.pi / 3
-    reel.append(kit.box((3.6, 0.07, 0.07), (X, -2.4 + math.cos(a) * 0.4, 1.05 + math.sin(a) * 0.4), '#e8463a', bevel=0.0))
-    for ex in (-1.6, 0.0, 1.6):
-        reel.append(kit.box((0.04, 0.04, 0.4), (X + ex, -2.4 + math.cos(a) * 0.2, 1.05 + math.sin(a) * 0.2), '#9aa3ad', bevel=0.0, rot=(-a + math.pi / 2, 0, 0)))
-wheels = {}
-for side, sx in (('l', -1), ('r', 1)):
-    wheels[f'wheel_f{side}'] = (wheel(X + sx * 1.05, -0.6, 0.8, 0.45), (X + sx * 1.05, -0.6, 0.8))
-    wheels[f'wheel_b{side}'] = (wheel(X + sx * 0.95, 1.6, 0.48, 0.3), (X + sx * 0.95, 1.6, 0.48))
-finish(p, 'fm_combine', X, moving={'reel': (reel, (X, -2.4, 1.05)), **wheels}, markers={'smoke': (X - 0.7, 1.7, 3.15)})
 
 # --- The valley's value (Part E). -----------------------------------------
 # Apple trees, one per plot: the tree itself, which stays, and what comes and
@@ -1425,9 +1354,8 @@ VILLAGE = {'fm_well', 'fm_gate', 'fm_windmill', 'fm_chapel'}
 POULTRY = {'fm_henhouse', 'fm_eggtable', 'fm_hen', 'fm_hen_brown', 'fm_rooster', 'fm_trough', 'fm_feedstore'}
 DAIRY = {'fm_cowbarn', 'fm_cow', 'fm_cow_brown', 'fm_dairy', 'fm_orders'}
 VEHICLES = {'fm_van', 'fm_tanker', 'fm_pickup', 'fm_feedtruck'}
-MACHINES = {'fm_combine'}
 VALLEY = {'fm_apple_tree', 'fm_apple_blossom', 'fm_apple_fruit', 'fm_bakery', 'fm_market', 'fm_windmill_fixed', 'fm_sails'}
-SETS = (('', BUILDINGS), ('-village', VILLAGE), ('-poultry', POULTRY), ('-dairy', DAIRY), ('-vehicles', VEHICLES), ('-machines', MACHINES), ('-valley', VALLEY))
+SETS = (('', BUILDINGS), ('-village', VILLAGE), ('-poultry', POULTRY), ('-dairy', DAIRY), ('-vehicles', VEHICLES), ('-valley', VALLEY))
 glb = Path(sys.argv[1] if len(sys.argv) > 1 else 'farm.glb')
 # Each file well under the 512 KiB a Playables file may weigh; the props and crops take whatever's left.
 everything = set().union(*(names for _, names in SETS))

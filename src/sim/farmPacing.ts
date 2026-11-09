@@ -77,7 +77,7 @@ export function farmFlows(pads: readonly PadDef[], unlocked: ReadonlySet<string>
   const staff = new Set(effects.map((e) => e.staff).filter(Boolean));
   const machine = new Set(effects.map((e) => e.machine).filter(Boolean));
 
-  // Made, per second: crops from their plots (the well speeds them), the animals (faster fed), the combine's extra corn.
+  // Made, per second: crops from their plots (the well speeds them), the animals (faster fed).
   const speed = 1 + sum((e) => e.growBonus);
   const made: Goods = {};
   for (const pad of pads) {
@@ -86,7 +86,6 @@ export function farmFlows(pads: readonly PadDef[], unlocked: ReadonlySet<string>
     const plots = 6;
     made[crop] = (made[crop] ?? 0) + (plots * speed) / CROPS[crop]!.growSeconds;
   }
-  if (machine.has('combine')) made.corn = (made.corn ?? 0) * TUNING.machines.combine.yield;
   const fed = has((e) => e.feeder);
   for (const pad of pads) {
     if (!built(pad.id) || !pad.effects.pen) continue;

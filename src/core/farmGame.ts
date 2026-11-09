@@ -85,7 +85,7 @@ const STOCK_LABEL_Y = 3.4;
 /** After the road to the next town is built, the hero sets off this long after (the pad's pop first). */
 const TRAVEL_DELAY_MS = 1500;
 /** Pads taken out of the game, and what they cost: a save that bought one is paid back. */
-const RETIRED_PADS: Record<string, number> = { tractor: 8250, tractordriver: 17000 };
+const RETIRED_PADS: Record<string, number> = { tractor: 8250, tractordriver: 17000, combine: 54000 };
 /** The restored windmill's sails turn this fast (radians a second). */
 const SAILS_TURN = 0.6;
 
@@ -497,8 +497,6 @@ export function createFarmGame(
     layout,
     state,
     labels,
-    floaters,
-    crops,
     barn,
     livestock,
     staff,
@@ -551,7 +549,7 @@ export function createFarmGame(
     if (effects?.van) {
       const spot = layout.vans[id];
       if (spot) {
-        fleet.add(id, id === 'tanker' ? 'fm_tanker' : 'fm_van', spot.route);
+        fleet.add(id, id === 'tanker' ? 'fm_tanker' : 'fm_van', spot.route, 'round', spot.back);
         // Where it parks is solid (people walk round to its bay), lengthwise along its way out.
         const [at, next] = spot.route as [Point, Point];
         const [half, side] = id === 'tanker' ? [2.75, 1.05] : [2.05, 1.0];
@@ -565,8 +563,8 @@ export function createFarmGame(
     if (id === 'bakery') bakery.start(Date.now());
     if (id === 'windmill') showWindmill(true);
   };
-  // The tractor and its driver were retired (the pickup does their job): a save that had bought them, or
-  // was building them, gets their price back, and anything part-paid on their pads.
+  // The tractor and its driver were retired (the pickup does their job), and the combine harvester: a save
+  // that had bought them, or was building them, gets their price back, and anything part-paid on their pads.
   for (const [id, price] of Object.entries(RETIRED_PADS)) {
     const owned = state.unlocked.includes(id) || !!state.building[id];
     state.cash += owned ? price : (state.padPaid[id] ?? 0);

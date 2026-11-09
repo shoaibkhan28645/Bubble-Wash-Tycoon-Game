@@ -7,24 +7,33 @@ const RULES = { spawnSeconds: 2, patience: 30, walkSpeed: 2.3, pay: [100, 160] a
 /** A walk-up counter of a kind customers on foot use (the Mini-Mart till). */
 const KIND = 'counter';
 
-/** A stand beside a walkway: visitors come in at either end and wander off to the two stroll spots. */
+/**
+ * A stand beside a walkway: visitors come in at either end, in down the line's east side and into
+ * its back, and out from the window by the west side, off the map to the west.
+ */
 const LAYOUT: WalkUpLayout = {
   entrances: [
     { x: -20, z: -4 },
     { x: 20, z: -4 },
   ],
   walkwayZ: -4,
-  strolls: [
-    { x: -8, z: -9 },
-    { x: 8, z: -9 },
-  ],
   counters: {
     stand: {
       window: { x: 0, z: 2.3 },
       zone: { minX: -1.1, maxX: 1.1, minZ: 0.2, maxZ: 1.2 },
       queue: [2.3, 3.6, 4.9, 6.2, 7.5].map((z) => ({ x: 0, z })),
       facing: Math.PI,
-      approach: { x: 2.4, z: 0.9 },
+      enter: [
+        { x: 2.4, z: -3 },
+        { x: 2.4, z: 4 },
+      ],
+      exit: [
+        { x: 0, z: 2.3 },
+        { x: -2.4, z: 2.3 },
+        { x: -2.4, z: -4.6 },
+        { x: -20, z: -4.6 },
+      ],
+      aside: { x: -1.4, z: 0 },
     },
   },
 };
@@ -134,5 +143,43 @@ describe('walk-up counters', () => {
     run(normal.walkups, 9, 0);
     run(rival.walkups, 9, 0);
     expect(rival.walkups.visitors.length).toBeLessThan(normal.walkups.visitors.length);
+  });
+});
+
+describe('ways in and out', () => {
+  it('serves first come first, and sends each one out by the way out, never back past the line', () => {
+    const { walkups, served } = stand(1000);
+    const counter = walkups.counters[0]!;
+    const spot = LAYOUT.counters.stand!;
+    const order: Visitor[] = [];
+    const seenLeaving = new Set<Visitor>();
+    let crossed = false;
+    for (let t = 0; t < 90; t += 0.1) {
+      for (const v of counter.line) if (!order.includes(v)) order.push(v);
+      walkups.update(0.1, () => ({ rate: t > 20 ? 1 : 0, byPlayer: false }));
+      // Served visitors leave on the west of the line (x = 0), the way out's side, never the way in's.
+      for (const v of walkups.visitors) {
+        if (v.state !== 'leaving' || v.served.length === 0) continue;
+        seenLeaving.add(v);
+        if (v.at.x > 0.01 && v.at.z > 0) crossed = true;
+      }
+    }
+    expect(served.length).toBeGreaterThan(5);
+    // In the order they took their places in line.
+    expect(served.map((s) => s.visitor)).toEqual(order.slice(0, served.length));
+    expect(seenLeaving.size).toBeGreaterThan(0);
+    expect(crossed).toBe(false);
+    expect(spot.exit[0]).toEqual(spot.window);
+  });
+
+  it('steps a visitor who gives up out of the line to the way out', () => {
+    const { walkups, gaveUp } = stand(4);
+    for (let t = 0; t < 40 && gaveUp.length === 0; t += 0.1) walkups.update(0.1, () => ({ rate: 0, byPlayer: false }));
+    const quitter = gaveUp[0]!;
+    expect(quitter.state).toBe('angry');
+    const spot = LAYOUT.counters.stand!;
+    // First a step aside, then the way out from its second point.
+    expect(quitter.path.slice(1)).toEqual(spot.exit.slice(1));
+    expect(quitter.path[0]!.x).toBeCloseTo(spot.aside.x);
   });
 });

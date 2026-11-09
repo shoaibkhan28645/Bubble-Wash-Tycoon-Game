@@ -1,9 +1,9 @@
-// The farm's road vehicles as drawn. A delivery van parks at the yard while
-// it loads, then drives out along the track, through the farm gate and off
-// along the village road; out of sight for most of the trip; and back the
-// same way. The feed truck visits: it comes in from town, stops at the feed
-// store, and leaves again. The combine drives a loop from where it parks,
-// over the corn field and home.
+// The farm's road vehicles as drawn. A delivery van parks in the yard facing
+// its way out while it loads, then drives out east along its track, up the
+// farm's east side and off along the village road; out of sight for most of
+// the trip; and back from the other end of the road, in through the farm
+// gate and down to where it parks, facing out again. The feed truck visits:
+// it comes in from town, stops at the feed store, and leaves again.
 import { Group, type Object3D } from 'three';
 import type { Point } from '../../core/config';
 import { routeAt, routeMarks } from '../../systems/vehicles';
@@ -14,15 +14,29 @@ const SPEED = 7;
 /** The share of a trip at most spent driving each way (the rest is off the map, or waiting). */
 const MAX_DRIVE = 0.4;
 
-/** trip: out and back, parked at the start between trips. visit: in, wait at the start, out; unseen between visits. loop: start to end once, parked at the start between. */
-export type RouteMode = 'trip' | 'visit' | 'loop';
+/**
+ * trip: out and back the same way, parked at the start between trips. visit: in, wait at the start,
+ * out; unseen between visits. loop: start to end once, parked at the start between. round: out along
+ * the route, back along another way that ends where it starts, parked at the start between.
+ */
+export type RouteMode = 'trip' | 'visit' | 'loop' | 'round';
 
-interface Vehicle {
-  model: Object3D;
+interface Way {
   route: Point[];
   marks: number[];
   length: number;
+}
+
+interface Vehicle extends Way {
+  model: Object3D;
   mode: RouteMode;
+  /** A round's way back. */
+  back: Way | null;
+}
+
+function way(route: Point[]): Way {
+  const marks = routeMarks(route);
+  return { route, marks, length: marks[marks.length - 1]! };
 }
 
 export class VanFleet {
@@ -32,12 +46,11 @@ export class VanFleet {
   /** `onAdd` hears of each vehicle drawn (its wheels turn, render/farmMotion.ts). */
   constructor(private readonly onAdd: (model: Object3D) => void = () => {}) {}
 
-  /** A vehicle on a route (`route[0]` is where it parks, or for a visit where it stops). */
-  add(id: string, model: string, route: Point[], mode: RouteMode = 'trip'): void {
+  /** A vehicle on a route (`route[0]` is where it parks, or for a visit where it stops); a round comes back along `back`. */
+  add(id: string, model: string, route: Point[], mode: RouteMode = 'trip', back: Point[] = []): void {
     if (this.vans.has(id) || route.length < 2) return;
     const mesh = farmMover(model, 'box');
-    const marks = routeMarks(route);
-    const van: Vehicle = { model: mesh, route, marks, length: marks[marks.length - 1]!, mode };
+    const van: Vehicle = { model: mesh, ...way(route), mode, back: mode === 'round' && back.length >= 2 ? way(back) : null };
     this.vans.set(id, van);
     this.idle(van);
     this.group.add(mesh);
@@ -65,6 +78,16 @@ export class VanFleet {
         this.place(van, p * van.length, false);
         continue;
       }
+      if (van.mode === 'round' && van.back) {
+        // Each way at the vans' own speed: out, off the map for most of it, and in the other way.
+        const total = Math.max(1, seconds(id));
+        const out = Math.min(MAX_DRIVE, van.length / SPEED / total);
+        const home = Math.min(MAX_DRIVE, van.back.length / SPEED / total);
+        if (p < out) this.place(van, (p / out) * van.length, false);
+        else if (p > 1 - home) this.place(van, ((p - (1 - home)) / home) * van.back.length, false, van.back);
+        else van.model.visible = false;
+        continue;
+      }
       const drive = Math.min(MAX_DRIVE, van.length / SPEED / Math.max(1, seconds(id)));
       if (van.mode === 'trip') {
         if (p < drive) this.place(van, (p / drive) * van.length, false);
@@ -81,9 +104,9 @@ export class VanFleet {
     else this.place(van, 0, false);
   }
 
-  /** Puts a vehicle `distance` along its route, facing the way it goes (back towards the start, if `returning`). */
-  private place(van: Vehicle, distance: number, returning: boolean): void {
-    const { at, heading } = routeAt(van.route, van.marks, distance);
+  /** Puts a vehicle `distance` along its route (or `along` another way), facing the way it goes (back towards the start, if `returning`). */
+  private place(van: Vehicle, distance: number, returning: boolean, along: Way = van): void {
+    const { at, heading } = routeAt(along.route, along.marks, distance);
     van.model.visible = true;
     van.model.position.set(at.x, 0, at.z);
     van.model.rotation.y = returning ? heading + Math.PI : heading;

@@ -141,7 +141,7 @@
     {
       "id": "drought",
       "when": {
-        "built": "combine"
+        "built": "feedtruck"
       },
       "icon": "☀️",
       "headline": "Heatwave dries out the valley",
@@ -164,7 +164,7 @@
       },
       "icon": "🌧️",
       "headline": "Rain at last for Willowbrook",
-      "body": "The heatwave has broken and the fields are green again. While the valley was parched, Joe's old farm kept everyone fed, and the combine has already brought in the next harvest."
+      "body": "The heatwave has broken and the fields are green again. While the valley was parched, Joe's old farm kept everyone fed, and the next harvest is already coming in."
     },
     {
       "id": "orchard",

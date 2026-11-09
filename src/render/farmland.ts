@@ -301,10 +301,13 @@ function farmGrass(layout: FarmLayout): Object3D[] {
   const { lot } = layout;
   const keepOff: Rect[] = [...Object.values(layout.areas), ...layout.tracks];
   for (const spot of Object.values(layout.counters)) {
-    const last = spot.queue[spot.queue.length - 1]!;
-    // The stand itself, its line, and the way villagers come round to it.
+    // The stand itself, its line, and the ways in and out inside the fence.
     keepOff.push({ minX: spot.zone.minX - 1.4, maxX: spot.zone.maxX + 1.4, minZ: spot.zone.minZ - 1.6, maxZ: spot.window.z + 0.6 });
-    keepOff.push({ minX: Math.min(spot.window.x, spot.approach.x) - 0.9, maxX: Math.max(spot.window.x, spot.approach.x) + 0.9, minZ: layout.fenceZ - 1, maxZ: last.z + 1 });
+    const walked = [...spot.queue, ...spot.enter, ...spot.exit].filter((p) => p.z > layout.fenceZ);
+    for (let i = 1; i < walked.length; i++) {
+      const [a, b] = [walked[i - 1]!, walked[i]!];
+      keepOff.push({ minX: Math.min(a.x, b.x) - 0.6, maxX: Math.max(a.x, b.x) + 0.6, minZ: Math.min(a.z, b.z) - 0.6, maxZ: Math.max(a.z, b.z) + 0.6 });
+    }
   }
   const points = [...Object.values(layout.pads), ...Object.values(layout.upgradePads), ...Object.values(layout.piles), ...Object.values(layout.staffSpots)];
   const pieces = layout.town.filter((p) => inside(p.x, p.z, lot, 2));

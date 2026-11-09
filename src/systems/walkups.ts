@@ -1,8 +1,10 @@
 // Walk-up businesses (a farm stand, a market stall): visitors on foot come
-// along a walkway, line up at a counter, are served by the hero or a worker
-// behind it, pay, and wander off. A visitor who waits too long gives up and
-// leaves unhappy. Counters are stations like the car wash's,
-// serving Customers on foot instead of cars.
+// along a walkway and in by the counter's way in, join the back of its line,
+// move up as it moves (first come, first served), are served at the window
+// by the hero or a worker behind it, pay, and leave by the way out, which is
+// never back through the line. A visitor who waits too long gives up, steps
+// out of the line and leaves unhappy. Counters are stations like the car
+// wash's, serving Customers on foot instead of cars.
 import { TUNING, stationDef, type WalkUpLayout, type CounterSpot, type Dirt, type Point } from '../core/config';
 import type { GameState } from '../core/gameState';
 import type { Customer, CustomerState } from './customers';
@@ -248,14 +250,14 @@ export class WalkUps {
     }
     const visitor = new Visitor(avatar, from, stationDef(counter.kind).serves ?? '', pay, patience);
     this.visitors.push(visitor);
-    // Along the walkway and round the counter's side.
-    const { approach } = counter.spot;
+    // Along the walkway, then in by the counter's way in.
+    const { enter } = counter.spot;
     visitor.heading = counter;
     counter.coming++;
-    visitor.path = [{ x: approach.x, z: this.layout.walkwayZ }, approach];
+    visitor.path = [{ x: enter[0]!.x, z: this.layout.walkwayZ }, ...enter];
   }
 
-  /** Lines up at a counter, from beside it: to the next free spot in its line. */
+  /** Lines up at a counter, from beside the back of its line: to the next free spot, at the back. */
   private join(visitor: Visitor, counter: WalkUpCounter): void {
     if (visitor.heading) visitor.heading.coming--;
     visitor.heading = null;
@@ -263,7 +265,8 @@ export class WalkUps {
     visitor.state = 'arriving';
     counter.line.push(visitor);
     const spot = counter.spot.queue[counter.line.length - 1]!;
-    visitor.path = [{ x: counter.spot.approach.x, z: spot.z }, spot];
+    const from = counter.spot.enter.at(-1)!;
+    visitor.path = [{ x: from.x, z: spot.z }, spot];
   }
 
   private serve(counter: WalkUpCounter, visitor: Visitor): void {
@@ -273,16 +276,19 @@ export class WalkUps {
     visitor.state = 'leaving';
     if (visitor.avatar) visitor.avatar.holding = true;
     this.onServed({ visitor, counter });
-    this.strollOff(visitor, counter);
+    // Out by the way out, from the window.
+    visitor.path = counter.spot.exit.slice(1);
   }
 
-  /** Out of patience: walks off unhappy, unserved. */
+  /** Out of patience: steps out of the line and leaves by the way out, unhappy and unserved. */
   private giveUp(visitor: Visitor): void {
     const counter = visitor.counter;
     this.leaveLine(visitor);
     visitor.state = 'angry';
     this.onGaveUp(visitor);
-    if (counter) this.strollOff(visitor, counter);
+    if (!counter) return;
+    const { aside, exit } = counter.spot;
+    visitor.path = [{ x: visitor.at.x + aside.x, z: visitor.at.z + aside.z }, ...exit.slice(1)];
   }
 
   private leaveLine(visitor: Visitor): void {
@@ -300,16 +306,6 @@ export class WalkUps {
         t.state = 'queued';
       }
     });
-  }
-
-  /** Back round the counter's side to the walkway, off to a stroll spot (unless unhappy), then away. */
-  private strollOff(visitor: Visitor, from: WalkUpCounter): void {
-    const { strolls, entrances, walkwayZ: mid } = this.layout;
-    const stroll = strolls[Math.floor(this.random() * strolls.length)]!;
-    const exit = entrances[Math.floor(this.random() * entrances.length)]!;
-    const { approach } = from.spot;
-    const back = [{ x: approach.x, z: visitor.at.z }, approach, { x: approach.x, z: mid }];
-    visitor.path = visitor.state === 'angry' ? [...back, exit] : [...back, stroll, { x: stroll.x, z: mid }, exit];
   }
 
   private walk(dt: number, visitor: Visitor): void {
@@ -341,10 +337,14 @@ export class WalkUps {
     if (heading && !visitor.counter) {
       if (heading.hasRoom) this.join(visitor, heading);
       else {
+        // Full: they turn round and go back the way they came, off the map by the nearer end of the walkway.
         heading.coming--;
         visitor.heading = null;
         visitor.state = 'leaving';
-        this.strollOff(visitor, heading);
+        const { enter } = heading.spot;
+        const street = { x: enter[0]!.x, z: this.layout.walkwayZ };
+        const away = this.layout.entrances.reduce((best, e) => (Math.abs(e.x - street.x) < Math.abs(best.x - street.x) ? e : best));
+        visitor.path = [...enter.slice(0, -1).reverse(), street, away];
       }
       return;
     }
@@ -355,7 +355,7 @@ export class WalkUps {
       if (visitor.avatar) visitor.avatar.root.rotation.y = counter.spot.facing;
       return;
     }
-    // Strolled off the map: gone.
+    // Walked off the map: gone.
     this.visitors.splice(this.visitors.indexOf(visitor), 1);
     if (visitor.avatar) {
       visitor.avatar.root.visible = false;

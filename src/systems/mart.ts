@@ -26,11 +26,17 @@ interface Shopper {
 const PAST_PUMPS_X = 2.4;
 /** And come up to the shop along this line, just in front of its till. */
 const SHOPFRONT_Z = -19.6;
+/**
+ * Served, they go back along this line instead, a step nearer the road: in at
+ * the back of the line, out from the front, never back past the people waiting.
+ */
+const WAY_BACK_Z = SHOPFRONT_Z + 0.75;
 
 /**
  * The Mini-Mart till. A driver's car waits at the pump while they walk
- * over, line up, get served (by the player or the clerk standing at the
- * till), and walk back carrying a bag.
+ * over, line up at the back (first come, first served), get served (by the
+ * player or the clerk standing at the till), and walk back carrying a bag,
+ * along the shopfront nearer the road, clear of the line.
  */
 export class Counter extends Station {
   /** The front shopper is at the till, waiting to be served. */
@@ -130,7 +136,7 @@ export class Mart {
     this.line.shift();
     shopper.state = 'returning';
     if (shopper.walker) shopper.walker.holding = true;
-    shopper.path = this.routeBetween(this.layout.mart.queue[0]!, shopper.door);
+    shopper.path = this.wayBack(this.layout.mart.queue[0]!, shopper.door);
     this.onServed(shopper.car, this.layout.mart.counter);
     this.routeLine();
   }
@@ -144,6 +150,16 @@ export class Mart {
       if (shopper.path.length > 0) shopper.path[shopper.path.length - 1] = spot;
       else if (shopper.at.x !== spot.x || shopper.at.z !== spot.z) shopper.path = [spot];
     });
+  }
+
+  /** From the till back to the car: a step forward and to the side, along the shopfront nearer the road, round the end of the pumps. */
+  private wayBack(till: Point, door: Point): Point[] {
+    return [
+      { x: till.x + 0.6, z: WAY_BACK_Z },
+      { x: PAST_PUMPS_X + 0.6, z: WAY_BACK_Z },
+      { x: PAST_PUMPS_X, z: door.z },
+      door,
+    ];
   }
 
   /** Round the end of the pumps and along the shopfront (either way round). */

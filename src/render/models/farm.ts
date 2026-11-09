@@ -17,7 +17,6 @@ const FILES = [
   'building:farm-poultry',
   'building:farm-dairy',
   'building:farm-vehicles',
-  'building:farm-machines',
   'building:farm-valley',
 ];
 

@@ -53,6 +53,25 @@ describe('the Mini-Mart', () => {
     expect(order).toEqual([first, second]);
   });
 
+  it('sends the served back along the shopfront nearer the road, never back past the line', () => {
+    let servedAt = -1;
+    const mart = new Mart(ROADSIDE.layout, null, null, () => (servedAt = 0));
+    mart.sendShopper(carAtPump(pump), pump);
+    run(mart, 20, 0);
+    const line = ROADSIDE.layout.mart.queue;
+    const [west, east] = [Math.min(...line.map((p) => p.x)), Math.max(...line.map((p) => p.x))];
+    const back: { x: number; z: number }[] = [];
+    for (let t = 0; t < 40 && mart.count > 0; t += 0.1) {
+      mart.update(0.1, 1, 1);
+      if (servedAt >= 0) back.push(...mart.positions());
+    }
+    expect(mart.count).toBe(0);
+    // Every step of the way back that passes the line (west of the till, its front) is on the road side of it.
+    const pastLine = back.filter((at) => at.x > west - 0.3 && at.x < east - 0.1);
+    expect(pastLine.length).toBeGreaterThan(5);
+    for (const at of pastLine) expect(at.z).toBeGreaterThan(line[0]!.z + 0.5);
+  });
+
   it('a car that gives up takes its driver with it', () => {
     const mart = new Mart(ROADSIDE.layout, null, null, () => {});
     const car = carAtPump(pump);

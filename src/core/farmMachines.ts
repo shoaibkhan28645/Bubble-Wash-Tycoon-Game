@@ -1,8 +1,7 @@
 // The farm's machines (Chapter 2, Part D), as played: the farm pickup, parked
 // on the track between the fields, which the farmhand loads as he picks and
-// which takes each full load to the barn doors and comes back; the feed truck
-// that comes from town when the feed store runs low; and the combine that
-// sweeps the corn field whenever it's ripe.
+// which takes each full load to the barn doors and comes back; and the feed
+// truck that comes from town when the feed store runs low.
 import { Group, Vector3, type Object3D, type Scene } from 'three';
 import { GOODS, TUNING, type FarmLayout, type Rect } from './config';
 import type { GameState } from './gameState';
@@ -13,10 +12,9 @@ import type { Livestock } from '../systems/animals';
 import type { BarnStore } from '../systems/barn';
 import type { StaffSystem } from '../systems/staff';
 import { Carrier } from '../systems/carry';
-import type { CrateCarrier, Crops, GoodId } from '../systems/crops';
+import type { CrateCarrier, GoodId } from '../systems/crops';
 import { insideRect } from '../systems/stations';
 import { routeAt, routeMarks } from '../systems/vehicles';
-import type { Floaters } from '../ui/carBubbles';
 import type { Label, WorldLabels } from '../ui/worldLabels';
 
 /** Seconds the pickup takes to turn round at either end of its run. */
@@ -40,8 +38,6 @@ export function createMachines(deps: {
   layout: FarmLayout;
   state: GameState;
   labels: WorldLabels;
-  floaters: Floaters;
-  crops: Crops;
   barn: BarnStore;
   livestock: Livestock;
   /** The farm's staff: the pickup speeds the farmhand up (no more walks to the barn). */
@@ -49,8 +45,8 @@ export function createMachines(deps: {
   /** Turns wheels and puffs exhaust (render/farmMotion.ts). */
   motion: FarmMotion;
 }): Machines {
-  const { scene, layout, state, labels, floaters, crops, barn, livestock } = deps;
-  // The feed truck and the combine drive their routes (the delivery vans are the farm game's own).
+  const { scene, layout, state, labels, barn, livestock } = deps;
+  // The feed truck drives its route (the delivery vans are the farm game's own).
   const fleet = new VanFleet((model) => deps.motion.vehicle(model));
   scene.add(fleet.group);
   const { machines: spots } = layout;
@@ -208,36 +204,6 @@ export function createMachines(deps: {
     }
   };
 
-  // The combine: a pass over the corn field whenever most of it is ripe.
-  const combineMarks = routeMarks(spots.combineRoute);
-  const combineLength = combineMarks[combineMarks.length - 1] ?? 0;
-  let combineStart: number | null = null;
-  const buildCombine = (): void => fleet.add('combine', 'fm_combine', spots.combineRoute, 'loop');
-  const combineSeconds = () => combineLength / TUNING.machines.combine.speed;
-  const runCombine = (now: number): void => {
-    const corn = crops.plots.filter((p) => p.crop === 'corn');
-    if (combineStart === null) {
-      const ripe = corn.filter((p) => crops.ripe(p, now)).length;
-      if (corn.length > 0 && ripe >= Math.ceil(corn.length * 0.66)) combineStart = now;
-      return;
-    }
-    const along = ((now - combineStart) / 1000) * TUNING.machines.combine.speed;
-    if (along >= combineLength) {
-      combineStart = null;
-      return;
-    }
-    const { at } = routeAt(spots.combineRoute, combineMarks, along);
-    const plot = crops.harvestAt(at, now, 'corn');
-    if (!plot) return;
-    const { yield: crates, hay } = TUNING.machines.combine;
-    barn.store('corn', crates);
-    state.counts.harvest = (state.counts.harvest ?? 0) + crates;
-    // The straw is baled into hay for the animals.
-    if (livestock.hasFeeder) state.supplies.feed = Math.min(TUNING.feed.cap, (state.supplies.feed ?? 0) + hay);
-    floaters.show(`+${crates} 🌽`, new Vector3(plot.at.x, 2.2, plot.at.z), 'star');
-  };
-  const combineProgress = (now: number) => (combineStart === null ? null : Math.min(1, (now - combineStart) / 1000 / combineSeconds()));
-
   return {
     pickupBay() {
       return pickup?.phase === 'parked' ? spots.pickupBay : null;
@@ -246,19 +212,16 @@ export function createMachines(deps: {
       if (!state.unlocked.includes(id)) return;
       if (id === 'pickup') buildPickup();
       if (id === 'feedtruck') buildFeedTruck();
-      if (id === 'combine') buildCombine();
     },
     update(dt, now, carriers) {
       runPickup(dt, carriers);
       if (has('feedtruck')) runFeedTruck(now);
-      if (has('combine')) runCombine(now);
       fleet.update(
-        (id) => {
-          if (id === 'combine') return combineProgress(now);
+        () => {
           const { left, back } = feedTruck();
           return left !== undefined && back !== undefined ? Math.min(1, (now - left) / Math.max(1, back - left)) : null;
         },
-        (id) => (id === 'combine' ? combineSeconds() : TUNING.machines.feedTruck.trip),
+        () => TUNING.machines.feedTruck.trip,
       );
     },
   };

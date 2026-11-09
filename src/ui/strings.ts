@@ -138,7 +138,6 @@ const EN = {
   goal_cowbarn: 'Build the cow barn',
   goal_deliveries: 'Deliver {n} orders',
   goal_harvest: 'Harvest {n} crates',
-  goal_combine: 'Buy the combine harvester',
   goal_orchard: 'Plant the apple orchard',
   goal_bakery: 'Open the mill and bakery',
   goal_windmill: 'Restore the windmill',

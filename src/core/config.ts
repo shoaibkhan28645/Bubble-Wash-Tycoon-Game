@@ -90,8 +90,8 @@ export interface PadEffects {
   van?: boolean;
   /** A delivery driver: the vans take orders by themselves. */
   driver?: boolean;
-  /** A farm machine: the farmhand's pickup, the feed truck, the combine. */
-  machine?: 'pickup' | 'feedTruck' | 'combine';
+  /** A farm machine: the farmhand's pickup, the feed truck. */
+  machine?: 'pickup' | 'feedTruck';
 }
 
 export interface PadDef {
@@ -241,18 +241,27 @@ export interface CounterSpot {
   queue: Point[];
   /** Which way customers face at the window, in radians (0 = +z). */
   facing: number;
-  /** The corner customers walk round to reach the line (beside the counter, off the walkway). */
-  approach: Point;
+  /**
+   * The way in, from the walkway to beside the back of the line: its last
+   * point is where customers step into line (at the back, so first come is
+   * first served).
+   */
+  enter: Point[];
+  /**
+   * The way out, from the window (its first point) to off the map. It isn't
+   * the way in: customers leave forwards, never back through the line.
+   */
+  exit: Point[];
+  /** How a customer leaving the line early (tired of waiting) steps out of it first, towards the way out. */
+  aside: Point;
 }
 
-/** What a town with walk-up counters adds to its map: where people come from, walk along and wander off to. */
+/** What a town with walk-up counters adds to its map: where people come from and walk along. */
 export interface WalkUpLayout {
-  /** Where visitors come onto the map and leave it. */
+  /** Where visitors come onto the map (each counter's way out says where they leave it). */
   entrances: Point[];
-  /** The z of the path visitors walk along between the entrances. */
+  /** The z of the path visitors walk along from the entrances to a counter's way in. */
   walkwayZ: number;
-  /** Where visitors wander off to once served. */
-  strolls: Point[];
   /** Each walk-up counter, by its pad id. */
   counters: Record<string, CounterSpot>;
 }
@@ -305,12 +314,16 @@ export interface FarmLayout extends TownLayout, WalkUpLayout {
   pens: Record<string, PenSpot>;
   /** Each feed store by its pad id: where corn is tipped in. */
   feeders: Record<string, { zone: Rect }>;
-  /** Each van by its pad id: its way out (from where it parks, off the map), and the bay where it's loaded. */
-  vans: Record<string, { route: Point[]; bay: Rect }>;
+  /**
+   * Each van by its pad id: its way out (from where it parks, facing it, off the map), its way back (from
+   * off the map to where it parks: a different way, round the farm, so it's always parked facing out),
+   * and the bay where it's loaded.
+   */
+  vans: Record<string, { route: Point[]; back: Point[]; bay: Rect }>;
   /** The orders board, and where to stand to read it. */
   board: Point;
   boardSpot: Rect;
-  /** More gaps in the fence along the road (the farmers' market's way in). */
+  /** More gaps in the fence along the road (the market's ways in and out, the vans' way out). */
   sideGates: { minX: number; maxX: number }[];
   /** The bakery's bread table, and where to stand to pick up the baking. */
   bakery: { table: Point; zone: Rect };
@@ -325,8 +338,6 @@ export interface FarmLayout extends TownLayout, WalkUpLayout {
     pickupBay: Rect;
     /** Where the feed truck stops, out to the edge of the map. */
     feedTruckRoute: Point[];
-    /** The combine's round trip from where it parks, over the corn field and home. */
-    combineRoute: Point[];
   };
   /** The duck pond (an ellipse in this rect). */
   pond: Rect;
