@@ -54,6 +54,8 @@ export interface RideDef {
   track?: 'flume' | 'coaster';
   /** A station's steps or stairs: how far out from its deck they reach the ground (metres). */
   ramp?: number;
+  /** Where its sign and floaters show: over its middle (by default), or over its steps (the big wheel, too tall). */
+  sign?: 'steps';
 }
 
 export const RIDES = ridesJson as Record<string, RideDef>;
@@ -205,6 +207,11 @@ export class Ride {
   bonusRuns = 0;
   /** Where each seat really is, if the model says (seats that move on their own: teacups, bumper cars). */
   seatAt: ((i: number) => Point) | null = null;
+  /**
+   * Whether seat `i` is where riders get on and off just now (the big
+   * wheel's gondola, down at the deck); null: any seat, any time.
+   */
+  ready: ((i: number) => boolean) | null = null;
   /** Closed for now (an outdoor ride in a storm): riders wait, nobody launches it. */
   paused = false;
   /** The hero's time on the lever this time they stood on it, and whether that pulled it. */
@@ -728,6 +735,24 @@ export class ParkCrowd {
     return class_;
   }
 
+  /** Fills every free seat of `ride` with a rider, sitting already (the dev console, to look at a full ride). */
+  seatEveryone(ride: Ride): void {
+    for (const [i, taken] of ride.seats.entries()) {
+      if (taken) continue;
+      const visitor = this.newVisitor(ride.seatPoint(i), this.random() < PARK.visitors.childChance, PARK.visitors.patience);
+      visitor.ticket = true;
+      visitor.wishes = [ride.id];
+      visitor.wished = 1;
+      visitor.ride = ride;
+      visitor.seat = i;
+      visitor.step = 'seated';
+      visitor.state = 'waiting';
+      visitor.y = ride.def.deck;
+      if (visitor.avatar) visitor.avatar.seated = true;
+      ride.seats[i] = visitor;
+    }
+  }
+
   /** A busload: `count` visitors step off at `at`, one behind another, and head for the ticket booth. */
   spawnGroup(at: Point, count: number): number {
     const booth = this.booth;
@@ -1052,13 +1077,14 @@ export class ParkCrowd {
     if (ride.phase === 'loading') {
       const front = ride.line[0];
       const free = ride.seats.findIndex((s) => !s);
-      if (front && free >= 0 && front.path.length === 0 && !ride.servicing && ride.nextStep(dt, RULES.boardStagger)) this.board(ride, front);
+      const at = free >= 0 && (ride.ready?.(free) ?? true);
+      if (front && at && front.path.length === 0 && !ride.servicing && ride.nextStep(dt, RULES.boardStagger)) this.board(ride, front);
     } else if (ride.phase === 'unloading') {
       const next = ride.seats.findIndex((s) => s?.step === 'seated');
       if (next < 0) {
         ride.phase = 'loading';
         ride.time = 0;
-      } else if (ride.nextStep(dt, RULES.unloadStagger)) this.stepOff(ride, next);
+      } else if ((ride.ready?.(next) ?? true) && ride.nextStep(dt, RULES.unloadStagger)) this.stepOff(ride, next);
     }
   }
 

@@ -35,8 +35,8 @@ import { DeliveryTruck, LitterView } from '../render/parkProps';
 import { Parade, dressAsStarry } from '../render/parade';
 import { loadPeople } from '../render/assets';
 import { blobShadows } from '../render/models/actors';
-import { nightGlow, skinnedToyMaterial, toyMaterial } from '../render/models/build';
-import { rigidSkin, warmRigidSkin } from '../render/models/rigid';
+import { nightGlow, skinnedToyMaterial } from '../render/models/build';
+import { warmRigidSkin } from '../render/models/rigid';
 import { ConstructionSites } from '../render/models/site';
 import { PARK_SOLIDS, RideView, Spinners, overRide, parkModel, parkPadModel } from '../render/models/park';
 import { PadModel } from '../render/models/padModel';
@@ -91,6 +91,16 @@ const LEVER_FOCUS = 0.55;
 const LEVER_FOCUS_REACH = 1.4;
 /** Visitors walk round each other and what's built, this far clear. */
 const NAV_RADIUS = 0.35;
+/** A metre across the grass is worth this many along a path: visitors keep to the paths, and step off near where they're going. */
+const OFF_PATH = 2.5;
+/** Half the width of a tree's trunk (at its size 1) and a lamp post's foot, solid (metres). */
+const TRUNK = 0.32;
+const LAMP_POST = 0.16;
+
+/** A square `half` metres either side of `at`. */
+function around(at: Point, half: number): Rect {
+  return { minX: at.x - half, maxX: at.x + half, minZ: at.z - half, maxZ: at.z + half };
+}
 /** A child is drawn this much smaller. */
 const CHILD_SCALE = 0.72;
 /** A ride's sign floats this high over its middle. */
@@ -263,30 +273,20 @@ export function createParkGame(
   };
   solid('gate', { x: (layout.gate.minX + layout.gate.maxX) / 2, z: layout.hedgeZ });
   for (const bed of layout.flowerBeds) solids.push({ minX: bed.x - 1, maxX: bed.x + 1, minZ: bed.z - 1, maxZ: bed.z + 1 });
+  for (const tree of layout.trees) solids.push(around(tree, TRUNK * (tree.size ?? 1)));
+  for (const lamp of layout.lamps) solids.push(around(lamp, LAMP_POST));
   const grow = (mesh: Object3D, animate: boolean): void => {
     if (!animate) return;
     mesh.scale.setScalar(0.001);
     growing.push({ mesh, age: 0 });
   };
-  /** The Starlight Wheel's wheel and its gondolas (kept level as it turns), and the fireworks barge, bobbing on the lake. */
-  let wheel: { spin: Object3D; cars: Object3D[] } | null = null;
+  /** The fireworks barge, bobbing on the lake. */
   let barge: Object3D | null = null;
   const showBuilding = (id: string, animate: boolean): void => {
     const at = layout.buildAt[id] ?? layout.pads[id];
     const mesh = parkPadModel(id);
     if (!mesh || !at) return;
     mesh.position.set(at.x, 0, at.z);
-    if (id === 'wheel') {
-      rigidSkin(mesh, toyMaterial, 'pk_wheel', skinnedToyMaterial);
-      const spin = mesh.getObjectByName('pk_wheel_wheel');
-      const cars: Object3D[] = [];
-      for (let k = 0; ; k++) {
-        const car = mesh.getObjectByName(`pk_wheel_gondola${k}`);
-        if (!car) break;
-        cars.push(car);
-      }
-      if (spin) wheel = { spin, cars };
-    }
     if (id === 'fireworks') barge = mesh;
     stage.scene.add(withShadows(mesh));
     spinners.watch(mesh);
@@ -310,7 +310,7 @@ export function createParkGame(
   let navSolids = -1;
   const route = (from: Point, to: Point): Point[] => {
     if (!nav || navSolids !== solids.length) {
-      nav = new NavGrid(layout.walk, [...solids, ...fixedSolids(layout)], NAV_RADIUS);
+      nav = new NavGrid(layout.walk, [...solids, ...fixedSolids(layout)], NAV_RADIUS, { paved: [...layout.paths, layout.plaza], offPath: OFF_PATH });
       navSolids = solids.length;
     }
     return nav.findPath(from, to);
@@ -615,6 +615,7 @@ export function createParkGame(
     const label = labels.add(el, overRide(ride, RIDE_LABEL_Y));
     rideViews.push({ ride, view, pad, sign: { el, words, fill, label, shown: '', worn: -1 } });
     solid(id, ride.spot.at);
+    solids.push(...view.solids);
     const leverAt = ride.spot.lever;
     const toRide = Math.atan2(ride.spot.at.x - leverAt.x, ride.spot.at.z - leverAt.z);
     const box = { x: leverAt.x + Math.sin(toRide) * 0.65, z: leverAt.z + Math.cos(toRide) * 0.65 };
@@ -948,6 +949,10 @@ export function createParkGame(
         schoolTrip: () => schoolBus.send(),
         festival: (on = true) => ((festivalForced = on), (festivalTimer = 0)),
         parade: () => parade.start(),
+        fill: (id: string) => {
+          const ride = crowd.ride(id);
+          if (ride) crowd.seatEveryone(ride);
+        },
       },
     });
   }
@@ -1135,11 +1140,7 @@ export function createParkGame(
       }
     }
     fireworks.update(dt);
-    // The Starlight Wheel turns slowly, its gondolas hanging level; the barge bobs on the water.
-    if (wheel) {
-      wheel.spin.rotation.z += PARK.wheel.turn * dt;
-      wheel.cars.forEach((car, k) => (car.rotation.z = -wheel!.spin.rotation.z + 0.05 * Math.sin(state.playSeconds * 1.3 + k * 0.9)));
-    }
+    // The barge bobs on the water.
     if (barge) {
       barge.position.y = 0.05 * Math.sin(dayTime * 1.4 + state.playSeconds * 0.9);
       barge.rotation.z = 0.025 * Math.sin(state.playSeconds * 1.1);

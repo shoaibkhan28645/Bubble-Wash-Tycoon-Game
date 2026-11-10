@@ -299,8 +299,9 @@
     "cost": 900000,
     "targetMinute": 68,
     "buildSeconds": 14400,
-    "adds": "The park's landmark, lit like a star at night: +20% on every ticket, ride and sale",
+    "adds": "The park's landmark, lit like a star at night: sixteen seats in eight open gondolas, and +20% on every ticket, ride and sale",
     "effects": {
+      "ride": "wheel",
       "payBonus": 0.2
     }
   },

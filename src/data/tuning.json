@@ -101,7 +101,6 @@
     "giftshop": { "chance": 0.45 },
     "prizes": { "chance": 0.3, "goldenChance": 0.04, "setSize": 4, "setBonus": 0.05 },
     "fireworks": { "crowd": 0.5, "nightPay": 0.25, "rocketSeconds": [0.45, 1.1], "sparks": 44 },
-    "wheel": { "turn": 0.09 },
     "vip": { "afterSeconds": 90, "attractions": 5, "wishes": 6, "patience": 3, "pay": 5 },
     "wishBubbleSeconds": 4,
     "spotless": { "seconds": 45, "bonus": 0.1, "minVisitors": 8 },
@@ -112,9 +111,9 @@
       "waitSeconds": 25,
       "kinds": { "family": 0.5, "teens": 0.25, "couple": 0.25 },
       "likes": {
-        "family": { "carousel": 3, "teacups": 3, "cart": 2, "boats": 1.5, "haunted": 0.3, "coaster": 0.3 },
+        "family": { "carousel": 3, "teacups": 3, "cart": 2, "boats": 1.5, "wheel": 1.5, "haunted": 0.3, "coaster": 0.3 },
         "teens": { "bumper": 3, "haunted": 3, "coaster": 3, "flume": 2, "carousel": 0.4, "teacups": 0.4 },
-        "couple": { "boats": 3, "swings": 2, "flume": 1.5, "teacups": 0.5, "bumper": 0.5 }
+        "couple": { "boats": 3, "wheel": 3, "swings": 2, "flume": 1.5, "teacups": 0.5, "bumper": 0.5 }
       }
     }
   }

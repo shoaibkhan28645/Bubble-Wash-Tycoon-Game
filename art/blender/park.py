@@ -954,7 +954,8 @@ h.append(kit.torus(0.1, 0.022, (X, -0.37, -0.1), INK, rot=(math.pi / 2, 0, 0), m
 m.part('head', (X, 0, 0), h)
 m.part('suit', (X + 3, 0, 0), [blob((0.36, 0.3, 0.38), (X + 3, 0, 0), SUN, 12), star((X + 3, -0.3, 0.1), 0.14, '#ff5fa8', thick=0.04)])
 
-# --- The log flume's station: a roofed platform beside the channel, two hollowed logs (four seats each), the splash pool. ---
+# --- The log flume's station: a platform beside the channel roofed over the back only (so the riders in the logs
+# stay in view), two hollowed logs, the splash pool. ---
 X = 196.0
 m = Model('pk_flume', X)
 # The platform on the path's side (+y; the game's -z), the channel through the middle, the sign facing the camera.
@@ -962,14 +963,15 @@ p = [kit.box((7.2, 1.4, 0.5), (X, 1.2, 0.25), WOOD, bevel=0.04)]
 for k in range(14):
     p.append(kit.box((0.04, 1.42, 0.02), (X - 3.4 + k * 0.52, 1.2, 0.51), WOOD_DARK, bevel=0.0))
 for px in (-3.3, 0.0, 3.3):
-    p.append(kit.cylinder(0.12, 2.6, (X + px, 1.75, 1.8), WOOD_DARK, verts=8))
-    p.append(kit.cylinder(0.12, 3.06, (X + px, -0.9, 1.53), WOOD_DARK, verts=8))
-p.append(kit.box((7.6, 3.0, 0.18), (X, 0.5, 3.15), WOOD_DARK, bevel=0.04))
-roof = kit.prism((7.8, 3.2, 0.9), (X, 0.5, 3.24), '#3fae5a')
+    for py in (0.62, 1.75):
+        p.append(kit.cylinder(0.12, 2.6, (X + px, py, 1.8), WOOD_DARK, verts=8))
+p.append(kit.box((7.6, 1.7, 0.18), (X, 1.2, 3.15), WOOD_DARK, bevel=0.04))
+roof = kit.prism((7.8, 1.9, 0.6), (X, 1.2, 3.24), '#3fae5a')
 p.append(roof)
-p.append(kit.box((2.6, 0.14, 0.55), (X, -1.08, 2.75), GOLD, bevel=0.05))
-p.append(kit.box((2.45, 0.15, 0.42), (X, -1.09, 2.75), WHITE, bevel=0.04))
-p += [bulb(X - 3.6 + k * 0.45, -1.12, 3.06, 0.05) for k in range(17)]
+# The sign stands on the roof's front edge, behind the logs.
+p.append(kit.box((2.6, 0.14, 0.55), (X, 0.42, 3.5), GOLD, bevel=0.05))
+p.append(kit.box((2.45, 0.15, 0.42), (X, 0.41, 3.5), WHITE, bevel=0.04))
+p += [bulb(X - 3.6 + k * 0.45, 0.32, 3.06, 0.05) for k in range(17)]
 m.mesh(p)
 for i, lx in enumerate((-1.5, 1.5)):
     cx = X + lx
@@ -990,7 +992,7 @@ pool.append(kit.cylinder(1.8, 0.44, (X2, 0, 0.22), '#7fdcec', verts=28))
 pool += [blob((0.3, 0.3, 0.2), (X2 + 1.3 * math.cos(k * 1.26), 1.0 * math.sin(k * 1.26), 0.5), '#e9fbff', 6) for k in range(5)]
 m.part('pool', (X2, 0, 0), pool)
 
-# --- The Starlight Comet's station: a long platform under a blue roof, the train of four cars (two seats each). ---
+# --- The Starlight Comet's station: a long platform roofed over the back only (the riders stay in view), the train. ---
 X = 214.0
 m = Model('pk_coaster', X)
 p = [kit.box((7.8, 3.2, 1.0), (X, 0, 0.5), '#cfd6de', bevel=0.06)]
@@ -1002,14 +1004,15 @@ for e in (-1, 1):
     p.append(rod((X + e * 0.82, 1.6, 1.85), (X + e * 0.82, 2.8, 1.0), 0.04, GOLD, verts=6))
     p.append(rod((X + e * 0.82, 2.8, 0.0), (X + e * 0.82, 2.8, 1.0), 0.04, GOLD, verts=6))
 for px in (-3.6, 0.0, 3.6):
-    for py in (-1.4, 1.4):
+    for py in (0.82, 1.4):
         p.append(kit.cylinder(0.14, 2.7, (X + px, py, 2.35), WHITE, verts=8))
-p.append(kit.box((8.4, 3.9, 0.18), (X, 0, 3.75), WHITE, bevel=0.04))
-p.append(kit.prism((8.4, 3.9, 1.0), (X, 0, 3.84), SKY))
-p.append(kit.box((3.4, 0.16, 0.7), (X, -1.6, 4.25), GOLD, bevel=0.06))
-p.append(kit.box((3.25, 0.17, 0.55), (X, -1.61, 4.25), WHITE, bevel=0.05))
-p.append(star((X, -1.66, 5.05), 0.4, SUN, thick=0.12))
-p += [bulb(X - 4.0 + k * 0.5, -1.98, 3.7, 0.05) for k in range(17)]
+p.append(kit.box((8.4, 1.6, 0.18), (X, 1.2, 3.75), WHITE, bevel=0.04))
+p.append(kit.prism((8.4, 1.6, 0.7), (X, 1.2, 3.84), SKY))
+# The sign and its star stand on the roof's front edge, behind the train.
+p.append(kit.box((3.4, 0.16, 0.7), (X, 0.42, 4.4), GOLD, bevel=0.06))
+p.append(kit.box((3.25, 0.17, 0.55), (X, 0.41, 4.4), WHITE, bevel=0.05))
+p.append(star((X, 0.36, 5.2), 0.4, SUN, thick=0.12))
+p += [bulb(X - 4.0 + k * 0.5, 0.38, 3.7, 0.05) for k in range(17)]
 p.append(kit.box((7.6, 0.6, 0.06), (X, 0.0, 1.02), STEEL, bevel=0.0))
 m.mesh(p)
 for i in range(4):
@@ -1076,14 +1079,28 @@ m.mesh(p)
 # --- The Starlight Wheel: two A-frames, a wheel of lights and spokes, sixteen gondolas that hang level as it turns. ---
 X = 262.0
 m = Model('pk_wheel', X)
-WR, WH = 6.0, 7.6
+# Eight open gondolas (two seats each, riders in plain view, facing the camera) on a wheel that stops to load one at
+# the bottom, beside the boarding deck: gondola k hangs at angle -90deg + k*45deg, so turning the wheel clockwise
+# brings each next gondola down in turn.
+WR, WH, GONDOLAS = 5.6, 7.8, 8
 p = [kit.box((5.4, 2.4, 0.4), (X, 1.6, 0.2), WHITE, bevel=0.06)]
 p.append(kit.box((5.0, 0.12, 0.4), (X, 0.38, 0.35), HOTPINK, bevel=0.03))
 for sx in (-1, 1):
     for sy in (-1, 1):
         p.append(rod((X + sx * 3.8, sy * 1.7, 0), (X + sx * 0.3, sy * 0.9, WH), 0.2, DEEP, verts=10))
-    p.append(rod((X + sx * 2.4, -1.25, 2.8), (X + sx * 2.4, 1.25, 2.8), 0.08, DEEP, verts=6))
+        p.append(kit.box((0.6, 0.6, 0.16), (X + sx * 3.8, sy * 1.7, 0.08), STEEL, bevel=0.04))
 p.append(kit.cylinder(0.3, 2.2, (X, 0, WH), STEEL, verts=12, rot=(math.pi / 2, 0, 0)))
+# The boarding deck under the bottom gondola, its steps towards the camera and a pink rail either side of them.
+p.append(kit.box((3.4, 2.6, 0.45), (X, -0.6, 0.225), '#e9edf2', bevel=0.05))
+p.append(kit.box((3.44, 0.1, 0.12), (X, -1.9, 0.4), HOTPINK, bevel=0.02))
+for k in range(2):
+    p.append(kit.box((1.4, 0.32, 0.3 - k * 0.15), (X, -2.06 - k * 0.3, (0.3 - k * 0.15) / 2), '#cfd6de', bevel=0.03))
+for sx in (-1, 1):
+    for px in (0.8, 1.65):
+        p.append(rod((X + sx * px, -1.85, 0.45), (X + sx * px, -1.85, 1.3), 0.04, GOLD, verts=6))
+    p.append(rod((X + sx * 0.8, -1.85, 1.3), (X + sx * 1.65, -1.85, 1.3), 0.035, HOTPINK, verts=6))
+    p.append(rod((X + sx * 1.65, -1.85, 1.3), (X + sx * 1.65, 0.6, 1.3), 0.035, HOTPINK, verts=6))
+    p.append(rod((X + sx * 1.65, 0.6, 0.45), (X + sx * 1.65, 0.6, 1.3), 0.04, GOLD, verts=6))
 m.mesh(p)
 w = [kit.cylinder(0.65, 1.2, (X, 0, WH), GOLD, verts=16, rot=(math.pi / 2, 0, 0))]
 w.append(star((X, -0.85, WH), 1.2, SUN, thick=0.22))
@@ -1097,18 +1114,28 @@ for side in (-0.5, 0.5):
         a = k * math.pi / 16
         w.append(bulb(X + (WR + 0.08) * math.cos(a), side - 0.12, WH + (WR + 0.08) * math.sin(a), 0.09))
 for k in range(16):
-    a = k * math.pi / 8 + math.pi / 16
-    w.append(rod((X + WR * math.cos(a), -0.5, WH + WR * math.sin(a)), (X + WR * math.cos(a), 0.5, WH + WR * math.sin(a)), 0.05, STEEL, verts=4))
+    a = k * math.pi / 8
+    w.append(rod((X + WR * math.cos(a), -0.5, WH + WR * math.sin(a)), (X + WR * math.cos(a), 0.5, WH + WR * math.sin(a)), 0.05 if k % 2 else 0.07, STEEL, verts=4))
 m.part('wheel', (X, 0, WH), w)
-for k in range(16):
-    a = k * math.pi / 8 + math.pi / 16
+for k in range(GONDOLAS):
+    a = -math.pi / 2 + k * 2 * math.pi / GONDOLAS
     gx, gz = X + WR * math.cos(a), WH + WR * math.sin(a)
     col = (PINK, MINT, SKY, SUN)[k % 4]
-    g = [rod((gx, 0, gz), (gx, 0, gz - 0.45), 0.04, INK, verts=4)]
-    g.append(kit.box((0.95, 1.0, 0.75), (gx, 0, gz - 0.85), col, bevel=0.2, segments=2))
-    g.append(kit.box((0.97, 1.02, 0.18), (gx, 0, gz - 0.52), WHITE, bevel=0.06))
-    g.append(kit.cylinder(0.12, 0.12, (gx, 0, gz - 0.38), GOLD, verts=8))
+    # Hung from its pin: a little dome on top, side bars down to an open tub with a white rim, a bench at the back.
+    g = [kit.cylinder(0.1, 0.16, (gx, 0, gz), GOLD, verts=8, rot=(math.pi / 2, 0, 0))]
+    g.append(rod((gx, 0, gz), (gx, 0, gz - 0.32), 0.05, INK, verts=4))
+    g.append(blob((0.58, 0.5, 0.2), (gx, 0, gz - 0.38), col, 10))
+    g.append(kit.sphere(0.08, (gx, 0, gz - 0.16), WHITE, segments=6))
+    for e in (-1, 1):
+        g.append(rod((gx + e * 0.5, 0, gz - 0.42), (gx + e * 0.55, 0, gz - 1.26), 0.035, WHITE, verts=4))
+    g.append(kit.box((1.2, 0.92, 0.44), (gx, 0, gz - 1.48), col, bevel=0.12, segments=2))
+    g.append(kit.box((1.24, 0.96, 0.07), (gx, 0, gz - 1.27), WHITE, bevel=0.03))
+    g.append(kit.box((1.0, 0.62, 0.05), (gx, 0.06, gz - 1.28), '#2d3440', bevel=0.0))
+    g.append(kit.box((1.04, 0.14, 0.32), (gx, 0.36, gz - 1.12), col, bevel=0.05))
+    g.append(star((gx, -0.47, gz - 1.5), 0.15, WHITE, thick=0.04))
     m.part(f'gondola{k}', (gx, 0, gz), g, on='wheel')
+    for i, e in enumerate((-1, 1)):
+        m.marker(f'seat{k * 2 + i}', (gx + e * 0.26, 0.04, gz - 1.22), on=f'gondola{k}')
 
 toy = kit.toy_material('toy')
 for obj in models:

@@ -58,7 +58,7 @@
   },
   "swings": {
     "name": "Sky swings",
-    "icon": "🎡",
+    "icon": "🪁",
     "model": "pk_swings",
     "zone": "lakeside",
     "seats": 12,
@@ -156,5 +156,26 @@
     "wish": 0.95,
     "track": "coaster",
     "ramp": 1.25
+  },
+  "wheel": {
+    "name": "Starlight Wheel",
+    "icon": "🎡",
+    "model": "pk_wheel",
+    "zone": "lakeside",
+    "seats": 16,
+    "seconds": 26,
+    "price": 7000,
+    "deck": 0.45,
+    "plinth": 0,
+    "seatRadius": 0,
+    "seatStart": 0,
+    "boardRadius": 0,
+    "topSpeed": 0.5,
+    "bob": 0,
+    "board": "direct",
+    "wear": 0.05,
+    "wish": 0.9,
+    "ramp": 0.6,
+    "sign": "steps"
   }
 }

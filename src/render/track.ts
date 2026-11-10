@@ -372,24 +372,96 @@ function flume(track: Track, keepOut: Rect[]): Mesh {
     shapes.quad(place(i, [-0.5, -0.08]), place(i, [0.5, -0.08]), place(j, [0.5, -0.08]), place(j, [-0.5, -0.08]), PAINT.water);
   }
   // Posts under the channel where it's raised.
-  const every = Math.round(1.5 / track.step);
-  for (let i = 0; i < track.count; i += every) {
-    const { pos, ahead, up } = track.sample(i);
-    if (pos.y < 0.95 || inside(pos, keepOut) || wet(pos)) continue;
-    s.crossVectors(ahead, up);
-    s.y = 0;
-    s.normalize();
+  for (const { pos, across } of flumePosts(track, keepOut)) {
     const top = pos.y - 0.55;
     for (const e of [-0.4, 0.4]) {
-      const foot = pos.clone().addScaledVector(s, e);
+      const foot = pos.clone().addScaledVector(across, e);
       shapes.rod(new Vector3(foot.x, 0, foot.z), new Vector3(foot.x, top, foot.z), 0.08, PAINT.woodDark);
     }
-    const a = pos.clone().addScaledVector(s, -0.45);
-    const b = pos.clone().addScaledVector(s, 0.45);
+    const a = pos.clone().addScaledVector(across, -0.45);
+    const b = pos.clone().addScaledVector(across, 0.45);
     a.y = b.y = top - 0.05;
     shapes.rod(a, b, 0.06, PAINT.woodDark, 4);
   }
   return shapes.mesh();
+}
+
+/** Where the flume's channel stands on posts (a pair across it, every metre and a half where it's raised), and which way is across. */
+function flumePosts(track: Track, keepOut: Rect[]): { pos: Vector3; across: Vector3 }[] {
+  const pool = track.spot.pool;
+  const wet = (p: Vector3) => !!pool && Math.hypot(p.x - pool.x, p.z - pool.z) < pool.r - 0.25;
+  const posts: { pos: Vector3; across: Vector3 }[] = [];
+  const every = Math.round(1.5 / track.step);
+  for (let i = 0; i < track.count; i += every) {
+    const { pos, ahead, up } = track.sample(i);
+    if (pos.y < 0.95 || inside(pos, keepOut) || wet(pos)) continue;
+    const across = new Vector3().crossVectors(ahead, up);
+    across.y = 0;
+    posts.push({ pos: pos.clone(), across: across.normalize() });
+  }
+  return posts;
+}
+
+/**
+ * The coaster's columns: under the track now and then where it runs upright
+ * off the ground, and beside it, propping it up, where it runs straight up
+ * or down the side of its loop (`spine`: where the arm meets it). `top` is
+ * the column's top; it stands on the ground beneath.
+ */
+function coasterColumns(track: Track, keepOut: Rect[]): { top: Vector3; spine: Vector3 | null }[] {
+  const columns: { top: Vector3; spine: Vector3 | null }[] = [];
+  const every = Math.round(2.4 / track.step);
+  let lastSide = -Infinity;
+  for (let i = 0; i < track.count; i++) {
+    const { pos, ahead, up } = track.sample(i);
+    if (inside(pos, keepOut)) continue;
+    if (i % every === 0 && up.y > 0.8 && pos.y > 1.5) columns.push({ top: pos.clone().addScaledVector(up, -0.62), spine: null });
+    if (Math.abs(ahead.y) > 0.97 && Math.abs(up.y) < 0.3 && i - lastSide > every) {
+      lastSide = i;
+      const out = up.clone().negate();
+      out.y = 0;
+      out.normalize();
+      const spine = pos.clone().addScaledVector(up, -0.56);
+      columns.push({ top: spine.clone().addScaledVector(out, 0.7), spine });
+    }
+  }
+  return columns;
+}
+
+/** A track's channel or rails are this low (a car's middle, metres) or lower where nobody can walk under them. */
+const LOW: Record<TrackStyle, number> = { flume: 2.5, coaster: 2.6 };
+/** Half the width of the flume's channel and of the coaster's ties (metres), and of a post or a column's foot. */
+const HALF_WIDTH: Record<TrackStyle, number> = { flume: 0.62, coaster: 0.56 };
+const POST = 0.12;
+const COLUMN = 0.2;
+
+/**
+ * What of a track nobody walks through, as boxes on the ground: wherever
+ * it runs low (squares along it, half a metre apart), and the posts or
+ * columns under the rest. Not in `keepOut` (the station, solid already),
+ * nor in the splash pool.
+ */
+export function trackSolids(track: Track, keepOut: Rect[]): Rect[] {
+  const pool = track.spot.pool;
+  const wet = (p: Vector3) => !!pool && Math.hypot(p.x - pool.x, p.z - pool.z) < pool.r;
+  const rects: Rect[] = [];
+  const box = (x: number, z: number, half: number) => rects.push({ minX: x - half, maxX: x + half, minZ: z - half, maxZ: z + half });
+  const half = HALF_WIDTH[track.style];
+  const every = Math.max(1, Math.round(0.5 / track.step));
+  for (let i = 0; i < track.count; i += every) {
+    const { pos } = track.sample(i);
+    if (pos.y > LOW[track.style] || inside(pos, keepOut) || wet(pos)) continue;
+    box(pos.x, pos.z, half);
+  }
+  if (track.style === 'flume') {
+    for (const { pos, across } of flumePosts(track, keepOut)) {
+      if (pos.y <= LOW.flume) continue;
+      for (const e of [-0.4, 0.4]) box(pos.x + across.x * e, pos.z + across.z * e, POST);
+    }
+  } else {
+    for (const { top } of coasterColumns(track, keepOut)) box(top.x, top.z, COLUMN);
+  }
+  return rects;
 }
 
 /**
@@ -411,29 +483,12 @@ function coaster(track: Track, keepOut: Rect[]): Mesh {
     shapes.box(pos.clone().addScaledVector(up, -0.28), ahead.clone().multiplyScalar(0.05), up.clone().multiplyScalar(0.05), s.clone().multiplyScalar(0.55), PAINT.tie);
     shapes.box(pos.clone().addScaledVector(up, -0.42), ahead.clone().multiplyScalar(0.04), up.clone().multiplyScalar(0.12), s.clone().multiplyScalar(0.04), PAINT.tie);
   }
-  const every = Math.round(2.4 / track.step);
-  let lastSide = -Infinity;
-  for (let i = 0; i < track.count; i++) {
-    const { pos, ahead, up } = track.sample(i);
-    if (inside(pos, keepOut)) continue;
-    // Upright track: a column from the ground to under the spine, now and then.
-    if (i % every === 0 && up.y > 0.8 && pos.y > 1.5) {
-      const top = pos.clone().addScaledVector(up, -0.62);
-      shapes.rod(new Vector3(top.x, 0, top.z), top, 0.11, PAINT.column, 8);
-      shapes.box(new Vector3(top.x, 0.06, top.z), new Vector3(0.3, 0, 0), new Vector3(0, 0.06, 0), new Vector3(0, 0, 0.3), PAINT.foot);
-    }
-    // Running straight up or down the side of the loop: a column beside it, propping it up.
-    if (Math.abs(ahead.y) > 0.97 && Math.abs(up.y) < 0.3 && i - lastSide > every) {
-      lastSide = i;
-      const out = up.clone().negate();
-      out.y = 0;
-      out.normalize();
-      const spine = pos.clone().addScaledVector(up, -0.56);
-      const post = spine.clone().addScaledVector(out, 0.7);
-      shapes.rod(new Vector3(post.x, 0, post.z), post, 0.12, PAINT.column, 8);
-      shapes.rod(post, spine, 0.08, PAINT.column, 6);
-      shapes.box(new Vector3(post.x, 0.06, post.z), new Vector3(0.3, 0, 0), new Vector3(0, 0.06, 0), new Vector3(0, 0, 0.3), PAINT.foot);
-    }
+  // Upright track: a column from the ground to under the spine, now and then; straight up or down the side of the
+  // loop: a column beside it, propping it up.
+  for (const { top, spine } of coasterColumns(track, keepOut)) {
+    shapes.rod(new Vector3(top.x, 0, top.z), top, spine ? 0.12 : 0.11, PAINT.column, 8);
+    if (spine) shapes.rod(top, spine, 0.08, PAINT.column, 6);
+    shapes.box(new Vector3(top.x, 0.06, top.z), new Vector3(0.3, 0, 0), new Vector3(0, 0.06, 0), new Vector3(0, 0, 0.3), PAINT.foot);
   }
   return shapes.mesh();
 }

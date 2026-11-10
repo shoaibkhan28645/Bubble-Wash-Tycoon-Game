@@ -4,7 +4,7 @@
 // (rigid.ts): its platform turns, its horses bob, and riders sit on the
 // seats marked in the model, going round with them.
 import { Group, Mesh, Object3D, Quaternion, Vector3, type Scene } from 'three';
-import type { Point } from '../../core/config';
+import type { Point, Rect } from '../../core/config';
 import { TUNING } from '../../core/config';
 import type { ParkVisitor, Ride } from '../../systems/park';
 import { asset, hasModel } from '../assets';
@@ -12,7 +12,7 @@ import { skinnedToyMaterial, toyMaterial } from './build';
 import { plate } from './kit';
 import type { PersonAvatar } from './person';
 import { rigidSkin } from './rigid';
-import { Track, trackMesh } from '../track';
+import { Track, trackMesh, trackSolids } from '../track';
 
 const FILES = [
   'building:park',
@@ -74,8 +74,8 @@ const SIGNS: Record<string, { text: string; color: string; y: number; z: number;
   pk_sign: { text: 'STARLIGHT\nFUN PARK', color: '#2f80d1', y: 5.1, z: 0.18, width: 4.1, height: 1.55 },
   pk_haunted: { text: 'HAUNTED HOUSE', color: '#5c4b7d', y: 4.1, z: 3.16, width: 2.7, height: 0.5 },
   pk_bumper: { text: 'BUMPER CARS', color: '#ff5fa8', y: 4.25, z: -3.25, width: 4.0, height: 0.7 },
-  pk_flume: { text: 'LOG FLUME', color: '#3f8f4f', y: 2.75, z: 1.19, width: 2.3, height: 0.32 },
-  pk_coaster: { text: 'STARLIGHT COMET', color: '#2f80d1', y: 4.25, z: 1.72, width: 3.1, height: 0.42 },
+  pk_flume: { text: 'LOG FLUME', color: '#3f8f4f', y: 3.5, z: -0.31, width: 2.3, height: 0.32 },
+  pk_coaster: { text: 'STARLIGHT COMET', color: '#2f80d1', y: 4.4, z: -0.3, width: 3.1, height: 0.42 },
   pk_giftshop: { text: 'GIFTS', color: '#ff5fa8', y: 3.3, z: 0.34, width: 2.2, height: 0.4 },
 };
 
@@ -176,7 +176,15 @@ export const PARK_SOLIDS: Record<string, [number, number, number?, number?][]> =
     [0.08, 0.6, -1.64, -0.7],
     [0.08, 0.6, 1.64, -0.7],
   ],
-  wheel: [[3.9, 1.8]],
+  // The Starlight Wheel's machine house, its four feet and the boarding deck.
+  wheel: [
+    [2.7, 1.2, 0, -1.6],
+    [0.32, 0.32, -3.8, 1.7],
+    [0.32, 0.32, 3.8, 1.7],
+    [0.32, 0.32, -3.8, -1.7],
+    [0.32, 0.32, 3.8, -1.7],
+    [1.7, 1.3, 0, 0.6],
+  ],
 };
 
 /** Turns the always-turning parts of a model (stars, the floss bowl). */
@@ -213,6 +221,12 @@ const WANDER = 2.2;
 const SWING_OUT = 0.95;
 /** A swan boat's paddle round the lake: a share of the ride out to the loop, and back to the jetty. */
 const BOAT_LEG = 0.12;
+/** The big wheel: how fast it brings the next gondola down to the deck (radians a second, at most), how many times round a ride goes, and the share of a ride spent speeding up (and slowing down). */
+const WHEEL_SHIFT = 1.4;
+const WHEEL_TURNS = 2;
+const WHEEL_EASE = 0.15;
+/** A gondola's down at the deck within this (radians). */
+const WHEEL_AT_DECK = 0.02;
 
 /** The lake the boats paddle round: its middle and half-widths (the water). */
 export interface Lake {
@@ -251,8 +265,26 @@ export class RideView {
   private readonly bats: { node: Object3D; base: Vector3; wings: Object3D[] }[] = [];
   private readonly door: Object3D | null;
   private readonly ghost: { node: Object3D; base: number } | null = null;
+  /**
+   * The big wheel: the wheel, its gondolas (each at this angle round it,
+   * anticlockwise from +x seen from the front, when the wheel stands at
+   * 0), seats a gondola, where it was when this ride set off, and how fast
+   * it's turning (radians a second) and the gondolas swinging.
+   */
+  private readonly wheel: {
+    spin: Object3D;
+    gondolas: { node: Object3D; angle: number }[];
+    per: number;
+    from: number;
+    phase: string;
+    speed: number;
+    swing: number;
+    swingSpeed: number;
+  } | null = null;
   /** A track ride's track, its cars (each this far along it from the station's middle when parked), and how far round the last frame. */
   private readonly track: Track | null = null;
+  /** What of it nobody walks through beyond its pad's own boxes (a track's low runs, posts and columns), in the world. */
+  readonly solids: Rect[] = [];
   private readonly vehicles: { node: Object3D; offset: number }[] = [];
   private lap = 0;
   /** Where the flume's logs splash down and the coaster tips over its first drop (metres along). */
@@ -311,6 +343,21 @@ export class RideView {
       this.bats.push({ node, base: node.position.clone(), wings });
     }
     this.door = model.getObjectByName(`${name}_door`) ?? null;
+    const wheel = model.getObjectByName(`${name}_wheel`);
+    const gondolas = parts('gondola');
+    if (wheel && gondolas.length > 0) {
+      this.wheel = {
+        spin: wheel,
+        gondolas: gondolas.map((node) => ({ node, angle: Math.atan2(node.position.y, node.position.x) })),
+        per: 1,
+        from: 0,
+        phase: ride.phase,
+        speed: 0,
+        swing: 0,
+        swingSpeed: 0,
+      };
+      if (skinned) skinned.frustumCulled = false;
+    }
     const ghost = model.getObjectByName(`${name}_ghost`);
     if (ghost) this.ghost = { node: ghost, base: ghost.position.y };
     // A track ride: its track drawn in the world, its cars and logs moved along it (far from the station, so never culled with it).
@@ -319,6 +366,7 @@ export class RideView {
       const track = new Track(spot, ride.def.track);
       this.track = track;
       const mesh = trackMesh(track, ride.spot.deck ? [ride.spot.deck] : []);
+      this.solids.push(...trackSolids(track, ride.spot.deck ? [ride.spot.deck] : []));
       mesh.position.set(-ride.spot.at.x, 0, -ride.spot.at.z);
       this.group.add(mesh);
       if (skinned) skinned.frustumCulled = false;
@@ -343,9 +391,19 @@ export class RideView {
       if (extra) extra.first = Math.min(extra.first, i);
       else this.extras.push({ node: holder, first: i });
     }
-    // The ride's logic follows the seats where the model has them (cups spin, cars drive); a dark ride's are inside its door.
+    // The ride's logic follows the seats where the model has them (cups spin, cars drive); a dark ride's are inside its door;
+    // the big wheel's riders get on and off at the deck, into whichever gondola is down there.
     if (ride.def.inside) ride.seatAt = () => ride.steps;
-    else if (this.seats.length >= ride.def.seats) {
+    else if (this.wheel) {
+      const wheel = this.wheel;
+      wheel.per = Math.max(1, Math.round(this.seats.length / wheel.gondolas.length));
+      const deck = { x: ride.spot.at.x, z: ride.spot.at.z };
+      ride.seatAt = () => deck;
+      ride.ready = (i) => {
+        const gondola = wheel.gondolas[Math.floor(i / wheel.per)];
+        return !!gondola && Math.abs(turnBy(wheel.spin.rotation.z, down(gondola.angle))) < WHEEL_AT_DECK;
+      };
+    } else if (this.seats.length >= ride.def.seats) {
       ride.seatAt = (i) => {
         const seat = this.seats[i];
         if (!seat) return ride.spot.at;
@@ -382,6 +440,7 @@ export class RideView {
     }
     this.drive(dt);
     this.ride_();
+    this.turnWheel(dt);
     this.sail();
     this.haunt(dt);
     if (this.arm) {
@@ -391,6 +450,42 @@ export class RideView {
     }
     for (const extra of this.extras) extra.node.scale.setScalar(ride.seats.length > extra.first ? 1 : 0.0001);
     this.seatRiders();
+  }
+
+  /**
+   * The big wheel: while it loads (or unloads) it brings each gondola in
+   * turn down to the deck and stops there for its riders; a ride takes it
+   * round twice, easing up to speed and back down. The gondolas hang level,
+   * swinging a little as it starts and stops.
+   */
+  private turnWheel(dt: number): void {
+    const { wheel, ride } = this;
+    if (!wheel || dt <= 0) return;
+    const before = wheel.spin.rotation.z;
+    if (ride.phase === 'running') {
+      if (wheel.phase !== 'running') wheel.from = before;
+      const t = Math.min(1, ride.time / ride.cycle);
+      wheel.spin.rotation.z = wheel.from - WHEEL_TURNS * 2 * Math.PI * eased(t, WHEEL_EASE);
+    } else {
+      // The gondola wanted at the deck: the next one with a seat to fill, or the next with riders to let off.
+      const seat = ride.phase === 'loading' ? ride.seats.findIndex((v) => !v || v.step === 'boarding') : ride.seats.findIndex((v) => v?.step === 'seated');
+      const gondola = seat >= 0 ? wheel.gondolas[Math.floor(seat / wheel.per)] : undefined;
+      if (gondola) {
+        const left = turnBy(before, down(gondola.angle));
+        const step = Math.min(Math.abs(left), Math.min(WHEEL_SHIFT, Math.abs(left) * 4 + 0.05) * dt);
+        wheel.spin.rotation.z = before + Math.sign(left) * step;
+      }
+    }
+    wheel.phase = ride.phase;
+    // The gondolas swing as the wheel speeds up or slows down (a damped spring), and hang level.
+    const speed = (wheel.spin.rotation.z - before) / dt;
+    const pull = (speed - wheel.speed) / dt;
+    wheel.speed = speed;
+    wheel.swingSpeed += (-18 * wheel.swing - 2.2 * wheel.swingSpeed - 0.35 * pull) * dt;
+    wheel.swing = Math.max(-0.35, Math.min(0.35, wheel.swing + wheel.swingSpeed * dt));
+    wheel.gondolas.forEach(({ node }, i) => {
+      node.rotation.z = -wheel.spin.rotation.z + wheel.swing + 0.025 * Math.sin(this.clock * 1.3 + i * 0.9);
+    });
   }
 
   /**
@@ -608,8 +703,9 @@ export class RideView {
 
   /** Which way a rider faces in `seat`, in its seat's own terms: a horse's nose, a cup's middle, a car's front. */
   private facing(seat: Object3D): number {
-    // A log or a coaster car: facing the way it goes.
+    // A log or a coaster car: facing the way it goes. A big wheel's gondola: facing out, towards the camera.
     if (this.track) return Math.PI / 2;
+    if (this.wheel) return 0;
     if (this.bobbers.length > 0 && this.spin) {
       const p = this.spin.worldToLocal(seat.getWorldPosition(this.seen));
       const a = Math.atan2(-p.z, p.x);
@@ -629,12 +725,31 @@ function smooth(t: number): number {
   return t * t * (3 - 2 * t);
 }
 
+/** How far through a ride (0..1) at `t` (0..1) that speeds up steadily over the first `ease` of it, and slows down over the last. */
+function eased(t: number, ease: number): number {
+  const total = 1 - ease;
+  if (t < ease) return (t * t) / (2 * ease) / total;
+  if (t <= 1 - ease) return (t - ease / 2) / total;
+  return (total - ((1 - t) * (1 - t)) / (2 * ease)) / total;
+}
+
+/** The big wheel's turn (radians) that brings the gondola at `angle` down to the bottom. */
+function down(angle: number): number {
+  return -Math.PI / 2 - angle;
+}
+
+/** The shorter way round from turn `from` to turn `to` (radians, -π..π). */
+function turnBy(from: number, to: number): number {
+  const d = (to - from) % (2 * Math.PI);
+  return d > Math.PI ? d - 2 * Math.PI : d < -Math.PI ? d + 2 * Math.PI : d;
+}
+
 function lerpPoint(a: Point, b: Point, t: number): Point {
   return { x: a.x + (b.x - a.x) * t, z: a.z + (b.z - a.z) * t };
 }
 
 /** Where a sign or a ring floats over a ride: above its middle. */
 export function overRide(ride: Ride, height: number): Vector3 {
-  const at: Point = ride.spot.at;
+  const at: Point = ride.def.sign === 'steps' ? ride.steps : ride.spot.at;
   return new Vector3(at.x, height, at.z);
 }

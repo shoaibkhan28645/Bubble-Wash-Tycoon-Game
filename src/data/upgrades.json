@@ -195,6 +195,7 @@
     "flume": 1800,
     "giftshop": 2000,
     "coaster": 3000,
+    "wheel": 3600,
     "crew": 3000
   },
   "panels": {
@@ -360,6 +361,11 @@
       "coaster.seats",
       "coaster.sturdy",
       "crew.staffSpeed"
+    ],
+    "wheel": [
+      "wheel.speed",
+      "wheel.price",
+      "wheel.sturdy"
     ]
   },
   "maxLevels": {
