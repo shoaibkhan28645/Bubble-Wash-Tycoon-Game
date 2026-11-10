@@ -510,6 +510,8 @@ export interface UpgradeKind {
 export interface UpgradesData {
   growth: number;
   kinds: Record<string, UpgradeKind>;
+  /** A lower cap for one upgrade than its kind's (a ride with room for only two extra seats). */
+  maxLevels?: Record<string, number>;
   /** Cost multiplier by upgrade target (station, staff or player). */
   costScale: Record<string, number>;
   /** Which "target.kind" upgrades each upgrade pad offers. */

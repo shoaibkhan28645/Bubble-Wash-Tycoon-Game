@@ -32,6 +32,7 @@ import { Fireworks } from '../render/effects/fireworks';
 import { Particles } from '../render/effects/particles';
 import { copies, parkland, ropes } from '../render/parkland';
 import { DeliveryTruck, LitterView } from '../render/parkProps';
+import { Parade, dressAsStarry } from '../render/parade';
 import { loadPeople } from '../render/assets';
 import { blobShadows } from '../render/models/actors';
 import { nightGlow, skinnedToyMaterial, toyMaterial } from '../render/models/build';
@@ -43,7 +44,7 @@ import { PersonAvatar, type Tool } from '../render/models/person';
 import { perk } from '../systems/career';
 import { CashSystem } from '../systems/cash';
 import { Carrier, carriedItems } from '../systems/carry';
-import { takeFinished } from '../systems/construction';
+import { formatClock, takeFinished } from '../systems/construction';
 import { levelFactor, levelStep, nextStars, tipFor } from '../systems/economy';
 import { GuideHand, type GuideStep } from '../systems/guide';
 import { Input } from '../systems/input';
@@ -65,6 +66,8 @@ import type { WalkUpCounter } from '../systems/walkups';
 import { Floaters } from '../ui/carBubbles';
 import { EdgePointer } from '../ui/edgePointer';
 import { toast } from '../ui/dialog';
+import { showPrizeShelf } from '../ui/prizeShelf';
+import { EventChips } from '../ui/eventChips';
 import { showEndScreen } from '../ui/endScreen';
 import { openEmpireMap } from '../ui/empireMap';
 import { Hud } from '../ui/hud';
@@ -96,6 +99,20 @@ const RIDE_LABEL_Y = 6.4;
 const STOCK_LABEL_Y = 3.9;
 /** The hero picks up litter this close (like cash). */
 const LITTER_REACH = 0.8;
+/** The festival parade's way round the park's main paths. */
+const PARADE_ROUTE: Point[] = [
+  { x: -19.5, z: -3.5 },
+  { x: 16.5, z: -3.5 },
+  { x: 16.5, z: 13.5 },
+  { x: -19.5, z: 13.5 },
+  { x: -19.5, z: -3.5 },
+];
+/** Which zones' rides each operator launches (rides.json `zone`). */
+const OPERATOR_ZONES: Record<'operator' | 'boats' | 'crew', readonly string[]> = {
+  operator: ['kiddie', 'midway'],
+  boats: ['lakeside'],
+  crew: ['thrill'],
+};
 /** Sounds are full within this far of the hero (metres) and die away over the next stretch. */
 const HEAR_NEAR = 10;
 const HEAR_FADE = 28;
@@ -214,6 +231,7 @@ export function createParkGame(
   // The park takes far more a ride than a car wash: its piles hold more before the cashier comes.
   const cash = new CashSystem(stage.scene, layout, { ...TUNING.cash, pileCap: PARK.pileCap }, state, effects, sound);
   const floaters = new Floaters(labels);
+  const chips = new EventChips(root);
   // The hero's back: boxes of supplies from the shed to the stalls.
   const heroCarry = new Carrier<ParkSupply>(player.mesh, () => player.position, () => TUNING.supplies.carryBase + levelStep(UPGRADES.kinds.carry, level('player.carry')));
   const supplies = new ParkSupplies(state);
@@ -231,6 +249,8 @@ export function createParkGame(
   const count = (key: string, n = 1) => (state.counts[key] = (state.counts[key] ?? 0) + n);
   /** How far into the evening it is (0 by day, 1 at night), and whether the fireworks barge is built. */
   let evening = 0;
+  /** A festival weekend (Saturday or Sunday, once the park has its lights): double fireworks, a parade, more visitors. */
+  let festival = false;
   const fireworksBuilt = (): boolean => state.unlocked.some((id) => current.pads.find((p) => p.id === id)?.effects.fireworks);
 
   // The buildings: each pad's model grows into place, and what's solid about it stops the player (and visitors walk round).
@@ -301,8 +321,20 @@ export function createParkGame(
     meta.onPaid(paid);
     town.onPaid(paid);
   };
-  const quality = (id: string) => levelFactor(UPGRADES.kinds.quality, level(`${id}.quality`));
-  const payBonus = () => 1 + unlockedSum(state, (e) => e.payBonus);
+  // A ride's (or the gate's) quality upgrade became its ticket price: an older save's levels move across.
+  for (const id of ['booth', ...current.pads.filter((p) => p.effects.ride).map((p) => p.id)]) {
+    const old = state.levels[`${id}.quality`];
+    if (!old) continue;
+    state.levels[`${id}.price`] = Math.max(old, state.levels[`${id}.price`] ?? 0);
+    delete state.levels[`${id}.quality`];
+  }
+  /** What a ride's ticket (or a stall's sale) is worth, with its ticket price or quality upgrades. */
+  const quality = (id: string) =>
+    levelFactor(UPGRADES.kinds.quality, level(`${id}.quality`)) * levelFactor(UPGRADES.kinds.price, level(`${id}.price`));
+  // A spotless park (no litter about for a while, with a crowd in) pays a little more until the next wrapper drops.
+  let spotlessFor = 0;
+  let spotless = false;
+  const payBonus = () => 1 + unlockedSum(state, (e) => e.payBonus) + (spotless ? PARK.spotless.bonus : 0);
   const onServed = (visitor: ParkVisitor, counter: WalkUpCounter): void => {
     const ticket = counter === crowd.booth;
     const base = ticket ? visitor.basePay : ((PARK.stalls as Record<string, number>)[counter.kind] ?? 0);
@@ -348,10 +380,11 @@ export function createParkGame(
     const storm = crowd.storm && ride.def.indoor ? PARK.storm.pay : 1;
     const night = fireworksBuilt() && evening >= 0.5 ? 1 + PARK.fireworks.nightPay : 1;
     const seat = ride.def.price * quality(ride.id) * payBonus() * storm * night * (1 + shelfBonus(shelf(state).length)) * (crowd.rush?.payMultiplier ?? 1);
-    const pay = Math.round(launch.riders * seat * (launch.full ? 1 + rules.fullBonus : 1));
+    const pay = Math.round(launch.riders * seat * (launch.full ? 1 + rules.fullBonus : 1) * (launch.serviced ? 1 + rules.serviceBonus : 1));
     const tip = launch.perfect ? Math.round(pay * rules.perfectTip) : 0;
     cash.add(ride.id, pay + tip);
     for (const rider of ride.seats) if (rider?.vip) rider.spent += Math.round(seat * (launch.full ? 1 + rules.fullBonus : 1));
+    if (trip) trip.rides += ride.seats.filter((v) => v?.trip && v.step === 'seated').length;
     const at = layout.piles[ride.id] ?? ride.spot.lever;
     floaters.show(`+$${pay} ${ride.def.icon}`, new Vector3(at.x, 1.2, at.z), 'cash');
     const top = overRide(ride, 4.6);
@@ -414,7 +447,7 @@ export function createParkGame(
     layout,
     state,
     // With fireworks, half as many visitors again come for the evening show.
-    () => unlockedSum(state, (e) => e.arrivalBonus) + (fireworksBuilt() ? PARK.fireworks.crowd * evening : 0),
+    () => unlockedSum(state, (e) => e.arrivalBonus) + (fireworksBuilt() ? PARK.fireworks.crowd * evening : 0) + (festival ? PARK.festival.crowd : 0),
     () => unlockedSum(state, (e) => e.patienceBonus) - litter.patiencePenalty,
     makeAvatar,
     route,
@@ -446,6 +479,13 @@ export function createParkGame(
         count('breakdowns');
         flag(`broke:${current.id}`);
         sound.play('pop');
+      },
+      onServiced: (ride) => {
+        const top = overRide(ride, 4.2);
+        floaters.show(`🛠️ ${t('rideServiced', { runs: PARK.rides.serviceRuns })}`, top, 'star');
+        effects.burst('sparkle', new Vector3(top.x, 2.6, top.z), 18, 4, 1);
+        count('services');
+        sound.play('upgrade');
       },
       onFixed: (ride, byHero) => {
         const top = overRide(ride, 4.2);
@@ -483,25 +523,23 @@ export function createParkGame(
     return avatar ? { x: avatar.root.position.x, z: avatar.root.position.z } : null;
   };
   // The ride operator's round: to the lever of the ride that needs launching (full, or a rider kept waiting longest).
-  staff.walkPlans.operator = () => {
-    const ready = crowd.rides.filter((r) => r.phase === 'loading' && r.seated > 0 && !r.broken && !r.paused && r.id !== 'boats' && !r.def.track);
+  /** The lever of the ride in `zones` that most needs launching (full first, then the longest wait), or null. */
+  const leverIn = (zones: readonly string[]): Point | null => {
+    const ready = crowd.rides.filter((r) => zones.includes(r.def.zone) && r.phase === 'loading' && r.seated > 0 && !r.broken && !r.paused);
     if (ready.length === 0) return null;
-    const best = ready.reduce((a, b) => (Number(b.full) - Number(a.full) || b.waited - a.waited) > 0 ? b : a);
-    return best.spot.lever;
+    return ready.reduce((a, b) => ((Number(b.full) - Number(a.full) || b.waited - a.waited) > 0 ? b : a)).spot.lever;
   };
+  // One operator a zone, walking from lever to lever: the ride operator in Kiddie Corner and the Midway, the dock hand
+  // at Lakeside (the boats and the sky swings), the coaster crew in the Thrill Zone.
+  staff.walkPlans.operator = () => leverIn(OPERATOR_ZONES.operator);
   const near = (p: Point | null, q: Point, reach: number) => !!p && Math.hypot(p.x - q.x, p.z - q.z) <= reach;
   const staffAt = (role: 'mechanic' | 'janitor' | 'boats' | 'mascot' | 'crew'): Point | null => {
     const avatar = staff.avatarOf(role);
     return avatar ? { x: avatar.root.position.x, z: avatar.root.position.z } : null;
   };
   // The coaster crew: from the coaster's lever to the flume's, to whichever has riders waiting (a full one first).
-  staff.walkPlans.crew = () => {
-    const ready = crowd.rides.filter((r) => r.def.track && r.phase === 'loading' && r.seated > 0 && !r.broken && !r.paused);
-    if (ready.length === 0) return crowd.rides.find((r) => r.id === 'coaster')?.spot.lever ?? null;
-    return ready.reduce((a, b) => ((Number(b.full) - Number(a.full) || b.waited - a.waited) > 0 ? b : a)).spot.lever;
-  };
-  // The dock hand stays by the jetty and sends the boats off.
-  staff.walkPlans.boats = () => crowd.ride('boats')?.spot.lever ?? null;
+  staff.walkPlans.crew = () => leverIn(OPERATOR_ZONES.crew) ?? crowd.ride('coaster')?.spot.lever ?? null;
+  staff.walkPlans.boats = () => leverIn(OPERATOR_ZONES.boats) ?? crowd.ride('boats')?.spot.lever ?? null;
   // Starry the mascot goes to the longest line and cheers it up.
   let mascotLine: Point | null = null;
   staff.walkPlans.mascot = () => {
@@ -514,7 +552,12 @@ export function createParkGame(
     return { x: best.at.x + 1.3, z: best.at.z + 0.6 };
   };
   // The mechanic's round: to the lever of a broken-down ride, to fix it there.
-  staff.walkPlans.mechanic = () => crowd.rides.find((r) => r.broken)?.spot.lever ?? null;
+  staff.walkPlans.mechanic = () => {
+    const broken = crowd.rides.find((r) => r.broken);
+    if (broken) return broken.spot.lever;
+    const worn = crowd.rides.filter((r) => r.wear >= PARK.rides.serviceAt && !r.paused).sort((a, b) => b.wear - a.wear)[0];
+    return worn?.spot.lever ?? null;
+  };
   // The janitor's round: to the nearest litter, to sweep it up.
   let sweeping: LitterPiece | null = null;
   staff.walkPlans.janitor = (at) => sweeping?.at ?? litter.nearest(at)?.at ?? null;
@@ -530,7 +573,7 @@ export function createParkGame(
   };
 
   // Rides: the model turning, the lever, its pad ring, the queue ropes, and a sign over it saying how full it is.
-  const rideViews: { ride: Ride; view: RideView; pad: PadModel; sign: { el: HTMLElement; label: Label; shown: string } }[] = [];
+  const rideViews: { ride: Ride; view: RideView; pad: PadModel; sign: { el: HTMLElement; words: HTMLElement; fill: HTMLElement; label: Label; shown: string; worn: number } }[] = [];
   const addRide = (id: string, kind: string, animate: boolean): void => {
     const ride = crowd.addRide(id, kind);
     if (!ride) return;
@@ -554,6 +597,7 @@ export function createParkGame(
     };
     ride.wear = state.supplies[`wear.${id}`] ?? 0;
     ride.broken = (state.supplies[`broken.${id}`] ?? 0) > 0;
+    ride.bonusRuns = state.supplies[`serviced.${id}`] ?? 0;
     stage.scene.add(view.group);
     grow(view.group, animate);
     const pad = new PadModel(1.1, 0xffd24a);
@@ -562,8 +606,14 @@ export function createParkGame(
     stage.scene.add(withShadows(ropes(ride.spot.ropes)));
     const el = document.createElement('div');
     el.className = 'shelf-stock ride-sign';
+    const words = document.createElement('span');
+    const gauge = document.createElement('span');
+    gauge.className = 'wear-gauge';
+    const fill = document.createElement('i');
+    gauge.appendChild(fill);
+    el.append(words, gauge);
     const label = labels.add(el, overRide(ride, RIDE_LABEL_Y));
-    rideViews.push({ ride, view, pad, sign: { el, label, shown: '' } });
+    rideViews.push({ ride, view, pad, sign: { el, words, fill, label, shown: '', worn: -1 } });
     solid(id, ride.spot.at);
     const leverAt = ride.spot.lever;
     const toRide = Math.atan2(ride.spot.at.x - leverAt.x, ride.spot.at.z - leverAt.z);
@@ -571,23 +621,36 @@ export function createParkGame(
     solids.push({ minX: box.x - 0.32, maxX: box.x + 0.32, minZ: box.z - 0.3, maxZ: box.z + 0.3 });
     stage.refreshShadows();
   };
+  /** The ride's zone has its operator hired (they launch a full ride). */
+  const hasOperator = (ride: Ride): boolean =>
+    (Object.entries(OPERATOR_ZONES) as [string, readonly string[]][]).some(([role, zones]) => zones.includes(ride.def.zone) && state.unlocked.includes(role));
   const showRides = (): void => {
     for (const { ride, sign } of rideViews) {
-      const { icon, seats } = ride.def;
+      const { icon } = ride.def;
+      const seats = ride.seats.length;
       const text = ride.paused
         ? t('rideStorm', { icon })
         : ride.broken
         ? ride.fixing > 0
           ? t('rideFixing', { percent: Math.round(ride.fixing * 100) })
           : t(state.unlocked.includes('mechanic') ? 'rideBroken' : 'rideBrokenFix')
-        : ride.phase === 'running'
+        : ride.servicing
+          ? t('rideServicing', { percent: Math.round(ride.fixing * 100) })
+          : ride.phase === 'running'
           ? t('rideRunning', { icon })
           : ride.full
-            ? t(state.unlocked.includes('operator') ? 'rideFull' : 'rideFullPull', { icon })
+            ? t(hasOperator(ride) ? 'rideFull' : 'rideFullPull', { icon })
             : t('rideLoading', { icon, seated: ride.seated, seats });
+      // The wear gauge: green, amber, then red once it's worth servicing (in steps of 5%, so the page isn't touched every frame).
+      const worn = ride.broken ? 20 : Math.min(20, Math.round(ride.wear * 20));
+      if (worn !== sign.worn) {
+        sign.worn = worn;
+        sign.fill.style.width = `${worn * 5}%`;
+        sign.fill.className = worn >= PARK.rides.serviceAt * 20 ? 'is-worn' : worn >= 10 ? 'is-used' : '';
+      }
       if (text === sign.shown) continue;
       sign.shown = text;
-      sign.el.textContent = text;
+      sign.words.textContent = text;
       sign.el.classList.toggle('is-full', ride.full && ride.phase === 'loading' && !ride.broken);
       sign.el.classList.toggle('is-empty', ride.broken);
       labels.remeasure(sign.label);
@@ -616,20 +679,7 @@ export function createParkGame(
   function dressMascot(): void {
     const avatar = staff.avatarOf('mascot');
     if (!avatar || avatar.root.getObjectByName('pk_mascot_head')) return;
-    const costume = parkModel('pk_mascot');
-    const head = costume.getObjectByName('pk_mascot_head');
-    const suit = costume.getObjectByName('pk_mascot_suit');
-    if (head) {
-      head.position.set(0, 1.42, 0.02);
-      head.scale.setScalar(1.15);
-      avatar.root.add(head);
-    }
-    if (suit) {
-      suit.position.set(0, 0.86, 0);
-      suit.scale.set(1.3, 1.35, 1.3);
-      avatar.root.add(suit);
-    }
-    avatar.root.traverse((node) => (node.castShadow = false));
+    dressAsStarry(avatar, parkModel('pk_mascot'));
   }
   // The delivery truck brings the shed a load when it's running low.
   const truck = new DeliveryTruck(stage.scene, layout.shed, () => {
@@ -756,9 +806,9 @@ export function createParkGame(
   const lever = (ride: Ride) => ({
     hero: near(player.position, ride.spot.lever, LEVER_REACH),
     staff:
-      near(operatorAt(), ride.spot.lever, LEVER_REACH) ||
-      (ride.id === 'boats' && near(staffAt('boats'), ride.spot.lever, LEVER_REACH)) ||
-      (!!ride.def.track && near(staffAt('crew'), ride.spot.lever, LEVER_REACH)),
+      (OPERATOR_ZONES.operator.includes(ride.def.zone) && near(operatorAt(), ride.spot.lever, LEVER_REACH)) ||
+      (OPERATOR_ZONES.boats.includes(ride.def.zone) && near(staffAt('boats'), ride.spot.lever, LEVER_REACH)) ||
+      (OPERATOR_ZONES.crew.includes(ride.def.zone) && near(staffAt('crew'), ride.spot.lever, LEVER_REACH)),
     mechanic: near(staffAt('mechanic'), ride.spot.lever, LEVER_REACH),
   });
 
@@ -800,7 +850,37 @@ export function createParkGame(
     const next = pads.next;
     return next && state.cash >= next.owed ? { at: next.at, text: 'guideBuild' } : null;
   };
-  const meta = createMeta({ root, state, saves, sound, traffic: null, pads, supplies: null, setBoost: (m) => (crowd.boost = m), town: 'park' });
+  const meta = createMeta({
+    root,
+    state,
+    saves,
+    sound,
+    traffic: null,
+    pads,
+    supplies: null,
+    setBoost: (m) => (crowd.boost = m),
+    town: 'park',
+    // The rewarded fix: every broken-down ride runs again at once.
+    rides: {
+      broken: () => crowd.rides.filter((r) => r.broken).length,
+      fixAll: () => {
+        for (const ride of crowd.rides) {
+          if (!ride.broken) continue;
+          ride.broken = false;
+          ride.fixing = 0;
+          ride.wear = 0;
+          const top = overRide(ride, 4.2);
+          floaters.show(`✅ ${t('fixedRide')}`, top, 'star');
+          effects.burst('sparkle', new Vector3(top.x, 2.6, top.z), 22, 4, 1);
+        }
+      },
+    },
+    // The prize shelf's panel, once there's a ring toss to win plush toys at.
+    shelf: {
+      count: () => (state.unlocked.includes('ringtoss') ? shelf(state).length : -1),
+      open: () => showPrizeShelf(root, state),
+    },
+  });
   const town = createTown({
     root,
     scene: stage.scene,
@@ -832,6 +912,47 @@ export function createParkGame(
     false,
   );
   let busTimer = PARK.bus.seconds / 3;
+  // School trips: now and then (once there's a bus stop) the school bus brings a class; enough rides in time earns a reward.
+  let trip: { left: number; rides: number; goal: number } | null = null;
+  let schoolTimer = PARK.school.firstSeconds;
+  const schoolBus = new DeliveryTruck(
+    stage.scene,
+    { truckIn: layout.busStop.busIn, truckOut: layout.busStop.busOut },
+    () => {
+      const kids = crowd.spawnTrip(layout.busStop.stop, PARK.school.children);
+      if (kids.length === 0) return;
+      trip = { left: PARK.school.seconds, rides: 0, goal: kids.length * PARK.school.ridesPerChild };
+      floaters.show(`🎒 +${kids.length}`, new Vector3(layout.busStop.stop.x, 2.6, layout.busStop.stop.z), 'star');
+      toast(root, `🚌 ${t('tripArrived', { goal: trip.goal, minutes: Math.round(PARK.school.seconds / 60) })}`);
+      sound.play('vip');
+    },
+    'pk_schoolbus',
+    false,
+  );
+  // The festival's parade: once round the main paths, Starry leading performers with balloons.
+  const parade = new Parade(stage.scene, PARADE_ROUTE, () =>
+    Array.from({ length: PARK.festival.performers }, (_, i) => {
+      // Visitors' people (loaded once the park opens), the first dressed as Starry.
+      const avatar = new PersonAvatar(CHARACTERS.visitors[i % CHARACTERS.visitors.length]!, i === 0 ? null : 'balloon');
+      if (i === 0) dressAsStarry(avatar, parkModel('pk_mascot'));
+      else avatar.holding = true;
+      return avatar;
+    }),
+  );
+  let paradeTimer = PARK.festival.firstParadeSeconds;
+  // The dev console can send the school bus, start a festival and its parade (to see them without waiting for a weekend).
+  let festivalForced = false;
+  if (import.meta.env.DEV) {
+    Object.assign(window, {
+      parkEvents: {
+        schoolTrip: () => schoolBus.send(),
+        festival: (on = true) => ((festivalForced = on), (festivalTimer = 0)),
+        parade: () => parade.start(),
+      },
+    });
+  }
+  let confettiTimer = 0;
+  let festivalTimer = 0;
   const built = (effect: 'evenings' | 'bus' | 'fireworks') => state.unlocked.some((id) => current.pads.find((p) => p.id === id)?.effects[effect]);
   // The day turns to evening and back, once the lights are up; the storm comes with the haunted house.
   let dayTime = 0;
@@ -868,15 +989,17 @@ export function createParkGame(
     for (const ride of crowd.rides) {
       ride.timeScale = levelFactor(UPGRADES.kinds.speed, level(`${ride.id}.speed`));
       ride.wearScale = levelFactor(UPGRADES.kinds.sturdy, level(`${ride.id}.sturdy`));
+      ride.setSeats(ride.def.seats + level(`${ride.id}.seats`));
     }
     const serving = crowd.update(dt, work, lever);
     // Fixing a broken-down ride at its lever: the hero gets busy with his hands, and sparks fly.
-    const fixing = crowd.rides.find((r) => r.broken && near(player.position, r.spot.lever, LEVER_REACH));
+    const fixing = crowd.rides.find((r) => (r.broken || r.servicing) && near(player.position, r.spot.lever, LEVER_REACH));
     player.scrubbing = serving || !!fixing;
     sparkTimer -= dt;
     if (sparkTimer <= 0) {
       sparkTimer = SMOKE_SECONDS;
       for (const ride of crowd.rides) {
+        if (ride.servicing) effects.burst('sparkle', new Vector3(ride.spot.lever.x, 1.0, ride.spot.lever.z), 5, 3, 0.4);
         if (!ride.broken) continue;
         effects.burst('smoke', new Vector3(ride.spot.at.x, 2.6, ride.spot.at.z), 2, 1.2, 0.4);
         const fixer = near(player.position, ride.spot.lever, LEVER_REACH) || near(staffAt('mechanic'), ride.spot.lever, LEVER_REACH);
@@ -885,7 +1008,7 @@ export function createParkGame(
     }
     // The mechanic at work on a broken ride, wrench in hand.
     const mechanicAt = staffAt('mechanic');
-    const repairing = crowd.rides.find((r) => r.broken && near(mechanicAt, r.spot.lever, LEVER_REACH));
+    const repairing = crowd.rides.find((r) => (r.broken || r.servicing) && near(mechanicAt, r.spot.lever, LEVER_REACH));
     if (repairing && !staff.isActing('mechanic')) staff.act('mechanic', 0.4, repairing.spot.at);
     // The janitor sweeps up the litter they've walked to.
     const janitorAt = staffAt('janitor');
@@ -939,6 +1062,7 @@ export function createParkGame(
       pad.update(dt, near(player.position, ride.spot.lever, LEVER_REACH));
       state.supplies[`wear.${ride.id}`] = ride.wear;
       state.supplies[`broken.${ride.id}`] = ride.broken ? 1 : 0;
+      state.supplies[`serviced.${ride.id}`] = ride.bonusRuns;
     }
     if (clankTimer <= 0) clankTimer = CLANK_SECONDS;
     sound.loop('musicbox', musicBox);
@@ -985,6 +1109,18 @@ export function createParkGame(
       }
     }
     updateBubbles(dt);
+    // Spotless: no litter on the ground for a while, with a crowd in (once there's a snack to drop a wrapper from).
+    const clean = litter.pieces.length === 0 && crowd.visitors.length >= PARK.spotless.minVisitors && state.unlocked.includes('cart');
+    spotlessFor = clean ? spotlessFor + dt : 0;
+    const nowSpotless = spotlessFor >= PARK.spotless.seconds;
+    if (nowSpotless && !spotless) {
+      floaters.show(`✨ ${t('spotless')}`, new Vector3(player.position.x, 2.6, player.position.z), 'star');
+      effects.burst('sparkle', new Vector3(player.position.x, 1.6, player.position.z), 16, 3, 1);
+      sound.play('sparkle');
+      count('spotless');
+    }
+    spotless = nowSpotless;
+    chips.set('spotless', spotless ? `✨ ${t('spotlessChip', { percent: Math.round(PARK.spotless.bonus * 100) })}` : null, 'good');
     // The fireworks show over the lake, every evening once there's a barge.
     const show = fireworksBuilt() && evening > 0.6;
     if (show && !showing) count('shows');
@@ -993,7 +1129,7 @@ export function createParkGame(
       rocketTimer -= dt;
       if (rocketTimer <= 0) {
         const [low, high] = PARK.fireworks.rocketSeconds as [number, number];
-        rocketTimer = low + Math.random() * (high - low);
+        rocketTimer = (low + Math.random() * (high - low)) / (festival ? 2 : 1);
         const from = layout.buildAt.fireworks ?? layout.lake;
         fireworks.launch(new Vector3(from.x + (Math.random() - 0.5) * 2.4, 1.2, from.z + (Math.random() - 0.5) * 1.6), 9 + Math.random() * 5);
       }
@@ -1009,15 +1145,70 @@ export function createParkGame(
       barge.rotation.z = 0.025 * Math.sin(state.playSeconds * 1.1);
       barge.rotation.x = 0.02 * Math.sin(state.playSeconds * 0.8);
     }
-    // The tour bus.
+    // The tour bus (not while the school bus is at the stop).
     if (built('bus')) {
       busTimer -= dt;
-      if (busTimer <= 0) {
+      if (busTimer <= 0 && !schoolBus.busy) {
         busTimer = PARK.bus.seconds;
         bus.send();
       }
+      schoolTimer -= dt;
+      if (schoolTimer <= 0 && !trip && !bus.busy && peopleReady) {
+        schoolTimer = PARK.school.everySeconds;
+        schoolBus.send();
+      }
     }
     bus.update(dt);
+    schoolBus.update(dt);
+    // The school trip's countdown: the class's rides, against the clock.
+    if (trip) {
+      trip.left -= dt;
+      if (trip.rides >= trip.goal) {
+        const reward = Math.max(PARK.school.minCash, Math.round(state.autoRate * PARK.school.minutesOfIncome));
+        cash.add('booth', reward);
+        state.gems += PARK.school.gems;
+        floaters.show(`🎒 ${t('tripDone')} +$${reward.toLocaleString('en-US')} +${PARK.school.gems}💎`, new Vector3(player.position.x, 3, player.position.z), 'tip');
+        effects.burst('confetti', new Vector3(player.position.x, 2.2, player.position.z), 40, 5, 1);
+        sound.play('reward');
+        count('trips');
+        onPaid({ amount: reward, tip: 0, automated: false, at: player.position });
+        trip = null;
+      } else if (trip.left <= 0) {
+        toast(root, `🚌 ${t('tripOver', { rides: trip.rides, goal: trip.goal })}`);
+        trip = null;
+      }
+    }
+    chips.set('trip', trip ? `🚌 ${t('tripChip', { rides: trip.rides, goal: trip.goal, time: formatClock(trip.left) })}` : null, 'trip');
+    // A festival weekend: Saturdays and Sundays, once the park has its lights.
+    festivalTimer -= dt;
+    if (festivalTimer <= 0) {
+      festivalTimer = 20;
+      const day = new Date().getDay();
+      const now = ((day === 0 || day === 6) && built('evenings')) || festivalForced;
+      if (now && !festival) {
+        toast(root, `🎉 ${t('festivalOn')}`);
+        sound.play('mission');
+      }
+      festival = now;
+    }
+    chips.set('festival', festival ? `🎉 ${t('festivalChip')}` : null, 'party');
+    if (festival) {
+      paradeTimer -= dt;
+      if (paradeTimer <= 0 && !parade.active && peopleReady) {
+        paradeTimer = PARK.festival.paradeSeconds;
+        parade.start();
+      }
+    }
+    parade.update(dt);
+    const lead = parade.lead;
+    if (lead) {
+      confettiTimer -= dt;
+      if (confettiTimer <= 0) {
+        confettiTimer = 1.2;
+        effects.burst('confetti', new Vector3(lead.x, 2.6, lead.z), 10, 3, 0.6);
+        if (hearing(lead) > 0.5) sound.play('cheer', hearing(lead) * 0.6);
+      }
+    }
     // Starry the mascot: cheers up the line they're by (waving now and then), and poses for photos.
     const mascot = staffAt('mascot');
     const atLine = !!mascot && !!mascotLine && Math.hypot(mascot.x - mascotLine.x - 1.3, mascot.z - mascotLine.z - 0.6) < 0.8;
@@ -1134,6 +1325,7 @@ export function createParkGame(
       loop.stop();
       nightGlow.value = 0;
       fireworks.dispose();
+      parade.dispose();
       sound.stopLoops();
       sound.useMusic(null);
       for (const cleanup of cleanups) cleanup();

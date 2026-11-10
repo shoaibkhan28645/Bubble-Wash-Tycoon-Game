@@ -90,7 +90,7 @@
     "pileCap": 20000,
     "visitors": { "spawnSeconds": 3.4, "patience": 55, "walkSpeed": 2.3, "ticket": 60, "max": 40, "childChance": 0.3 },
     "wishes": { "count": [2, 4], "cart": 0.6, "ringtoss": 0.45, "burger": 0.55, "rest": 0.3, "restSeconds": [4, 8] },
-    "rides": { "launchDelay": 1.6, "leverSeconds": 0.3, "perfectWindow": 1.0, "operatorWait": 6, "fullBonus": 0.2, "perfectTip": 0.15, "boardStagger": 0.35, "unloadStagger": 0.25, "spinUp": 1.6, "spinDown": 1.8, "repairSeconds": 3, "breakAfterRiders": 60 },
+    "rides": { "launchDelay": 1.6, "leverSeconds": 0.3, "perfectWindow": 1.0, "operatorWait": 6, "fullBonus": 0.2, "perfectTip": 0.15, "boardStagger": 0.35, "unloadStagger": 0.25, "spinUp": 1.6, "spinDown": 1.8, "repairSeconds": 3, "breakAfterRiders": 60, "serviceAt": 0.7, "serviceRuns": 10, "serviceBonus": 0.1 },
     "stalls": { "cart": 120, "ringtoss": 300, "burger": 600, "giftshop": 4500 },
     "supplies": { "stall": 6, "shed": 16, "truckSeconds": 30, "truckLoad": 8, "pickSeconds": 0.25, "handSeconds": 0.18 },
     "litter": { "afterSeconds": [5, 10], "chance": 0.55, "binChance": 0.25, "max": 14, "patiencePerPiece": 0.03 },
@@ -103,6 +103,19 @@
     "fireworks": { "crowd": 0.5, "nightPay": 0.25, "rocketSeconds": [0.45, 1.1], "sparks": 44 },
     "wheel": { "turn": 0.09 },
     "vip": { "afterSeconds": 90, "attractions": 5, "wishes": 6, "patience": 3, "pay": 5 },
-    "wishBubbleSeconds": 4
+    "wishBubbleSeconds": 4,
+    "spotless": { "seconds": 45, "bonus": 0.1, "minVisitors": 8 },
+    "school": { "firstSeconds": 240, "everySeconds": 600, "children": 12, "ridesPerChild": 2, "seconds": 300, "patience": 2, "minutesOfIncome": 3, "minCash": 20000, "gems": 5 },
+    "festival": { "crowd": 0.2, "paradeSeconds": 240, "firstParadeSeconds": 20, "performers": 6 },
+    "groups": {
+      "chance": 0.4,
+      "waitSeconds": 25,
+      "kinds": { "family": 0.5, "teens": 0.25, "couple": 0.25 },
+      "likes": {
+        "family": { "carousel": 3, "teacups": 3, "cart": 2, "boats": 1.5, "haunted": 0.3, "coaster": 0.3 },
+        "teens": { "bumper": 3, "haunted": 3, "coaster": 3, "flume": 2, "carousel": 0.4, "teacups": 0.4 },
+        "couple": { "boats": 3, "swings": 2, "flume": 1.5, "teacups": 0.5, "bumper": 0.5 }
+      }
+    }
   }
 }

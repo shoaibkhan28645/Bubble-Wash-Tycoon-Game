@@ -155,9 +155,10 @@ export function parkStage(town: ParkTown, built: ReadonlySet<string>, opts: Park
     if ((kind === 'ringtoss' || kind === 'burger') && staff.has('vendor')) return 1;
     return HERO_STALL;
   };
-  const leverFor = (ride: { id: string; def: { track?: string } }) => {
-    if (ride.def.track) return staff.has('crew');
-    if (ride.id === 'boats') return staff.has('boats');
+  const leverFor = (ride: { id: string; def: { zone: string } }) => {
+    // One operator a zone: the ride operator in Kiddie Corner and the Midway, the dock hand at Lakeside, the crew in the Thrill Zone.
+    if (ride.def.zone === 'thrill') return staff.has('crew');
+    if (ride.def.zone === 'lakeside') return staff.has('boats');
     // The hero launches the carousel himself until there's an operator.
     return staff.has('operator') || ride.id === 'carousel';
   };

@@ -77,7 +77,7 @@
     "name": "Ride operator",
     "cost": 53000,
     "targetMinute": 9,
-    "adds": "Launches the carousel: when it's full, or when the first rider has waited a while",
+    "adds": "Launches the rides in Kiddie Corner and the Midway: when one is full, or when its first rider has waited a while",
     "effects": {
       "staff": "operator"
     }
@@ -98,7 +98,7 @@
     "name": "Mechanic",
     "cost": 59000,
     "targetMinute": 13,
-    "adds": "Fixes rides that break down (worn rides break down as they stop; stand at the lever to fix one yourself)",
+    "adds": "Fixes rides that break down, and services worn ones before they do (stand at a lever to do either yourself)",
     "effects": {
       "staff": "mechanic"
     }
@@ -193,7 +193,7 @@
     "name": "Paddle boats",
     "cost": 140000,
     "targetMinute": 33,
-    "adds": "Swan boats round the lake, with a dock hand to send them off",
+    "adds": "Swan boats round the lake, with a dock hand who launches Lakeside's rides: the boats and the sky swings",
     "effects": {
       "ride": "boats",
       "staff": "boats",
@@ -288,7 +288,7 @@
     "name": "Coaster crew",
     "cost": 800000,
     "targetMinute": 64,
-    "adds": "Launches the Starlight Comet and the log flume",
+    "adds": "Launches the Thrill Zone's rides: the Starlight Comet, the log flume and the haunted house",
     "effects": {
       "staff": "crew"
     }

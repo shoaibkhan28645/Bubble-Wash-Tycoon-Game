@@ -12,13 +12,17 @@ export interface SideView {
   refill: boolean;
   /** The next pad is within reach of a rewarded finish. */
   finish: boolean;
+  /** A ride has broken down (the park): fix every one at once. */
+  fix: boolean;
+  /** Plush toys on the prize shelf so far (the park), or -1 for no shelf. */
+  shelf: number;
   /** Seconds left on the building going up soonest (0 = nothing being built). */
   build: number;
   /** Whether the player has got far enough for this button (GDD Onboarding: they appear one by one). */
   available: (action: SideAction) => boolean;
 }
 
-export type SideAction = 'calendar' | 'missions' | 'speed' | 'convoy' | 'refill' | 'finish' | 'build';
+export type SideAction = 'calendar' | 'missions' | 'speed' | 'convoy' | 'refill' | 'finish' | 'build' | 'fix' | 'shelf';
 
 interface SideButton {
   el: HTMLButtonElement;
@@ -30,7 +34,7 @@ interface SideButton {
 /** A button that has just appeared glows this long. */
 const NEW_GLOW_MS = 4000;
 
-const ICONS: Record<SideAction, string> = { calendar: '🎁', missions: '📋', speed: '⚡', convoy: '👑', refill: '🧴', finish: '🏗️', build: '🚧' };
+const ICONS: Record<SideAction, string> = { calendar: '🎁', missions: '📋', speed: '⚡', convoy: '👑', refill: '🧴', finish: '🏗️', build: '🚧', fix: '🔧', shelf: '🧸' };
 
 const clock = (seconds: number) =>
   seconds >= 3600 ? `${Math.floor(seconds / 3600)}h${String(Math.floor((seconds % 3600) / 60)).padStart(2, '0')}` : `${Math.floor(seconds / 60)}:${String(Math.floor(seconds % 60)).padStart(2, '0')}`;
@@ -75,6 +79,8 @@ export class SideBar {
     this.set('refill', view.refill && open('refill'), '📺', false);
     this.set('finish', view.finish && open('finish'), '📺', false);
     this.set('build', view.build > 0 && open('build'), clock(view.build), false);
+    this.set('fix', view.fix && open('fix'), '📺', false);
+    this.set('shelf', view.shelf >= 0 && open('shelf'), view.shelf >= 0 ? String(view.shelf) : '', false);
     this.started = true;
   }
 

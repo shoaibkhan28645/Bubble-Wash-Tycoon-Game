@@ -296,6 +296,28 @@ for i in range(8):
     # The rider's hips, on the saddle.
     m.marker(f'seat{i}', (hx - 0.03 * math.cos(yaw), hy - 0.03 * math.sin(yaw), HORSE_Z + 0.24), on=f'horse{i}')
 
+# Four chariots on the inner deck, between the horses: seats 8-11 (the extra seats upgrade; hidden until bought).
+CHARIOT_R = 1.75
+for k in range(4):
+    a = k * math.pi / 2
+    cx, cy = X + CHARIOT_R * math.cos(a), CHARIOT_R * math.sin(a)
+    yaw = a + math.pi / 2
+    f = (math.cos(yaw), math.sin(yaw))
+    sd = (-math.sin(yaw), math.cos(yaw))
+
+    def cat(fx, sx, z, cx=cx, cy=cy, f=f, sd=sd):
+        return (cx + f[0] * fx + sd[0] * sx, cy + f[1] * fx + sd[1] * sx, DECK + 0.1 + z)
+    col = (HOTPINK, SKY, SUN, MINT)[k]
+    q = [kit.box((0.62, 0.5, 0.26), cat(0, 0, 0.13), col, bevel=0.06, rot=(0, 0, yaw))]
+    q.append(kit.box((0.5, 0.44, 0.08), cat(0.02, 0, 0.3), CREAM, bevel=0.03, rot=(0, 0, yaw)))
+    q.append(kit.box((0.12, 0.5, 0.42), cat(-0.28, 0, 0.47), col, bevel=0.05, rot=(0, -0.2, yaw)))
+    q.append(blob((0.1, 0.27, 0.06), cat(-0.32, 0, 0.7), GOLD, 8, rot=(0, 0, yaw)))
+    for e in (-1, 1):
+        q.append(kit.box((0.6, 0.05, 0.12), cat(0, e * 0.25, 0.32), GOLD, bevel=0.02, rot=(0, 0, yaw)))
+    q.append(blob((0.12, 0.2, 0.1), cat(0.33, 0, 0.22), col, 8, rot=(0, 0, yaw)))
+    m.part(f'chariot{k}', (cx, cy, DECK + 0.1), q, on='spin')
+    m.marker(f'seat{8 + k}', cat(-0.05, 0, 0.36), on=f'chariot{k}')
+
 # --- The teacups: a turning platter of four big cups, each spinning on its own, and a teapot in the middle. ---
 X = -26.0
 m = Model('pk_teacups', X)
@@ -350,6 +372,8 @@ for i, (col, dots) in enumerate(CUPS):
     for k in range(2):
         b = a + math.pi / 2 + k * math.pi
         m.marker(f'seat{i * 2 + k}', (cx + 0.42 * math.cos(b), cy + 0.42 * math.sin(b), z0 + 0.74), on=f'cup{i}')
+    # A third seat on the outer side (the extra seats upgrade).
+    m.marker(f'seat{8 + i}', (cx + 0.42 * math.cos(a), cy + 0.42 * math.sin(a), z0 + 0.74), on=f'cup{i}')
 
 # --- The ticket booth: a counter facing the camera, roofed over the back only, the TICKETS sign on top. ---
 X = -14.0
@@ -889,6 +913,32 @@ for i, (wx, wy) in enumerate(((-1.15, -3.0), (1.15, -3.0), (-1.15, 3.0), (1.15, 
          kit.cylinder(0.26, 0.32, (X + wx, wy, 0.5), STEEL, verts=10, rot=(0, math.pi / 2, 0))]
     m.part(f'wheel{i}', (X + wx, wy, 0.5), w)
 
+# --- The school bus: shorter, school-bus yellow with black bands, a stop-sign arm by the door. ---
+X = 186.0
+m = Model('pk_schoolbus', X)
+SCHOOL = '#ffb21f'
+p = [kit.box((2.4, 7.4, 2.5), (X, 0, 1.75), SCHOOL, bevel=0.28, segments=2)]
+p.append(kit.box((2.44, 6.4, 0.8), (X, 0.3, 2.2), INK, bevel=0.08))
+for k in range(6):
+    p.append(kit.box((2.46, 0.09, 0.81), (X, -2.6 + k * 1.15, 2.2), SCHOOL, bevel=0.0))
+p.append(kit.box((2.2, 0.1, 0.95), (X, -3.72, 2.1), GLASS, bevel=0.04))
+for z in (1.25, 1.55):
+    p.append(kit.box((2.46, 7.2, 0.08), (X, 0, z), INK, bevel=0.0))
+p.append(kit.box((2.1, 7.0, 0.14), (X, 0, 3.02), SCHOOL, bevel=0.05))
+for sx in (-1, 1):
+    p.append(kit.sphere(0.12, (X + sx * 0.85, -3.72, 0.95), BULB, segments=6))
+    p.append(kit.sphere(0.1, (X + sx * 0.85, -3.72, 2.85), '#ff5c6c', segments=6))
+p.append(kit.box((2.3, 0.2, 0.32), (X, -3.75, 0.62), STEEL, bevel=0.05))
+p.append(kit.box((2.5, 7.6, 0.28), (X, 0, 0.6), INK, bevel=0.06))
+# The stop-sign arm on the driver's left, folded against the side.
+p.append(kit.cylinder(0.26, 0.04, (X - 1.25, -2.2, 1.9), '#e8423f', verts=8, rot=(0, math.pi / 2, 0)))
+p.append(kit.cylinder(0.2, 0.05, (X - 1.26, -2.2, 1.9), WHITE, verts=8, rot=(0, math.pi / 2, 0)))
+m.mesh(p)
+for i, (wx, wy) in enumerate(((-1.1, -2.4), (1.1, -2.4), (-1.1, 2.5), (1.1, 2.5))):
+    w = [kit.cylinder(0.48, 0.3, (X + wx, wy, 0.48), INK, verts=14, rot=(0, math.pi / 2, 0)),
+         kit.cylinder(0.25, 0.32, (X + wx, wy, 0.48), STEEL, verts=10, rot=(0, math.pi / 2, 0))]
+    m.part(f'wheel{i}', (X + wx, wy, 0.48), w)
+
 # --- The mascot's costume: a big smiling star head and a round yellow suit (put on over a person). ---
 X = 182.0
 m = Model('pk_mascot', X)
@@ -931,7 +981,8 @@ for i, lx in enumerate((-1.5, 1.5)):
     q.append(blob((0.09, 0.05, 0.05), (cx + 0.9, 0.42, 0.9), '#5fb84f', 6))
     m.part(f'log{i}', (cx, 0, 0.5), q)
     for k in range(4):
-        m.marker(f'seat{i * 4 + k}', (cx - 0.72 + k * 0.48, 0, 0.98), on=f'log{i}')
+        m.marker(f'seat{i * 4 + k}', (cx - 0.8 + k * 0.4, 0, 0.98), on=f'log{i}')
+    m.marker(f'seat{8 + i}', (cx + 0.8, 0, 0.98), on=f'log{i}')
 # The splash pool, apart from the station (the game puts it at the bottom of the drop).
 X2 = X + 8.0
 pool = [kit.cylinder(2.0, 0.42, (X2, 0, 0.21), '#c98a52', verts=28, bevel=0.04)]
@@ -977,6 +1028,19 @@ for i in range(4):
     m.part(f'car{i}', (cx, 0, 1.12), q)
     for k in (-1, 1):
         m.marker(f'seat{i * 2 + (k + 1) // 2}', (cx - 0.15, k * 0.24, 1.62), on=f'car{i}')
+# The fifth car, at the back of the train.
+cx = X - 4.0
+q = [kit.box((1.45, 1.05, 0.45), (cx, 0, 1.35), LILAC, bevel=0.16, segments=2)]
+q.append(kit.box((1.47, 1.07, 0.06), (cx, 0, 1.47), WHITE, bevel=0.0))
+q.append(kit.box((1.2, 0.85, 0.12), (cx, 0, 1.6), '#2d3440', bevel=0.04))
+for e in (-1, 1):
+    q.append(kit.box((0.12, 0.8, 0.55), (cx + e * 0.5 - 0.15, 0, 1.75), LILAC, bevel=0.04))
+    q.append(rod((cx + e * 0.5 + 0.05, -0.45, 1.85), (cx + e * 0.5 + 0.05, 0.45, 1.85), 0.025, GOLD, verts=4))
+    q.append(kit.cylinder(0.12, 0.1, (cx + e * 0.45, -0.5, 1.12), INK, verts=8, rot=(math.pi / 2, 0, 0)))
+    q.append(kit.cylinder(0.12, 0.1, (cx + e * 0.45, 0.5, 1.12), INK, verts=8, rot=(math.pi / 2, 0, 0)))
+m.part('car4', (cx, 0, 1.12), q)
+for k in (-1, 1):
+    m.marker(f'seat{8 + (k + 1) // 2}', (cx - 0.15, k * 0.24, 1.62), on='car4')
 
 # --- The gift shop: a pink shop with a striped awning, shelves of plush toys and balloons; its counter faces the camera. ---
 X = 230.0
@@ -1052,7 +1116,7 @@ for obj in models:
 print('triangles', {b.name: kit.triangles([d for d in b.children_recursive if d.type == 'MESH']) for b in bases})
 RIDES = {'pk_carousel': '-carousel', 'pk_teacups': '-teacups', 'pk_bumper': '-bumper', 'pk_swings': '-swings', 'pk_boats': '-boats', 'pk_haunted': '-haunted', 'pk_flume': '-flume', 'pk_coaster': '-coaster', 'pk_wheel': '-wheel'}
 THRILLS = {'pk_giftshop', 'pk_barge'}
-LAKESIDE = {'pk_sign', 'pk_busstop', 'pk_bus', 'pk_mascot'}
+LAKESIDE = {'pk_sign', 'pk_busstop', 'pk_bus', 'pk_mascot', 'pk_schoolbus'}
 MIDWAY = {'pk_ringtoss', 'pk_burger', 'pk_shed', 'pk_truck', 'pk_bin'}
 glb = Path(sys.argv[1] if len(sys.argv) > 1 else 'park.glb')
 # Each ride in a file of its own (a Playables file may weigh 512 KiB at most), the stalls and props in the first.

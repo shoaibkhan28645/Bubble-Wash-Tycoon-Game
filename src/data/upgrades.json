@@ -1,6 +1,20 @@
 {
   "growth": 1.15,
   "kinds": {
+    "price": {
+      "name": "Ticket price",
+      "effect": "+15% a ticket",
+      "base": 80,
+      "max": 10,
+      "factor": 1.15
+    },
+    "seats": {
+      "name": "Extra seats",
+      "effect": "+1 seat",
+      "base": 400,
+      "max": 4,
+      "step": 1
+    },
     "sturdy": {
       "name": "Sturdy parts",
       "effect": "Wears out 15% slower",
@@ -273,26 +287,28 @@
     ],
     "booth": [
       "booth.speed",
-      "booth.quality",
+      "booth.price",
       "cart.speed",
       "cart.quality",
       "seller.staffSpeed"
     ],
     "carousel": [
       "carousel.speed",
-      "carousel.quality",
+      "carousel.price",
+      "carousel.seats",
       "carousel.sturdy",
       "operator.staffSpeed",
       "player.walk"
     ],
     "teacups": [
       "teacups.speed",
-      "teacups.quality",
+      "teacups.price",
+      "teacups.seats",
       "teacups.sturdy"
     ],
     "bumper": [
       "bumper.speed",
-      "bumper.quality",
+      "bumper.price",
       "bumper.sturdy",
       "mechanic.staffSpeed"
     ],
@@ -305,18 +321,19 @@
     ],
     "swings": [
       "swings.speed",
-      "swings.quality",
+      "swings.price",
       "swings.sturdy"
     ],
     "boats": [
       "boats.speed",
-      "boats.quality",
+      "boats.price",
       "boats.sturdy",
       "boats.staffSpeed"
     ],
     "haunted": [
       "haunted.speed",
-      "haunted.quality",
+      "haunted.price",
+      "haunted.seats",
       "haunted.sturdy",
       "mascot.staffSpeed"
     ],
@@ -328,7 +345,8 @@
     ],
     "flume": [
       "flume.speed",
-      "flume.quality",
+      "flume.price",
+      "flume.seats",
       "flume.sturdy"
     ],
     "giftshop": [
@@ -338,9 +356,17 @@
     ],
     "coaster": [
       "coaster.speed",
-      "coaster.quality",
+      "coaster.price",
+      "coaster.seats",
       "coaster.sturdy",
       "crew.staffSpeed"
     ]
+  },
+  "maxLevels": {
+    "carousel.seats": 4,
+    "teacups.seats": 4,
+    "haunted.seats": 2,
+    "flume.seats": 2,
+    "coaster.seats": 2
   }
 }

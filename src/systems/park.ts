@@ -48,6 +48,8 @@ export interface RideDef {
   indoor?: boolean;
   /** A dark ride: riders go in at the door and aren't seen until they come out. */
   inside?: boolean;
+  /** The part of the park it's in: one operator looks after a zone's rides. */
+  zone: 'kiddie' | 'midway' | 'lakeside' | 'thrill';
   /** Runs round a track (the layout's): its cars leave the station and come back. */
   track?: 'flume' | 'coaster';
   /** A station's steps or stairs: how far out from its deck they reach the ground (metres). */
@@ -91,6 +93,8 @@ export type ParkStep =
   | 'resting'
   /** Hanging about: every line they want is full, so they wait a moment and look again. */
   | 'idle'
+  /** Waiting for the rest of their group (by the way out of a ride), to go on together. */
+  | 'regroup'
   /** Done (or fed up): on the way out of the park. */
   | 'leaving';
 
@@ -121,6 +125,10 @@ export class ParkVisitor extends Visitor {
   shopped = false;
   /** The Visitor of the Day: a celebrity with a long wish list, paying five times over for a perfect day. */
   vip = false;
+  /** On a school trip: one of the class off the school bus. */
+  trip = false;
+  /** The family, pair of teenagers or couple they came with (sharing one wish list, waiting for each other), or null. */
+  group: VisitorGroup | null = null;
   /** What they've paid so far today. */
   spent = 0;
 
@@ -136,6 +144,17 @@ export class ParkVisitor extends Visitor {
   }
 }
 
+/** The kinds of group visitors come in. */
+export type GroupKind = 'family' | 'teens' | 'couple';
+
+/** Visitors who came together: they share a wish list and go round as one, waiting for each other between rides. */
+export interface VisitorGroup {
+  kind: GroupKind;
+  members: ParkVisitor[];
+  /** The wish list the first of them to get a ticket made; the others get the same. */
+  wishes: string[] | null;
+}
+
 export type RidePhase = 'loading' | 'running' | 'unloading';
 
 /** Who pulled a ride's lever. */
@@ -147,6 +166,8 @@ export interface Launch {
   /** Pulled by the hero the moment the last seat filled. */
   perfect: boolean;
   by: LaunchBy;
+  /** One of the runs after a service, that pay a little more. */
+  serviced?: boolean;
 }
 
 /** A ride: seats, a line, and a round of loading, running and unloading. */
@@ -155,7 +176,7 @@ export class Ride {
   readonly line: ParkVisitor[] = [];
   /** Visitors walking to its line, not in it yet. */
   coming = 0;
-  /** Who has each seat (walking to it, or sitting in it). */
+  /** Who has each seat (walking to it, or sitting in it); more seats with the extra seats upgrade. */
   readonly seats: (ParkVisitor | null)[];
   phase: RidePhase = 'loading';
   /** Seconds into the current phase. */
@@ -178,8 +199,10 @@ export class Ride {
   /** Worn this far (it breaks down at 1, when allowed), and broken down: no launching until it's fixed. */
   wear = 0;
   broken = false;
-  /** How far the repair has got (0..1). */
+  /** How far the repair (or a service) has got (0..1). */
   fixing = 0;
+  /** Runs left that pay a little more, after it was serviced before it broke down. */
+  bonusRuns = 0;
   /** Where each seat really is, if the model says (seats that move on their own: teacups, bumper cars). */
   seatAt: ((i: number) => Point) | null = null;
   /** Closed for now (an outdoor ride in a storm): riders wait, nobody launches it. */
@@ -197,6 +220,11 @@ export class Ride {
   ) {
     this.seats = new Array<ParkVisitor | null>(def.seats).fill(null);
     this.cycle = def.seconds;
+  }
+
+  /** More seats (the extra seats upgrade): never fewer than it has. */
+  setSeats(n: number): void {
+    while (this.seats.length < n) this.seats.push(null);
   }
 
   /** Riders sitting down (boarding ones not counted). */
@@ -224,7 +252,7 @@ export class Ride {
 
   /** The angle round the ride (anticlockwise from +x, seen from above) of seat `i` right now. */
   seatAngle(i: number): number {
-    if (!this.seatAt) return this.def.seatStart + (i * 2 * Math.PI) / this.def.seats + this.angle;
+    if (!this.seatAt) return this.def.seatStart + (i * 2 * Math.PI) / this.seats.length + this.angle;
     const p = this.seatAt(i);
     return Math.atan2(this.spot.at.z - p.z, p.x - this.spot.at.x);
   }
@@ -263,6 +291,31 @@ export class Ride {
     this.fixing = 0;
     this.wear = 0;
     return true;
+  }
+
+  /**
+   * One frame of servicing a worn ride (past serviceAt) before it breaks:
+   * someone at its lever while it's empty and waiting. Nobody boards
+   * meanwhile. Done, it's as good as new and pays a little more for its next
+   * few runs. Returns true once it's done.
+   */
+  service(dt: number, fixer: boolean): boolean {
+    const ready = !this.broken && this.wear >= RULES.serviceAt && this.phase === 'loading' && this.seats.every((s) => !s);
+    if (!ready || !fixer) {
+      if (!this.broken) this.fixing = 0;
+      return false;
+    }
+    this.fixing = Math.min(1, this.fixing + dt / RULES.repairSeconds);
+    if (this.fixing < 1) return false;
+    this.fixing = 0;
+    this.wear = 0;
+    this.bonusRuns = RULES.serviceRuns;
+    return true;
+  }
+
+  /** Being serviced right now. */
+  get servicing(): boolean {
+    return !this.broken && this.fixing > 0;
   }
 
   /** Up on the platform, or not (or partway up a station's stairs). */
@@ -334,7 +387,9 @@ export class Ride {
       v.y = this.def.deck;
     }
     const riders = this.seated;
-    const launch: Launch = { riders, full: riders === this.def.seats, perfect, by };
+    const serviced = this.bonusRuns > 0;
+    if (serviced) this.bonusRuns--;
+    const launch: Launch = { riders, full: riders === this.seats.length, perfect, by, serviced };
     this.last = launch;
     this.sinceLaunch = 0;
     this.phase = 'running';
@@ -398,6 +453,8 @@ export interface ParkEvents {
   onBroken?(ride: Ride): void;
   /** A broken-down ride was fixed, by the hero or the mechanic. */
   onFixed?(ride: Ride, byHero: boolean): void;
+  /** A worn ride was serviced before it broke down. */
+  onServiced?(ride: Ride, byHero: boolean): void;
   /** Someone finished their snack and dropped the wrapper here (the game decides if it lands). */
   onLitter?(at: Point, visitor: ParkVisitor): void;
   /** Someone has their ticket and knows what they want to do (their wish list is made). */
@@ -554,6 +611,12 @@ export class ParkCrowd {
       if (visitor.step === 'resting') {
         visitor.restLeft -= dt;
         if (visitor.restLeft <= 0) this.standUp(visitor);
+      } else if (visitor.step === 'regroup') {
+        visitor.restLeft -= dt;
+        if (visitor.restLeft <= 0) {
+          this.leaveGroup(visitor);
+          if (visitor.step === 'regroup') this.next(visitor);
+        }
       } else if (visitor.step === 'idle') {
         visitor.restLeft -= dt;
         visitor.patience -= dt;
@@ -595,12 +658,37 @@ export class ParkCrowd {
     if (booth.line.length + booth.coming >= booth.spots * 2 || this.visitors.length >= PARK.visitors.max) return;
     this.spawnTimer = 0;
     const from = this.layout.entrances[Math.floor(this.random() * this.layout.entrances.length)]!;
-    const child = this.random() < PARK.visitors.childChance;
-    const visitor = this.newVisitor(from, child, PARK.visitors.patience * (1 + this.patienceBonus()));
+    const patience = PARK.visitors.patience * (1 + this.patienceBonus());
     const { enter } = booth.spot;
-    visitor.heading = booth;
-    booth.coming++;
-    visitor.path = [{ x: enter[0]!.x, z: this.layout.walkwayZ }, ...enter];
+    const arrive = (visitor: ParkVisitor) => {
+      visitor.heading = booth;
+      booth.coming++;
+      visitor.path = [{ x: enter[0]!.x, z: this.layout.walkwayZ }, ...enter];
+    };
+    // Now and then a family, a pair of teenagers or a couple, walking in together.
+    if (this.random() < PARK.groups.chance && this.visitors.length + 3 <= PARK.visitors.max) {
+      const kind = this.pick(PARK.groups.kinds as Record<GroupKind, number>);
+      const children = kind === 'family' ? 1 + Math.floor(this.random() * 2) : 0;
+      const group: VisitorGroup = { kind, members: [], wishes: null };
+      const size = kind === 'family' ? 1 + children : 2;
+      for (let i = 0; i < size; i++) {
+        const child = kind === 'family' && i > 0;
+        const visitor = this.newVisitor({ x: from.x + i * 0.6, z: from.z + (i % 2) * 0.4 }, child, patience);
+        visitor.group = group;
+        group.members.push(visitor);
+        arrive(visitor);
+      }
+      return;
+    }
+    arrive(this.newVisitor(from, this.random() < PARK.visitors.childChance, patience));
+  }
+
+  /** One of `weights`' keys, picked in proportion to its weight. */
+  private pick<K extends string>(weights: Record<K, number>): K {
+    const entries = Object.entries(weights) as [K, number][];
+    let at = this.random() * entries.reduce((sum, [, w]) => sum + w, 0);
+    for (const [key, w] of entries) if ((at -= w) < 0) return key;
+    return entries[entries.length - 1]![0];
   }
 
   /**
@@ -617,6 +705,27 @@ export class ParkCrowd {
     booth.coming++;
     visitor.path = [{ x: from.x, z: this.layout.walkwayZ }, ...booth.spot.enter];
     return visitor;
+  }
+
+  /**
+   * A school trip: `count` children step off the school bus at `at` and head
+   * for the ticket booth; they want the rides children like, and wait well.
+   */
+  spawnTrip(at: Point, count: number): ParkVisitor[] {
+    const booth = this.booth;
+    if (!this.open || !booth) return [];
+    const room = Math.max(0, PARK.visitors.max + PARK.bus.extra - this.visitors.length);
+    const class_: ParkVisitor[] = [];
+    for (let i = 0; i < Math.min(count, room); i++) {
+      const from = { x: at.x + (i % 6) * 0.5, z: at.z + Math.floor(i / 6) * 0.5 };
+      const visitor = this.newVisitor(from, true, PARK.visitors.patience * PARK.school.patience * (1 + this.patienceBonus()));
+      visitor.trip = true;
+      visitor.heading = booth;
+      booth.coming++;
+      visitor.path = [{ x: from.x, z: this.layout.walkwayZ }, ...booth.spot.enter];
+      class_.push(visitor);
+    }
+    return class_;
   }
 
   /** A busload: `count` visitors step off at `at`, one behind another, and head for the ticket booth. */
@@ -642,12 +751,12 @@ export class ParkCrowd {
    * stalls' in tuning.json), in the order they'll go. Everyone wants at least
    * one ride.
    */
-  private wishList(count?: number): string[] {
+  private wishList(count?: number, likes: Record<string, number> = {}): string[] {
     const options = [
-      ...this.rides.map((r) => ({ id: r.id, weight: r.def.wish })),
+      ...this.rides.map((r) => ({ id: r.id, weight: r.def.wish * (likes[r.id] ?? 1) })),
       ...this.counters.flatMap((c) => {
         const weight = (PARK.wishes as Record<string, number | number[]>)[c.kind];
-        return c !== this.booth && typeof weight === 'number' ? [{ id: c.id, weight }] : [];
+        return c !== this.booth && typeof weight === 'number' ? [{ id: c.id, weight: weight * (likes[c.kind] ?? 1) }] : [];
       }),
     ];
     const [low, high] = PARK.wishes.count as [number, number];
@@ -669,7 +778,14 @@ export class ParkCrowd {
     this.events.onServed(visitor, counter);
     if (!visitor.ticket) {
       visitor.ticket = true;
-      visitor.wishes = this.wishList(visitor.vip ? PARK.vip.wishes : undefined);
+      const group = visitor.group;
+      if (group?.wishes) visitor.wishes = [...group.wishes];
+      else {
+        const likeKind: GroupKind | null = group ? group.kind : visitor.trip ? 'family' : null;
+        const likes = likeKind ? ((PARK.groups.likes as Record<GroupKind, Record<string, number>>)[likeKind] ?? {}) : {};
+        visitor.wishes = this.wishList(visitor.vip ? PARK.vip.wishes : undefined, likes);
+        if (group) group.wishes = [...visitor.wishes];
+      }
       visitor.wished = visitor.wishes.length;
       this.events.onWishes?.(visitor);
     } else {
@@ -688,10 +804,79 @@ export class ParkCrowd {
 
   /** On to their next wish (the one with the shortest line), a rest on a bench now and then, or home. */
   private next(visitor: ParkVisitor): void {
+    const group = visitor.group;
+    if (group) {
+      const others = this.groupmates(visitor);
+      if (others.some((m) => m.step !== 'regroup')) {
+        // Wait by the way out for the others (patiently, for a while).
+        visitor.step = 'regroup';
+        visitor.restLeft = PARK.groups.waitSeconds;
+        visitor.path = [];
+        visitor.heading = null;
+        visitor.rideHeading = null;
+        return;
+      }
+      // All here: the first decides, and the rest go along.
+      this.nextAlone(visitor);
+      for (const m of others) this.follow(m, visitor);
+      return;
+    }
+    this.nextAlone(visitor);
+  }
+
+  /** The rest of a visitor's group still in the park (not on their way home). */
+  private groupmates(visitor: ParkVisitor): ParkVisitor[] {
+    return (visitor.group?.members ?? []).filter((m) => m !== visitor && m.step !== 'leaving' && this.visitors.includes(m));
+  }
+
+  /** Leaves their group (they've gone home, or the others gave up waiting): the rest carry on without them. */
+  private leaveGroup(visitor: ParkVisitor): void {
+    const group = visitor.group;
+    if (!group) return;
+    group.members = group.members.filter((m) => m !== visitor);
+    visitor.group = null;
+    // Anyone left waiting for them may now be all there.
+    const waiting = group.members.find((m) => m.step === 'regroup' && this.visitors.includes(m));
+    if (waiting && group.members.every((m) => m.step === 'regroup' || m.step === 'leaving' || !this.visitors.includes(m))) this.next(waiting);
+  }
+
+  /** A group member goes where `leader` decided: the same ride or stall, a rest, home. */
+  private follow(member: ParkVisitor, leader: ParkVisitor): void {
+    member.heading = null;
+    member.rideHeading = null;
+    member.wishes = member.wishes.filter((w) => leader.wishes.includes(w) || w === leader.rideHeading?.id || w === leader.heading?.id);
+    if (leader.step === 'leaving') {
+      member.shopped = leader.shopped;
+      this.leave(member);
+      return;
+    }
+    const ride = leader.rideHeading;
+    if (ride && ride.hasRoom) {
+      ride.coming++;
+      member.rideHeading = ride;
+      member.step = 'walking';
+      member.state = 'arriving';
+      member.path = this.route(member.at, ride.spot.enter);
+      return;
+    }
+    const counter = leader.heading;
+    if (counter && counter.line.length + counter.coming < counter.spots) {
+      counter.coming++;
+      member.heading = counter;
+      member.step = 'walking';
+      member.state = 'arriving';
+      member.path = this.route(member.at, counter.spot.enter.at(-1)!);
+      return;
+    }
+    // A rest, or no room alongside: they make their own way for now.
+    this.nextAlone(member);
+  }
+
+  private nextAlone(visitor: ParkVisitor): void {
     visitor.heading = null;
     visitor.rideHeading = null;
     const seat = this.benchSeats.find((s) => !s.taken);
-    if (seat && visitor.wishes.length > 0 && visitor.wished > visitor.wishes.length && this.random() < PARK.wishes.rest) {
+    if (seat && !visitor.group && visitor.wishes.length > 0 && visitor.wished > visitor.wishes.length && this.random() < PARK.wishes.rest) {
       seat.taken = visitor;
       visitor.bench = seat;
       visitor.step = 'toRest';
@@ -740,6 +925,7 @@ export class ParkCrowd {
 
   /** Home time: to the gate and out along the pavement, by the nearer end. */
   private leave(visitor: ParkVisitor): void {
+    if (visitor.group && this.groupmates(visitor).length === 0) visitor.group = null;
     if (visitor.wished > 0 && visitor.wishes.length === 0 && visitor.state !== 'angry') this.events.onPerfectDay?.(visitor);
     visitor.step = 'leaving';
     visitor.heading = null;
@@ -824,6 +1010,7 @@ export class ParkCrowd {
       visitor.path = [];
     }
     visitor.state = 'angry';
+    this.leaveGroup(visitor);
     this.events.onGaveUp(visitor);
     if (!visitor.ticket) {
       // Never got in: back along the pavement.
@@ -849,6 +1036,7 @@ export class ParkCrowd {
   /** A ride's round: riders step on while it loads, the lever (or a full load) sends it round, then they step off. */
   private runRide(dt: number, ride: Ride, at: { hero: boolean; staff: boolean; mechanic?: boolean }): void {
     if (ride.repair(dt, at.hero || !!at.mechanic)) this.events.onFixed?.(ride, at.hero);
+    else if (ride.service(dt, at.hero || !!at.mechanic)) this.events.onServiced?.(ride, at.hero);
     const pulled = ride.lever(dt, at.hero, at.staff);
     if (pulled) this.events.onLaunch(ride, ride.launch(pulled.by, pulled.perfect));
     const running = ride.phase === 'running';
@@ -864,7 +1052,7 @@ export class ParkCrowd {
     if (ride.phase === 'loading') {
       const front = ride.line[0];
       const free = ride.seats.findIndex((s) => !s);
-      if (front && free >= 0 && front.path.length === 0 && ride.nextStep(dt, RULES.boardStagger)) this.board(ride, front);
+      if (front && free >= 0 && front.path.length === 0 && !ride.servicing && ride.nextStep(dt, RULES.boardStagger)) this.board(ride, front);
     } else if (ride.phase === 'unloading') {
       const next = ride.seats.findIndex((s) => s?.step === 'seated');
       if (next < 0) {
@@ -905,7 +1093,7 @@ export class ParkCrowd {
   }
 
   private walk(dt: number, visitor: ParkVisitor): void {
-    if (visitor.step === 'seated' || visitor.step === 'resting' || visitor.step === 'idle') {
+    if (visitor.step === 'seated' || visitor.step === 'resting' || visitor.step === 'idle' || visitor.step === 'regroup') {
       visitor.avatar?.update(dt);
       return;
     }

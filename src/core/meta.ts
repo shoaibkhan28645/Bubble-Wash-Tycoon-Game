@@ -53,6 +53,10 @@ export function createMeta(deps: {
   setBoost: (multiplier: number) => void;
   /** The kind of town, for its own daily missions (the car wash's when not given). */
   town?: MissionTown;
+  /** The park's rides: how many have broken down, and fixing them all (the rewarded fix). */
+  rides?: { broken: () => number; fixAll: () => void };
+  /** The park's prize shelf: how many plush toys it has (-1 before there's a ring toss), and opening it. */
+  shelf?: { count: () => number; open: () => void };
 }): Meta {
   const { root, state, saves, sound, traffic, pads, supplies } = deps;
   const town = deps.town ?? 'carWash';
@@ -86,7 +90,15 @@ export function createMeta(deps: {
     return ok ? 'ad' : null;
   };
 
-  const rewards: Record<Exclude<SideAction, 'calendar' | 'missions'>, () => Promise<void>> = {
+  const rewards: Record<Exclude<SideAction, 'calendar' | 'missions' | 'shelf'>, () => Promise<void>> = {
+    fix: async () => {
+      const rides = deps.rides;
+      if (!rides || rides.broken() === 0) return;
+      if (!(await earn('fix-rides', '🔧', t('fixTitle'), t('fixBody'), ADS.fixRides.gems))) return;
+      rides.fixAll();
+      sound.play('reward');
+      save();
+    },
     speed: async () => {
       if (state.boostSeconds > 0) return;
       if (!(await earn('speed-boost', '⚡', t('speedTitle'), t('speedBody'), ADS.speedBoost.gems))) return;
@@ -149,7 +161,8 @@ export function createMeta(deps: {
           save();
         }
       });
-    } else void rewards[action]();
+    } else if (action === 'shelf') deps.shelf?.open();
+    else void rewards[action]();
   });
 
   /** The Car of the Day: once a day, a minute into a session, after the tutorial. */
@@ -188,7 +201,9 @@ export function createMeta(deps: {
     sideButtonOpen(state, action) &&
     (action !== 'convoy' || !!traffic) &&
     (action !== 'refill' || !!supplies) &&
-    (action !== 'missions' || state.daily.missions.length > 0);
+    (action !== 'missions' || state.daily.missions.length > 0) &&
+    (action !== 'fix' || !!deps.rides) &&
+    (action !== 'shelf' || !!deps.shelf);
 
   const progress = (kind: Parameters<typeof addProgress>[1], amount = 1): void => {
     // Missions open with the Mini-Mart; until then they count quietly.
@@ -227,6 +242,8 @@ export function createMeta(deps: {
         convoyWait: Math.max(0, convoyReadyAt - sessionSeconds),
         refill: sessionSeconds < refillUntil,
         finish: pads.nearlyAffordable(ADS.finishPad.fraction),
+        fix: (deps.rides?.broken() ?? 0) > 0,
+        shelf: deps.shelf?.count() ?? -1,
         available,
         build: (() => {
           const next = soonestBuild(state);

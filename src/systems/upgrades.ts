@@ -60,6 +60,12 @@ export function costOf(key: string, level: number): number {
  * Small upgrade pads beside each station (and the staff room). Standing on
  * one opens that station's upgrade pop-up.
  */
+/** How many levels an upgrade has: its kind's, or less for this one (upgrades.json `maxLevels`). */
+export function maxLevel(key: string): number {
+  const kind = key.split('.')[1] ?? '';
+  return UPGRADES.maxLevels?.[key] ?? UPGRADES.kinds[kind]?.max ?? 0;
+}
+
 export class UpgradePads {
   private readonly pads = new Map<string, PadModel>();
   /** Pad the player is standing on; the pop-up only reopens after stepping off. */
@@ -108,7 +114,7 @@ export class UpgradePads {
     const [target, kind] = key.split('.') as [string, string];
     const def = UPGRADES.kinds[kind];
     const level = this.state.levels[key] ?? 0;
-    if (!def || level >= def.max) return;
+    if (!def || level >= maxLevel(key)) return;
     const cost = costOf(key, level);
     if (this.state.cash < cost) return;
     this.state.cash -= cost;
@@ -134,7 +140,7 @@ export class UpgradePads {
           title: staff ? `${staff}: ${def.name}` : def.name,
           effect: def.effect,
           level,
-          max: def.max,
+          max: maxLevel(key),
           cost: costOf(key, level),
         };
       });

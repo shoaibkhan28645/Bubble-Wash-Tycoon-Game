@@ -43,7 +43,8 @@ export function sideButtonOpen(state: GameState, action: string): boolean {
   const after = (sideButtons as Record<string, string | undefined>)[action];
   // Opened by a pad built in any town (the car wash's, for a hero who's moved on).
   if (after && !state.unlocked.includes(after) && !Object.values(state.towns).some((town) => town.unlocked.includes(after))) return false;
-  return action === 'calendar' || action === 'missions' || state.playSeconds >= adsAfterSeconds;
+  // The shelf plays no ad; the rest offer one, so not in a new player's first minutes.
+  return action === 'calendar' || action === 'missions' || action === 'shelf' || state.playSeconds >= adsAfterSeconds;
 }
 
 /**

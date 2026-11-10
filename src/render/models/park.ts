@@ -267,6 +267,8 @@ export class RideView {
   private readonly rock = new Quaternion();
   private readonly ahead = new Vector3();
   private readonly seats: Object3D[] = [];
+  /** Parts carrying only extra seats, and the first of those seats: hidden until the ride has that many seats. */
+  private readonly extras: { node: Object3D; first: number }[] = [];
   private readonly riders = new Map<ParkVisitor, Object3D>();
   private readonly arm: Object3D | null;
   private readonly seen = new Vector3();
@@ -330,12 +332,24 @@ export class RideView {
       if (top && ride.def.track === 'coaster') this.marks.push({ kind: 'drop', s: track.marks[top[1] ?? 0]!, every: false });
       this.ride_();
     }
-    this.seats.push(...parts('seat').slice(0, ride.def.seats));
+    this.seats.push(...parts('seat'));
+    // Parts that only carry extra seats (the carousel's chariots, the coaster's fifth car) show once those seats are bought.
+    for (const [i, seat] of this.seats.entries()) {
+      if (i < ride.def.seats || !seat.parent || seat.parent === model) continue;
+      const holder = seat.parent;
+      const hasBase = this.seats.some((s, k) => k < ride.def.seats && s.parent === holder);
+      if (hasBase) continue;
+      const extra = this.extras.find((e) => e.node === holder);
+      if (extra) extra.first = Math.min(extra.first, i);
+      else this.extras.push({ node: holder, first: i });
+    }
     // The ride's logic follows the seats where the model has them (cups spin, cars drive); a dark ride's are inside its door.
     if (ride.def.inside) ride.seatAt = () => ride.steps;
-    else if (this.seats.length === ride.def.seats) {
+    else if (this.seats.length >= ride.def.seats) {
       ride.seatAt = (i) => {
-        this.seats[i]!.getWorldPosition(this.seen);
+        const seat = this.seats[i];
+        if (!seat) return ride.spot.at;
+        seat.getWorldPosition(this.seen);
         return { x: this.seen.x, z: this.seen.z };
       };
     }
@@ -375,6 +389,7 @@ export class RideView {
       const swing = t < 0.15 ? t / 0.15 : Math.max(0, 1 - (t - 0.15) / 0.7);
       this.arm.rotation.x = LEVER_SWING * swing;
     }
+    for (const extra of this.extras) extra.node.scale.setScalar(ride.seats.length > extra.first ? 1 : 0.0001);
     this.seatRiders();
   }
 
@@ -570,7 +585,7 @@ export class RideView {
       seat.add(avatar.root);
       const scale = avatar.root.scale.x;
       avatar.root.position.set(0, -SIT_HIP * scale, 0);
-      avatar.root.rotation.set(0, this.facing(i, seat), 0);
+      avatar.root.rotation.set(0, this.facing(seat), 0);
       avatar.riding = true;
       avatar.showShadow(false);
     });
@@ -591,12 +606,13 @@ export class RideView {
     }
   }
 
-  /** Which way a rider faces in seat `i`, in its seat's own terms: a horse's nose, a cup's middle, a car's front. */
-  private facing(i: number, seat: Object3D): number {
+  /** Which way a rider faces in `seat`, in its seat's own terms: a horse's nose, a cup's middle, a car's front. */
+  private facing(seat: Object3D): number {
     // A log or a coaster car: facing the way it goes.
     if (this.track) return Math.PI / 2;
-    if (this.bobbers.length > 0) {
-      const a = this.ride.def.seatStart + (i * 2 * Math.PI) / this.ride.def.seats;
+    if (this.bobbers.length > 0 && this.spin) {
+      const p = this.spin.worldToLocal(seat.getWorldPosition(this.seen));
+      const a = Math.atan2(-p.z, p.x);
       return Math.atan2(-Math.sin(a), -Math.cos(a));
     }
     if (this.cups.length > 0) return Math.atan2(-seat.position.x, -seat.position.z);

@@ -864,3 +864,99 @@ body {
     opacity: 0;
   }
 }
+
+/* A ride's wear gauge, under the words on its sign: amber when used, red when it's worth servicing */
+.ride-sign .wear-gauge {
+  display: block;
+  height: 4px;
+  margin-top: 3px;
+  border-radius: 2px;
+  background: rgba(45, 52, 64, 0.18);
+  overflow: hidden;
+}
+
+.ride-sign .wear-gauge i {
+  display: block;
+  height: 100%;
+  width: 0;
+  background: #5cc45c;
+}
+
+.ride-sign .wear-gauge i.is-used {
+  background: #ffb800;
+}
+
+.ride-sign .wear-gauge i.is-worn {
+  background: #ff5c6c;
+}
+
+/* The prize shelf panel: twelve plush toys, found ones in colour */
+.shelf-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  margin: 10px 0 14px;
+}
+
+.shelf-tile {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 48px;
+  border-radius: 12px;
+  background: #eef0f4;
+  color: #9aa3b2;
+  font-size: 22px;
+  font-weight: 700;
+}
+
+.shelf-tile.is-found {
+  background: #fff0f7;
+  color: inherit;
+  font-size: 28px;
+  box-shadow: 0 0 0 2px #ffb3d9 inset;
+}
+
+.shelf-tile.is-golden.is-found {
+  background: #fff4c2;
+  box-shadow: 0 0 0 2px #ffc94d inset;
+}
+
+/* Status chips under the top bar: a spotless park, a school trip, a festival */
+.event-chips {
+  position: absolute;
+  top: calc(env(safe-area-inset-top) + 56px);
+  left: 0;
+  right: 0;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px;
+  pointer-events: none;
+  z-index: 4;
+}
+
+.event-chip {
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 2px 0 rgba(0, 0, 0, 0.12);
+  font: 700 13px/1.2 system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  color: #2d3440;
+  white-space: nowrap;
+}
+
+.event-chip.is-good {
+  background: #e7fbef;
+  box-shadow: 0 0 0 2px #7ee0a3 inset, 0 2px 0 rgba(0, 0, 0, 0.12);
+}
+
+.event-chip.is-trip {
+  background: #fff4c2;
+  box-shadow: 0 0 0 2px #ffc94d inset, 0 2px 0 rgba(0, 0, 0, 0.12);
+}
+
+.event-chip.is-party {
+  background: #ffe6f3;
+  box-shadow: 0 0 0 2px #ff8fc8 inset, 0 2px 0 rgba(0, 0, 0, 0.12);
+}
