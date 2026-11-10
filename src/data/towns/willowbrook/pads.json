@@ -276,13 +276,13 @@
   },
   {
     "id": "road",
-    "name": "Road to Maple Market Town",
+    "name": "Road to Starlight Fun Park",
     "cost": 75000,
     "targetMinute": 75,
     "adds": "The way to Chapter 3; offered once every town goal is done",
     "afterGoals": true,
     "effects": {
-      "travel": "market"
+      "travel": "starlight"
     }
   }
 ]

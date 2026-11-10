@@ -43,5 +43,15 @@
     "name": "Farmers' market", "type": "service", "customer": "walker", "flow": "till", "serves": "produce", "stages": [],
     "seconds": 1.4, "supply": null, "size": null, "padding": 0.4, "workSpot": null,
     "ring": "beside", "fx": "none", "queueSpots": 5
+  },
+  "booth": {
+    "name": "Ticket booth", "type": "service", "customer": "walker", "flow": "till", "serves": "ticket", "stages": [],
+    "seconds": 1.0, "supply": null, "size": null, "padding": 0.4, "workSpot": null,
+    "ring": "beside", "fx": "none", "queueSpots": 4
+  },
+  "cart": {
+    "name": "Candy floss cart", "type": "service", "customer": "walker", "flow": "till", "serves": "candy", "stages": [],
+    "seconds": 1.5, "supply": null, "size": null, "padding": 0.4, "workSpot": null,
+    "ring": "beside", "fx": "none", "queueSpots": 4
   }
 }

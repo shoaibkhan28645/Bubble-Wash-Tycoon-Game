@@ -74,6 +74,8 @@ export interface PadEffects {
   travel?: string;
   /** A walk-up counter (a farm stand, a market stall), of this station kind. */
   counter?: string;
+  /** A ride (rides.json), with its line, seats and lever. */
+  ride?: string;
   /** A field of plots growing this crop (crops.json). */
   field?: string;
   /** Crops grow this much faster, e.g. 0.35 = 35% (the well). */
@@ -353,6 +355,52 @@ export interface FarmLayout extends TownLayout, WalkUpLayout {
   pond: Rect;
   /** Low hills of the countryside beyond the farm. */
   hills: { x: number; z: number; radius: number; height: number }[];
+}
+
+/**
+ * A ride's place in the park (Chapter 3): visitors line up for it, step on
+ * when there's a seat, and step off by its way out after the ride.
+ */
+export interface RideSpot {
+  /** The ride's middle: its model stands here. */
+  at: Point;
+  /**
+   * Waiting spots, front first (the first is at the ride's steps). The line
+   * may snake between queue ropes: people move up it spot by spot.
+   */
+  queue: Point[];
+  /** Where visitors step into the line, beside its back. */
+  enter: Point;
+  /** The way off, from the steps to the path (riders walk from their seat to its first point). */
+  exit: Point[];
+  /** Where the hero (or the ride operator) stands to pull the lever. */
+  lever: Point;
+  /** The queue ropes, each from one post to the other (two points). */
+  ropes: Point[][];
+}
+
+/** A theme park's map (Chapter 3): the shared map, the ticket booth and stalls, the rides and the paths between them. */
+export interface ParkLayout extends TownLayout, WalkUpLayout {
+  /** The middle of the road along the top. */
+  roadZ: number;
+  /** The hedge round the park: along the road (open at the gate), down the sides and along the back. */
+  hedgeZ: number;
+  gate: { minX: number; maxX: number };
+  hedgeSides: { minX: number; maxX: number; maxZ: number };
+  /** Paved paths, and the entrance plaza (pastel squares). */
+  paths: Rect[];
+  plaza: Rect;
+  /** Each ride by its pad id. */
+  rides: Record<string, RideSpot>;
+  /** Benches visitors may rest on, by pad id: the seats, and the way the sitters face. */
+  benches: Record<string, { seats: Point[]; facing: number }>;
+  /** Visitors who are done walk here, then off the map by `out` (through the gate, along the pavement). */
+  leave: Point;
+  out: Point[];
+  /** Decoration: lamps along the paths, trees, round flower beds (solid). */
+  lamps: Point[];
+  trees: (Point & { size?: number })[];
+  flowerBeds: Point[];
 }
 
 /** The car wash town's map (Chapter 1): the shared map plus its roads, lanes, stations and forecourt. */

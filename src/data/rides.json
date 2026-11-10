@@ -1,0 +1,17 @@
+{
+  "carousel": {
+    "name": "Carousel",
+    "icon": "🎠",
+    "model": "pk_carousel",
+    "seats": 8,
+    "seconds": 9,
+    "price": 55,
+    "deck": 0.44,
+    "plinth": 4.15,
+    "seatRadius": 2.82,
+    "seatStart": 0.3927,
+    "boardRadius": 3.55,
+    "topSpeed": 0.95,
+    "bob": 0.16
+  }
+}

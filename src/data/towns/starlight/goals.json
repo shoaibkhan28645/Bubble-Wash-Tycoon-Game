@@ -1,0 +1,28 @@
+{
+  "franchiseStars": 1,
+  "goals": [
+    {
+      "id": "fullhouse",
+      "count": "fullhouse",
+      "goal": 1,
+      "gems": 15
+    },
+    {
+      "id": "riders",
+      "count": "riders",
+      "goal": 100,
+      "gems": 20
+    },
+    {
+      "id": "perfect",
+      "count": "perfect",
+      "goal": 10,
+      "gems": 20
+    },
+    {
+      "id": "stars",
+      "stars": 5,
+      "gems": 15
+    }
+  ]
+}

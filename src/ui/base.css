@@ -786,6 +786,23 @@ body {
 }
 
 /* The farm stand asking for crops. */
+/* A ride's sign: how full it is; full and waiting for its lever, it glows gold and pulses. */
+.shelf-stock.ride-sign.is-full {
+  background: #ffd24a;
+  color: #5a3a00;
+  box-shadow: 0 2px 0 rgba(150, 100, 0, 0.35), 0 0 0 3px rgba(255, 210, 74, 0.45);
+  animation: ride-full 0.5s ease-in-out infinite alternate;
+}
+
+@keyframes ride-full {
+  from {
+    transform: scale(1);
+  }
+  to {
+    transform: scale(1.12);
+  }
+}
+
 .shelf-stock.is-empty {
   background: #fff1d6;
   color: #b4521f;

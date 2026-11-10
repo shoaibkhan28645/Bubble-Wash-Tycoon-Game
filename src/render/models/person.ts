@@ -6,7 +6,7 @@ import { CHARACTERS } from '../../core/config';
 import { asset } from '../assets';
 import { onScreen } from '../onScreen';
 import { blobShadow } from './actors';
-import { box, cylinder, mergeParts, rbox, toyMaterial, type Part } from './build';
+import { box, cylinder, mergeParts, rbox, sphere, toyMaterial, type Part } from './build';
 import { footfalls, pickGait, type GaitPose, type Gaits } from './gait';
 
 /** Mini Characters are 0.8 units tall; this makes them about car-roof height. */
@@ -34,9 +34,9 @@ const VIEW_MARGIN = 2.5;
 /** Animation time saved up off screen is played on, up to this much (seconds). */
 const MAX_CATCH_UP = 1;
 
-type Pose = 'idle' | GaitPose | 'scrub' | 'sit';
+type Pose = 'idle' | GaitPose | 'scrub' | 'sit' | 'ride';
 /** What a person holds while working. */
-export type Tool = 'sponge' | 'towel' | 'polisher' | 'nozzle' | 'bag' | 'clipboard' | 'can' | 'soda';
+export type Tool = 'sponge' | 'towel' | 'polisher' | 'nozzle' | 'bag' | 'clipboard' | 'can' | 'soda' | 'floss';
 
 const TOOL_PARTS: Record<Tool, Part[]> = {
   sponge: [{ geometry: rbox(0.13, 0.07, 0.09, 0.03), color: '#ffd24a' }],
@@ -65,6 +65,12 @@ const TOOL_PARTS: Record<Tool, Part[]> = {
     { geometry: cylinder(0.017, 0.2, 6), color: '#4fb06a', y: -0.08, z: 0.13, rx: Math.PI / 3 },
     { geometry: rbox(0.025, 0.08, 0.09, 0.01), color: '#3b8a52', y: -0.01 },
   ],
+  // Candy floss: a pink cloud on a white stick.
+  floss: [
+    { geometry: cylinder(0.01, 0.2, 5), color: '#ffffff', y: 0.02 },
+    { geometry: sphere(0.075, 8), color: '#ff8fc8', y: 0.15 },
+    { geometry: sphere(0.05, 7), color: '#ffb0d8', x: 0.035, y: 0.19, z: 0.02 },
+  ],
   // A red soda can.
   soda: [
     { geometry: cylinder(0.035, 0.1, 10), color: '#e8423f', y: -0.02 },
@@ -82,6 +88,7 @@ export class PersonAvatar {
   /** A foot just landed. */
   onStep: ((gait: GaitPose) => void) | null = null;
   private readonly model: Object3D;
+  private readonly shadow: Object3D;
   private readonly mixer: AnimationMixer;
   private readonly actions = new Map<Pose, AnimationAction>();
   private readonly last = new Vector3();
@@ -102,6 +109,8 @@ export class PersonAvatar {
   holding = false;
   /** Sitting down (on a bench): the sit pose, whatever the speed says. */
   seated = false;
+  /** Sitting on a ride (a carousel horse, a teacup): hands forward, holding on. */
+  riding = false;
 
   constructor(character: string, tool: Tool | null = null) {
     const { scene, animations } = asset(`person:${character}`);
@@ -111,9 +120,10 @@ export class PersonAvatar {
     // People keep their soft blob shadow: real ones would draw every
     // animated character a second time each frame.
     this.root.name = 'person';
-    this.root.add(model, blobShadow(1.2, 1.2));
+    this.shadow = blobShadow(1.2, 1.2);
+    this.root.add(model, this.shadow);
     this.mixer = new AnimationMixer(model);
-    const clips: Record<Pose, string> = { idle: 'idle', walk: 'walk', jog: 'jog', sprint: 'sprint', scrub: 'interact-right', sit: 'sit' };
+    const clips: Record<Pose, string> = { idle: 'idle', walk: 'walk', jog: 'jog', sprint: 'sprint', scrub: 'interact-right', sit: 'sit', ride: 'drive' };
     for (const [pose, name] of Object.entries(clips) as [Pose, string][]) {
       const clip = animations.find((a) => a.name === name);
       if (clip) this.actions.set(pose, this.mixer.clipAction(clip));
@@ -152,6 +162,11 @@ export class PersonAvatar {
     this.gestureLeft = this.gestureAction.getClip().duration;
   }
 
+  /** The soft shadow under the feet: off while up on a ride's seat (it would float in the air). */
+  showShadow(on: boolean): void {
+    this.shadow.visible = on;
+  }
+
   /** Tilts the whole body (radians): forward into a start, back into a stop, sideways into a turn. */
   setLean(forward: number, side: number): void {
     this.lean.wantForward = forward;
@@ -164,13 +179,14 @@ export class PersonAvatar {
    * it at the matching rate, so the feet don't skid. Scrubbing shows when standing still.
    */
   update(dt: number, scrubbing = false, groundSpeed?: number): void {
-    const speed = groundSpeed ?? this.measure(dt);
+    // A child (drawn smaller) takes shorter strides: the walk plays faster for the ground covered.
+    const speed = (groundSpeed ?? this.measure(dt)) / this.root.scale.x;
     const moving = speed > STANDING && !this.seated;
     this.gestureLeft -= dt;
     if (this.seated) {
       this.gestureLeft = 0;
       this.gait = null;
-      this.play('sit');
+      this.play(this.riding && this.actions.has('ride') ? 'ride' : 'sit');
       if (this.current) this.current.timeScale = 1;
     } else if (this.gestureLeft <= 0 || moving) {
       this.gestureLeft = 0;

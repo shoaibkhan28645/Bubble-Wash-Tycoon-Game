@@ -1,0 +1,58 @@
+{
+  "paper": "The Starlight Gazette",
+  "mentor": {
+    "name": "Mabel",
+    "icon": "👵"
+  },
+  "rival": {
+    "name": "Rex Goldsby",
+    "icon": "😎",
+    "business": "Goldsby MegaLand"
+  },
+  "beats": [
+    {
+      "id": "arrival",
+      "when": {
+        "built": "carousel"
+      },
+      "icon": "🎠",
+      "headline": "Mogul buys the old Starlight fairground",
+      "body": "The owner of the roadside car wash and Willowbrook's farm has bought the Starlight fairground, closed these twenty years. The ticket booth is open again and the old carousel has had a fresh coat of paint.",
+      "speaker": "mentor",
+      "words": "I rode that carousel when I was six. Sell the tickets, fill the horses, and make it spin again."
+    },
+    {
+      "id": "fullhouse",
+      "when": {
+        "flag": "fullhouse:starlight"
+      },
+      "icon": "🎉",
+      "headline": "Carousel turns again after 20 years",
+      "body": "Every horse was taken when the Starlight carousel went round today, to cheers from the crowd. A full ride pays every seat, and a little more besides.",
+      "speaker": "mentor",
+      "words": "Full house! Let it fill when there's a crowd. When it's quiet, pull the lever and keep the line moving."
+    },
+    {
+      "id": "cart",
+      "when": {
+        "built": "cart"
+      },
+      "icon": "🍭",
+      "headline": "Candy floss is back at Starlight",
+      "body": "A pink candy floss cart has opened by the carousel, and it's already the most popular spot in the park after the horses.",
+      "speaker": "mentor",
+      "words": "Children won't leave a fair without something sweet. Keep that cart busy."
+    },
+    {
+      "id": "operator",
+      "when": {
+        "built": "operator"
+      },
+      "icon": "🎟️",
+      "headline": "Starlight hires its first ride operator",
+      "body": "The fairground has a ride operator again. The carousel now runs itself: full loads go at once, and nobody waits too long for a partial one.",
+      "speaker": "mentor",
+      "words": "That's the park finding its feet. Bumper cars and teacups next, I hope."
+    }
+  ]
+}

@@ -7,7 +7,7 @@ import roadsideLayout from '../data/towns/roadside/layout.json';
 import roadsidePads from '../data/towns/roadside/pads.json';
 import roadsideGoals from '../data/towns/roadside/goals.json';
 import roadsideStory from '../data/towns/roadside/story.json';
-import type { FarmLayout, GoalsData, LocationLayout, PadDef } from './config';
+import type { FarmLayout, GoalsData, LocationLayout, PadDef, ParkLayout } from './config';
 import type { StoryData } from '../systems/story';
 
 /** What every town has, whatever its kind. */
@@ -35,8 +35,14 @@ export interface FarmTown extends TownBase {
   layout: FarmLayout;
 }
 
+/** A theme park (Chapter 3): visitors buy tickets, then ride the rides and visit the stalls on their wish lists. */
+export interface ParkTown extends TownBase {
+  kind: 'park';
+  layout: ParkLayout;
+}
+
 /** Every kind of town the game can build. */
-export type TownDef = RoadsideTown | FarmTown;
+export type TownDef = RoadsideTown | FarmTown | ParkTown;
 
 /** Town 1, Dusty Roadside Lot: the car wash, fuel pumps and Mini-Mart. */
 export const ROADSIDE: RoadsideTown = {
@@ -70,6 +76,7 @@ export const START_TOWN_ID = ROADSIDE.id;
 const LOADERS: Record<string, () => Promise<TownDef>> = {
   roadside: () => Promise.resolve(ROADSIDE),
   willowbrook: () => import('./willowbrook').then((m) => m.WILLOWBROOK),
+  starlight: () => import('./starlight').then((m) => m.STARLIGHT),
 };
 
 /** Town ids in the order the hero reaches them. */

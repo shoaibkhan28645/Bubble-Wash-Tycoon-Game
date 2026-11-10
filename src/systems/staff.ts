@@ -34,6 +34,8 @@ const ROLES = {
   baker: 'baker',
   marketstaff: 'marketstaff',
   orchardhand: 'orchardhand',
+  seller: 'seller',
+  operator: 'operator',
 } as const;
 export type Role = keyof typeof ROLES;
 
@@ -63,6 +65,8 @@ const WORKS: Record<Role, StationKind[]> = {
   baker: [],
   marketstaff: ['stall'],
   orchardhand: [],
+  seller: ['booth', 'cart'],
+  operator: [],
 };
 
 /** Roles that carry a stack on their back: supplies, or crates of produce. */
@@ -73,6 +77,9 @@ const CARRIES: readonly Role[] = ['runner', 'farmhand', 'eggcollector', 'milker'
  * farmhand's harvest round, the egg collector's). Null: home.
  */
 export type CarryPlan = (carrier: Carrier<CarryItem>, helperAt: Point) => Point | null;
+
+/** Where a helper with a town's own kind of round goes next (the park's ride operator, from lever to lever). Null: home. */
+export type WalkPlan = (helperAt: Point) => Point | null;
 
 /** What each worker holds while working a station. */
 const TOOLS: Partial<Record<Role, Tool>> = { washer: 'sponge', dryerStaff: 'towel', garage: 'polisher', attendant: 'nozzle', manager: 'clipboard', farmhand: 'can' };
@@ -232,6 +239,8 @@ export class StaffSystem {
   private readonly helpers: Helper[] = [];
   /** How each of a town's own carrying roles plans its round (the farm sets the farmhand's and the egg collector's). */
   readonly carryPlans: Partial<Record<Role, CarryPlan>> = {};
+  /** How each of a town's own walking roles plans its round (the park sets the ride operator's). */
+  readonly walkPlans: Partial<Record<Role, WalkPlan>> = {};
   /** Extra speed (a multiplier) and carry (items) per role: the farmhand's pickup. */
   readonly bonuses: Partial<Record<Role, { speed: number; carry: number }>> = {};
   private nav: NavGrid;
@@ -341,7 +350,10 @@ export class StaffSystem {
         helper.assigned = null;
         helper.target = this.carryPlans[helper.role]?.(helper.carrier, helper.position) ?? this.home(helper.role);
       }
-      else if (helper.role === 'cashier') this.planCashier(dt, helper);
+      else if (this.walkPlans[helper.role]) {
+        helper.assigned = null;
+        helper.target = this.walkPlans[helper.role]!(helper.position) ?? this.home(helper.role);
+      } else if (helper.role === 'cashier') this.planCashier(dt, helper);
       else if (helper.role === 'manager') this.planManager(dt, helper, stations);
       else if (helper.role === 'valet') {
         helper.assigned = null;

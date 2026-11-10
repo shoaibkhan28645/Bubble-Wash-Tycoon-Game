@@ -12,6 +12,7 @@ import type { StaffSystem } from '../systems/staff';
 import { town } from './config';
 import { createRoadsideGame } from './roadsideGame';
 import { createFarmGame } from './farmGame';
+import { createParkGame } from './parkGame';
 
 export interface Game {
   readonly stage: Stage;
@@ -49,7 +50,7 @@ export function createGame(
   travelTo: (id: string) => Promise<void>,
 ): Game {
   const current = town();
-  return current.kind === 'carWash'
-    ? createRoadsideGame(container, stage, state, lifecycle, saves, sound, travelTo, current)
-    : createFarmGame(container, stage, state, lifecycle, saves, sound, travelTo, current);
+  if (current.kind === 'carWash') return createRoadsideGame(container, stage, state, lifecycle, saves, sound, travelTo, current);
+  if (current.kind === 'farm') return createFarmGame(container, stage, state, lifecycle, saves, sound, travelTo, current);
+  return createParkGame(container, stage, state, lifecycle, saves, sound, travelTo, current);
 }

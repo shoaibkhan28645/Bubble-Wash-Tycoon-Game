@@ -1,0 +1,64 @@
+[
+  {
+    "id": "booth",
+    "name": "Ticket booth",
+    "cost": 0,
+    "targetMinute": 0,
+    "adds": "Visitors buy their tickets here; stand behind the counter to sell them",
+    "effects": {
+      "counter": "booth"
+    }
+  },
+  {
+    "id": "carousel",
+    "name": "Carousel",
+    "cost": 0,
+    "targetMinute": 0,
+    "adds": "The first ride: visitors climb on, and it goes round when every horse is taken or when you pull its lever",
+    "effects": {
+      "ride": "carousel"
+    }
+  },
+  {
+    "id": "cart",
+    "name": "Candy floss cart",
+    "cost": 9000,
+    "targetMinute": 1.5,
+    "adds": "Sweets for the visitors (+10% visitors); stand behind the cart to serve",
+    "effects": {
+      "counter": "cart",
+      "arrivalBonus": 0.1
+    }
+  },
+  {
+    "id": "benches",
+    "name": "Benches",
+    "cost": 14000,
+    "targetMinute": 3,
+    "adds": "Somewhere to sit: visitors wait 30% longer in line",
+    "effects": {
+      "patienceBonus": 0.3
+    }
+  },
+  {
+    "id": "seller",
+    "name": "Ticket seller",
+    "cost": 26000,
+    "targetMinute": 6,
+    "adds": "Sells tickets at the booth for you, and candy floss when the booth is quiet",
+    "effects": {
+      "staff": "seller"
+    }
+  },
+  {
+    "id": "operator",
+    "name": "Ride operator",
+    "cost": 40000,
+    "targetMinute": 9,
+    "adds": "Launches the carousel: when it's full, or when the first rider has waited a while",
+    "effects": {
+      "staff": "operator",
+      "endOfContent": true
+    }
+  }
+]

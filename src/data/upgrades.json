@@ -152,7 +152,12 @@
     "bakery": 3,
     "baker": 3,
     "market": 3,
-    "marketstaff": 3
+    "marketstaff": 3,
+    "booth": 6,
+    "cart": 8,
+    "seller": 8,
+    "carousel": 8,
+    "operator": 10
   },
   "panels": {
     "bay1": [
@@ -241,6 +246,19 @@
     "van": [
       "van.trip",
       "tanker.trip"
+    ],
+    "booth": [
+      "booth.speed",
+      "booth.quality",
+      "cart.speed",
+      "cart.quality",
+      "seller.staffSpeed"
+    ],
+    "carousel": [
+      "carousel.speed",
+      "carousel.quality",
+      "operator.staffSpeed",
+      "player.walk"
     ]
   }
 }

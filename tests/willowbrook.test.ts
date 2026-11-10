@@ -27,7 +27,7 @@ describe('Willowbrook', () => {
     expect(pads[0]!.effects.counter).toBe('stand');
     expect(pads[1]!.effects.field).toBe('veg');
     for (let i = 3; i < pads.length; i++) expect(pads[i]!.cost).toBeGreaterThan(pads[i - 1]!.cost);
-    expect(pads.at(-1)).toMatchObject({ id: 'road', afterGoals: true, effects: { travel: 'market' } });
+    expect(pads.at(-1)).toMatchObject({ id: 'road', afterGoals: true, effects: { travel: 'starlight' } });
     expect(pads.filter((p) => p.effects.endOfContent)).toEqual([]);
     expect(new Set(padIds).size).toBe(padIds.length);
   });

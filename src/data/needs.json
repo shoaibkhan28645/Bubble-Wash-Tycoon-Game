@@ -2,5 +2,7 @@
   "wash": { "name": "Wash", "icon": "🫧", "stagePay": true },
   "fuel": { "name": "Fuel", "icon": "⛽", "payFactor": 0.8 },
   "snack": { "name": "Snack", "icon": "🥤", "payFactor": 0.5 },
-  "produce": { "name": "Fresh produce", "icon": "🧺", "payFactor": 1 }
+  "produce": { "name": "Fresh produce", "icon": "🧺", "payFactor": 1 },
+  "ticket": { "name": "Park ticket", "icon": "🎟️", "payFactor": 1 },
+  "candy": { "name": "Candy floss", "icon": "🍭", "payFactor": 1 }
 }
