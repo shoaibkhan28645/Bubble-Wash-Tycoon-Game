@@ -35,9 +35,15 @@ export interface RideDef {
   seatStart: number;
   /** Riders walk round the platform this far out, to and from their seats. */
   boardRadius: number;
-  /** Fastest turn (radians a second), and how far the horses bob. */
+  /** Fastest turn (radians a second; a bumper car's metres a second), and how far the horses bob. */
   topSpeed: number;
   bob: number;
+  /** How riders get to their seats: round the platform from the steps, or straight from the way in (bumper cars). */
+  board: 'ring' | 'direct';
+  /** How worn one ride makes it (it breaks down at 1). */
+  wear: number;
+  /** The share of visitors who want a go. */
+  wish: number;
 }
 
 export const RIDES = ridesJson as Record<string, RideDef>;
@@ -98,6 +104,9 @@ export class ParkVisitor extends Visitor {
   restLeft = 0;
   /** They've had their ticket. */
   ticket = false;
+  /** What they last bought at a stall (a stall's kind: what they're holding), and seconds until they've finished it. */
+  bought: string | null = null;
+  snackLeft = 0;
 
   constructor(
     override readonly avatar: ParkAvatar | null,
@@ -148,6 +157,15 @@ export class Ride {
   sinceLaunch = Infinity;
   /** Its speed upgrade: rides take this many times as long. */
   timeScale = 1;
+  /** Its sturdy-parts upgrade: each ride wears it this many times as much. */
+  wearScale = 1;
+  /** Worn this far (it breaks down at 1, when allowed), and broken down: no launching until it's fixed. */
+  wear = 0;
+  broken = false;
+  /** How far the repair has got (0..1). */
+  fixing = 0;
+  /** Where each seat really is, if the model says (seats that move on their own: teacups, bumper cars). */
+  seatAt: ((i: number) => Point) | null = null;
   /** The hero's time on the lever this time they stood on it, and whether that pulled it. */
   private heroOn = 0;
   private heroPulled = false;
@@ -186,9 +204,11 @@ export class Ride {
     return this.line.length + this.coming < this.spots;
   }
 
-  /** The angle round the ride (in the seats' terms) of seat `i` right now. */
+  /** The angle round the ride (anticlockwise from +x, seen from above) of seat `i` right now. */
   seatAngle(i: number): number {
-    return this.def.seatStart + (i * 2 * Math.PI) / this.def.seats + this.angle;
+    if (!this.seatAt) return this.def.seatStart + (i * 2 * Math.PI) / this.def.seats + this.angle;
+    const p = this.seatAt(i);
+    return Math.atan2(this.spot.at.z - p.z, p.x - this.spot.at.x);
   }
 
   /** A point on the ground round the ride, at `angle` (anticlockwise from +x, seen from above) and `radius`. */
@@ -198,7 +218,33 @@ export class Ride {
 
   /** Where seat `i` is on the ground right now. */
   seatPoint(i: number): Point {
-    return this.around(this.seatAngle(i), this.def.seatRadius);
+    return this.seatAt?.(i) ?? this.around(this.seatAngle(i), this.def.seatRadius);
+  }
+
+  /** The way from the front of the line to seat `i`: up the steps, then round the platform or straight there. */
+  boardPath(i: number): Point[] {
+    const front = -Math.PI / 2;
+    const round = this.def.board === 'ring' ? this.arc(front, this.seatAngle(i)) : [];
+    return [this.steps, ...round, this.seatPoint(i)];
+  }
+
+  /** The way from seat `i` back to the steps (and then off by the way out). */
+  offPath(i: number): Point[] {
+    return this.def.board === 'ring' ? this.arc(this.seatAngle(i), -Math.PI / 2) : [this.steps];
+  }
+
+  /**
+   * One frame of a broken-down ride being fixed by someone standing at its
+   * lever (the hero, or the mechanic). Returns true once it's fixed.
+   */
+  repair(dt: number, fixer: boolean): boolean {
+    if (!this.broken || !fixer) return false;
+    this.fixing = Math.min(1, this.fixing + dt / RULES.repairSeconds);
+    if (this.fixing < 1) return false;
+    this.broken = false;
+    this.fixing = 0;
+    this.wear = 0;
+    return true;
   }
 
   /** Up on the platform, or not. */
@@ -231,7 +277,7 @@ export class Ride {
       this.heroOn = 0;
       this.heroPulled = false;
     }
-    if (this.phase !== 'loading') return null;
+    if (this.phase !== 'loading' || this.broken) return null;
     const seated = this.seated;
     if (seated > 0) this.waited = this.waited < 0 ? 0 : this.waited + dt;
     const held = hero && this.heroOn >= RULES.leverSeconds;
@@ -272,6 +318,7 @@ export class Ride {
     this.waited = -1;
     this.heroPulled = true;
     this.cycle = this.def.seconds * this.timeScale;
+    this.wear += this.def.wear * this.wearScale;
     return launch;
   }
 
@@ -322,10 +369,19 @@ export interface ParkEvents {
   onLaunch(ride: Ride, launch: Launch): void;
   /** Someone finished every wish on their list and is going home happy. */
   onPerfectDay?(visitor: ParkVisitor): void;
+  /** A ride wore out and broke down as it stopped. */
+  onBroken?(ride: Ride): void;
+  /** A broken-down ride was fixed, by the hero or the mechanic. */
+  onFixed?(ride: Ride, byHero: boolean): void;
+  /** Someone finished their snack and dropped the wrapper here (the game decides if it lands). */
+  onLitter?(at: Point, visitor: ParkVisitor): void;
 }
 
-/** How the hero and the operator stand at each ride's lever, this frame. */
-export type LeverState = (ride: Ride) => { hero: boolean; staff: boolean };
+/**
+ * Who stands at each ride's lever this frame: the hero, the ride operator,
+ * and the mechanic (the hero or the mechanic fixes a broken-down ride).
+ */
+export type LeverState = (ride: Ride) => { hero: boolean; staff: boolean; mechanic?: boolean };
 
 /** All the park's visitors, its ticket booth and stalls, and its rides. */
 export class ParkCrowd {
@@ -341,6 +397,10 @@ export class ParkCrowd {
   boost = 1;
   /** Visitors come only once their models have loaded. */
   open = false;
+  /** Whether a stall has anything to sell: while it hasn't, its line waits (losing patience at half the rate). */
+  stocked: (counter: WalkUpCounter) => boolean = () => true;
+  /** Whether a worn-out ride may break down now (the game keeps it to one at a time, and not too early). */
+  canBreak: (ride: Ride) => boolean = () => true;
   private spawnTimer = 0;
   private readonly spare = new Map<boolean, ParkAvatar[]>([
     [false, []],
@@ -427,7 +487,7 @@ export class ParkCrowd {
     for (const counter of this.counters) {
       const front = counter.front;
       const rate = work(counter);
-      if (front && rate.rate > 0) {
+      if (front && rate.rate > 0 && this.stocked(counter)) {
         if (rate.byPlayer) {
           front.manual = true;
           playerWorking = true;
@@ -439,8 +499,18 @@ export class ParkCrowd {
     }
     for (const ride of this.rides) this.runRide(dt, ride, lever(ride));
     for (const visitor of [...this.visitors]) {
+      if (visitor.snackLeft > 0) {
+        visitor.snackLeft -= dt;
+        // Finished: the wrapper's dropped (unless they're up on a ride or in a seat; then on the next step).
+        if (visitor.snackLeft <= 0) {
+          if (visitor.step === 'walking' || visitor.step === 'line' || visitor.step === 'idle') {
+            if (visitor.avatar) visitor.avatar.holding = false;
+            this.events.onLitter?.({ ...visitor.at }, visitor);
+          } else visitor.snackLeft = 0.5;
+        }
+      }
       if (visitor.step !== 'line') continue;
-      visitor.patience -= dt;
+      visitor.patience -= visitor.counter && !this.stocked(visitor.counter) ? dt / 2 : dt;
       if (visitor.patience <= 0) this.giveUp(visitor);
     }
     for (const visitor of [...this.visitors]) {
@@ -490,7 +560,9 @@ export class ParkCrowd {
 
   /** Their wish list, once they have a ticket: every ride, and each stall they fancy, in a random order. */
   private wishList(): string[] {
-    const wishes = this.rides.map((r) => r.id);
+    const wishes = this.rides.filter((r) => this.random() < r.def.wish).map((r) => r.id);
+    // Everyone wants at least one ride.
+    if (wishes.length === 0 && this.rides.length > 0) wishes.push(this.rides[Math.floor(this.random() * this.rides.length)]!.id);
     for (const counter of this.counters) {
       const chance = (PARK.wishes as Record<string, number | number[]>)[counter.kind];
       if (counter !== this.booth && typeof chance === 'number' && this.random() < chance) wishes.push(counter.id);
@@ -513,7 +585,10 @@ export class ParkCrowd {
       visitor.wished = visitor.wishes.length;
     } else {
       visitor.wishes = visitor.wishes.filter((w) => w !== counter.id);
+      visitor.bought = counter.kind;
       if (visitor.avatar) visitor.avatar.holding = true;
+      const [low, high] = PARK.litter.afterSeconds as [number, number];
+      visitor.snackLeft = low + (high - low) * this.random();
     }
     visitor.state = 'leaving';
     visitor.step = 'walking';
@@ -676,10 +751,18 @@ export class ParkCrowd {
   }
 
   /** A ride's round: riders step on while it loads, the lever (or a full load) sends it round, then they step off. */
-  private runRide(dt: number, ride: Ride, at: { hero: boolean; staff: boolean }): void {
+  private runRide(dt: number, ride: Ride, at: { hero: boolean; staff: boolean; mechanic?: boolean }): void {
+    if (ride.repair(dt, at.hero || !!at.mechanic)) this.events.onFixed?.(ride, at.hero);
     const pulled = ride.lever(dt, at.hero, at.staff);
     if (pulled) this.events.onLaunch(ride, ride.launch(pulled.by, pulled.perfect));
+    const running = ride.phase === 'running';
     ride.turn(dt);
+    // Worn out, it gives up as it stops (once the riders are safely off it goes no more).
+    if (running && ride.phase !== 'running' && ride.wear >= 1 && this.canBreak(ride)) {
+      ride.broken = true;
+      ride.fixing = 0;
+      this.events.onBroken?.(ride);
+    }
     // Those riding go round with their seats.
     for (const [i, v] of ride.seats.entries()) if (v?.step === 'seated') v.at = ride.seatPoint(i);
     if (ride.phase === 'loading') {
@@ -695,10 +778,13 @@ export class ParkCrowd {
     }
   }
 
-  /** The front of the line steps on, and walks round the platform to the free seat nearest the steps. */
+  /** The front of the line steps on, and walks (round the platform, or straight) to the free seat nearest the steps. */
   private board(ride: Ride, visitor: ParkVisitor): void {
-    const front = -Math.PI / 2;
-    const gap = (i: number) => Math.abs(Math.atan2(Math.sin(ride.seatAngle(i) - front), Math.cos(ride.seatAngle(i) - front)));
+    const steps = ride.steps;
+    const gap = (i: number) => {
+      const p = ride.seatPoint(i);
+      return Math.hypot(p.x - steps.x, p.z - steps.z);
+    };
     let seat = -1;
     for (let i = 0; i < ride.seats.length; i++) if (!ride.seats[i] && (seat < 0 || gap(i) < gap(seat))) seat = i;
     this.leaveRideLine(visitor);
@@ -707,7 +793,7 @@ export class ParkCrowd {
     visitor.seat = seat;
     visitor.step = 'boarding';
     visitor.state = 'entering';
-    visitor.path = [ride.steps, ...ride.arc(front, ride.seatAngle(seat)), ride.seatPoint(seat)];
+    visitor.path = ride.boardPath(seat);
   }
 
   /** A rider gets off: round the platform to the steps, down, and on with their day. */
@@ -719,7 +805,7 @@ export class ParkCrowd {
     visitor.seat = -1;
     visitor.wishes = visitor.wishes.filter((w) => w !== ride.id);
     if (visitor.avatar) visitor.avatar.seated = false;
-    visitor.path = [...ride.arc(ride.seatAngle(seat), -Math.PI / 2), ...ride.spot.exit];
+    visitor.path = [...ride.offPath(seat), ...ride.spot.exit];
   }
 
   private walk(dt: number, visitor: ParkVisitor): void {

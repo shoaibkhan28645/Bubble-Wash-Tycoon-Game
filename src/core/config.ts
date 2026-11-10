@@ -76,6 +76,10 @@ export interface PadEffects {
   counter?: string;
   /** A ride (rides.json), with its line, seats and lever. */
   ride?: string;
+  /** The park's supply shed: stalls sell from supplies the truck brings. */
+  supplies?: boolean;
+  /** Litter bins along the park's paths. */
+  bins?: boolean;
   /** A field of plots growing this crop (crops.json). */
   field?: string;
   /** Crops grow this much faster, e.g. 0.35 = 35% (the well). */
@@ -397,6 +401,13 @@ export interface ParkLayout extends TownLayout, WalkUpLayout {
   /** Visitors who are done walk here, then off the map by `out` (through the gate, along the pavement). */
   leave: Point;
   out: Point[];
+  /** The supply shed: the door where boxes are picked up, and the delivery truck's way in (to where it stops) and out. */
+  shed: { door: Rect; truckIn: Point[]; truckOut: Point[] };
+  /** The gap in the hedge where the truck drives in, and the service yard's concrete. */
+  serviceGate: { minX: number; maxX: number };
+  yard: Rect[];
+  /** Where the litter bins stand (once there's a janitor). */
+  bins: Point[];
   /** Decoration: lamps along the paths, trees, round flower beds (solid). */
   lamps: Point[];
   trees: (Point & { size?: number })[];

@@ -36,6 +36,10 @@ const ROLES = {
   orchardhand: 'orchardhand',
   seller: 'seller',
   operator: 'operator',
+  vendor: 'vendor',
+  mechanic: 'mechanic',
+  snackrunner: 'snackrunner',
+  janitor: 'janitor',
 } as const;
 export type Role = keyof typeof ROLES;
 
@@ -67,10 +71,14 @@ const WORKS: Record<Role, StationKind[]> = {
   orchardhand: [],
   seller: ['booth', 'cart'],
   operator: [],
+  vendor: ['ringtoss', 'burger'],
+  mechanic: [],
+  snackrunner: [],
+  janitor: [],
 };
 
 /** Roles that carry a stack on their back: supplies, or crates of produce. */
-const CARRIES: readonly Role[] = ['runner', 'farmhand', 'eggcollector', 'milker', 'baker', 'orchardhand'];
+const CARRIES: readonly Role[] = ['runner', 'farmhand', 'eggcollector', 'milker', 'baker', 'orchardhand', 'snackrunner'];
 
 /**
  * Where a carrying helper goes next, for a town's own kind of carrying (the
@@ -82,7 +90,7 @@ export type CarryPlan = (carrier: Carrier<CarryItem>, helperAt: Point) => Point 
 export type WalkPlan = (helperAt: Point) => Point | null;
 
 /** What each worker holds while working a station. */
-const TOOLS: Partial<Record<Role, Tool>> = { washer: 'sponge', dryerStaff: 'towel', garage: 'polisher', attendant: 'nozzle', manager: 'clipboard', farmhand: 'can' };
+const TOOLS: Partial<Record<Role, Tool>> = { washer: 'sponge', dryerStaff: 'towel', garage: 'polisher', attendant: 'nozzle', manager: 'clipboard', farmhand: 'can', mechanic: 'wrench', janitor: 'broom' };
 /** Seconds the manager spends at each stop of the round, making a note. */
 const NOTE_SECONDS = 2.6;
 /** A stop the manager can't get to in this long (something built in the way) is skipped. */

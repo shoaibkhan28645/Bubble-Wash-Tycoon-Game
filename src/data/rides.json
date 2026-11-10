@@ -12,6 +12,45 @@
     "seatStart": 0.3927,
     "boardRadius": 3.55,
     "topSpeed": 0.95,
-    "bob": 0.16
+    "bob": 0.16,
+    "board": "ring",
+    "wear": 0.07,
+    "wish": 0.95
+  },
+  "teacups": {
+    "name": "Teacups",
+    "icon": "☕",
+    "model": "pk_teacups",
+    "seats": 8,
+    "seconds": 10,
+    "price": 60,
+    "deck": 0.34,
+    "plinth": 3.25,
+    "seatRadius": 1.95,
+    "seatStart": 0.785,
+    "boardRadius": 3.0,
+    "topSpeed": 0.8,
+    "bob": 0,
+    "board": "ring",
+    "wear": 0.08,
+    "wish": 0.75
+  },
+  "bumper": {
+    "name": "Bumper cars",
+    "icon": "🚗",
+    "model": "pk_bumper",
+    "seats": 6,
+    "seconds": 12,
+    "price": 65,
+    "deck": 0.18,
+    "plinth": 3.2,
+    "seatRadius": 2.0,
+    "seatStart": 0,
+    "boardRadius": 2.5,
+    "topSpeed": 2.4,
+    "bob": 0,
+    "board": "direct",
+    "wear": 0.06,
+    "wish": 0.8
   }
 }

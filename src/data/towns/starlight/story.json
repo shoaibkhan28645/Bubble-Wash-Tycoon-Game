@@ -44,6 +44,28 @@
       "words": "Children won't leave a fair without something sweet. Keep that cart busy."
     },
     {
+      "id": "bumper",
+      "when": {
+        "built": "bumper"
+      },
+      "icon": "🚗",
+      "headline": "Bumper cars crash into Starlight",
+      "body": "Six bright bumper cars have opened on the Midway, and the queue for them is already round the corner. Riders say the bumping is the best part.",
+      "speaker": "mentor",
+      "words": "The Midway's open! Launch the cars when they're full, and listen for the crashes."
+    },
+    {
+      "id": "shed",
+      "when": {
+        "built": "shed"
+      },
+      "icon": "📦",
+      "headline": "Supply truck rolls into Starlight",
+      "body": "A delivery truck now brings sugar, buns and prizes to the park's new supply shed. Stall holders say they'll never run short again, as long as someone carries the boxes over.",
+      "speaker": "mentor",
+      "words": "Pick up the boxes at the shed's door and take them behind the stalls. An empty stall sells nothing."
+    },
+    {
       "id": "operator",
       "when": {
         "built": "operator"
@@ -52,7 +74,40 @@
       "headline": "Starlight hires its first ride operator",
       "body": "The fairground has a ride operator again. The carousel now runs itself: full loads go at once, and nobody waits too long for a partial one.",
       "speaker": "mentor",
-      "words": "That's the park finding its feet. Bumper cars and teacups next, I hope."
+      "words": "That's the park finding its feet: the rides run themselves now. Keep an eye on them, mind. That machinery is old."
+    },
+    {
+      "id": "breakdown",
+      "when": {
+        "flag": "broke:starlight"
+      },
+      "icon": "🔧",
+      "headline": "Old ride gives up, mogul grabs a wrench",
+      "body": "One of Starlight's rides ground to a halt today with a bang and a puff of smoke, to gasps from the queue. The owner was seen rolling up his sleeves.",
+      "speaker": "mentor",
+      "words": "These old rides wear out. Stand at the lever with a spanner and it'll run again. A mechanic would save you the trouble."
+    },
+    {
+      "id": "teacups",
+      "when": {
+        "built": "teacups"
+      },
+      "icon": "☕",
+      "headline": "Teacups spin again at Starlight",
+      "body": "Four giant teacups are spinning in Kiddie Corner, and the children can't get enough of them. Families are coming from all over town.",
+      "speaker": "mentor",
+      "words": "Two rides in Kiddie Corner now. One operator can run them both if they're quick on their feet."
+    },
+    {
+      "id": "janitor",
+      "when": {
+        "built": "janitor"
+      },
+      "icon": "🧹",
+      "headline": "Starlight's paths spotless again",
+      "body": "Bright new bins line the paths at Starlight Fun Park, and a janitor sweeps up after the crowds. Visitors say it's the cleanest fair they've been to.",
+      "speaker": "mentor",
+      "words": "A tidy park keeps folk smiling. Next: the lake, and the evenings."
     }
   ]
 }

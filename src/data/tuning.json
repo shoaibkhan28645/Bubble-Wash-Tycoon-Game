@@ -87,9 +87,11 @@
   "staff": { "workRate": 0.85, "walkSpeed": 3.5, "workSeconds": 45, "breakSeconds": 8 },
   "offline": { "rate": 0.5, "managerRate": 1, "capHours": [2, 4, 6, 8], "minAwaySeconds": 60, "resumeAwaySeconds": 120, "incomeWindowSeconds": 300 },
   "park": {
-    "visitors": { "spawnSeconds": 3.4, "patience": 55, "walkSpeed": 2.3, "ticket": 40, "max": 30, "childChance": 0.3 },
-    "wishes": { "cart": 0.65, "rest": 0.3, "restSeconds": [4, 8] },
-    "rides": { "launchDelay": 1.6, "leverSeconds": 0.3, "perfectWindow": 1.0, "operatorWait": 6, "fullBonus": 0.2, "perfectTip": 0.15, "boardStagger": 0.35, "unloadStagger": 0.25, "spinUp": 1.6, "spinDown": 1.8 },
-    "cart": { "price": 70 }
+    "visitors": { "spawnSeconds": 3.4, "patience": 55, "walkSpeed": 2.3, "ticket": 40, "max": 34, "childChance": 0.3 },
+    "wishes": { "cart": 0.6, "ringtoss": 0.45, "burger": 0.55, "rest": 0.3, "restSeconds": [4, 8] },
+    "rides": { "launchDelay": 1.6, "leverSeconds": 0.3, "perfectWindow": 1.0, "operatorWait": 6, "fullBonus": 0.2, "perfectTip": 0.15, "boardStagger": 0.35, "unloadStagger": 0.25, "spinUp": 1.6, "spinDown": 1.8, "repairSeconds": 3, "breakAfterRiders": 60 },
+    "stalls": { "cart": 70, "ringtoss": 90, "burger": 110 },
+    "supplies": { "stall": 6, "shed": 12, "truckSeconds": 40, "truckLoad": 6, "pickSeconds": 0.25, "handSeconds": 0.18 },
+    "litter": { "afterSeconds": [5, 10], "chance": 0.55, "binChance": 0.25, "max": 14, "patiencePerPiece": 0.03 }
   }
 }

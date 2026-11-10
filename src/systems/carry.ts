@@ -5,7 +5,7 @@ import type { Point } from '../core/config';
 /** Supply items: soap bottles, folded towels, wax tins. */
 export type SupplyType = 'soap' | 'towel' | 'wax';
 /** Anything carried: supplies, or a farm's goods (crates of produce by crop id, cartons of eggs, crates of milk bottles). */
-export type CarryItem = SupplyType | 'veg' | 'corn' | 'apple' | 'eggs' | 'milk' | 'bread' | 'pie';
+export type CarryItem = SupplyType | 'veg' | 'corn' | 'apple' | 'eggs' | 'milk' | 'bread' | 'pie' | 'sugar' | 'buns' | 'prizes';
 
 const ITEM_HEIGHT = 0.24;
 
@@ -50,6 +50,22 @@ const itemGeometries: Record<CarryItem, BufferGeometry> = (() => {
     eggs: make([
       { geometry: box(0.42, 0.12, 0.28), color: '#cdd8e4', y: 0.06 },
       ...[-0.13, 0, 0.13].flatMap((x) => [-0.06, 0.06].map((z) => ({ geometry: sphere(0.055, 8), color: '#fff8ec', x, y: 0.15, z }))),
+    ]),
+    // The park's supplies: a pink sack of sugar, a tray of buns, a box of prizes with a ribbon.
+    sugar: make([
+      { geometry: box(0.36, 0.22, 0.28), color: '#ffb3d9', y: 0.11 },
+      { geometry: box(0.2, 0.06, 0.2), color: '#ff8fc8', y: 0.25 },
+      { geometry: box(0.37, 0.04, 0.12), color: '#ffffff', y: 0.12 },
+    ]),
+    buns: make([
+      { geometry: box(0.44, 0.08, 0.32), color: '#c08a55', y: 0.04 },
+      ...[-0.12, 0.12].flatMap((x) => [-0.07, 0.07].map((z) => ({ geometry: sphere(0.075, 8), color: '#e8a85a', x, y: 0.13, z }))),
+    ]),
+    prizes: make([
+      { geometry: box(0.36, 0.26, 0.3), color: '#5bbcff', y: 0.13 },
+      { geometry: box(0.38, 0.27, 0.06), color: '#ffd24a', y: 0.13 },
+      { geometry: box(0.06, 0.27, 0.32), color: '#ffd24a', y: 0.13 },
+      { geometry: sphere(0.07, 6), color: '#ffd24a', y: 0.29 },
     ]),
     milk: make([
       { geometry: box(0.42, 0.1, 0.3), color: '#3a7fb0', y: 0.05 },

@@ -17,7 +17,8 @@ the carousel's platform). Empty spots named <model>_seat<n> mark where a
 rider sits (the person's hips): they ride along with their part.
 
 Usage: python art/blender/park.py <out.glb> [preview.png]
-(writes <out>.glb with the stalls and props, and a file per ride: <out>-carousel.glb, <out>-teacups.glb)
+(writes <out>.glb with the first stalls and props, <out>-midway.glb with the Midway's stalls, the shed,
+the truck and the bins, and a file per ride: <out>-carousel.glb, <out>-teacups.glb, <out>-bumper.glb)
 """
 import math
 import sys
@@ -538,14 +539,198 @@ for k in range(16):
 p.append(kit.sphere(0.25, (X, 0, 0.42), '#4fa84f', segments=8))
 m.mesh(p)
 
+# --- The bumper cars: an arena 9 x 6.5 m with padded rails, a frame overhead, six cars parked by the way in. ---
+X = 50.0
+m = Model('pk_bumper', X)
+AW, AD = 9.0, 6.5
+p = [kit.box((AW + 0.4, AD + 0.4, 0.12), (X, 0, 0.06), NAVY, bevel=0.03)]
+floor = kit.box((AW, AD, 0.06), (X, 0, 0.15), '#7f8fa6', bevel=0.0)
+p.append(floor)
+for k in range(1, 9):
+    p.append(kit.box((0.03, AD - 0.1, 0.005), (X - AW / 2 + k * AW / 9, 0, 0.183), '#94a3b8', bevel=0.0))
+for k in range(1, 7):
+    p.append(kit.box((AW - 0.1, 0.03, 0.005), (X, -AD / 2 + k * AD / 7, 0.183), '#94a3b8', bevel=0.0))
+# Padded rails all round (a gap at the front middle, the way in), yellow with a red stripe.
+GAP = 0.8
+for (cx, cy, w, d) in [(X - (AW / 4 + GAP / 2), -AD / 2, AW / 2 - GAP, 0.32), (X + (AW / 4 + GAP / 2), -AD / 2, AW / 2 - GAP, 0.32),
+                       (X, AD / 2, AW, 0.32), (X - AW / 2, 0, 0.32, AD), (X + AW / 2, 0, 0.32, AD)]:
+    p.append(kit.box((w, d, 0.42), (cx, cy, 0.37), SUN, bevel=0.1, segments=2))
+    p.append(kit.box((w + 0.02 if w > d else w + 0.01, d + 0.01 if w > d else d + 0.02, 0.08), (cx, cy, 0.42), '#ff5c6c', bevel=0.0))
+# Corner posts, the frame and the grid the cars' poles run under, lamps along the front.
+for sx in (-1, 1):
+    for sy in (-1, 1):
+        p.append(kit.cylinder(0.16, 3.6, (X + sx * AW / 2, sy * AD / 2, 1.95), HOTPINK, verts=12))
+        p.append(kit.sphere(0.22, (X + sx * AW / 2, sy * AD / 2, 3.85), GOLD, segments=10))
+for (cx, cy, w, d) in [(X, -AD / 2, AW, 0.3), (X, AD / 2, AW, 0.3), (X - AW / 2, 0, 0.3, AD), (X + AW / 2, 0, 0.3, AD)]:
+    p.append(kit.box((w, d, 0.36), (cx, cy, 3.62), (HOTPINK if w > d else PINK), bevel=0.06))
+for k in range(1, 6):
+    p.append(kit.box((0.05, AD, 0.05), (X - AW / 2 + k * AW / 6, 0, 3.6), NAVY, bevel=0.0))
+for k in range(1, 4):
+    p.append(kit.box((AW, 0.05, 0.05), (X, -AD / 2 + k * AD / 4, 3.6), NAVY, bevel=0.0))
+p += [bulb(X - AW / 2 + 0.3 + k * (AW - 0.6) / 16, -AD / 2 - 0.16, 3.62, 0.06) for k in range(17)]
+# The sign board (the game writes on it).
+# (On the back beam: from the camera's height a sign on the front one would hang over the cars.)
+p.append(kit.box((4.4, 0.18, 0.95), (X, AD / 2 + 0.12, 4.25), GOLD, bevel=0.08))
+p.append(kit.box((4.2, 0.2, 0.78), (X, AD / 2 + 0.11, 4.25), WHITE, bevel=0.06))
+m.mesh(p)
+CARS = (('#ff5c6c', WHITE), (SKY, SUN), (SUN, HOTPINK), (MINT, WHITE), (LILAC, SUN), ('#ff9a3c', WHITE))
+PARK_AT = ((-3.3, -1.75), (-1.75, -1.75), (1.75, -1.75), (3.3, -1.75), (-1.0, 0.35), (1.0, 0.35))
+for i, ((col, trim), (px, py)) in enumerate(zip(CARS, PARK_AT)):
+    cx, cy = X + px, py
+    c = [kit.box((1.42, 1.02, 0.24), (cx, cy, 0.34), '#2d3440', bevel=0.11, segments=2)]
+    c.append(kit.box((1.26, 0.88, 0.36), (cx, cy, 0.56), col, bevel=0.16, segments=2))
+    c.append(kit.box((1.28, 0.9, 0.05), (cx, cy, 0.62), trim, bevel=0.0))
+    # A seat at the back, a dashboard and wheel at the front, lamps; a pole up to the grid.
+    c.append(kit.box((0.5, 0.7, 0.42), (cx, cy + 0.26, 0.78), col, bevel=0.12))
+    c.append(kit.box((0.5, 0.68, 0.08), (cx, cy - 0.02, 0.76), '#2d3440', bevel=0.02))
+    c.append(kit.box((0.62, 0.22, 0.14), (cx, cy - 0.34, 0.8), trim, bevel=0.05))
+    c.append(kit.torus(0.14, 0.025, (cx, cy - 0.2, 0.95), INK, rot=(0.9, 0, 0), major_segments=12, minor_segments=3))
+    c.append(rod((cx, cy - 0.33, 0.82), (cx, cy - 0.2, 0.95), 0.02, INK, verts=4))
+    for sx in (-1, 1):
+        c.append(kit.sphere(0.06, (cx + sx * 0.38, cy - 0.47, 0.6), BULB, segments=6))
+    c.append(kit.cylinder(0.025, 2.75, (cx, cy + 0.42, 2.2), STEEL, verts=6))
+    c.append(kit.cylinder(0.08, 0.1, (cx, cy + 0.42, 3.55), GOLD, verts=8))
+    c.append(star((cx, cy - 0.47, 0.42), 0.11, trim if trim != WHITE else SUN, thick=0.03))
+    m.part(f'car{i}', (cx, cy, 0.18), c)
+    m.marker(f'seat{i}', (cx, cy + 0.12, 0.78), on=f'car{i}')
+
+
+def stall(x, w, d, wall, roof_a, roof_b):
+    """A stall facing the camera: a counter at the front, walls round the back and the back half of the
+    sides (a doorway each side for whoever serves), a striped canopy over the back only, a sign board on it."""
+    q = [kit.box((w + 0.3, d + 0.2, 0.12), (x, 0.05, 0.06), '#efe3d0', bevel=0.03)]
+    q.append(kit.box((w, 0.12, 2.5), (x, d / 2 - 0.06, 1.37), wall, bevel=0.0))
+    for sx in (-1, 1):
+        q.append(kit.box((0.12, d * 0.45, 2.5), (x + sx * (w / 2 - 0.06), d / 2 - d * 0.225, 1.37), wall, bevel=0.0))
+        q.append(kit.box((0.16, 0.16, 2.7), (x + sx * (w / 2 - 0.06), -d / 2 + 0.25, 1.4), GOLD, bevel=0.04))
+    q.append(kit.box((w - 0.3, 0.5, 1.0), (x, -d / 2 + 0.3, 0.55), WHITE, bevel=0.05))
+    q.append(kit.box((w - 0.28, 0.04, 0.16), (x, -d / 2 + 0.04, 0.72), wall, bevel=0.0))
+    q.append(kit.box((w - 0.1, 0.66, 0.07), (x, -d / 2 + 0.3, 1.08), WOOD, bevel=0.02))
+    n = 8
+    for k in range(n):
+        q.append(kit.box((w / n + 0.01, d * 0.62, 0.1), (x - w / 2 + (k + 0.5) * w / n, d / 2 - d * 0.31, 2.78), (roof_a, roof_b)[k % 2], bevel=0.0, rot=(-0.12, 0, 0)))
+    for k in range(n):
+        q.append(kit.cylinder(w / n / 2, 0.04, (x - w / 2 + (k + 0.5) * w / n, d / 2 - d * 0.62, 2.7), (roof_a, roof_b)[k % 2], verts=12, rot=(math.pi / 2, 0, 0)))
+        q.append(bulb(x - w / 2 + (k + 0.5) * w / n, d / 2 - d * 0.62 - 0.03, 2.86, 0.045))
+    q.append(kit.box((w * 0.7, 0.12, 0.6), (x, d / 2 - d * 0.6, 3.3), GOLD, bevel=0.05))
+    q.append(kit.box((w * 0.7 - 0.16, 0.13, 0.46), (x, d / 2 - d * 0.6, 3.3), WHITE, bevel=0.04))
+    return q
+
+
+# --- The ring-toss booth: bottles to ring on a table behind the counter, plush prizes on the back wall. ---
+X = 62.0
+m = Model('pk_ringtoss', X)
+p = stall(X, 3.4, 2.2, SKY, SUN, WHITE)
+p.append(kit.box((2.4, 0.5, 0.75), (X, 0.35, 0.45), WOOD_DARK, bevel=0.03))
+for row in range(3):
+    for k in range(4 - row):
+        bx = X - 0.75 + row * 0.25 + k * 0.5
+        p.append(kit.cylinder(0.07, 0.26, (bx, 0.35, 0.95 + row * 0.27), ('#7ee0c3', '#5bbcff', '#ffd24a')[row], verts=8))
+        p.append(kit.cylinder(0.03, 0.1, (bx, 0.35, 1.13 + row * 0.27), WHITE, verts=6))
+p.append(kit.box((3.0, 0.12, 0.06), (X, 1.0, 1.5), WOOD, bevel=0.0))
+p.append(kit.box((3.0, 0.12, 0.06), (X, 1.0, 2.1), WOOD, bevel=0.0))
+for row, z in enumerate((1.68, 2.28)):
+    for k in range(5):
+        px = X - 1.2 + k * 0.6
+        col = (PINK, LILAC, '#c9a27a', MINT, SUN)[(k + row) % 5]
+        p.append(kit.sphere(0.16, (px, 0.95, z), col, segments=8))
+        p.append(kit.sphere(0.11, (px, 0.9, z + 0.2), col, segments=8))
+        for e in (-1, 1):
+            p.append(kit.sphere(0.045, (px + e * 0.08, 0.92, z + 0.3), col, segments=4))
+for k in range(4):
+    p.append(kit.torus(0.08, 0.02, (X + 1.0 + (k % 2) * 0.18, -0.85, 1.14 + k * 0.03), ('#ff5c6c', SUN, SKY, MINT)[k], major_segments=10, minor_segments=3))
+m.mesh(p)
+
+# --- The burger stand: a grill and a menu behind the counter, a giant burger turning on the roof. ---
+X = 72.0
+m = Model('pk_burger', X)
+p = stall(X, 3.6, 2.4, '#ff6b6b', SUN, '#ff6b6b')
+p.append(kit.box((1.6, 0.6, 0.85), (X - 0.6, 0.45, 0.5), STEEL, bevel=0.04))
+p.append(kit.box((1.5, 0.5, 0.04), (X - 0.6, 0.45, 0.95), INK, bevel=0.0))
+for k in range(4):
+    p.append(kit.cylinder(0.13, 0.05, (X - 1.1 + k * 0.32, 0.45, 0.99), '#7a3f22', verts=10))
+p.append(kit.box((1.2, 0.05, 0.75), (X + 0.9, 1.12, 1.75), INK, bevel=0.02))
+for k in range(3):
+    p.append(kit.box((0.9, 0.02, 0.06), (X + 0.9, 1.09, 1.95 - k * 0.2), WHITE, bevel=0.0))
+for k in range(3):
+    p.append(kit.cylinder(0.08, 0.2, (X + 0.9 + (k - 1) * 0.3, 0.35, 1.22), ('#ff5c6c', SUN, SKY)[k], verts=8))
+m.mesh(p)
+BZ = 3.55
+b = [kit.cylinder(0.75, 0.24, (X, 0.0, BZ + 0.12), '#e0a25a', verts=20, bevel=0.08)]
+b.append(kit.cylinder(0.8, 0.16, (X, 0.0, BZ + 0.32), '#7a3f22', verts=20, bevel=0.05))
+b.append(kit.box((1.2, 1.2, 0.05), (X, 0.0, BZ + 0.42), SUN, bevel=0.0, rot=(0, 0, 0.4)))
+b.append(kit.cylinder(0.84, 0.08, (X, 0.0, BZ + 0.48), '#6fd36a', verts=20))
+b.append(blob((0.8, 0.8, 0.5), (X, 0.0, BZ + 0.56), '#f0b062', 16))
+for k in range(9):
+    a = k * 2 * math.pi / 9
+    b.append(blob((0.05, 0.03, 0.025), (X + 0.45 * math.cos(a), 0.45 * math.sin(a), BZ + 0.98), '#fff6d8', 4, rot=(0, 0, a)))
+m.part('burger', (X, 0.0, BZ), b)
+
+# --- The supply shed: a wooden shed with a roller door on its east side, crates of sugar, buns and prizes. ---
+X = 84.0
+m = Model('pk_shed', X)
+p = [kit.box((5.2, 4.2, 0.12), (X, 0, 0.06), '#cfd6de', bevel=0.03)]
+for k in range(10):
+    p.append(kit.box((0.5, 4.0, 2.6), (X - 2.25 + k * 0.5, 0, 1.4), WOOD if k % 2 else '#d59a62', bevel=0.0))
+p.append(kit.box((0.06, 2.4, 2.1), (X + 2.52, 0.0, 1.17), '#5c4630', bevel=0.0))
+for k in range(5):
+    p.append(kit.box((0.04, 2.4, 0.05), (X + 2.56, 0.0, 2.15 - k * 0.12), STEEL, bevel=0.0))
+p.append(kit.box((0.12, 2.6, 0.16), (X + 2.55, 0.0, 2.3), WHITE, bevel=0.02))
+for sx in (-1, 1):
+    p.append(kit.box((0.12, 0.12, 2.3), (X + 2.55, sx * 1.25, 1.15), WHITE, bevel=0.02))
+roofp = kit.prism((5.6, 4.6, 1.3), (X, 0, 2.7), '#5b6f8f')
+p.append(roofp)
+p.append(kit.box((5.7, 0.18, 0.12), (X, 0, 4.0), WHITE, bevel=0.03))
+p.append(kit.box((1.6, 0.06, 0.5), (X, -2.02, 2.1), WHITE, bevel=0.03))
+p.append(star((X, -2.06, 2.1), 0.18, HOTPINK, thick=0.03))
+# Crates inside the door and stacked outside: sugar (pink), buns (tan), prizes (blue with a ribbon).
+for k, (dx, dy, dz, col) in enumerate(((1.7, -0.6, 0.0, '#ffb3d9'), (1.7, 0.2, 0.0, '#d9a866'), (1.7, 0.9, 0.0, SKY), (1.7, 0.2, 0.5, '#ffb3d9'))):
+    p.append(kit.box((0.55, 0.55, 0.48), (X + dx, dy, 0.36 + dz), col, bevel=0.05))
+for k, (dy, col) in enumerate(((-1.6, '#d9a866'), (-1.0, SKY), (1.5, '#ffb3d9'))):
+    p.append(kit.box((0.6, 0.55, 0.5), (X + 3.0, dy, 0.37), col, bevel=0.05))
+    p.append(kit.box((0.62, 0.08, 0.52), (X + 3.0, dy, 0.37), WHITE, bevel=0.0))
+p.append(kit.box((0.6, 0.55, 0.5), (X + 3.0, -1.6, 0.87), '#ffb3d9', bevel=0.05))
+p.append(kit.box((1.0, 0.8, 0.12), (X + 3.0, 0.2, 0.18), WOOD_DARK, bevel=0.02))
+m.mesh(p)
+
+# --- The delivery truck: a white box truck with the park's star, wheels that turn. ---
+X = 96.0
+m = Model('pk_truck', X)
+p = [kit.box((2.2, 3.6, 2.3), (X, 0.7, 1.55), WHITE, bevel=0.12, segments=2)]
+p.append(kit.box((2.22, 3.2, 0.36), (X, 0.7, 1.55), HOTPINK, bevel=0.0))
+for sx in (-1, 1):
+    p.append(star((X + sx * 1.13, 0.7, 2.2), 0.42, SUN, thick=0.04, rot=(math.pi / 2, 0, sx * math.pi / 2)))
+p.append(kit.box((2.1, 1.5, 1.6), (X, -1.85, 1.2), SKY, bevel=0.22, segments=2))
+p.append(kit.box((1.9, 0.08, 0.6), (X, -2.58, 1.55), GLASS, bevel=0.03, rot=(0.25, 0, 0)))
+for sx in (-1, 1):
+    p.append(kit.box((0.08, 0.8, 0.5), (X + sx * 1.06, -1.85, 1.55), GLASS, bevel=0.02))
+    p.append(kit.sphere(0.12, (X + sx * 0.75, -2.6, 0.75), BULB, segments=6))
+p.append(kit.box((2.2, 0.2, 0.3), (X, -2.62, 0.45), STEEL, bevel=0.05))
+p.append(kit.box((2.3, 5.0, 0.3), (X, -0.2, 0.55), INK, bevel=0.05))
+m.mesh(p)
+for i, (wx, wy) in enumerate(((-1.0, -1.7), (1.0, -1.7), (-1.0, 1.6), (1.0, 1.6))):
+    w = [kit.cylinder(0.45, 0.3, (X + wx, wy, 0.45), INK, verts=14, rot=(0, math.pi / 2, 0))]
+    w.append(kit.cylinder(0.24, 0.32, (X + wx, wy, 0.45), STEEL, verts=10, rot=(0, math.pi / 2, 0)))
+    m.part(f'wheel{i}', (X + wx, wy, 0.45), w)
+
+# --- A litter bin: green, with a lid and a star. ---
+X = 104.0
+m = Model('pk_bin', X)
+p = [kit.cylinder(0.3, 0.82, (X, 0, 0.41), MINT, verts=14, bevel=0.03)]
+p.append(kit.cylinder(0.33, 0.1, (X, 0, 0.86), TEAL, verts=14, bevel=0.03))
+p.append(kit.sphere(0.07, (X, 0, 0.95), TEAL, segments=6))
+p.append(star((X, -0.3, 0.5), 0.12, WHITE, thick=0.02))
+m.mesh(p)
+
 toy = kit.toy_material('toy')
 for obj in models:
     kit.use_material(obj, toy)
 print('triangles', {b.name: kit.triangles([d for d in b.children_recursive if d.type == 'MESH']) for b in bases})
-RIDES = {'pk_carousel': '-carousel', 'pk_teacups': '-teacups'}
+RIDES = {'pk_carousel': '-carousel', 'pk_teacups': '-teacups', 'pk_bumper': '-bumper'}
+MIDWAY = {'pk_ringtoss', 'pk_burger', 'pk_shed', 'pk_truck', 'pk_bin'}
 glb = Path(sys.argv[1] if len(sys.argv) > 1 else 'park.glb')
 # Each ride in a file of its own (a Playables file may weigh 512 KiB at most), the stalls and props in the first.
-for suffix, keep in (('', lambda n: n not in RIDES), *((f, lambda n, r=r: n == r) for r, f in RIDES.items())):
+for suffix, keep in (('', lambda n: n not in RIDES and n not in MIDWAY), ('-midway', lambda n: n in MIDWAY), *((f, lambda n, r=r: n == r) for r, f in RIDES.items())):
     chosen = [b for b in bases if keep(b.name)]
     kit.export(chosen + [d for b in chosen for d in b.children_recursive], str(glb.with_name(glb.stem + suffix + glb.suffix)))
 if len(sys.argv) > 2:

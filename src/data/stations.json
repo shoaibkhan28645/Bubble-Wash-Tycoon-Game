@@ -49,6 +49,16 @@
     "seconds": 1.0, "supply": null, "size": null, "padding": 0.4, "workSpot": null,
     "ring": "beside", "fx": "none", "queueSpots": 4
   },
+  "ringtoss": {
+    "name": "Ring-toss booth", "type": "service", "customer": "walker", "flow": "till", "serves": "prize", "stages": [],
+    "seconds": 1.8, "supply": null, "size": null, "padding": 0.4, "workSpot": null,
+    "ring": "beside", "fx": "none", "queueSpots": 4
+  },
+  "burger": {
+    "name": "Burger stand", "type": "service", "customer": "walker", "flow": "till", "serves": "burger", "stages": [],
+    "seconds": 1.6, "supply": null, "size": null, "padding": 0.4, "workSpot": null,
+    "ring": "beside", "fx": "none", "queueSpots": 4
+  },
   "cart": {
     "name": "Candy floss cart", "type": "service", "customer": "walker", "flow": "till", "serves": "candy", "stages": [],
     "seconds": 1.5, "supply": null, "size": null, "padding": 0.4, "workSpot": null,

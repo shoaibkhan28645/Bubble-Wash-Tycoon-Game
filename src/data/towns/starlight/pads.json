@@ -41,6 +41,17 @@
     }
   },
   {
+    "id": "bumper",
+    "name": "Bumper cars",
+    "cost": 20000,
+    "targetMinute": 4.5,
+    "adds": "The Midway's first ride: six cars to drive and bump, launched from its lever",
+    "effects": {
+      "ride": "bumper",
+      "arrivalBonus": 0.1
+    }
+  },
+  {
     "id": "seller",
     "name": "Ticket seller",
     "cost": 26000,
@@ -51,13 +62,98 @@
     }
   },
   {
+    "id": "shed",
+    "name": "Supply shed",
+    "cost": 32000,
+    "targetMinute": 7,
+    "adds": "The delivery truck drops sugar, buns and prizes here; carry them to the stalls. Every sale pays 10% more",
+    "effects": {
+      "supplies": true,
+      "payBonus": 0.1
+    }
+  },
+  {
     "id": "operator",
     "name": "Ride operator",
     "cost": 40000,
     "targetMinute": 9,
     "adds": "Launches the carousel: when it's full, or when the first rider has waited a while",
     "effects": {
-      "staff": "operator",
+      "staff": "operator"
+    }
+  },
+  {
+    "id": "ringtoss",
+    "name": "Ring-toss booth",
+    "cost": 50000,
+    "targetMinute": 11,
+    "adds": "A throw for a plush prize; it needs prizes from the shed",
+    "effects": {
+      "counter": "ringtoss",
+      "arrivalBonus": 0.1
+    }
+  },
+  {
+    "id": "mechanic",
+    "name": "Mechanic",
+    "cost": 62000,
+    "targetMinute": 13,
+    "adds": "Fixes rides that break down (worn rides break down as they stop; stand at the lever to fix one yourself)",
+    "effects": {
+      "staff": "mechanic"
+    }
+  },
+  {
+    "id": "teacups",
+    "name": "Teacups",
+    "cost": 75000,
+    "targetMinute": 15,
+    "adds": "Kiddie Corner's second ride: four big cups that spin (+15% visitors)",
+    "effects": {
+      "ride": "teacups",
+      "arrivalBonus": 0.15
+    }
+  },
+  {
+    "id": "burger",
+    "name": "Burger stand",
+    "cost": 90000,
+    "targetMinute": 17,
+    "adds": "Burgers for hungry visitors; it needs buns from the shed",
+    "effects": {
+      "counter": "burger",
+      "arrivalBonus": 0.1
+    }
+  },
+  {
+    "id": "vendor",
+    "name": "Midway vendor",
+    "cost": 100000,
+    "targetMinute": 18,
+    "adds": "Serves at the ring-toss booth and the burger stand",
+    "effects": {
+      "staff": "vendor"
+    }
+  },
+  {
+    "id": "snackrunner",
+    "name": "Snack runner",
+    "cost": 110000,
+    "targetMinute": 19,
+    "adds": "Carries sugar, buns and prizes from the shed to the stalls",
+    "effects": {
+      "staff": "snackrunner"
+    }
+  },
+  {
+    "id": "janitor",
+    "name": "Janitor and bins",
+    "cost": 150000,
+    "targetMinute": 24,
+    "adds": "Bins along the paths mean less litter, and the janitor sweeps up the rest",
+    "effects": {
+      "staff": "janitor",
+      "bins": true,
       "endOfContent": true
     }
   }

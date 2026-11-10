@@ -6,6 +6,8 @@ import { newGame } from '../src/core/gameState';
 import { STARLIGHT } from '../src/core/starlight';
 import { ParkCrowd, ParkVisitor, RIDES, Ride, type Launch } from '../src/systems/park';
 import type { WalkUpCounter } from '../src/systems/walkups';
+import { ParkSupplies, type ParkSupply } from '../src/systems/parkSupplies';
+import { Litter } from '../src/systems/litter';
 
 const RULES = TUNING.park.rides;
 const { layout } = STARLIGHT;
@@ -168,5 +170,131 @@ describe('the park', () => {
     crowd.addCounter('cart', 'cart', null);
     run(crowd, 200, 1, { hero: false, staff: true });
     expect(served.filter((s) => s === 'cart').length).toBeGreaterThan(0);
+  });
+});
+
+describe('breakdowns', () => {
+  it('wears a ride with each go, and a worn-out one breaks down as it stops, when allowed', () => {
+    const { crowd } = park();
+    const broken: string[] = [];
+    (crowd as unknown as { events: { onBroken: (r: Ride) => void } }).events.onBroken = (r) => broken.push(r.id);
+    const ride = crowd.ride('carousel')!;
+    ride.wear = 0.98;
+    sit(ride, 0);
+    ride.launch('hero', false);
+    expect(ride.wear).toBeGreaterThan(1);
+    crowd.canBreak = () => false;
+    run(crowd, ride.cycle + 1, 0, { hero: false, staff: false });
+    expect(ride.broken).toBe(false);
+    ride.phase = 'loading';
+    sit(ride, 0);
+    ride.launch('hero', false);
+    crowd.canBreak = () => true;
+    run(crowd, ride.cycle + 1, 0, { hero: false, staff: false });
+    expect(ride.broken).toBe(true);
+    expect(broken).toEqual(['carousel']);
+  });
+
+  it("won't launch while broken, and is fixed by standing at its lever for a few seconds", () => {
+    const ride = carousel();
+    ride.broken = true;
+    ride.wear = 1.1;
+    for (let i = 0; i < 8; i++) sit(ride, i);
+    expect(pull(ride, 5, true, true)).toBeNull();
+    let fixed = false;
+    for (let t = 0; t < RULES.repairSeconds - 0.2; t += STEP) fixed ||= ride.repair(STEP, true);
+    expect(fixed).toBe(false);
+    for (let t = 0; t < 0.4; t += STEP) fixed ||= ride.repair(STEP, true);
+    expect(fixed).toBe(true);
+    expect(ride.broken).toBe(false);
+    expect(ride.wear).toBe(0);
+  });
+
+  it('boards bumper cars straight from the way in, not round a platform', () => {
+    const ride = new Ride('bumper', RIDES.bumper!, layout.rides.bumper!);
+    const path = ride.boardPath(0);
+    expect(path).toHaveLength(2);
+    expect(path[0]).toEqual(ride.steps);
+  });
+});
+
+describe('supplies', () => {
+  const stalls = [
+    { id: 'cart', kind: 'cart', zone: { minX: 0, maxX: 1, minZ: 0, maxZ: 1 } },
+    { id: 'burger', kind: 'burger', zone: { minX: 5, maxX: 6, minZ: 0, maxZ: 1 } },
+  ];
+  const door = { minX: -10, maxX: -9, minZ: 0, maxZ: 1 };
+  const S = TUNING.park.supplies;
+
+  /** Someone with a back to carry boxes on, standing at `at`. */
+  function carrier(at: { x: number; z: number }) {
+    const stack: ParkSupply[] = [];
+    return {
+      stack,
+      timer: 0,
+      position: at,
+      get full() {
+        return stack.length >= 3;
+      },
+      count: (item: ParkSupply) => stack.filter((s) => s === item).length,
+      push: (item: ParkSupply) => void stack.push(item),
+      remove: (item: ParkSupply) => {
+        const i = stack.lastIndexOf(item);
+        if (i < 0) return false;
+        stack.splice(i, 1);
+        return true;
+      },
+    };
+  }
+
+  it('lets stalls sell freely until the shed opens, then from their stock, full to start', () => {
+    const supplies = new ParkSupplies(newGame());
+    expect(supplies.hasStock(stalls[0]!)).toBe(true);
+    supplies.openShed(stalls);
+    expect(supplies.stock('cart')).toBe(S.stall);
+    for (let i = 0; i < S.stall; i++) supplies.use(stalls[0]!);
+    expect(supplies.hasStock(stalls[0]!)).toBe(false);
+    expect(supplies.hasStock({ id: 'booth', kind: 'booth' })).toBe(true);
+  });
+
+  it('picks up what the stalls are shortest of at the shed, and hands it over behind the stall', () => {
+    const supplies = new ParkSupplies(newGame());
+    supplies.openShed(stalls);
+    for (let i = 0; i < S.stall; i++) supplies.use(stalls[1]!);
+    const back = carrier({ x: -9.5, z: 0.5 });
+    for (let k = 0; k < 3; k++) {
+      supplies.update([back as never], stalls, door);
+      back.timer = 0;
+    }
+    expect(back.stack).toEqual(['buns', 'buns', 'buns']);
+    back.position = { x: 5.5, z: 0.5 };
+    for (let k = 0; k < 3; k++) {
+      supplies.update([back as never], stalls, door);
+      back.timer = 0;
+    }
+    expect(back.stack).toEqual([]);
+    expect(supplies.stock('burger')).toBe(3);
+  });
+
+  it("tops the shed up with the truck's load, never past what it holds", () => {
+    const supplies = new ParkSupplies(newGame());
+    supplies.openShed(stalls);
+    expect(supplies.wantsTruck).toBe(false);
+    expect(supplies.deliver()).toBe(0);
+  });
+});
+
+describe('litter', () => {
+  it('lands now and then, less with bins, never past a few pieces; the hero picks it up by walking over it', () => {
+    const always = new Litter(() => 0);
+    for (let i = 0; i < 40; i++) always.drop({ x: i, z: 0 }, false);
+    expect(always.pieces.length).toBe(TUNING.park.litter.max);
+    const never = new Litter(() => 0.99);
+    expect(never.drop({ x: 0, z: 0 }, true)).toBeNull();
+    const some = new Litter(() => 0.4);
+    expect(some.drop({ x: 0, z: 0 }, false)).not.toBeNull();
+    expect(some.drop({ x: 0, z: 0 }, true)).toBeNull();
+    expect(some.pickUp({ x: 0.3, z: 0 }, 0.8)).toHaveLength(1);
+    expect(some.pieces).toHaveLength(0);
   });
 });

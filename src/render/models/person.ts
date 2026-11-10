@@ -32,7 +32,7 @@ const MAX_CATCH_UP = 1;
 
 type Pose = 'idle' | GaitPose | 'scrub' | 'sit' | 'ride';
 /** What a person holds while working. */
-export type Tool = 'sponge' | 'towel' | 'polisher' | 'nozzle' | 'bag' | 'clipboard' | 'can' | 'soda' | 'floss';
+export type Tool = 'sponge' | 'towel' | 'polisher' | 'nozzle' | 'bag' | 'clipboard' | 'can' | 'soda' | 'floss' | 'plush' | 'burger' | 'wrench' | 'broom';
 
 const TOOL_PARTS: Record<Tool, Part[]> = {
   sponge: [{ geometry: rbox(0.13, 0.07, 0.09, 0.03), color: '#ffd24a' }],
@@ -67,6 +67,32 @@ const TOOL_PARTS: Record<Tool, Part[]> = {
     { geometry: sphere(0.075, 8), color: '#ff8fc8', y: 0.15 },
     { geometry: sphere(0.05, 7), color: '#ffb0d8', x: 0.035, y: 0.19, z: 0.02 },
   ],
+  // A plush prize: a little bear.
+  plush: [
+    { geometry: sphere(0.085, 8), color: '#c9a27a', y: 0.02 },
+    { geometry: sphere(0.065, 8), color: '#c9a27a', y: 0.13 },
+    { geometry: sphere(0.025, 5), color: '#c9a27a', x: 0.05, y: 0.19 },
+    { geometry: sphere(0.025, 5), color: '#c9a27a', x: -0.05, y: 0.19 },
+    { geometry: sphere(0.02, 5), color: '#ff5fa8', y: 0.06, z: 0.08 },
+  ],
+  // A burger in its paper.
+  burger: [
+    { geometry: cylinder(0.075, 0.035, 10), color: '#e0a25a', y: 0.0 },
+    { geometry: cylinder(0.08, 0.025, 10), color: '#7a3f22', y: 0.03 },
+    { geometry: sphere(0.075, 8), color: '#f0b062', y: 0.05 },
+    { geometry: box(0.17, 0.06, 0.17), color: '#ffffff', y: -0.01 },
+  ],
+  // A big spanner.
+  wrench: [
+    { geometry: box(0.04, 0.26, 0.02), color: '#c9d2dc', y: 0.0 },
+    { geometry: box(0.1, 0.05, 0.025), color: '#c9d2dc', y: 0.14 },
+    { geometry: box(0.05, 0.08, 0.04), color: '#ff5c6c', y: -0.1 },
+  ],
+  // A broom, bristles down.
+  broom: [
+    { geometry: cylinder(0.015, 0.8, 6), color: '#c98a52', y: -0.15 },
+    { geometry: box(0.2, 0.12, 0.08), color: '#ffd24a', y: -0.58 },
+  ],
   // A red soda can.
   soda: [
     { geometry: cylinder(0.035, 0.1, 10), color: '#e8423f', y: -0.02 },
@@ -92,7 +118,8 @@ export class PersonAvatar {
   private current: AnimationAction | undefined;
   private gait: GaitPose | null = null;
   private phase = 0;
-  private readonly tool: Mesh | null = null;
+  private tool: Mesh | null = null;
+  private readonly hand: Object3D | null = null;
   private readonly gestureAction: AnimationAction | null = null;
   private gestureLeft = 0;
   private readonly lean = { forward: 0, side: 0, wantForward: 0, wantSide: 0 };
@@ -123,21 +150,29 @@ export class PersonAvatar {
       if (clip) this.actions.set(pose, this.mixer.clipAction(clip));
     }
     // A tool in the right hand, shown while working.
-    const hand = model.getObjectByName('arm-right');
-    if (tool && hand) {
-      let geometry = toolGeometries.get(tool);
-      if (!geometry) {
-        geometry = mergeParts(TOOL_PARTS[tool]);
-        toolGeometries.set(tool, geometry);
-      }
-      this.tool = new Mesh(geometry, toyMaterial);
-      this.tool.position.set(0, HAND_TOOL[0], HAND_TOOL[1]);
-      this.tool.visible = false;
-      hand.add(this.tool);
-    }
+    this.hand = model.getObjectByName('arm-right') ?? null;
+    if (tool) this.holdTool(tool);
     const pick = animations.find((a) => a.name === 'pick-up');
     if (pick) this.gestureAction = this.mixer.clipAction(pick).setLoop(LoopOnce, 1);
     this.play('idle');
+  }
+
+  /** Puts `tool` in the right hand (shown while working, or while `holding`): a visitor's candy floss, then a prize. */
+  holdTool(tool: Tool): void {
+    if (!this.hand) return;
+    let geometry = toolGeometries.get(tool);
+    if (!geometry) {
+      geometry = mergeParts(TOOL_PARTS[tool]);
+      toolGeometries.set(tool, geometry);
+    }
+    if (this.tool) {
+      this.tool.geometry = geometry;
+      return;
+    }
+    this.tool = new Mesh(geometry, toyMaterial);
+    this.tool.position.set(0, HAND_TOOL[0], HAND_TOOL[1]);
+    this.tool.visible = false;
+    this.hand.add(this.tool);
   }
 
   /** Bend down and pick something up (cash, supplies); walking cancels it. */

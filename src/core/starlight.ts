@@ -16,7 +16,10 @@ export const STARLIGHT: ParkTown = {
   story: story as StoryData,
   models: {
     'building:park': 'models/buildings/park.glb',
+    'building:park-midway': 'models/buildings/park-midway.glb',
     'building:park-carousel': 'models/buildings/park-carousel.glb',
+    'building:park-teacups': 'models/buildings/park-teacups.glb',
+    'building:park-bumper': 'models/buildings/park-bumper.glb',
     'building:town-shops': 'models/buildings/town-shops.glb',
     'building:town-homes': 'models/buildings/town-homes.glb',
   },

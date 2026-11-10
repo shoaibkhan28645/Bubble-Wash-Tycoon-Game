@@ -1,6 +1,13 @@
 {
   "growth": 1.15,
   "kinds": {
+    "sturdy": {
+      "name": "Sturdy parts",
+      "effect": "Wears out 15% slower",
+      "base": 90,
+      "max": 10,
+      "factor": 0.85
+    },
     "speed": {
       "name": "Speed",
       "effect": "10% faster",
@@ -157,7 +164,16 @@
     "cart": 8,
     "seller": 8,
     "carousel": 8,
-    "operator": 10
+    "operator": 10,
+    "teacups": 9,
+    "bumper": 8,
+    "ringtoss": 9,
+    "burger": 10,
+    "vendor": 10,
+    "mechanic": 10,
+    "snackrunner": 10,
+    "janitor": 12,
+    "shed": 8
   },
   "panels": {
     "bay1": [
@@ -257,8 +273,33 @@
     "carousel": [
       "carousel.speed",
       "carousel.quality",
+      "carousel.sturdy",
       "operator.staffSpeed",
       "player.walk"
+    ],
+    "teacups": [
+      "teacups.speed",
+      "teacups.quality",
+      "teacups.sturdy"
+    ],
+    "bumper": [
+      "bumper.speed",
+      "bumper.quality",
+      "bumper.sturdy",
+      "mechanic.staffSpeed"
+    ],
+    "ringtoss": [
+      "ringtoss.speed",
+      "ringtoss.quality",
+      "burger.speed",
+      "burger.quality",
+      "vendor.staffSpeed"
+    ],
+    "shed": [
+      "player.carry",
+      "snackrunner.staffCarry",
+      "snackrunner.staffSpeed",
+      "janitor.staffSpeed"
     ]
   }
 }

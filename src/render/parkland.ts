@@ -79,6 +79,8 @@ function paving(layout: ParkLayout): Mesh {
     parts.push(flat(w + 0.3, d + 0.3, PATH_EDGE, x, z, y));
     parts.push(flat(w, d, PATH, x, z, y + 0.012));
   });
+  // The service yard's concrete, and the drive in from the road.
+  for (const r of layout.yard) parts.push(flat(r.maxX - r.minX, r.maxZ - r.minZ, '#cfd6de', (r.minX + r.maxX) / 2, (r.minZ + r.maxZ) / 2, 0.02));
   // The plaza: pink and cream squares, 2 m.
   const { plaza } = layout;
   parts.push(flat(plaza.maxX - plaza.minX + 0.3, plaza.maxZ - plaza.minZ + 0.3, '#f0bcd6', (plaza.minX + plaza.maxX) / 2, (plaza.minZ + plaza.maxZ) / 2, 0.05));
@@ -114,7 +116,10 @@ function hedges(layout: ParkLayout): Mesh {
       });
     }
   };
-  run(sides.minX, hedgeZ, gate.minX - 0.6, hedgeZ);
+  // Along the road: open at the service gate and at the park's gate.
+  const service = layout.serviceGate;
+  run(sides.minX, hedgeZ, service.minX, hedgeZ);
+  run(service.maxX, hedgeZ, gate.minX - 0.6, hedgeZ);
   run(gate.maxX + 0.6, hedgeZ, sides.maxX, hedgeZ);
   run(sides.minX, hedgeZ, sides.minX, sides.maxZ);
   run(sides.maxX, hedgeZ, sides.maxX, sides.maxZ);
@@ -127,7 +132,7 @@ function hedges(layout: ParkLayout): Mesh {
 }
 
 /** One model placed many times, merged into one mesh (lamps, flower beds, rope posts). */
-function copies(name: string, at: { x: number; z: number; rot?: number; scaleX?: number }[]): Mesh {
+export function copies(name: string, at: { x: number; z: number; rot?: number; scaleX?: number }[]): Mesh {
   const base = parkPiece(name);
   base.updateMatrixWorld(true);
   const inverseBase = new Matrix4().copy(base.matrixWorld).invert();

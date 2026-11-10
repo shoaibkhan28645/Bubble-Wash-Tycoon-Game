@@ -18,7 +18,11 @@
     "marketstaff": "female-c-staff",
     "orchardhand": "male-f-staff",
     "seller": "female-d-staff",
-    "operator": "male-a-staff"
+    "operator": "male-a-staff",
+    "vendor": "female-c-staff",
+    "mechanic": "male-b-staff",
+    "snackrunner": "female-b-staff",
+    "janitor": "male-f-staff"
   },
   "shoppers": ["female-a", "male-e"],
   "villagers": ["female-a", "male-e", "female-d", "male-c", "female-e", "male-a"],

@@ -20,6 +20,17 @@
       "gems": 20
     },
     {
+      "id": "teacups",
+      "built": "teacups",
+      "gems": 20
+    },
+    {
+      "id": "fixes",
+      "count": "fixes",
+      "goal": 10,
+      "gems": 20
+    },
+    {
       "id": "stars",
       "stars": 5,
       "gems": 15

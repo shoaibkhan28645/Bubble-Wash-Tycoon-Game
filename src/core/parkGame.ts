@@ -29,17 +29,18 @@ import type { Look, Stage } from '../render/stage';
 import { withShadows } from '../render/stage';
 import { CameraRig } from '../render/cameraRig';
 import { Particles } from '../render/effects/particles';
-import { parkland, ropes } from '../render/parkland';
+import { copies, parkland, ropes } from '../render/parkland';
+import { DeliveryTruck, LitterView } from '../render/parkProps';
 import { loadPeople } from '../render/assets';
 import { blobShadows } from '../render/models/actors';
 import { skinnedToyMaterial } from '../render/models/build';
 import { warmRigidSkin } from '../render/models/rigid';
 import { PARK_SOLIDS, RideView, Spinners, overRide, parkPadModel } from '../render/models/park';
 import { PadModel } from '../render/models/padModel';
-import { PersonAvatar } from '../render/models/person';
+import { PersonAvatar, type Tool } from '../render/models/person';
 import { perk } from '../systems/career';
 import { CashSystem } from '../systems/cash';
-import { carriedItems } from '../systems/carry';
+import { Carrier, carriedItems } from '../systems/carry';
 import { takeFinished } from '../systems/construction';
 import { levelFactor, levelStep, nextStars, tipFor } from '../systems/economy';
 import { GuideHand, type GuideStep } from '../systems/guide';
@@ -47,7 +48,9 @@ import { Input } from '../systems/input';
 import { NavGrid } from '../systems/nav';
 import { IncomeTracker } from '../systems/offline';
 import { PadSystem } from '../systems/pads';
+import { Litter, type LitterPiece } from '../systems/litter';
 import { ParkCrowd, middleOf, type Launch, type ParkAvatar, type ParkVisitor, type Ride } from '../systems/park';
+import { ParkSupplies, STALL_SUPPLY, type ParkSupply, type SupplyStall } from '../systems/parkSupplies';
 import { Player } from '../systems/player';
 import { StaffSystem } from '../systems/staff';
 import { unlockedSum } from '../systems/arrivals';
@@ -84,6 +87,20 @@ const NAV_RADIUS = 0.35;
 const CHILD_SCALE = 0.72;
 /** A ride's sign floats this high over its middle. */
 const RIDE_LABEL_Y = 6.4;
+/** A stall's stock floats this high over it, and the shed's. */
+const STOCK_LABEL_Y = 3.9;
+/** The hero picks up litter this close (like cash). */
+const LITTER_REACH = 0.8;
+/** A broken-down ride puffs smoke this often (seconds). */
+const SMOKE_SECONDS = 0.45;
+/** What each stall hands over (held while walking away), and its icon. */
+const STALL_GOODS: Record<string, { tool: Tool; icon: string }> = {
+  cart: { tool: 'floss', icon: '🍭' },
+  ringtoss: { tool: 'plush', icon: '🧸' },
+  burger: { tool: 'burger', icon: '🍔' },
+};
+/** The supplies' icons. */
+const SUPPLY_ICONS: Record<ParkSupply, string> = { sugar: '🍬', buns: '🥯', prizes: '🎁' };
 
 /** A bright summer's day at the fair: blue sky, white light, clear views. */
 const PARK_LOOK: Look = {
@@ -133,6 +150,11 @@ export function createParkGame(
   player.onFootstep(() => sound.play('step'));
   const cash = new CashSystem(stage.scene, layout, TUNING.cash, state, effects, sound);
   const floaters = new Floaters(labels);
+  // The hero's back: boxes of supplies from the shed to the stalls.
+  const heroCarry = new Carrier<ParkSupply>(player.mesh, () => player.position, () => TUNING.supplies.carryBase + levelStep(UPGRADES.kinds.carry, level('player.carry')));
+  const supplies = new ParkSupplies(state);
+  const litter = new Litter();
+  const litterView = new LitterView(stage.scene);
   const income = new IncomeTracker(TUNING.offline.incomeWindowSeconds, state.autoRate);
   const flag = (name: string): void => {
     if (state.flags.includes(name)) return;
@@ -201,12 +223,15 @@ export function createParkGame(
   const payBonus = () => 1 + unlockedSum(state, (e) => e.payBonus);
   const onServed = (visitor: ParkVisitor, counter: WalkUpCounter): void => {
     const ticket = counter === crowd.booth;
-    const base = ticket ? visitor.basePay : PARK.cart.price;
+    const base = ticket ? visitor.basePay : ((PARK.stalls as Record<string, number>)[counter.kind] ?? 0);
+    const goods = STALL_GOODS[counter.kind];
+    if (!ticket) supplies.use(counter);
+    if (goods) (visitor.avatar as PersonAvatar | null)?.holdTool(goods.tool);
     const pay = Math.round(base * quality(counter.id) * payBonus() * (crowd.rush?.payMultiplier ?? 1));
     const tip = tipFor(pay, visitor.patience / visitor.patienceMax, TUNING.customers);
     cash.add(counter.id, pay + tip);
     const at = layout.piles[counter.id] ?? counter.at;
-    floaters.show(`+$${pay} ${ticket ? '🎟️' : '🍭'}`, new Vector3(at.x, 1.2, at.z), 'cash');
+    floaters.show(`+$${pay} ${ticket ? '🎟️' : (goods?.icon ?? '')}`, new Vector3(at.x, 1.2, at.z), 'cash');
     if (tip > 0) floaters.show(`+$${tip} tip`, new Vector3(at.x + 0.6, 1.9, at.z), 'tip');
     state.stars = nextStars(state.stars, tip > 0 ? 'happy' : 'okay', TUNING.stars);
     if (visitor.manual) flag(soldFlag);
@@ -248,7 +273,7 @@ export function createParkGame(
     layout,
     state,
     () => unlockedSum(state, (e) => e.arrivalBonus),
-    () => unlockedSum(state, (e) => e.patienceBonus),
+    () => unlockedSum(state, (e) => e.patienceBonus) - litter.patiencePenalty,
     makeAvatar,
     route,
     {
@@ -260,8 +285,32 @@ export function createParkGame(
         state.stars = nextStars(state.stars, 'happy', TUNING.stars);
         count('perfectDay');
       },
+      onBroken: (ride) => {
+        const top = overRide(ride, 4.2);
+        floaters.show(`🔧 ${t('brokeDown')}`, top, 'star');
+        effects.burst('smoke', new Vector3(top.x, 2.4, top.z), 14, 2.5, 0.8);
+        count('breakdowns');
+        flag(`broke:${current.id}`);
+        sound.play('pop');
+      },
+      onFixed: (ride, byHero) => {
+        const top = overRide(ride, 4.2);
+        floaters.show(`✅ ${t('fixedRide')}`, top, 'star');
+        effects.burst('sparkle', new Vector3(top.x, 2.6, top.z), 22, 4, 1);
+        count('fixes');
+        if (byHero) flag(`fixed:${current.id}`);
+        sound.play('mission');
+      },
+      onLitter: (at) => {
+        const piece = litter.drop(at, state.unlocked.some((id) => current.pads.find((p) => p.id === id)?.effects.bins));
+        if (piece) litterView.add(piece);
+      },
     },
   );
+  crowd.stocked = (counter) => supplies.hasStock(counter);
+  // A worn ride breaks down only once the park's got going, and one at a time.
+  crowd.canBreak = () => (state.counts.riders ?? 0) >= PARK.rides.breakAfterRiders && !crowd.rides.some((r) => r.broken);
+  const stalls = (): SupplyStall[] => crowd.counters.filter((c) => STALL_SUPPLY[c.kind]).map((c) => ({ id: c.id, kind: c.kind, zone: c.zone }));
   // The dev console and the play-test bot look at the crowd.
   if (import.meta.env.DEV) (window as unknown as { park: ParkCrowd }).park = crowd;
   loadPeople(CHARACTERS.visitors)
@@ -279,12 +328,31 @@ export function createParkGame(
   };
   // The ride operator's round: to the lever of the ride that needs launching (full, or a rider kept waiting longest).
   staff.walkPlans.operator = () => {
-    const ready = crowd.rides.filter((r) => r.phase === 'loading' && r.seated > 0);
+    const ready = crowd.rides.filter((r) => r.phase === 'loading' && r.seated > 0 && !r.broken);
     if (ready.length === 0) return null;
     const best = ready.reduce((a, b) => (Number(b.full) - Number(a.full) || b.waited - a.waited) > 0 ? b : a);
     return best.spot.lever;
   };
   const near = (p: Point | null, q: Point, reach: number) => !!p && Math.hypot(p.x - q.x, p.z - q.z) <= reach;
+  const staffAt = (role: 'mechanic' | 'janitor'): Point | null => {
+    const avatar = staff.avatarOf(role);
+    return avatar ? { x: avatar.root.position.x, z: avatar.root.position.z } : null;
+  };
+  // The mechanic's round: to the lever of a broken-down ride, to fix it there.
+  staff.walkPlans.mechanic = () => crowd.rides.find((r) => r.broken)?.spot.lever ?? null;
+  // The janitor's round: to the nearest litter, to sweep it up.
+  let sweeping: LitterPiece | null = null;
+  staff.walkPlans.janitor = (at) => sweeping?.at ?? litter.nearest(at)?.at ?? null;
+  // The snack runner's round: boxes from the shed, then to the stall that needs what's on their back.
+  staff.carryPlans.snackrunner = (c) => {
+    const carrier = c as Carrier<ParkSupply>;
+    const list = stalls();
+    const stall = supplies.stallFor(list, carrier);
+    const more = !carrier.full && supplies.wanted(list, carrier.stack) !== null;
+    if (stall && !more) return middleOf(stall.zone);
+    if (more && supplies.open) return middleOf(layout.shed.door);
+    return stall ? middleOf(stall.zone) : null;
+  };
 
   // Rides: the model turning, the lever, its pad ring, the queue ropes, and a sign over it saying how full it is.
   const rideViews: { ride: Ride; view: RideView; pad: PadModel; sign: { el: HTMLElement; label: Label; shown: string } }[] = [];
@@ -292,6 +360,12 @@ export function createParkGame(
     const ride = crowd.addRide(id, kind);
     if (!ride) return;
     const view = new RideView(ride, stage.scene);
+    view.onBump = (at) => {
+      effects.burst('sparkle', at, 6, 2.5, 0.5);
+      sound.play('pop');
+    };
+    ride.wear = state.supplies[`wear.${id}`] ?? 0;
+    ride.broken = (state.supplies[`broken.${id}`] ?? 0) > 0;
     stage.scene.add(view.group);
     grow(view.group, animate);
     const pad = new PadModel(1.1, 0xffd24a);
@@ -312,8 +386,11 @@ export function createParkGame(
   const showRides = (): void => {
     for (const { ride, sign } of rideViews) {
       const { icon, seats } = ride.def;
-      const text =
-        ride.phase === 'running'
+      const text = ride.broken
+        ? ride.fixing > 0
+          ? t('rideFixing', { percent: Math.round(ride.fixing * 100) })
+          : t(state.unlocked.includes('mechanic') ? 'rideBroken' : 'rideBrokenFix')
+        : ride.phase === 'running'
           ? t('rideRunning', { icon })
           : ride.full
             ? t(state.unlocked.includes('operator') ? 'rideFull' : 'rideFullPull', { icon })
@@ -321,7 +398,8 @@ export function createParkGame(
       if (text === sign.shown) continue;
       sign.shown = text;
       sign.el.textContent = text;
-      sign.el.classList.toggle('is-full', ride.full && ride.phase === 'loading');
+      sign.el.classList.toggle('is-full', ride.full && ride.phase === 'loading' && !ride.broken);
+      sign.el.classList.toggle('is-empty', ride.broken);
       labels.remeasure(sign.label);
     }
   };
@@ -330,9 +408,57 @@ export function createParkGame(
     const effects = current.pads.find((p) => p.id === id)?.effects;
     if (effects?.ride) addRide(id, effects.ride, animate);
     else showBuilding(id, animate);
-    if (effects?.counter) crowd.addCounter(id, effects.counter, labels);
+    if (effects?.counter) {
+      crowd.addCounter(id, effects.counter, labels);
+      const stall = stalls().find((s) => s.id === id);
+      if (stall) supplies.fillStall(stall);
+    }
+    if (effects?.supplies) supplies.openShed(stalls());
+    if (effects?.bins) {
+      stage.scene.add(withShadows(copies('pk_bin', layout.bins)));
+      for (const b of layout.bins) solids.push({ minX: b.x - 0.32, maxX: b.x + 0.32, minZ: b.z - 0.32, maxZ: b.z + 0.32 });
+    }
     if (layout.benches[id]) crowd.addBenches(id);
     staff.hire(id);
+  };
+  // The delivery truck brings the shed a load when it's running low.
+  const truck = new DeliveryTruck(stage.scene, layout.shed, () => {
+    const boxes = supplies.deliver();
+    const door = middleOf(layout.shed.door);
+    if (boxes > 0) floaters.show(`📦 +${boxes}`, new Vector3(door.x, 2.4, door.z), 'star');
+  });
+  let truckTimer = PARK.supplies.truckSeconds / 2;
+
+  // Stock counts over the stalls (once the shed is open) and over the shed.
+  const stockLabel = (at: Point, height: number) => {
+    const el = document.createElement('div');
+    el.className = 'shelf-stock';
+    const label = labels.add(el, new Vector3(at.x, height, at.z));
+    label.visible = false;
+    return { el, label, shown: '' };
+  };
+  const stallLabels = new Map<string, ReturnType<typeof stockLabel>>();
+  const shedLabel = stockLabel(layout.buildAt.shed ?? layout.pads.shed ?? { x: 0, z: 0 }, STOCK_LABEL_Y + 0.8);
+  const showLabel = (entry: ReturnType<typeof stockLabel>, text: string | null, empty = false): void => {
+    entry.label.visible = text !== null;
+    if (text === null || text === entry.shown) return;
+    entry.shown = text;
+    entry.el.textContent = text;
+    entry.el.classList.toggle('is-empty', empty);
+    labels.remeasure(entry.label);
+  };
+  const showStock = (): void => {
+    for (const stall of stalls()) {
+      let entry = stallLabels.get(stall.id);
+      if (!entry) {
+        entry = stockLabel(layout.buildAt[stall.id] ?? layout.pads[stall.id] ?? middleOf(stall.zone), STOCK_LABEL_Y);
+        stallLabels.set(stall.id, entry);
+      }
+      const item = STALL_SUPPLY[stall.kind]!;
+      const left = supplies.stock(stall.id);
+      showLabel(entry, supplies.open ? (left > 0 ? `${STALL_GOODS[stall.kind]?.icon ?? ''} ${left} / ${supplies.capacity}` : t('stallEmpty', { icon: SUPPLY_ICONS[item] })) : null, left === 0);
+    }
+    showLabel(shedLabel, supplies.open ? (['sugar', 'buns', 'prizes'] as const).map((i) => `${SUPPLY_ICONS[i]} ${supplies.shed(i)}`).join('  ') : null);
   };
   // The ticket booth and the carousel come with the park: there the moment the hero arrives.
   for (const pad of current.pads) if (pad.cost === 0 && !state.unlocked.includes(pad.id)) state.unlocked.push(pad.id);
@@ -405,6 +531,7 @@ export function createParkGame(
   const lever = (ride: Ride) => ({
     hero: near(player.position, ride.spot.lever, LEVER_REACH),
     staff: near(operatorAt(), ride.spot.lever, LEVER_REACH),
+    mechanic: near(staffAt('mechanic'), ride.spot.lever, LEVER_REACH),
   });
 
   /** At a ride's lever, the camera eases over to show the whole ride, not just the hero beside it. */
@@ -418,7 +545,20 @@ export function createParkGame(
   const pointer = new EdgePointer(root);
   // A pointing hand for a newcomer: sell the tickets, launch the carousel, collect the cash, then build.
   const hand = new GuideHand(labels);
+  /** The first breakdown and the first empty stall: shown how to deal with them, the first time. */
+  const helpStep = (): GuideStep | null => {
+    const broken = crowd.rides.find((r) => r.broken);
+    if (broken && !state.unlocked.includes('mechanic') && !state.flags.includes(`fixed:${current.id}`)) return { at: broken.spot.lever, text: 'guideFix' };
+    if (!supplies.open || state.unlocked.includes('snackrunner') || state.flags.includes(`stocked:${current.id}`)) return null;
+    const list = stalls();
+    const stall = supplies.stallFor(list, heroCarry);
+    if (stall) return { at: middleOf(stall.zone), text: 'guideSupplies' };
+    const empty = list.some((s) => supplies.stock(s.id) === 0);
+    return empty && supplies.wanted(list, heroCarry.stack) ? { at: middleOf(layout.shed.door), text: 'guideShed' } : null;
+  };
   const guide = (): GuideStep | null => {
+    const help = helpStep();
+    if (help) return help;
     if (state.unlocked.includes(GUIDE_UNTIL)) return null;
     const booth = crowd.booth;
     const carousel = crowd.rides[0];
@@ -450,6 +590,7 @@ export function createParkGame(
 
   let rateTimer = 0;
   let buildTimer = 0;
+  let sparkTimer = 0;
   const fixed = fixedSolids(layout);
   const loop = new Loop((dt) => {
     clock.advance(dt);
@@ -459,13 +600,77 @@ export function createParkGame(
     pads.update(dt, player.position);
     upgrades.update(dt, player.position);
     staff.update(dt, crowd.counters, null, solids, (counter) => insideRect(player.position, counter.zone), null, []);
-    for (const ride of crowd.rides) ride.timeScale = levelFactor(UPGRADES.kinds.speed, level(`${ride.id}.speed`));
-    player.scrubbing = crowd.update(dt, work, lever);
+    for (const ride of crowd.rides) {
+      ride.timeScale = levelFactor(UPGRADES.kinds.speed, level(`${ride.id}.speed`));
+      ride.wearScale = levelFactor(UPGRADES.kinds.sturdy, level(`${ride.id}.sturdy`));
+    }
+    const serving = crowd.update(dt, work, lever);
+    // Fixing a broken-down ride at its lever: the hero gets busy with his hands, and sparks fly.
+    const fixing = crowd.rides.find((r) => r.broken && near(player.position, r.spot.lever, LEVER_REACH));
+    player.scrubbing = serving || !!fixing;
+    sparkTimer -= dt;
+    if (sparkTimer <= 0) {
+      sparkTimer = SMOKE_SECONDS;
+      for (const ride of crowd.rides) {
+        if (!ride.broken) continue;
+        effects.burst('smoke', new Vector3(ride.spot.at.x, 2.6, ride.spot.at.z), 2, 1.2, 0.4);
+        const fixer = near(player.position, ride.spot.lever, LEVER_REACH) || near(staffAt('mechanic'), ride.spot.lever, LEVER_REACH);
+        if (fixer) effects.burst('sparkle', new Vector3(ride.spot.lever.x, 1.0, ride.spot.lever.z), 6, 3, 0.4);
+      }
+    }
+    // The mechanic at work on a broken ride, wrench in hand.
+    const mechanicAt = staffAt('mechanic');
+    const repairing = crowd.rides.find((r) => r.broken && near(mechanicAt, r.spot.lever, LEVER_REACH));
+    if (repairing && !staff.isActing('mechanic')) staff.act('mechanic', 0.4, repairing.spot.at);
+    // The janitor sweeps up the litter they've walked to.
+    const janitorAt = staffAt('janitor');
+    if (sweeping && !staff.isActing('janitor')) {
+      litter.pieces.splice(litter.pieces.indexOf(sweeping), 1);
+      litterView.remove(sweeping);
+      effects.burst('smoke', new Vector3(sweeping.at.x, 0.3, sweeping.at.z), 3, 1, 0.2);
+      sweeping = null;
+    }
+    const piece = janitorAt && !sweeping ? litter.nearest(janitorAt) : null;
+    if (piece && near(janitorAt, piece.at, 0.6)) {
+      sweeping = piece;
+      piece.taken = true;
+      staff.act('janitor', 1.1, piece.at);
+    }
+    // The hero picks up litter by walking over it.
+    for (const picked of litter.pickUp(player.position, LITTER_REACH)) {
+      if (picked === sweeping) sweeping = null;
+      litterView.remove(picked);
+      effects.burst('sparkle', new Vector3(picked.at.x, 0.4, picked.at.z), 5, 2, 0.4);
+      count('litter');
+      sound.play('pop');
+    }
+    // Supplies: picked up at the shed's door, handed over behind the stalls.
+    heroCarry.update(dt, player.isMoving);
+    supplies.update(
+      [heroCarry, ...staff.crateCarriers<ParkSupply>('snackrunner')],
+      stalls(),
+      layout.shed.door,
+      (carrier) => carrier === heroCarry && sound.play('chip'),
+      (carrier) => {
+        if (carrier !== heroCarry) return;
+        flag(`stocked:${current.id}`);
+        sound.play('pop');
+      },
+    );
+    truckTimer -= dt;
+    if (truckTimer <= 0) {
+      truckTimer = PARK.supplies.truckSeconds;
+      if (supplies.wantsTruck) truck.send();
+    }
+    truck.update(dt);
     for (const { ride, view: rideView, pad } of rideViews) {
-      rideView.update();
+      rideView.update(dt);
       pad.update(dt, near(player.position, ride.spot.lever, LEVER_REACH));
+      state.supplies[`wear.${ride.id}`] = ride.wear;
+      state.supplies[`broken.${ride.id}`] = ride.broken ? 1 : 0;
     }
     showRides();
+    showStock();
     spinners.update(dt);
     if (cash.update(player.position)) flag('collected');
     floaters.update(dt);
