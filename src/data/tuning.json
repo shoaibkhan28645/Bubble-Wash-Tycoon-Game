@@ -101,6 +101,8 @@
     "giftshop": { "chance": 0.45 },
     "prizes": { "chance": 0.3, "goldenChance": 0.04, "setSize": 4, "setBonus": 0.05 },
     "fireworks": { "crowd": 0.5, "nightPay": 0.25, "rocketSeconds": [0.45, 1.1], "sparks": 44 },
-    "wheel": { "turn": 0.09 }
+    "wheel": { "turn": 0.09 },
+    "vip": { "afterSeconds": 90, "attractions": 5, "wishes": 6, "patience": 3, "pay": 5 },
+    "wishBubbleSeconds": 4
   }
 }

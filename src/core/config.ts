@@ -524,6 +524,8 @@ export interface MissionDef {
   gems: number;
   /** Only offered once this pad is built. */
   requires?: string;
+  /** The kind of town it's done in (the car wash's when not given). */
+  town?: 'carWash' | 'farm' | 'park';
 }
 
 /** A Car of the Day: a one-a-day special visitor. */

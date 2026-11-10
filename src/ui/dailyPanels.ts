@@ -60,7 +60,7 @@ export function showMissions(root: HTMLElement, state: GameState, onClaim: (inde
     bar.appendChild(fill);
     const count = document.createElement('div');
     count.className = 'mission-count';
-    count.textContent = id === 'earn' ? `${formatCash(done)} / ${formatCash(goal)}` : `${Math.floor(done)} / ${goal}`;
+    count.textContent = id === 'earn' || id === 'parkEarn' ? `${formatCash(done)} / ${formatCash(goal)}` : `${Math.floor(done)} / ${goal}`;
     const action = document.createElement('button');
     action.type = 'button';
     action.className = 'mission-claim';

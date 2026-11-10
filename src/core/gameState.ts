@@ -15,6 +15,9 @@ export interface DailyState {
   loginDate: string;
   /** Local date the Car of the Day last came. */
   carOfDayDate: string;
+  /** The kind of town today's missions are for (the car wash's when not given), and another town's set of today, kept while away. */
+  town?: string;
+  stash?: Record<string, { date: string; missions: string[]; goals: number[]; progress: number[]; claimed: boolean[] }>;
 }
 
 /** A pad under construction: when it's done (wall-clock ms), and whether the ad already halved it. */

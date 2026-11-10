@@ -119,6 +119,10 @@ export class ParkVisitor extends Visitor {
   snackLeft = 0;
   /** Had their look in the gift shop on the way out (or passed it by). */
   shopped = false;
+  /** The Visitor of the Day: a celebrity with a long wish list, paying five times over for a perfect day. */
+  vip = false;
+  /** What they've paid so far today. */
+  spent = 0;
 
   constructor(
     override readonly avatar: ParkAvatar | null,
@@ -396,6 +400,8 @@ export interface ParkEvents {
   onFixed?(ride: Ride, byHero: boolean): void;
   /** Someone finished their snack and dropped the wrapper here (the game decides if it lands). */
   onLitter?(at: Point, visitor: ParkVisitor): void;
+  /** Someone has their ticket and knows what they want to do (their wish list is made). */
+  onWishes?(visitor: ParkVisitor): void;
 }
 
 /**
@@ -597,6 +603,22 @@ export class ParkCrowd {
     visitor.path = [{ x: enter[0]!.x, z: this.layout.walkwayZ }, ...enter];
   }
 
+  /**
+   * The Visitor of the Day arrives at an entrance and heads for the ticket
+   * booth: a celebrity with a long wish list and plenty of patience.
+   */
+  spawnVip(): ParkVisitor | null {
+    const booth = this.booth;
+    if (!this.open || !booth) return null;
+    const from = this.layout.entrances[Math.floor(this.random() * this.layout.entrances.length)]!;
+    const visitor = this.newVisitor(from, false, PARK.visitors.patience * PARK.vip.patience * (1 + this.patienceBonus()));
+    visitor.vip = true;
+    visitor.heading = booth;
+    booth.coming++;
+    visitor.path = [{ x: from.x, z: this.layout.walkwayZ }, ...booth.spot.enter];
+    return visitor;
+  }
+
   /** A busload: `count` visitors step off at `at`, one behind another, and head for the ticket booth. */
   spawnGroup(at: Point, count: number): number {
     const booth = this.booth;
@@ -620,7 +642,7 @@ export class ParkCrowd {
    * stalls' in tuning.json), in the order they'll go. Everyone wants at least
    * one ride.
    */
-  private wishList(): string[] {
+  private wishList(count?: number): string[] {
     const options = [
       ...this.rides.map((r) => ({ id: r.id, weight: r.def.wish })),
       ...this.counters.flatMap((c) => {
@@ -629,7 +651,7 @@ export class ParkCrowd {
       }),
     ];
     const [low, high] = PARK.wishes.count as [number, number];
-    const n = Math.min(options.length, low + Math.floor(this.random() * (high - low + 1)));
+    const n = Math.min(options.length, count ?? low + Math.floor(this.random() * (high - low + 1)));
     const wishes: string[] = [];
     while (wishes.length < n) {
       let pick = this.random() * options.reduce((sum, o) => sum + o.weight, 0);
@@ -647,8 +669,9 @@ export class ParkCrowd {
     this.events.onServed(visitor, counter);
     if (!visitor.ticket) {
       visitor.ticket = true;
-      visitor.wishes = this.wishList();
+      visitor.wishes = this.wishList(visitor.vip ? PARK.vip.wishes : undefined);
       visitor.wished = visitor.wishes.length;
+      this.events.onWishes?.(visitor);
     } else {
       visitor.wishes = visitor.wishes.filter((w) => w !== counter.id);
       visitor.bought = counter.kind;

@@ -8,7 +8,7 @@ import type { SoundManager } from '../audio/sound';
 import { hasModel, loadModel, specialCarFile } from '../render/assets';
 import { Ads } from '../systems/ads';
 import { finishGems, formatClock, halveBuild, secondsLeft, soonestBuild } from '../systems/construction';
-import { addProgress, carOfDay, claimable, claimCalendar, claimMission, localDate, rollDay } from '../systems/daily';
+import { addProgress, carOfDay, claimable, claimCalendar, claimMission, localDate, rollDay, type MissionKind, type MissionTown } from '../systems/daily';
 import { sideButtonOpen, tutorialActive } from '../systems/guide';
 import type { PadSystem } from '../systems/pads';
 import type { Supplies } from '../systems/supplies';
@@ -29,6 +29,8 @@ export interface Meta {
   /** A car paid (or a snack was sold): counts towards missions. */
   onPaid(paid: Paid): void;
   onUpgrade(): void;
+  /** Something a town's own missions count (a full ride, a fix…). */
+  count(kind: MissionKind, amount?: number): void;
   /** Offline earnings screen (already banked), with Collect 2×; an interstitial may follow. */
   welcomeBack(earned: { cash: number; seconds: number }): void;
   /** A screen was closed (end of content): an interstitial may play. */
@@ -49,11 +51,14 @@ export function createMeta(deps: {
   supplies: Supplies | null;
   /** Sets how much faster everyone works (the rewarded speed boost). */
   setBoost: (multiplier: number) => void;
+  /** The kind of town, for its own daily missions (the car wash's when not given). */
+  town?: MissionTown;
 }): Meta {
   const { root, state, saves, sound, traffic, pads, supplies } = deps;
+  const town = deps.town ?? 'carWash';
   const ads = new Ads(platform, () => state.playSeconds);
   let today = localDate(new Date());
-  rollDay(state, today);
+  rollDay(state, today, town);
   let dateTimer = 0;
   let sessionSeconds = 0;
   let convoyReadyAt = 0;
@@ -178,9 +183,12 @@ export function createMeta(deps: {
     save();
   };
 
-  // Buttons for what this town has: no convoy without cars, no refill without supplies.
+  // Buttons for what this town has: no convoy without cars, no refill without supplies, no missions where there are none.
   const available = (action: SideAction): boolean =>
-    sideButtonOpen(state, action) && (action !== 'convoy' || !!traffic) && (action !== 'refill' || !!supplies);
+    sideButtonOpen(state, action) &&
+    (action !== 'convoy' || !!traffic) &&
+    (action !== 'refill' || !!supplies) &&
+    (action !== 'missions' || state.daily.missions.length > 0);
 
   const progress = (kind: Parameters<typeof addProgress>[1], amount = 1): void => {
     // Missions open with the Mini-Mart; until then they count quietly.
@@ -201,7 +209,7 @@ export function createMeta(deps: {
         const now = localDate(new Date());
         if (now !== today) {
           today = now;
-          rollDay(state, today);
+          rollDay(state, today, town);
         }
       }
       updateDayCar();
@@ -228,6 +236,7 @@ export function createMeta(deps: {
     },
     onPaid(paid) {
       progress('earn', paid.amount);
+      progress('parkEarn', paid.amount);
       const car = paid.car;
       if (!car) {
         if (paid.snack) progress('snack');
@@ -243,6 +252,9 @@ export function createMeta(deps: {
       if (car.vip) progress('vip');
       if (car.def.id === 'monster') progress('monster');
       if (car.stages.some((s) => s.id === 'detail')) progress('detail');
+    },
+    count(kind, amount = 1) {
+      progress(kind, amount);
     },
     onUpgrade() {
       progress('upgrade');

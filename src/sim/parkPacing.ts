@@ -68,6 +68,8 @@ export interface ParkStage {
   cash: Record<string, number>;
   /** Visitors in the park, on average. */
   visitors: number;
+  /** Visitors a minute who ran out of patience and went home (each costs the rating). */
+  gaveUp: number;
 }
 
 /** Plays the park with `built` for a few minutes and measures what it earns. */
@@ -88,6 +90,7 @@ export function parkStage(town: ParkTown, built: ReadonlySet<string>, opts: Park
   const units: Record<string, number> = {};
   const cash: Record<string, number> = {};
   let measuring = false;
+  let gaveUp = 0;
   const earn = (id: string, n: number, amount: number) => {
     if (!measuring) return;
     units[id] = (units[id] ?? 0) + n;
@@ -108,7 +111,9 @@ export function parkStage(town: ParkTown, built: ReadonlySet<string>, opts: Park
         if (!ticket) take(counter.kind);
         earn(counter.id, 1, pay + tipFor(pay, visitor.patience / visitor.patienceMax, TUNING.customers));
       },
-      onGaveUp: () => {},
+      onGaveUp: () => {
+        if (measuring) gaveUp++;
+      },
       onLaunch: (ride, launch) => {
         const seat = ride.def.price * payBonus * night;
         earn(ride.id, launch.riders, Math.round(launch.riders * seat * (launch.full ? 1 + PARK.rides.fullBonus : 1)));
@@ -184,7 +189,7 @@ export function parkStage(town: ParkTown, built: ReadonlySet<string>, opts: Park
     cash[id] = Math.round(cash[id]! / minutes);
   }
   const perMinute = Object.values(cash).reduce((s, c) => s + c, 0);
-  return { perSecond: perMinute / 60, units, cash, visitors: Math.round(crowded / opts.measure) };
+  return { perSecond: perMinute / 60, units, cash, visitors: Math.round(crowded / opts.measure), gaveUp: Math.round((gaveUp / minutes) * 10) / 10 };
 }
 
 /** Plays the park's pads in order and returns when each was bought, plus the park's own income a minute at the end. */

@@ -54,6 +54,7 @@ import { Litter, type LitterPiece } from '../systems/litter';
 import { ParkCrowd, eveningAt, middleOf, type Launch, type ParkAvatar, type ParkVisitor, type Ride } from '../systems/park';
 import { ParkSupplies, STALL_SUPPLY, type ParkSupply, type SupplyStall } from '../systems/parkSupplies';
 import { PLUSH, shelf, shelfBonus, winPlush } from '../systems/prizes';
+import { localDate } from '../systems/daily';
 import { Player } from '../systems/player';
 import { StaffSystem } from '../systems/staff';
 import { unlockedSum } from '../systems/arrivals';
@@ -63,6 +64,7 @@ import { UpgradePads } from '../systems/upgrades';
 import type { WalkUpCounter } from '../systems/walkups';
 import { Floaters } from '../ui/carBubbles';
 import { EdgePointer } from '../ui/edgePointer';
+import { toast } from '../ui/dialog';
 import { showEndScreen } from '../ui/endScreen';
 import { openEmpireMap } from '../ui/empireMap';
 import { Hud } from '../ui/hud';
@@ -94,6 +96,16 @@ const RIDE_LABEL_Y = 6.4;
 const STOCK_LABEL_Y = 3.9;
 /** The hero picks up litter this close (like cash). */
 const LITTER_REACH = 0.8;
+/** Sounds are full within this far of the hero (metres) and die away over the next stretch. */
+const HEAR_NEAR = 10;
+const HEAR_FADE = 28;
+/** Fireworks carry further. */
+const BANG_NEAR = 24;
+const BANG_FADE = 50;
+/** The lift chain clanks this often (seconds). */
+const CLANK_SECONDS = 0.45;
+/** A share of bursts that draws an "ooh" from the crowd. */
+const OOH_CHANCE = 0.18;
 /** A broken-down ride puffs smoke this often (seconds). */
 const SMOKE_SECONDS = 0.45;
 /** What each stall hands over (held while walking away), and its icon. */
@@ -188,11 +200,17 @@ export function createParkGame(
   carriedItems.attach(stage.scene);
   warmRigidSkin(stage.scene, skinnedToyMaterial);
   const spinners = new Spinners();
+  // The park's own sounds and music (a fairground tune) load as the hero arrives.
+  void sound.loadSet('park');
+  sound.useMusic('park');
   stage.scene.add(withShadows(parkland(layout, spinners), false, true));
 
   const level = (key: string) => state.levels[key] ?? 0;
   const player = new Player(stage.scene, layout.playerStart, TUNING.player, () => 1 + levelStep(UPGRADES.kinds.walk, level('player.walk')) + perk(state, 'walk'));
   player.onFootstep(() => sound.play('step'));
+  /** How loud a sound at `at` is to the hero (1 close by, 0 far off). */
+  const hearing = (at: Point, near = HEAR_NEAR, fade = HEAR_FADE): number =>
+    Math.max(0, Math.min(1, 1 - (Math.hypot(at.x - player.position.x, at.z - player.position.z) - near) / fade));
   // The park takes far more a ride than a car wash: its piles hold more before the cashier comes.
   const cash = new CashSystem(stage.scene, layout, { ...TUNING.cash, pileCap: PARK.pileCap }, state, effects, sound);
   const floaters = new Floaters(labels);
@@ -296,6 +314,7 @@ export function createParkGame(
     const pay = Math.round(base * quality(counter.id) * payBonus() * storm * (crowd.rush?.payMultiplier ?? 1));
     if (counter.kind === 'ringtoss') {
       count('prizes');
+      meta.count('prize');
       // Now and then the prize is a plush the shelf hasn't got yet.
       const plush = winPlush(state);
       if (plush) {
@@ -309,6 +328,7 @@ export function createParkGame(
     }
     const tip = tipFor(pay, visitor.patience / visitor.patienceMax, TUNING.customers);
     cash.add(counter.id, pay + tip);
+    visitor.spent += pay + tip;
     const at = layout.piles[counter.id] ?? counter.at;
     floaters.show(`+$${pay} ${ticket ? '🎟️' : (goods?.icon ?? '')}`, new Vector3(at.x, 1.2, at.z), 'cash');
     if (tip > 0) floaters.show(`+$${tip} tip`, new Vector3(at.x + 0.6, 1.9, at.z), 'tip');
@@ -319,7 +339,8 @@ export function createParkGame(
   };
   const onGaveUp = (visitor: ParkVisitor): void => {
     state.stars = nextStars(state.stars, 'angry', TUNING.stars);
-    floaters.show('😠', new Vector3(visitor.at.x, 2.2, visitor.at.z), 'star');
+    floaters.show(visitor.vip ? '💔' : '😠', new Vector3(visitor.at.x, 2.2, visitor.at.z), 'star');
+    if (visitor.vip) toast(root, `💔 ${t('vipGaveUp')}`);
     sound.play('pop');
   };
   const onLaunch = (ride: Ride, launch: Launch): void => {
@@ -330,6 +351,7 @@ export function createParkGame(
     const pay = Math.round(launch.riders * seat * (launch.full ? 1 + rules.fullBonus : 1));
     const tip = launch.perfect ? Math.round(pay * rules.perfectTip) : 0;
     cash.add(ride.id, pay + tip);
+    for (const rider of ride.seats) if (rider?.vip) rider.spent += Math.round(seat * (launch.full ? 1 + rules.fullBonus : 1));
     const at = layout.piles[ride.id] ?? ride.spot.lever;
     floaters.show(`+$${pay} ${ride.def.icon}`, new Vector3(at.x, 1.2, at.z), 'cash');
     const top = overRide(ride, 4.6);
@@ -342,13 +364,51 @@ export function createParkGame(
     count('riders', launch.riders);
     if (launch.full) {
       count('fullhouse');
+      meta.count('fullRide');
       flag(fullFlag);
     }
     if (launch.perfect) count('perfect');
     if (launch.by === 'hero') flag(launchedFlag);
     state.stars = nextStars(state.stars, launch.full ? 'happy' : 'okay', TUNING.stars);
-    sound.play(launch.full ? 'mission' : 'ching');
+    if (launch.by === 'hero') sound.play(launch.full ? 'mission' : 'ching');
+    else sound.play('ching', hearing(ride.spot.at));
+    if (launch.full || launch.perfect) sound.play('cheer', hearing(ride.spot.at));
     onPaid({ amount: pay + tip, tip, automated: launch.by !== 'hero', at });
+  };
+  // Wish bubbles: what each visitor wants, over their head for a moment once they have a ticket (the Visitor of the Day's all day).
+  const bubbles = new Map<ParkVisitor, { el: HTMLElement; label: Label; left: number; shown: string }>();
+  const wishIcon = (id: string): string => {
+    const ride = crowd.ride(id);
+    if (ride) return ride.def.icon;
+    const counter = crowd.counters.find((c) => c.id === id);
+    return counter ? (STALL_GOODS[counter.kind]?.icon ?? '') : '';
+  };
+  const showWishes = (visitor: ParkVisitor): void => {
+    if (bubbles.has(visitor)) return;
+    const el = document.createElement('div');
+    el.className = visitor.vip ? 'wish-bubble is-vip' : 'wish-bubble';
+    const label = labels.add(el, new Vector3(visitor.at.x, 2.4, visitor.at.z));
+    bubbles.set(visitor, { el, label, left: visitor.vip ? Infinity : PARK.wishBubbleSeconds, shown: '' });
+  };
+  const updateBubbles = (dt: number): void => {
+    for (const [visitor, bubble] of bubbles) {
+      bubble.left -= dt;
+      if (bubble.left <= 0 || !crowd.visitors.includes(visitor)) {
+        labels.remove(bubble.label);
+        bubbles.delete(visitor);
+        continue;
+      }
+      const icons = visitor.wishes.map(wishIcon).join('');
+      // The Visitor of the Day: a gold star from the moment they arrive, then what they still want (a heart when that's all done).
+      const text = visitor.vip ? (visitor.wished === 0 ? '⭐' : `⭐ ${icons || '❤️'}`) : icons;
+      if (text !== bubble.shown) {
+        bubble.shown = text;
+        bubble.el.textContent = text;
+        labels.remeasure(bubble.label);
+      }
+      bubble.label.at.set(visitor.at.x, visitor.y + (visitor.child ? 1.75 : 2.3), visitor.at.z);
+      bubble.label.visible = visitor.avatar?.root.visible !== false;
+    }
   };
   const crowd = new ParkCrowd(
     layout,
@@ -364,8 +424,20 @@ export function createParkGame(
       onLaunch,
       onPerfectDay: (visitor) => {
         floaters.show('❤️', new Vector3(visitor.at.x, 2.3, visitor.at.z), 'star');
+        (visitor.avatar as PersonAvatar | null)?.wave();
+        // The Visitor of the Day had a perfect day: they pay five times over.
+        if (visitor.vip) {
+          const bonus = Math.round(visitor.spent * (PARK.vip.pay - 1));
+          cash.add('booth', bonus);
+          floaters.show(`⭐ ${t('vipPaid')} +$${bonus.toLocaleString('en-US')}`, new Vector3(visitor.at.x, 3.2, visitor.at.z), 'tip');
+          effects.burst('confetti', new Vector3(visitor.at.x, 2, visitor.at.z), 40, 5, 1);
+          count('vipDays');
+          sound.play('reward');
+          onPaid({ amount: bonus, tip: bonus, automated: false, at: visitor.at });
+        }
         state.stars = nextStars(state.stars, 'happy', TUNING.stars);
         count('perfectDay');
+        meta.count('perfectDay');
       },
       onBroken: (ride) => {
         const top = overRide(ride, 4.2);
@@ -380,9 +452,11 @@ export function createParkGame(
         floaters.show(`✅ ${t('fixedRide')}`, top, 'star');
         effects.burst('sparkle', new Vector3(top.x, 2.6, top.z), 22, 4, 1);
         count('fixes');
+        meta.count('fix');
         if (byHero) flag(`fixed:${current.id}`);
         sound.play('mission');
       },
+      onWishes: (visitor) => showWishes(visitor),
       onLitter: (at) => {
         const piece = litter.drop(at, state.unlocked.some((id) => current.pads.find((p) => p.id === id)?.effects.bins));
         if (piece) litterView.add(piece);
@@ -471,9 +545,10 @@ export function createParkGame(
         effects.burst('water', new Vector3(at.x, 0.7, at.z), 40, 5.5, 1.2);
         effects.burst('bubble', new Vector3(at.x, 0.6, at.z), 10, 2, 1.4);
         floaters.show('💦', new Vector3(at.x, 2.4, at.z), 'star');
-        sound.play('spray');
+        sound.play('splash', hearing(at));
       } else {
         floaters.show(`😱 ${t('coasterDrop')}`, new Vector3(at.x, at.y + 2.2, at.z), 'star');
+        sound.play('whoosh', hearing(at));
         effects.burst('sparkle', new Vector3(at.x, at.y + 1, at.z), 10, 3, 1);
       }
     };
@@ -725,7 +800,7 @@ export function createParkGame(
     const next = pads.next;
     return next && state.cash >= next.owed ? { at: next.at, text: 'guideBuild' } : null;
   };
-  const meta = createMeta({ root, state, saves, sound, traffic: null, pads, supplies: null, setBoost: (m) => (crowd.boost = m) });
+  const meta = createMeta({ root, state, saves, sound, traffic: null, pads, supplies: null, setBoost: (m) => (crowd.boost = m), town: 'park' });
   const town = createTown({
     root,
     scene: stage.scene,
@@ -769,10 +844,16 @@ export function createParkGame(
   root.appendChild(flash);
   // The dev console can jump the park's clock (to see the evening) and end the storm.
   if (import.meta.env.DEV) Object.assign(window, { parkClock: (t: number, storm = stormLeft) => ((dayTime = t), (stormLeft = storm)) });
+  let clankTimer = 0;
+  let vipTimer = PARK.vip.afterSeconds;
   let showing = false;
   let rocketTimer = 0;
   const fireworks = new Fireworks(stage.scene, PARK.fireworks.sparks);
-  fireworks.onBurst = () => sound.play('pop');
+  fireworks.onBurst = (at) => {
+    const level = hearing(at, BANG_NEAR, BANG_FADE);
+    sound.play('firework', level);
+    if (Math.random() < OOH_CHANCE) sound.play('ooh', level);
+  };
   let mascotWave = 0;
   let photoTimer = PARK.mascot.photoSeconds;
   const fixed = fixedSolids(layout);
@@ -826,6 +907,7 @@ export function createParkGame(
       litterView.remove(picked);
       effects.burst('sparkle', new Vector3(picked.at.x, 0.4, picked.at.z), 5, 2, 0.4);
       count('litter');
+      meta.count('litter');
       sound.play('pop');
     }
     // Supplies: picked up at the shed's door, handed over behind the stalls.
@@ -847,12 +929,19 @@ export function createParkGame(
       if (supplies.wantsTruck) truck.send();
     }
     truck.update(dt);
+    clankTimer -= dt;
+    let musicBox = 0;
     for (const { ride, view: rideView, pad } of rideViews) {
       rideView.update(dt);
+      // The lift chain clanks under a train (or a log) being hauled up; the carousel plays its music box as it turns.
+      if (rideView.lifting && clankTimer <= 0) sound.play('clank', hearing(rideView.lifting));
+      if (ride.id === 'carousel' && ride.phase === 'running') musicBox = hearing(ride.spot.at, 4, 18);
       pad.update(dt, near(player.position, ride.spot.lever, LEVER_REACH));
       state.supplies[`wear.${ride.id}`] = ride.wear;
       state.supplies[`broken.${ride.id}`] = ride.broken ? 1 : 0;
     }
+    if (clankTimer <= 0) clankTimer = CLANK_SECONDS;
+    sound.loop('musicbox', musicBox);
     // Evenings, and the storm.
     if (built('evenings')) dayTime += dt;
     if (state.unlocked.includes('haunted') && !state.flags.includes(stormFlag)) {
@@ -865,6 +954,7 @@ export function createParkGame(
     evening = built('evenings') ? eveningAt(dayTime, PARK.evening) : 0;
     nightGlow.value = Math.max(evening, stormMix * 0.6);
     stage.setLook(mixLook(mixLook(PARK_LOOK, PARK_EVENING, evening), PARK_STORM, stormMix));
+    sound.loop('rain', stormMix);
     if (stormMix > 0.05) {
       // Rain round the hero, and now and then a flash of lightning.
       for (let k = 0; k < 3; k++) {
@@ -880,6 +970,21 @@ export function createParkGame(
         flash.classList.add('is-on');
       }
     }
+    // The Visitor of the Day: once a day, once the park has enough to show them.
+    vipTimer -= dt;
+    if (vipTimer <= 0) {
+      vipTimer = 5;
+      const today = Number(localDate(new Date()).replaceAll('-', ''));
+      const attractions = crowd.rides.length + crowd.counters.length - 1;
+      const vip = (state.supplies['vip.day'] ?? 0) !== today && attractions >= PARK.vip.attractions && peopleReady ? crowd.spawnVip() : null;
+      if (vip) {
+        showWishes(vip);
+        state.supplies['vip.day'] = today;
+        toast(root, `⭐ ${t('vipArrived')}`);
+        sound.play('vip');
+      }
+    }
+    updateBubbles(dt);
     // The fireworks show over the lake, every evening once there's a barge.
     const show = fireworksBuilt() && evening > 0.6;
     if (show && !showing) count('shows');
@@ -897,7 +1002,7 @@ export function createParkGame(
     // The Starlight Wheel turns slowly, its gondolas hanging level; the barge bobs on the water.
     if (wheel) {
       wheel.spin.rotation.z += PARK.wheel.turn * dt;
-      for (const car of wheel.cars) car.rotation.z = -wheel.spin.rotation.z;
+      wheel.cars.forEach((car, k) => (car.rotation.z = -wheel!.spin.rotation.z + 0.05 * Math.sin(state.playSeconds * 1.3 + k * 0.9)));
     }
     if (barge) {
       barge.position.y = 0.05 * Math.sin(dayTime * 1.4 + state.playSeconds * 0.9);
@@ -1029,6 +1134,8 @@ export function createParkGame(
       loop.stop();
       nightGlow.value = 0;
       fireworks.dispose();
+      sound.stopLoops();
+      sound.useMusic(null);
       for (const cleanup of cleanups) cleanup();
       input.dispose();
       panel.dispose();

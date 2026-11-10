@@ -734,6 +734,24 @@ body {
   box-shadow: 0 0 0 2px #ffc94d, 0 2px 0 rgba(0, 0, 0, 0.15);
 }
 
+/* A park visitor's wishes, over their head (the Visitor of the Day's in gold) */
+.wish-bubble {
+  padding: 2px 6px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 2px 0 rgba(0, 0, 0, 0.15);
+  font-size: 14px;
+  line-height: 1.2;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.wish-bubble.is-vip {
+  background: #fff4c2;
+  box-shadow: 0 0 0 2px #ffc94d, 0 2px 0 rgba(0, 0, 0, 0.15);
+  font-size: 15px;
+}
+
 /* Nothing moves while YouTube has the game paused (the hand's bob, angry shakes). */
 .is-paused *,
 .is-paused *::before,

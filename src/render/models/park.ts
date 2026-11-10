@@ -201,6 +201,8 @@ const SIT_HIP = 0.47;
 const LEVER_SWING = 1.0;
 const PARK_RIDES = TUNING.park.rides;
 
+/** A log or a coaster car's forward axis, in its own terms. */
+const AHEAD = new Vector3(1, 0, 0);
 /** A bumper car's room to drive in (half the arena, less the car), and how close two cars come before they bump. */
 const ARENA = { x: 3.65, z: 2.55 };
 const BUMP_DISTANCE = 1.2;
@@ -255,11 +257,15 @@ export class RideView {
   private lap = 0;
   /** Where the flume's logs splash down and the coaster tips over its first drop (metres along). */
   private readonly marks: { kind: 'splash' | 'drop'; s: number; every: boolean }[] = [];
+  /** Where the front car is while a lift hauls it up (for the chain's clank), or null. */
+  lifting: Point | null = null;
   /** A log splashed into the pool, or the train tipped over the top (where). */
   onMark: ((kind: 'splash' | 'drop', at: Vector3) => void) | null = null;
   private clock = 0;
   private doorOpen = 0;
   private readonly tilt = new Quaternion();
+  private readonly rock = new Quaternion();
+  private readonly ahead = new Vector3();
   private readonly seats: Object3D[] = [];
   private readonly riders = new Map<ParkVisitor, Object3D>();
   private readonly arm: Object3D | null;
@@ -382,9 +388,26 @@ export class RideView {
     if (!track) return;
     const lap = ride.phase === 'running' ? track.distanceAt((ride.time / ride.cycle) * track.lapSeconds) : 0;
     const at = ride.spot.at;
-    for (const { node, offset } of this.vehicles) {
+    const floating = track.style === 'flume';
+    this.vehicles.forEach(({ node, offset }, i) => {
       track.frame(offset + lap, this.seen, node.quaternion);
-      node.position.set(this.seen.x - at.x, this.seen.y, this.seen.z - at.z);
+      let y = this.seen.y;
+      // A log floats: it bobs and rocks a little on the water (still on the lift's belt, and down the drop).
+      if (floating) {
+        const level = Math.max(0, 1 - Math.abs(this.ahead.copy(AHEAD).applyQuaternion(node.quaternion).y) * 4);
+        y += 0.035 * level * Math.sin(this.clock * 2.1 + i * 1.7);
+        this.rock.setFromAxisAngle(AHEAD, 0.05 * level * Math.sin(this.clock * 1.6 + i * 2.3));
+        node.quaternion.multiply(this.rock);
+      }
+      node.position.set(this.seen.x - at.x, y, this.seen.z - at.z);
+    });
+    // The front car on a lift: the chain clanks.
+    this.lifting = null;
+    const front = this.vehicles.reduce((a, b) => (b.offset > a.offset ? b : a), this.vehicles[0]!);
+    const s = (((front.offset + lap) % track.length) + track.length) % track.length;
+    if (ride.phase === 'running' && (track.spot.lifts ?? []).some(([a = 0, b = 0]) => s >= track.marks[a]! && s <= track.marks[b]!)) {
+      front.node.getWorldPosition(this.seen);
+      this.lifting = { x: this.seen.x, z: this.seen.z };
     }
     // The splash as each log comes down into the pool; the screams as the train tips over the top.
     if (lap > this.lap && this.onMark) {

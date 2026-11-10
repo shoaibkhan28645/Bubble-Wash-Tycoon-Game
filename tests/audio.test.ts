@@ -3,7 +3,7 @@ import AUDIO from '../src/data/audio.json';
 import { renderMusic } from '../src/audio/music';
 import { renderSynth } from '../src/audio/synth';
 
-const files = Object.keys(import.meta.glob('../public/audio/*.mp3')).map((f) => f.replace('../public/audio/', '').replace('.mp3', ''));
+const files = Object.keys(import.meta.glob(['../public/audio/*.mp3', '../public/audio/*/*.mp3'])).map((f) => f.replace('../public/audio/', '').replace('.mp3', ''));
 
 describe('sound list', () => {
   const synth = renderSynth(8000);
@@ -13,6 +13,10 @@ describe('sound list', () => {
       for (const file of def.files ?? []) expect(files, name).toContain(file);
       if (def.synth) expect(Object.keys(synth), name).toContain(def.synth);
     }
+  });
+
+  it("every town's music and loops have a file", () => {
+    for (const [name, track] of Object.entries(AUDIO.tracks)) expect(files, name).toContain(track.file);
   });
 
   it('made-in-code sounds are clean (no NaN, no clipping, not silent)', () => {

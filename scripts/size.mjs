@@ -35,8 +35,15 @@ const laterTowns = readdirSync('src/core')
   .filter((f) => f.endsWith('.ts') && f !== 'towns.ts')
   .flatMap((f) => modelPaths(join('src/core', f)))
   .filter((path) => !firstTown.has(path));
+// A town's own sounds and music (audio.json `set`) load when the hero gets there.
+const audio = JSON.parse(readFileSync('src/data/audio.json', 'utf8'));
+const townSounds = [...Object.values(audio.sounds), ...Object.values(audio.tracks ?? {})]
+  .filter((s) => s.set)
+  .flatMap((s) => s.files ?? [s.file])
+  .map((f) => `audio/${f}.mp3`);
 const lazy = new Set([
   ...['taxi', 'police', 'ambulance', 'firetruck', 'icecream'].map((c) => `models/cars/special-${c}.glb`),
+  ...townSounds,
   ...laterTowns,
   // Mini-Mart shoppers load once the shop is paid for, people out walking after the start.
   ...[...characters.shoppers, ...tuning.streetLife.characters]
@@ -44,14 +51,14 @@ const lazy = new Set([
     .map((c) => `models/people/character-${c}.glb`),
 ]);
 const models = [...sizes.keys()].filter((f) => f.startsWith('models/') && !f.endsWith('.md') && !lazy.has(f));
-const sounds = [...sizes.keys()].filter((f) => f.startsWith('audio/') && f.endsWith('.mp3'));
+const sounds = [...sizes.keys()].filter((f) => f.startsWith('audio/') && f.endsWith('.mp3') && !lazy.has(f));
 const initial = ['index.html', ...referenced, ...models, ...sounds].filter((f) => sizes.has(f));
 
 const sum = (names, key) => names.reduce((total, n) => total + sizes.get(n)[key], 0);
 const all = [...sizes.keys()];
 
 console.log(`Initial: ${kib(sum(initial, 'gz'))} gzip (${kib(sum(initial, 'raw'))} raw), ${initial.length} files`);
-console.log(`Loaded later (other towns, Car of the Day, shoppers, people out walking): ${kib(sum([...lazy].filter((f) => sizes.has(f)), 'gz'))} gzip, ${lazy.size} files`);
+console.log(`Loaded later (other towns and their sounds, Car of the Day, shoppers, people out walking): ${kib(sum([...lazy].filter((f) => sizes.has(f)), 'gz'))} gzip, ${lazy.size} files`);
 console.log(`dist total: ${kib(sum(all, 'raw'))} raw, ${all.length} files`);
 // Budgets (Tech Guide): fail the command if one is broken.
 const INITIAL_BUDGET = 15 * 1024 * 1024;

@@ -41,7 +41,8 @@ export function tutorialActive(state: GameState): boolean {
 export function sideButtonOpen(state: GameState, action: string): boolean {
   const { sideButtons, adsAfterSeconds } = TUNING.onboarding;
   const after = (sideButtons as Record<string, string | undefined>)[action];
-  if (after && !state.unlocked.includes(after)) return false;
+  // Opened by a pad built in any town (the car wash's, for a hero who's moved on).
+  if (after && !state.unlocked.includes(after) && !Object.values(state.towns).some((town) => town.unlocked.includes(after))) return false;
   return action === 'calendar' || action === 'missions' || state.playSeconds >= adsAfterSeconds;
 }
 

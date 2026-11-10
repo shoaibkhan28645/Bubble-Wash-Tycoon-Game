@@ -5,7 +5,28 @@ import { DAILY, type DayCarDef, type MissionDef } from '../core/config';
 import type { GameState } from '../core/gameState';
 
 /** Things that count towards missions. */
-export type MissionKind = 'wash' | 'handWash' | 'earn' | 'tips' | 'upgrade' | 'vip' | 'monster' | 'detail' | 'snack' | 'fuel' | 'combo';
+export type MissionKind =
+  | 'wash'
+  | 'handWash'
+  | 'earn'
+  | 'tips'
+  | 'upgrade'
+  | 'vip'
+  | 'monster'
+  | 'detail'
+  | 'snack'
+  | 'fuel'
+  | 'combo'
+  // The park's.
+  | 'fullRide'
+  | 'fix'
+  | 'litter'
+  | 'perfectDay'
+  | 'prize'
+  | 'parkEarn';
+
+/** The kind of town missions are done in. */
+export type MissionTown = 'carWash' | 'farm' | 'park';
 
 /** The player's local date as YYYY-MM-DD (the Tech Guide: today's local date in the save). */
 export function localDate(now: Date): string {
@@ -38,10 +59,10 @@ export function missionDef(id: string): MissionDef | undefined {
   return DAILY.missions.find((m) => m.id === id);
 }
 
-/** Today's missions: picked from the date, from those this lot can do, sized to its progress. */
-export function pickMissions(date: string, unlocked: readonly string[]): { missions: string[]; goals: number[] } {
-  const pool = DAILY.missions.filter((m) => !m.requires || unlocked.includes(m.requires));
-  const rand = seeded(hash(date));
+/** Today's missions: picked from the date, from those this town can do, sized to its progress. */
+export function pickMissions(date: string, unlocked: readonly string[], town: MissionTown = 'carWash'): { missions: string[]; goals: number[] } {
+  const pool = DAILY.missions.filter((m) => (m.town ?? 'carWash') === town && (!m.requires || unlocked.includes(m.requires)));
+  const rand = seeded(hash(town === 'carWash' ? date : `${town}:${date}`));
   const shuffled = pool
     .map((m) => ({ m, key: rand() }))
     .sort((a, b) => a.key - b.key)
@@ -51,17 +72,28 @@ export function pickMissions(date: string, unlocked: readonly string[]): { missi
   return { missions: shuffled.map((m) => m.id), goals: shuffled.map((m) => roundNice(m.goal * m.growth ** built)) };
 }
 
-/** On a new local day, deal fresh missions. Returns true if the day changed. */
-export function rollDay(state: GameState, today: string): boolean {
-  if (state.daily.date === today) return false;
-  const { missions, goals } = pickMissions(today, state.unlocked);
-  Object.assign(state.daily, {
-    date: today,
-    missions,
-    goals,
-    progress: missions.map(() => 0),
-    claimed: missions.map(() => false),
-  });
+/**
+ * On a new local day, deal fresh missions for the kind of town being played.
+ * Each kind of town has its own set a day: travelling away keeps this one's
+ * (progress and all) to come back to, never dealing a second set the same day.
+ * Returns true if the missions changed.
+ */
+export function rollDay(state: GameState, today: string, town: MissionTown = 'carWash'): boolean {
+  const d = state.daily;
+  const current = (d.town ?? 'carWash') as MissionTown;
+  if (d.date === today && current === town) return false;
+  if (current !== town && d.date) {
+    d.stash = { ...d.stash, [current]: { date: d.date, missions: d.missions, goals: d.goals, progress: d.progress, claimed: d.claimed } };
+  }
+  const kept = d.stash?.[town];
+  const set =
+    kept && kept.date === today
+      ? kept
+      : (() => {
+          const { missions, goals } = pickMissions(today, state.unlocked, town);
+          return { date: today, missions, goals, progress: missions.map(() => 0), claimed: missions.map(() => false) };
+        })();
+  Object.assign(d, { ...set, town });
   return true;
 }
 
