@@ -42,7 +42,7 @@ import { ConstructionSites } from '../render/models/site';
 import { unlockedSum } from '../systems/arrivals';
 import { perk } from '../systems/career';
 import { CashSystem } from '../systems/cash';
-import { Carrier, HERO_BACK, carriedItems } from '../systems/carry';
+import { Carrier, carriedItems } from '../systems/carry';
 import { takeFinished } from '../systems/construction';
 import { Crops, StandStock, type CropId, type CrateCarrier, type GoodId, type Plot } from '../systems/crops';
 import { ANIMALS, Livestock, type AnimalKind } from '../systems/animals';
@@ -158,7 +158,6 @@ export function createFarmGame(
     player.mesh,
     () => player.position,
     () => TUNING.supplies.carryBase + levelStep(UPGRADES.kinds.carry, level('player.carry')),
-    HERO_BACK,
   );
   const cash = new CashSystem(stage.scene, layout, TUNING.cash, state, effects, sound);
   const floaters = new Floaters(labels);

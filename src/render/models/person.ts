@@ -13,10 +13,6 @@ import { footfalls, pickGait, type GaitPose, type Gaits } from './gait';
 const PERSON_SCALE = 2;
 /** Where a tool sits on the right arm bone: at the end of the arm, a little in front. */
 const HAND_TOOL = [-0.21, 0.03] as const;
-/** On the hero's own skeleton the tool sits on his right hand bone: in his palm, a little in front. */
-const HERO_HAND_TOOL = [0.03, -0.03] as const;
-/** The hero's model is the same height as the rest, but the tool in his big hand is drawn a little bigger. */
-const HERO_TOOL_SCALE = 1.25;
 /** Slower than this (metres a second) and a person stands still. */
 const STANDING = 0.15;
 /** How quickly a person's measured ground speed follows the real one (per second). */
@@ -78,9 +74,8 @@ const TOOL_PARTS: Record<Tool, Part[]> = {
   ],
 };
 const toolGeometries = new Map<Tool, BufferGeometry>();
-/** The ground speeds the walk and sprint clips match (characters.json): the pack's people, and the hero's own clips. */
+/** The ground speeds the walk and sprint clips match (characters.json). */
 const GAITS = CHARACTERS.gaits as Gaits;
-const HERO_GAITS = CHARACTERS.playerGaits as Gaits;
 
 /** A person with its model's animations. */
 export class PersonAvatar {
@@ -98,7 +93,6 @@ export class PersonAvatar {
   private gait: GaitPose | null = null;
   private phase = 0;
   private readonly tool: Mesh | null = null;
-  private readonly gaits: Gaits;
   private readonly gestureAction: AnimationAction | null = null;
   private gestureLeft = 0;
   private readonly lean = { forward: 0, side: 0, wantForward: 0, wantSide: 0 };
@@ -129,10 +123,7 @@ export class PersonAvatar {
       if (clip) this.actions.set(pose, this.mixer.clipAction(clip));
     }
     // A tool in the right hand, shown while working.
-    this.gaits = character === CHARACTERS.player ? HERO_GAITS : GAITS;
-    // The pack's people hold a tool at the end of the arm bone; the hero has a hand bone of his own.
-    const heroHand = model.getObjectByName('hand-right');
-    const hand = heroHand ?? model.getObjectByName('arm-right');
+    const hand = model.getObjectByName('arm-right');
     if (tool && hand) {
       let geometry = toolGeometries.get(tool);
       if (!geometry) {
@@ -140,10 +131,7 @@ export class PersonAvatar {
         toolGeometries.set(tool, geometry);
       }
       this.tool = new Mesh(geometry, toyMaterial);
-      if (heroHand) {
-        this.tool.position.set(0, HERO_HAND_TOOL[0], HERO_HAND_TOOL[1]);
-        this.tool.scale.setScalar(HERO_TOOL_SCALE);
-      } else this.tool.position.set(0, HAND_TOOL[0], HAND_TOOL[1]);
+      this.tool.position.set(0, HAND_TOOL[0], HAND_TOOL[1]);
       this.tool.visible = false;
       hand.add(this.tool);
     }
@@ -191,7 +179,7 @@ export class PersonAvatar {
     } else if (this.gestureLeft <= 0 || moving) {
       this.gestureLeft = 0;
       if (moving) {
-        const { pose, rate } = pickGait(this.gaits, speed, this.gait);
+        const { pose, rate } = pickGait(GAITS, speed, this.gait);
         this.play(pose);
         this.gait = pose;
         if (this.current) this.current.timeScale = rate;

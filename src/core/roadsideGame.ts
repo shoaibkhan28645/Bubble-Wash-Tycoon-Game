@@ -26,7 +26,7 @@ import { Traffic, type Paid, type Work } from '../systems/traffic';
 import { insideRect, type Station } from '../systems/stations';
 import { IncomeTracker } from '../systems/offline';
 import { Floaters } from '../ui/carBubbles';
-import { Carrier, HERO_BACK, carriedItems } from '../systems/carry';
+import { Carrier, carriedItems } from '../systems/carry';
 import { Supplies } from '../systems/supplies';
 import { StaffSystem } from '../systems/staff';
 import { UpgradePads } from '../systems/upgrades';
@@ -101,7 +101,6 @@ export function createRoadsideGame(
     player.mesh,
     () => player.position,
     () => TUNING.supplies.carryBase + levelStep(UPGRADES.kinds.carry, level('player.carry')),
-    HERO_BACK,
   );
   const buildings = new Buildings(stage.scene, layout);
   const cash = new CashSystem(stage.scene, layout, TUNING.cash, state, effects, sound);
