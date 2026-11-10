@@ -20,5 +20,6 @@
   },
   "shoppers": ["female-a", "male-e"],
   "villagers": ["female-a", "male-e", "female-d", "male-c", "female-e", "male-a"],
-  "gaits": { "walk": 2.4, "sprint": 3.8 }
+  "gaits": { "walk": 2.4, "sprint": 3.8 },
+  "playerGaits": { "walk": 0.99, "jog": 2.32, "sprint": 4.41 }
 }

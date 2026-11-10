@@ -129,6 +129,11 @@ function shown(object: Object3D): boolean {
   return false;
 }
 
+/** Where a stack starts on a person's back: above the waist, just behind them. */
+const BACK = [0, 1.0, -0.5] as const;
+/** The hero's head is big: his stack starts lower and further back, clear of his hair. */
+export const HERO_BACK = [0, 0.66, -0.74] as const;
+
 /** Anyone who carries supplies or crates (the player, the runner, the farmhand): a stack on their back. */
 export class Carrier<T extends CarryItem = SupplyType> {
   readonly stack: T[] = [];
@@ -143,9 +148,11 @@ export class Carrier<T extends CarryItem = SupplyType> {
     attachTo: Object3D,
     private readonly where: () => Point,
     readonly capacity: () => number,
+    /** Where the stack starts on whoever carries it (x, y, z from their feet; -z is behind them). */
+    at: readonly [number, number, number] = BACK,
   ) {
     // On the back, above the waist; items are drawn large enough to read on a phone.
-    this.pile.position.set(0, 1.0, -0.5);
+    this.pile.position.set(...at);
     this.pile.scale.setScalar(1.6);
     attachTo.add(this.pile);
     carriedItems.track(this as Carrier<CarryItem>);
