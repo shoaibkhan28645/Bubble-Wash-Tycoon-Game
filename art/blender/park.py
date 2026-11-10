@@ -973,18 +973,19 @@ p.append(kit.box((2.6, 0.14, 0.55), (X, 0.42, 3.5), GOLD, bevel=0.05))
 p.append(kit.box((2.45, 0.15, 0.42), (X, 0.41, 3.5), WHITE, bevel=0.04))
 p += [bulb(X - 3.6 + k * 0.45, 0.32, 3.06, 0.05) for k in range(17)]
 m.mesh(p)
-for i, lx in enumerate((-1.5, 1.5)):
+for i, lx in enumerate((-1.6, 1.6)):
     cx = X + lx
-    q = [kit.cylinder(0.42, 2.2, (cx, 0, 0.62), '#9a6a3f', verts=12, rot=(0, math.pi / 2, 0))]
-    q.append(kit.box((1.9, 0.62, 0.3), (cx, 0, 0.92), '#5c3a24', bevel=0.06))
+    # Long enough for five riders half a metre apart (their heads are big), one behind another, facing the way it floats (+x).
+    q = [kit.cylinder(0.42, 2.7, (cx, 0, 0.62), '#9a6a3f', verts=12, rot=(0, math.pi / 2, 0))]
+    q.append(kit.box((2.45, 0.62, 0.3), (cx, 0, 0.92), '#5c3a24', bevel=0.06))
     for e in (-1, 1):
-        q.append(kit.cylinder(0.43, 0.06, (cx + e * 1.1, 0, 0.62), '#c98a52', verts=12, rot=(0, math.pi / 2, 0)))
-        q.append(kit.torus(0.3, 0.04, (cx + e * 1.12, 0, 0.62), '#7a4a2a', rot=(0, math.pi / 2, 0), major_segments=10, minor_segments=3))
-    q.append(blob((0.09, 0.05, 0.05), (cx + 0.9, 0.42, 0.9), '#5fb84f', 6))
+        q.append(kit.cylinder(0.43, 0.06, (cx + e * 1.35, 0, 0.62), '#c98a52', verts=12, rot=(0, math.pi / 2, 0)))
+        q.append(kit.torus(0.3, 0.04, (cx + e * 1.37, 0, 0.62), '#7a4a2a', rot=(0, math.pi / 2, 0), major_segments=10, minor_segments=3))
+    q.append(blob((0.09, 0.05, 0.05), (cx + 1.1, 0.42, 0.9), '#5fb84f', 6))
     m.part(f'log{i}', (cx, 0, 0.5), q)
     for k in range(4):
-        m.marker(f'seat{i * 4 + k}', (cx - 0.8 + k * 0.4, 0, 0.98), on=f'log{i}')
-    m.marker(f'seat{8 + i}', (cx + 0.8, 0, 0.98), on=f'log{i}')
+        m.marker(f'seat{i * 4 + k}', (cx - 1.0 + k * 0.5, 0, 0.98), on=f'log{i}')
+    m.marker(f'seat{8 + i}', (cx + 1.0, 0, 0.98), on=f'log{i}')
 # The splash pool, apart from the station (the game puts it at the bottom of the drop).
 X2 = X + 8.0
 pool = [kit.cylinder(2.0, 0.42, (X2, 0, 0.21), '#c98a52', verts=28, bevel=0.04)]

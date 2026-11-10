@@ -52,7 +52,7 @@ for (const material of [toyMaterial, skinnedToyMaterial, instancedToyMaterial]) 
         '#include <emissivemap_fragment>',
         `#include <emissivemap_fragment>
 #ifdef USE_COLOR
-  totalEmissiveRadiance += vColor.rgb * (1.0 - step(${BULB_MATCH.toFixed(3)}, distance(vColor.rgb, uBulb))) * uNight * 1.8;
+  totalEmissiveRadiance += vColor.rgb * (1.0 - step(${BULB_MATCH.toFixed(3)}, distance(vColor.rgb, uBulb))) * uNight * 2.6;
 #endif`,
       );
   };

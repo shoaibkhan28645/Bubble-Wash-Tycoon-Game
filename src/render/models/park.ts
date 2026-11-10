@@ -3,7 +3,7 @@
 // file of its own (each under 512 KiB). A ride is drawn as one skinned mesh
 // (rigid.ts): its platform turns, its horses bob, and riders sit on the
 // seats marked in the model, going round with them.
-import { Group, Mesh, Object3D, Quaternion, Vector3, type Scene } from 'three';
+import { CatmullRomCurve3, Group, Mesh, MeshLambertMaterial, Object3D, Quaternion, Vector3, type Scene } from 'three';
 import type { Point, Rect } from '../../core/config';
 import { TUNING } from '../../core/config';
 import type { ParkVisitor, Ride } from '../../systems/park';
@@ -90,8 +90,24 @@ export function signedModel(name: string): Object3D {
     const sign = plate(painted.text, painted.width, painted.height, painted.color, false);
     sign.position.set(0, painted.y, painted.z);
     model.add(sign);
+    const material = sign.material as MeshLambertMaterial;
+    if (!litSigns.has(material)) {
+      material.emissive.set('#ffffff');
+      material.emissiveMap = material.map;
+      material.emissiveIntensity = 0;
+      material.needsUpdate = true;
+      litSigns.add(material);
+    }
   }
   return model;
+}
+
+/** The painted signs, lit from within after dark. */
+const litSigns = new Set<MeshLambertMaterial>();
+
+/** How brightly the painted signs shine (0 by day, about 1 at night). */
+export function lightSigns(amount: number): void {
+  for (const material of litSigns) material.emissiveIntensity = amount;
 }
 
 export function parkPadModel(id: string): Object3D | null {
@@ -203,8 +219,13 @@ export class Spinners {
   }
 }
 
-/** A rider's hips sit this high above their feet (the sit animation, at the people's size). */
-const SIT_HIP = 0.47;
+/**
+ * How far above a rider's own origin (their feet, standing) the seat of
+ * their pants is, sitting (the sit and drive animations fold the people's
+ * short legs right down: their hips drop to just off the ground). A seat
+ * marker is the seat itself, so the rider's origin goes this far below it.
+ */
+const SIT_HIP = 0.04;
 /** The lever swings forward this far (radians) when pulled, and springs back. */
 const LEVER_SWING = 1.0;
 const PARK_RIDES = TUNING.park.rides;
@@ -219,14 +240,39 @@ const WANDER = 2.2;
 
 /** How far the swing chairs fly out at full speed (radians from hanging straight down). */
 const SWING_OUT = 0.95;
-/** A swan boat's paddle round the lake: a share of the ride out to the loop, and back to the jetty. */
-const BOAT_LEG = 0.12;
+/**
+ * The swan boats' way round the lake, after the two lane mouths off the
+ * jetty's end (north, then south): east along the south shore, round the
+ * far end, back west along the north shore and in again, wide of the
+ * fireworks barge. In the lake's own terms (its middle, and its half widths).
+ */
+const BOAT_LOOP: [number, number][] = [
+  [-0.19, 0.6],
+  [0.27, 0.67],
+  [0.7, 0.42],
+  [0.81, -0.04],
+  [0.62, -0.5],
+  [0.19, -0.67],
+  [-0.22, -0.6],
+];
+/** A lane's mouth is this far out past its outer berth (metres). */
+const BOAT_LANE = 1.0;
+/** How far apart the boats set off (seconds, at most, and as a share of the ride), and the share of a trip spent speeding up and slowing down. */
+const BOAT_GAP = 2.2;
+const BOAT_GAP_SHARE = 0.11;
+const BOAT_EASE = 0.1;
+/** A boat turns from its mooring (facing +z) to its way over this far (metres) leaving, and back over this far arriving. */
+const BOAT_TURN_OUT = 1.0;
+const BOAT_TURN_IN = 1.4;
 /** The big wheel: how fast it brings the next gondola down to the deck (radians a second, at most), how many times round a ride goes, and the share of a ride spent speeding up (and slowing down). */
 const WHEEL_SHIFT = 1.4;
 const WHEEL_TURNS = 2;
 const WHEEL_EASE = 0.15;
 /** A gondola's down at the deck within this (radians). */
 const WHEEL_AT_DECK = 0.02;
+/** The wheel's rim of bulbs (art/blender/park.py): how far out from the hub, and how far forward of it, the front ring is. */
+const WHEEL_RIM = 5.68;
+const WHEEL_RIM_FRONT = 0.62;
 
 /** The lake the boats paddle round: its middle and half-widths (the water). */
 export interface Lake {
@@ -262,6 +308,10 @@ export class RideView {
   private readonly cars: BumperCar[] = [];
   private readonly chairs: { node: Object3D; axis: Vector3 }[] = [];
   private readonly boats: { node: Object3D; home: Vector3 }[] = [];
+  /** Which berth (a boat's home in the model) each boat is moored at now: they swap about, coming back. */
+  private readonly berthOf: number[] = [];
+  /** This ride's trips, one a boat: its way (in the world) and how far along each point is, when it sets off, and where it moors after. */
+  private trips: { boat: number; path: Point[]; along: number[]; start: number; berth: number }[] | null = null;
   private readonly bats: { node: Object3D; base: Vector3; wings: Object3D[] }[] = [];
   private readonly door: Object3D | null;
   private readonly ghost: { node: Object3D; base: number } | null = null;
@@ -337,7 +387,10 @@ export class RideView {
       const out = new Vector3(node.position.x, 0, node.position.z).normalize();
       this.chairs.push({ node, axis: new Vector3(-out.z, 0, out.x) });
     }
-    for (const node of parts('boat')) this.boats.push({ node, home: node.position.clone() });
+    for (const node of parts('boat')) {
+      this.berthOf.push(this.boats.length);
+      this.boats.push({ node, home: node.position.clone() });
+    }
     for (const node of parts('bat')) {
       const wings = ['l', 'r'].map((side) => model.getObjectByName(`${node.name}${side}`)).filter((w): w is Object3D => !!w);
       this.bats.push({ node, base: node.position.clone(), wings });
@@ -607,32 +660,108 @@ export class RideView {
    */
   private sail(): void {
     if (this.boats.length === 0 || !this.lake) return;
+    const { ride } = this;
+    const at = ride.spot.at;
+    if (ride.phase === 'running' && !this.trips) this.trips = this.planTrips();
+    // Back in: each boat stays where it moored.
+    if (ride.phase !== 'running' && this.trips) {
+      for (const trip of this.trips) this.berthOf[trip.boat] = trip.berth;
+      this.trips = null;
+    }
+    this.boats.forEach((boat, i) => {
+      const home = this.boats[this.berthOf[i]!]!.home;
+      let x = at.x + home.x;
+      let z = at.z + home.z;
+      // Moored, a swan faces the way it was built (+z); under way, the way it's going.
+      let heading = 0;
+      const trip = this.trips?.find((t) => t.boat === i);
+      if (trip) {
+        const total = trip.along.at(-1)!;
+        const window = ride.cycle - (this.boats.length - 1) * this.boatGap() - 0.3;
+        const u = Math.min(1, Math.max(0, (ride.time - trip.start) / Math.max(0.5, window)));
+        const s = total * eased(u, BOAT_EASE);
+        const p = pointAlong(trip.path, trip.along, s);
+        const q = pointAlong(trip.path, trip.along, Math.min(total, s + 0.3));
+        x = p.x;
+        z = p.z;
+        if (s < total - 0.05) {
+          const way = Math.atan2(q.x - p.x, q.z - p.z);
+          // Turning out of the mooring, and back into it at the end.
+          const turn = Math.min(1, s / BOAT_TURN_OUT, (total - s) / BOAT_TURN_IN);
+          heading = turnBy(0, way) * smooth(Math.max(0, turn));
+        }
+      }
+      boat.node.position.set(x - at.x, boat.home.y + 0.04 * Math.sin(this.clock * 2.4 + i * 1.3), z - at.z);
+      boat.node.rotation.y = heading;
+      boat.node.rotation.z = 0.04 * Math.sin(this.clock * 1.9 + i);
+    });
+  }
+
+  /** The big wheel's turning part, and where its rim's bulbs are in its own terms (how far out, and how far forward), or null. */
+  get wheelRim(): { node: Object3D; radius: number; front: number } | null {
+    return this.wheel ? { node: this.wheel.spin, radius: WHEEL_RIM, front: WHEEL_RIM_FRONT } : null;
+  }
+
+  /** Seconds between one boat setting off and the next. */
+  private boatGap(): number {
+    return Math.min(BOAT_GAP, this.ride.cycle * BOAT_GAP_SHARE);
+  }
+
+  /**
+   * One trip a boat, for a ride: out along its lane (the jetty's south side
+   * or its north), once round the lake, and in along the same lane. The
+   * outer boats go first, a lane each in turn, then the inner ones; the
+   * first back in a lane takes its inner berth, so nobody passes through a
+   * boat still moored. The boats keep their order round the lake, a gap
+   * apart, and every one is back by the end of the ride.
+   */
+  private planTrips(): { boat: number; path: Point[]; along: number[]; start: number; berth: number }[] {
     const { ride, lake } = this;
     const at = ride.spot.at;
-    const running = ride.phase === 'running';
-    this.boats.forEach((boat, i) => {
-      const crewed = ride.seats[i * 2]?.step === 'seated' || ride.seats[i * 2 + 1]?.step === 'seated';
-      const home = { x: at.x + boat.home.x, z: at.z + boat.home.z };
-      let p = home;
-      // Moored, a swan faces the way it was built (+z); under way, the way it's going.
-      let ahead: Point | null = null;
-      if (running && crewed) {
-        const u = Math.min(1, Math.max(0, ride.time / ride.cycle - i * 0.02));
-        const scale = 0.78 - i * 0.1;
-        const loop = (a: number) => ({ x: lake.x + lake.rx * scale * Math.cos(a), z: lake.z + lake.rz * scale * Math.sin(a) });
-        const entry = loop(Math.PI);
-        const where = (v: number) => {
-          if (v < BOAT_LEG) return lerpPoint(home, entry, smooth(v / BOAT_LEG));
-          if (v > 1 - BOAT_LEG) return lerpPoint(entry, home, smooth((v - 1 + BOAT_LEG) / BOAT_LEG));
-          return loop(Math.PI - ((v - BOAT_LEG) / (1 - 2 * BOAT_LEG)) * Math.PI * 2);
-        };
-        p = where(u);
-        ahead = where(Math.min(1, u + 0.01));
+    const berths = this.boats.map((b) => b.home);
+    const lane = (side: number) =>
+      berths
+        .map((home, berth) => ({ home, berth }))
+        .filter(({ home }) => Math.sign(home.z) === side)
+        .sort((a, b) => b.home.x - a.home.x)
+        .map(({ berth }) => berth);
+    const lanes = [lane(1), lane(-1)];
+    const mouth = (side: number): Point => {
+      const homes = berths.filter((h) => Math.sign(h.z) === side);
+      return { x: at.x + Math.max(...homes.map((h) => h.x)) + BOAT_LANE, z: at.z + (homes[0]?.z ?? 0) };
+    };
+    const mouths = { north: mouth(-1), south: mouth(1) };
+    const loop = new CatmullRomCurve3(
+      [mouths.north, mouths.south, ...BOAT_LOOP.map(([u, v]) => ({ x: lake!.x + u * lake!.rx, z: lake!.z + v * lake!.rz }))].map((p) => new Vector3(p.x, 0, p.z)),
+      true,
+      'centripetal',
+    )
+      .getSpacedPoints(160)
+      .slice(0, -1)
+      .map((p) => ({ x: p.x, z: p.z }));
+    const nearest = (p: Point) => loop.reduce((best, q, i) => (Math.hypot(q.x - p.x, q.z - p.z) < Math.hypot(loop[best]!.x - p.x, loop[best]!.z - p.z) ? i : best), 0);
+    const out: number[] = [];
+    const back: number[] = [];
+    for (let k = 0; k < Math.max(lanes[0]!.length, lanes[1]!.length); k++) {
+      for (const berthsIn of lanes) {
+        if (k < berthsIn.length) {
+          out.push(berthsIn[k]!);
+          back.push(berthsIn[berthsIn.length - 1 - k]!);
+        }
       }
-      boat.node.position.set(p.x - at.x, boat.home.y + 0.04 * Math.sin(this.clock * 2.4 + i * 1.3), p.z - at.z);
-      if (!ahead) boat.node.rotation.y = 0;
-      else if (Math.hypot(ahead.x - p.x, ahead.z - p.z) > 1e-3) boat.node.rotation.y = Math.atan2(ahead.x - p.x, ahead.z - p.z);
-      boat.node.rotation.z = 0.04 * Math.sin(this.clock * 1.9 + i);
+    }
+    const gap = this.boatGap();
+    return out.map((berth, k) => {
+      const boat = this.berthOf.indexOf(berth);
+      const side = Math.sign(berths[berth]!.z);
+      const m = side > 0 ? mouths.south : mouths.north;
+      const from = nearest(m);
+      const round = Array.from({ length: loop.length + 1 }, (_, j) => loop[(from + j) % loop.length]!);
+      const home = (b: number): Point => ({ x: at.x + berths[b]!.x, z: at.z + berths[b]!.z });
+      const path = [home(berth), m, ...round, m, home(back[k]!)];
+      const along = [0];
+      for (let j = 1; j < path.length; j++) along.push(along[j - 1]! + Math.hypot(path[j]!.x - path[j - 1]!.x, path[j]!.z - path[j - 1]!.z));
+      return { boat, path, along, start: k * gap, berth: back[k]! };
     });
   }
 
@@ -681,7 +810,9 @@ export class RideView {
       const scale = avatar.root.scale.x;
       avatar.root.position.set(0, -SIT_HIP * scale, 0);
       avatar.root.rotation.set(0, this.facing(seat), 0);
-      avatar.riding = true;
+      // Holding on (the bumper cars' wheels, the coaster's bar, a horse's pole, the cup's wheel) or sitting back, hands
+      // in their lap (in a log, a gondola): one behind another in a log, arms out ahead read as riders lying down.
+      avatar.riding = !this.wheel && this.track?.style !== 'flume';
       avatar.showShadow(false);
     });
     for (const [visitor, seat] of this.riders) {
@@ -744,7 +875,13 @@ function turnBy(from: number, to: number): number {
   return d > Math.PI ? d - 2 * Math.PI : d < -Math.PI ? d + 2 * Math.PI : d;
 }
 
-function lerpPoint(a: Point, b: Point, t: number): Point {
+/** The point `s` metres along a path (whose points are `along` metres along it). */
+function pointAlong(path: Point[], along: number[], s: number): Point {
+  let j = 1;
+  while (j < path.length - 1 && along[j]! < s) j++;
+  const a = path[j - 1]!;
+  const b = path[j]!;
+  const t = Math.min(1, Math.max(0, (s - along[j - 1]!) / Math.max(1e-6, along[j]! - along[j - 1]!)));
   return { x: a.x + (b.x - a.x) * t, z: a.z + (b.z - a.z) * t };
 }
 

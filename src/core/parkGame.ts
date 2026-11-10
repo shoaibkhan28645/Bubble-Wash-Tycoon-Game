@@ -29,6 +29,7 @@ import type { Look, Stage } from '../render/stage';
 import { withShadows } from '../render/stage';
 import { CameraRig } from '../render/cameraRig';
 import { Fireworks } from '../render/effects/fireworks';
+import { ParkNight } from '../render/parkNight';
 import { Particles } from '../render/effects/particles';
 import { copies, parkland, ropes } from '../render/parkland';
 import { DeliveryTruck, LitterView } from '../render/parkProps';
@@ -38,7 +39,7 @@ import { blobShadows } from '../render/models/actors';
 import { nightGlow, skinnedToyMaterial } from '../render/models/build';
 import { warmRigidSkin } from '../render/models/rigid';
 import { ConstructionSites } from '../render/models/site';
-import { PARK_SOLIDS, RideView, Spinners, overRide, parkModel, parkPadModel } from '../render/models/park';
+import { PARK_SOLIDS, RideView, Spinners, lightSigns, overRide, parkModel, parkPadModel } from '../render/models/park';
 import { PadModel } from '../render/models/padModel';
 import { PersonAvatar, type Tool } from '../render/models/person';
 import { perk } from '../systems/career';
@@ -157,16 +158,68 @@ const PARK_LOOK: Look = {
   sunStrength: 2.75,
 };
 
-/** Dusk at the fair: an orange-and-purple sky, warm low sun, the bulbs lit (never too dark to see the hero). */
+/**
+ * Night at the fair: a deep blue sky and cool moonlight, dark enough for
+ * the bulbs, the lamps' pools of light, the strings of coloured bulbs and
+ * the rides' washes of colour to shine (parkNight.ts), never so dark the
+ * hero is hard to see.
+ */
 const PARK_EVENING: Look = {
-  sky: 0x6b4fa3,
-  fogNear: 60,
-  fogFar: 160,
-  skyLight: 0xb09aff,
-  groundLight: 0x3c3366,
-  ambient: 0.8,
-  sun: 0xff8f5a,
-  sunStrength: 1.05,
+  sky: 0x141c4f,
+  fogNear: 70,
+  fogFar: 175,
+  skyLight: 0x8094e6,
+  groundLight: 0x3a3176,
+  ambient: 0.9,
+  sun: 0x9aaaf5,
+  sunStrength: 0.55,
+};
+/** Marquee lights round a ride: its round platform's edge, or its station's deck (a light every 60 cm or so). */
+function marqueeRound(ride: Ride): Vector3[] {
+  const points: Vector3[] = [];
+  // A station's deck; a round platform; or the ride's footprint (the bumper cars' arena, the haunted house).
+  const box = PARK_SOLIDS[ride.id]?.[0];
+  const deck =
+    ride.spot.deck ??
+    (ride.def.board !== 'ring' && box
+      ? { minX: ride.spot.at.x + (box[2] ?? 0) - box[0] - 0.15, maxX: ride.spot.at.x + (box[2] ?? 0) + box[0] + 0.15, minZ: ride.spot.at.z + (box[3] ?? 0) - box[1] - 0.15, maxZ: ride.spot.at.z + (box[3] ?? 0) + box[1] + 0.15 }
+      : null);
+  const y = ride.spot.deck ? ride.def.deck + 0.12 : ride.def.board === 'ring' ? ride.def.deck + 0.12 : 0.25;
+  if (ride.def.board !== 'ring' && !deck) return points;
+  if (deck) {
+    const corners = [
+      [deck.minX, deck.maxZ],
+      [deck.maxX, deck.maxZ],
+      [deck.maxX, deck.minZ],
+      [deck.minX, deck.minZ],
+    ];
+    for (let c = 0; c < 4; c++) {
+      const [ax = 0, az = 0] = corners[c]!;
+      const [bx = 0, bz = 0] = corners[(c + 1) % 4]!;
+      const n = Math.max(1, Math.round(Math.hypot(bx - ax, bz - az) / 0.6));
+      for (let k = 0; k < n; k++) points.push(new Vector3(ax + ((bx - ax) * k) / n, y, az + ((bz - az) * k) / n));
+    }
+    return points;
+  }
+  const r = ride.def.plinth + (ride.def.board === 'ring' ? 0.05 : 0.3);
+  const n = Math.round((2 * Math.PI * r) / 0.6);
+  for (let k = 0; k < n; k++) {
+    const a = (k / n) * 2 * Math.PI;
+    points.push(new Vector3(ride.spot.at.x + r * Math.cos(a), y, ride.spot.at.z - r * Math.sin(a)));
+  }
+  return points;
+}
+/** Each ride's wash of colour after dark. */
+const RIDE_GLOW: Record<string, string> = {
+  carousel: '#ff4fa3',
+  teacups: '#3fd0ff',
+  bumper: '#b06bff',
+  swings: '#ffc93a',
+  boats: '#3ff0e0',
+  haunted: '#6dff4a',
+  flume: '#4fb0ff',
+  coaster: '#ff4f7a',
+  wheel: '#c07bff',
 };
 
 /** A thunderstorm: grey sky, flat light. */
@@ -574,6 +627,9 @@ export function createParkGame(
 
   // Rides: the model turning, the lever, its pad ring, the queue ropes, and a sign over it saying how full it is.
   const rideViews: { ride: Ride; view: RideView; pad: PadModel; sign: { el: HTMLElement; words: HTMLElement; fill: HTMLElement; label: Label; shown: string; worn: number } }[] = [];
+  /** Rides built before the night's lights were set up get their colours then; later ones as they're built. */
+  let nightReady = false;
+  let addRideGlow: (ride: Ride, view: RideView) => void = () => {};
   const addRide = (id: string, kind: string, animate: boolean): void => {
     const ride = crowd.addRide(id, kind);
     if (!ride) return;
@@ -616,6 +672,7 @@ export function createParkGame(
     rideViews.push({ ride, view, pad, sign: { el, words, fill, label, shown: '', worn: -1 } });
     solid(id, ride.spot.at);
     solids.push(...view.solids);
+    if (nightReady) addRideGlow(ride, view);
     const leverAt = ride.spot.lever;
     const toRide = Math.atan2(ride.spot.at.x - leverAt.x, ride.spot.at.z - leverAt.z);
     const box = { x: leverAt.x + Math.sin(toRide) * 0.65, z: leverAt.z + Math.cos(toRide) * 0.65 };
@@ -975,6 +1032,28 @@ export function createParkGame(
   let showing = false;
   let rocketTimer = 0;
   const fireworks = new Fireworks(stage.scene, PARK.fireworks.sparks);
+  // After dark: the lamps' light, strings of bulbs, the rides' colours, searchlights by the gate (and the wheel, once built).
+  const night = new ParkNight(stage.scene, layout.lamps, [...layout.paths, layout.plaza]);
+  for (const x of [layout.gate.minX - 0.6, layout.gate.maxX + 0.6]) night.addSearchlight({ x, z: layout.hedgeZ - 0.8 });
+  addRideGlow = (ride: Ride, view: RideView): void => {
+    const deck = ride.spot.deck;
+    const at = deck ? { x: (deck.minX + deck.maxX) / 2, z: (deck.minZ + deck.maxZ) / 2 } : ride.spot.at;
+    const radius = deck ? Math.max(deck.maxX - deck.minX, deck.maxZ - deck.minZ) / 2 + 2.6 : ride.def.plinth + 3;
+    const colour = RIDE_GLOW[ride.id] ?? '#ffffff';
+    const running = () => ride.phase === 'running';
+    night.addRide({ at, radius: Math.max(5, radius), color: colour, running });
+    // Chasing marquee lights round its platform's edge (or its station's), in its colour, gold and white.
+    night.addMarquee(marqueeRound(ride), [colour, '#ffe066', '#ffffff'], running);
+    // The wheel: its rim's bulbs chase round as it turns, and it lights up the sky too, from beside its back feet.
+    const rim = view.wheelRim;
+    if (rim) {
+      const lights = Array.from({ length: 48 }, (_, k) => new Vector3(rim.radius * Math.cos((k / 48) * 2 * Math.PI), rim.radius * Math.sin((k / 48) * 2 * Math.PI), rim.front));
+      night.addMarquee(lights, ['#ffe066', '#c07bff', '#5bdcff', '#ff5fa8'], running, rim.node);
+      for (const dx of [-4.4, 4.4]) night.addSearchlight({ x: ride.spot.at.x + dx, z: ride.spot.at.z - 1.9 });
+    }
+  };
+  for (const built of rideViews) addRideGlow(built.ride, built.view);
+  nightReady = true;
   fireworks.onBurst = (at) => {
     const level = hearing(at, BANG_NEAR, BANG_FADE);
     sound.play('firework', level);
@@ -1081,6 +1160,8 @@ export function createParkGame(
     crowd.storm = stormLeft > 0;
     stormMix += ((crowd.storm ? 1 : 0) - stormMix) * Math.min(1, dt * 0.6);
     evening = built('evenings') ? eveningAt(dayTime, PARK.evening) : 0;
+    night.update(dt, evening);
+    lightSigns(evening * 0.9);
     nightGlow.value = Math.max(evening, stormMix * 0.6);
     stage.setLook(mixLook(mixLook(PARK_LOOK, PARK_EVENING, evening), PARK_STORM, stormMix));
     sound.loop('rain', stormMix);
@@ -1326,6 +1407,8 @@ export function createParkGame(
       loop.stop();
       nightGlow.value = 0;
       fireworks.dispose();
+      night.dispose();
+      lightSigns(0);
       parade.dispose();
       sound.stopLoops();
       sound.useMusic(null);
