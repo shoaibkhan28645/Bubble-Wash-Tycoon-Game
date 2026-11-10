@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest';
 import { TUNING } from '../src/core/config';
 import { newGame } from '../src/core/gameState';
 import { STARLIGHT } from '../src/core/starlight';
-import { ParkCrowd, ParkVisitor, RIDES, Ride, type Launch } from '../src/systems/park';
+import { ParkCrowd, ParkVisitor, RIDES, Ride, eveningAt, type Launch } from '../src/systems/park';
 import type { WalkUpCounter } from '../src/systems/walkups';
 import { ParkSupplies, type ParkSupply } from '../src/systems/parkSupplies';
 import { Litter } from '../src/systems/litter';
@@ -296,5 +296,50 @@ describe('litter', () => {
     expect(some.drop({ x: 0, z: 0 }, true)).toBeNull();
     expect(some.pickUp({ x: 0.3, z: 0 }, 0.8)).toHaveLength(1);
     expect(some.pieces).toHaveLength(0);
+  });
+});
+
+describe('part C: storms, busloads, the mascot, evenings', () => {
+  it('closes outdoor rides in a storm (their lines wait without minding), but not the haunted house', () => {
+    const { crowd } = park();
+    const haunted = crowd.addRide('haunted', 'haunted')!;
+    crowd.storm = true;
+    const carousel = crowd.ride('carousel')!;
+    for (let i = 0; i < 8; i++) sit(carousel, i);
+    for (let i = 0; i < 6; i++) sit(haunted, i);
+    run(crowd, 3, 0, { hero: false, staff: false });
+    expect(carousel.paused).toBe(true);
+    expect(carousel.phase).toBe('loading');
+    expect(haunted.paused).toBe(false);
+    expect(haunted.phase).toBe('running');
+  });
+
+  it('brings a busload that queues for tickets, waiting about when the line is full', () => {
+    const { crowd } = park();
+    const n = crowd.spawnGroup(layout.busStop.stop, 10);
+    expect(n).toBe(10);
+    run(crowd, 40, 0, { hero: false, staff: false });
+    const booth = crowd.booth!;
+    expect(booth.line.length).toBe(booth.spots);
+    expect(crowd.visitors.filter((v) => v.step === 'idle').length).toBeGreaterThan(0);
+  });
+
+  it("slows the patience of a line the mascot is cheering up", () => {
+    const { crowd } = park();
+    crowd.spawnGroup(layout.busStop.stop, 4);
+    run(crowd, 30, 0, { hero: false, staff: false });
+    const front = crowd.booth!.line[0]!;
+    crowd.calm = front.at;
+    const before = front.patience;
+    run(crowd, 2, 0, { hero: false, staff: false });
+    expect(before - front.patience).toBeCloseTo(2 * TUNING.park.mascot.calmFactor, 1);
+  });
+
+  it('turns the day to evening and back, fading between', () => {
+    const rules = TUNING.park.evening;
+    expect(eveningAt(0, rules)).toBe(0);
+    expect(eveningAt(rules.day - rules.fade / 2, rules)).toBeCloseTo(0.5);
+    expect(eveningAt(rules.day + 1, rules)).toBe(1);
+    expect(eveningAt(rules.day + rules.evening + 1, rules)).toBe(0);
   });
 });

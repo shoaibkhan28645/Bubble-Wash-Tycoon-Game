@@ -33,6 +33,31 @@ export const toyMaterial = new MeshLambertMaterial({ vertexColors: true });
 export const skinnedToyMaterial = toyMaterial.clone();
 export const instancedToyMaterial = toyMaterial.clone();
 
+/**
+ * How far into the evening it is (0 day, 1 night). The lamp bulbs (anything
+ * painted the bulb colour, BULB in art/blender) light up as it gets dark:
+ * the park's lamps, the rides' rims, the signs. Nothing glows elsewhere.
+ */
+export const nightGlow = { value: 0 };
+const BULB = new Color('#fff3a0');
+/** A vertex this close to the bulb colour (linear RGB) glows. */
+const BULB_MATCH = 0.06;
+for (const material of [toyMaterial, skinnedToyMaterial, instancedToyMaterial]) {
+  material.onBeforeCompile = (shader) => {
+    shader.uniforms.uNight = nightGlow;
+    shader.uniforms.uBulb = { value: BULB };
+    shader.fragmentShader = shader.fragmentShader
+      .replace('#include <common>', '#include <common>\nuniform float uNight;\nuniform vec3 uBulb;')
+      .replace(
+        '#include <emissivemap_fragment>',
+        `#include <emissivemap_fragment>
+#ifdef USE_COLOR
+  totalEmissiveRadiance += vColor.rgb * (1.0 - step(${BULB_MATCH.toFixed(3)}, distance(vColor.rgb, uBulb))) * uNight * 1.8;
+#endif`,
+      );
+  };
+}
+
 export const box = (w: number, h: number, d: number) => new BoxGeometry(w, h, d);
 /** Box with bevelled edges (reads as a toy rather than a raw cube); one bevel step keeps it cheap. */
 export const rbox = (w: number, h: number, d: number, radius = 0.06) =>

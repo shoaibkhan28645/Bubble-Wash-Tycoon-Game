@@ -34,6 +34,18 @@
       "id": "stars",
       "stars": 5,
       "gems": 15
+    },
+    {
+      "id": "perfectDay",
+      "count": "perfectDay",
+      "goal": 25,
+      "gems": 20
+    },
+    {
+      "id": "prizes",
+      "count": "prizes",
+      "goal": 6,
+      "gems": 15
     }
   ]
 }

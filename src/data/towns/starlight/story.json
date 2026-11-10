@@ -107,7 +107,90 @@
       "headline": "Starlight's paths spotless again",
       "body": "Bright new bins line the paths at Starlight Fun Park, and a janitor sweeps up after the crowds. Visitors say it's the cleanest fair they've been to.",
       "speaker": "mentor",
-      "words": "A tidy park keeps folk smiling. Next: the lake, and the evenings."
+      "words": "A tidy park keeps folk smiling. Now, those lights by the gate haven't been switched on in twenty years..."
+    },
+    {
+      "id": "lights",
+      "when": {
+        "built": "sign"
+      },
+      "icon": "🌆",
+      "headline": "Starlight lights up the night",
+      "body": "For the first time in twenty years, the lights are on at Starlight after dark. Crowds stayed past sunset to see the rides glow.",
+      "speaker": "mentor",
+      "words": "There it is, just like I remember. The park's at its best in the evening."
+    },
+    {
+      "id": "swings",
+      "when": {
+        "built": "swings"
+      },
+      "icon": "🎡",
+      "headline": "Sky swings fly over Starlight Lake",
+      "body": "Twelve chairs swing out over the water on Starlight's new sky swings. Lakeside is open, and the views are the talk of the town.",
+      "speaker": "mentor",
+      "words": "Lakeside's open. A ride that size needs its line kept moving."
+    },
+    {
+      "id": "rival",
+      "when": {
+        "built": "busstop"
+      },
+      "icon": "😎",
+      "headline": "Goldsby opens MegaLand across the lake",
+      "body": "Rex Goldsby, whose car wash and farm the mogul beat, has opened MegaLand on the far side of the lake, with a giant slide and free parking. Starlight's crowds are thinner already.",
+      "speaker": "rival",
+      "words": "A fun park? Cute. MegaLand has the biggest slide in the state. Enjoy your teacups.",
+      "effect": {
+        "rival": {
+          "arrivalFactor": 0.8,
+          "until": "coaster"
+        }
+      }
+    },
+    {
+      "id": "boats",
+      "when": {
+        "built": "boats"
+      },
+      "icon": "🦢",
+      "headline": "Swan boats glide on Starlight Lake",
+      "body": "Four swan boats are paddling round Starlight Lake. Couples are queueing for them, especially in the evenings.",
+      "speaker": "mentor",
+      "words": "The buses help with MegaLand. Fill those boats when a bus comes in."
+    },
+    {
+      "id": "storm",
+      "when": {
+        "built": "haunted"
+      },
+      "icon": "⛈️",
+      "headline": "Thunderstorm over the park",
+      "body": "A storm rolled in over Starlight just as the new haunted house opened. The outdoor rides closed, and visitors crowded into the haunted house and the stalls.",
+      "speaker": "mentor",
+      "words": "Rides outside stop in a storm, but the haunted house runs in any weather. Everything indoors pays double till it passes."
+    },
+    {
+      "id": "mascot",
+      "when": {
+        "built": "mascot"
+      },
+      "icon": "⭐",
+      "headline": "Meet Starry, the park's new mascot",
+      "body": "A big smiling star has been seen waving at the queues in Starlight Fun Park. Children are lining up for photos.",
+      "speaker": "mentor",
+      "words": "Send Starry to the longest line. Folk don't mind a wait with a star to wave at."
+    },
+    {
+      "id": "cashier",
+      "when": {
+        "built": "cashier"
+      },
+      "icon": "💰",
+      "headline": "Starlight hires a cashier",
+      "body": "The park now has someone to collect the takings from the rides and stalls. The owner has his hands free for bigger plans.",
+      "speaker": "mentor",
+      "words": "The big rides next: a log flume, a roller coaster to beat MegaLand, and fireworks over the lake."
     }
   ]
 }

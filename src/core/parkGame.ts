@@ -8,7 +8,7 @@
 // The shared pieces (the player, pads, cash piles, upgrades, staff, the
 // camera, the side bar, the hero's career and the town's story) are the same
 // as in the first two towns.
-import { Vector3, type Object3D } from 'three';
+import { Color, Vector3, type Object3D } from 'three';
 import { Loop } from './loop';
 import { GameClock } from './clock';
 import { CHARACTERS, TUNING, UPGRADES, fixedSolids, type Point, type Rect } from './config';
@@ -33,9 +33,9 @@ import { copies, parkland, ropes } from '../render/parkland';
 import { DeliveryTruck, LitterView } from '../render/parkProps';
 import { loadPeople } from '../render/assets';
 import { blobShadows } from '../render/models/actors';
-import { skinnedToyMaterial } from '../render/models/build';
+import { nightGlow, skinnedToyMaterial } from '../render/models/build';
 import { warmRigidSkin } from '../render/models/rigid';
-import { PARK_SOLIDS, RideView, Spinners, overRide, parkPadModel } from '../render/models/park';
+import { PARK_SOLIDS, RideView, Spinners, overRide, parkModel, parkPadModel } from '../render/models/park';
 import { PadModel } from '../render/models/padModel';
 import { PersonAvatar, type Tool } from '../render/models/person';
 import { perk } from '../systems/career';
@@ -49,7 +49,7 @@ import { NavGrid } from '../systems/nav';
 import { IncomeTracker } from '../systems/offline';
 import { PadSystem } from '../systems/pads';
 import { Litter, type LitterPiece } from '../systems/litter';
-import { ParkCrowd, middleOf, type Launch, type ParkAvatar, type ParkVisitor, type Ride } from '../systems/park';
+import { ParkCrowd, eveningAt, middleOf, type Launch, type ParkAvatar, type ParkVisitor, type Ride } from '../systems/park';
 import { ParkSupplies, STALL_SUPPLY, type ParkSupply, type SupplyStall } from '../systems/parkSupplies';
 import { Player } from '../systems/player';
 import { StaffSystem } from '../systems/staff';
@@ -113,6 +113,47 @@ const PARK_LOOK: Look = {
   sun: 0xfff1d6,
   sunStrength: 2.75,
 };
+
+/** Dusk at the fair: an orange-and-purple sky, warm low sun, the bulbs lit (never too dark to see the hero). */
+const PARK_EVENING: Look = {
+  sky: 0x6b4fa3,
+  fogNear: 60,
+  fogFar: 160,
+  skyLight: 0xb09aff,
+  groundLight: 0x3c3366,
+  ambient: 0.8,
+  sun: 0xff8f5a,
+  sunStrength: 1.05,
+};
+
+/** A thunderstorm: grey sky, flat light. */
+const PARK_STORM: Look = {
+  sky: 0x6f7c8c,
+  fogNear: 45,
+  fogFar: 130,
+  skyLight: 0xc9d2de,
+  groundLight: 0x5d6b62,
+  ambient: 1.0,
+  sun: 0xc6cfdb,
+  sunStrength: 0.9,
+};
+
+const mixed = { a: new Color(), b: new Color() };
+/** A look part way between two. */
+function mixLook(a: Look, b: Look, t: number): Look {
+  const c = (x: number, y: number) => mixed.a.setHex(x).lerp(mixed.b.setHex(y), t).getHex();
+  const n = (x: number, y: number) => x + (y - x) * t;
+  return {
+    sky: c(a.sky, b.sky),
+    fogNear: n(a.fogNear, b.fogNear),
+    fogFar: n(a.fogFar, b.fogFar),
+    skyLight: c(a.skyLight, b.skyLight),
+    groundLight: c(a.groundLight, b.groundLight),
+    ambient: n(a.ambient, b.ambient),
+    sun: c(a.sun, b.sun),
+    sunStrength: n(a.sunStrength, b.sunStrength),
+  };
+}
 
 export function createParkGame(
   container: HTMLElement,
@@ -227,7 +268,10 @@ export function createParkGame(
     const goods = STALL_GOODS[counter.kind];
     if (!ticket) supplies.use(counter);
     if (goods) (visitor.avatar as PersonAvatar | null)?.holdTool(goods.tool);
-    const pay = Math.round(base * quality(counter.id) * payBonus() * (crowd.rush?.payMultiplier ?? 1));
+    // In a storm the stalls do a roaring trade (the booth doesn't: nobody comes to a park in the rain for its own sake).
+    const storm = crowd.storm && !ticket ? PARK.storm.pay : 1;
+    const pay = Math.round(base * quality(counter.id) * payBonus() * storm * (crowd.rush?.payMultiplier ?? 1));
+    if (counter.kind === 'ringtoss') count('prizes');
     const tip = tipFor(pay, visitor.patience / visitor.patienceMax, TUNING.customers);
     cash.add(counter.id, pay + tip);
     const at = layout.piles[counter.id] ?? counter.at;
@@ -245,7 +289,8 @@ export function createParkGame(
   };
   const onLaunch = (ride: Ride, launch: Launch): void => {
     const rules = PARK.rides;
-    const seat = ride.def.price * quality(ride.id) * payBonus() * (crowd.rush?.payMultiplier ?? 1);
+    const storm = crowd.storm && ride.def.indoor ? PARK.storm.pay : 1;
+    const seat = ride.def.price * quality(ride.id) * payBonus() * storm * (crowd.rush?.payMultiplier ?? 1);
     const pay = Math.round(launch.riders * seat * (launch.full ? 1 + rules.fullBonus : 1));
     const tip = launch.perfect ? Math.round(pay * rules.perfectTip) : 0;
     cash.add(ride.id, pay + tip);
@@ -328,15 +373,28 @@ export function createParkGame(
   };
   // The ride operator's round: to the lever of the ride that needs launching (full, or a rider kept waiting longest).
   staff.walkPlans.operator = () => {
-    const ready = crowd.rides.filter((r) => r.phase === 'loading' && r.seated > 0 && !r.broken);
+    const ready = crowd.rides.filter((r) => r.phase === 'loading' && r.seated > 0 && !r.broken && !r.paused && r.id !== 'boats');
     if (ready.length === 0) return null;
     const best = ready.reduce((a, b) => (Number(b.full) - Number(a.full) || b.waited - a.waited) > 0 ? b : a);
     return best.spot.lever;
   };
   const near = (p: Point | null, q: Point, reach: number) => !!p && Math.hypot(p.x - q.x, p.z - q.z) <= reach;
-  const staffAt = (role: 'mechanic' | 'janitor'): Point | null => {
+  const staffAt = (role: 'mechanic' | 'janitor' | 'boats' | 'mascot'): Point | null => {
     const avatar = staff.avatarOf(role);
     return avatar ? { x: avatar.root.position.x, z: avatar.root.position.z } : null;
+  };
+  // The dock hand stays by the jetty and sends the boats off.
+  staff.walkPlans.boats = () => crowd.ride('boats')?.spot.lever ?? null;
+  // Starry the mascot goes to the longest line and cheers it up.
+  let mascotLine: Point | null = null;
+  staff.walkPlans.mascot = () => {
+    let best: { at: Point; n: number } | null = null;
+    for (const ride of crowd.rides) if (!best || ride.line.length > best.n) best = { at: ride.spot.queue[Math.floor(ride.spot.queue.length / 2)]!, n: ride.line.length };
+    for (const c of crowd.counters) if (!best || c.line.length > best.n) best = { at: c.spot.queue[1] ?? c.spot.window, n: c.line.length };
+    if (!best || best.n === 0) return null;
+    // Beside the line, not in it.
+    mascotLine = best.at;
+    return { x: best.at.x + 1.3, z: best.at.z + 0.6 };
   };
   // The mechanic's round: to the lever of a broken-down ride, to fix it there.
   staff.walkPlans.mechanic = () => crowd.rides.find((r) => r.broken)?.spot.lever ?? null;
@@ -359,7 +417,7 @@ export function createParkGame(
   const addRide = (id: string, kind: string, animate: boolean): void => {
     const ride = crowd.addRide(id, kind);
     if (!ride) return;
-    const view = new RideView(ride, stage.scene);
+    const view = new RideView(ride, stage.scene, layout.lake);
     view.onBump = (at) => {
       effects.burst('sparkle', at, 6, 2.5, 0.5);
       sound.play('pop');
@@ -386,7 +444,9 @@ export function createParkGame(
   const showRides = (): void => {
     for (const { ride, sign } of rideViews) {
       const { icon, seats } = ride.def;
-      const text = ride.broken
+      const text = ride.paused
+        ? t('rideStorm', { icon })
+        : ride.broken
         ? ride.fixing > 0
           ? t('rideFixing', { percent: Math.round(ride.fixing * 100) })
           : t(state.unlocked.includes('mechanic') ? 'rideBroken' : 'rideBrokenFix')
@@ -420,7 +480,27 @@ export function createParkGame(
     }
     if (layout.benches[id]) crowd.addBenches(id);
     staff.hire(id);
+    if (id === 'mascot') dressMascot();
   };
+  /** Starry's costume: a big smiling star for a head and a round yellow suit, over a staff member. */
+  function dressMascot(): void {
+    const avatar = staff.avatarOf('mascot');
+    if (!avatar || avatar.root.getObjectByName('pk_mascot_head')) return;
+    const costume = parkModel('pk_mascot');
+    const head = costume.getObjectByName('pk_mascot_head');
+    const suit = costume.getObjectByName('pk_mascot_suit');
+    if (head) {
+      head.position.set(0, 1.42, 0.02);
+      head.scale.setScalar(1.15);
+      avatar.root.add(head);
+    }
+    if (suit) {
+      suit.position.set(0, 0.86, 0);
+      suit.scale.set(1.3, 1.35, 1.3);
+      avatar.root.add(suit);
+    }
+    avatar.root.traverse((node) => (node.castShadow = false));
+  }
   // The delivery truck brings the shed a load when it's running low.
   const truck = new DeliveryTruck(stage.scene, layout.shed, () => {
     const boxes = supplies.deliver();
@@ -530,7 +610,7 @@ export function createParkGame(
   };
   const lever = (ride: Ride) => ({
     hero: near(player.position, ride.spot.lever, LEVER_REACH),
-    staff: near(operatorAt(), ride.spot.lever, LEVER_REACH),
+    staff: near(operatorAt(), ride.spot.lever, LEVER_REACH) || (ride.id === 'boats' && near(staffAt('boats'), ride.spot.lever, LEVER_REACH)),
     mechanic: near(staffAt('mechanic'), ride.spot.lever, LEVER_REACH),
   });
 
@@ -591,6 +671,33 @@ export function createParkGame(
   let rateTimer = 0;
   let buildTimer = 0;
   let sparkTimer = 0;
+  // The tour bus: every so often (once there's a stop) it pulls up and a crowd gets off.
+  const bus = new DeliveryTruck(
+    stage.scene,
+    { truckIn: layout.busStop.busIn, truckOut: layout.busStop.busOut },
+    () => {
+      const [low, high] = PARK.bus.riders as [number, number];
+      const n = crowd.spawnGroup(layout.busStop.stop, Math.round(low + Math.random() * (high - low)));
+      if (n > 0) floaters.show(`🚌 +${n}`, new Vector3(layout.busStop.stop.x, 2.6, layout.busStop.stop.z), 'star');
+    },
+    'pk_bus',
+    false,
+  );
+  let busTimer = PARK.bus.seconds / 3;
+  const built = (effect: 'evenings' | 'bus') => state.unlocked.some((id) => current.pads.find((p) => p.id === id)?.effects[effect]);
+  // The day turns to evening and back, once the lights are up; the storm comes with the haunted house.
+  let dayTime = 0;
+  let stormLeft = 0;
+  let stormMix = 0;
+  let flashTimer = 3;
+  const stormFlag = `storm:${current.id}`;
+  const flash = document.createElement('div');
+  flash.className = 'storm-flash';
+  root.appendChild(flash);
+  // The dev console can jump the park's clock (to see the evening) and end the storm.
+  if (import.meta.env.DEV) Object.assign(window, { parkClock: (t: number, storm = stormLeft) => ((dayTime = t), (stormLeft = storm)) });
+  let mascotWave = 0;
+  let photoTimer = PARK.mascot.photoSeconds;
   const fixed = fixedSolids(layout);
   const loop = new Loop((dt) => {
     clock.advance(dt);
@@ -668,6 +775,64 @@ export function createParkGame(
       pad.update(dt, near(player.position, ride.spot.lever, LEVER_REACH));
       state.supplies[`wear.${ride.id}`] = ride.wear;
       state.supplies[`broken.${ride.id}`] = ride.broken ? 1 : 0;
+    }
+    // Evenings, and the storm.
+    if (built('evenings')) dayTime += dt;
+    if (state.unlocked.includes('haunted') && !state.flags.includes(stormFlag)) {
+      flag(stormFlag);
+      stormLeft = PARK.storm.seconds;
+    }
+    stormLeft = Math.max(0, stormLeft - dt);
+    crowd.storm = stormLeft > 0;
+    stormMix += ((crowd.storm ? 1 : 0) - stormMix) * Math.min(1, dt * 0.6);
+    const evening = built('evenings') ? eveningAt(dayTime, PARK.evening) : 0;
+    nightGlow.value = Math.max(evening, stormMix * 0.6);
+    stage.setLook(mixLook(mixLook(PARK_LOOK, PARK_EVENING, evening), PARK_STORM, stormMix));
+    if (stormMix > 0.05) {
+      // Rain round the hero, and now and then a flash of lightning.
+      for (let k = 0; k < 3; k++) {
+        const at = new Vector3(player.position.x + (Math.random() - 0.5) * 22, 7, player.position.z + (Math.random() - 0.5) * 18);
+        effects.burst('water', at, 1, 0.4, 0.1);
+      }
+      flashTimer -= dt;
+      if (flashTimer <= 0 && crowd.storm) {
+        const [low, high] = PARK.storm.flashSeconds as [number, number];
+        flashTimer = low + Math.random() * (high - low);
+        flash.classList.remove('is-on');
+        void flash.offsetWidth;
+        flash.classList.add('is-on');
+      }
+    }
+    // The tour bus.
+    if (built('bus')) {
+      busTimer -= dt;
+      if (busTimer <= 0) {
+        busTimer = PARK.bus.seconds;
+        bus.send();
+      }
+    }
+    bus.update(dt);
+    // Starry the mascot: cheers up the line they're by (waving now and then), and poses for photos.
+    const mascot = staffAt('mascot');
+    const atLine = !!mascot && !!mascotLine && Math.hypot(mascot.x - mascotLine.x - 1.3, mascot.z - mascotLine.z - 0.6) < 0.8;
+    crowd.calm = atLine ? mascot : null;
+    if (atLine) {
+      mascotWave -= dt;
+      photoTimer -= dt;
+      if (mascotWave <= 0) {
+        mascotWave = PARK.mascot.waveSeconds;
+        staff.avatarOf('mascot')?.wave();
+      }
+      if (photoTimer <= 0) {
+        photoTimer = PARK.mascot.photoSeconds;
+        const tip = PARK.mascot.photoTip;
+        const pile = crowd.rides.find((r) => r.spot.queue.includes(mascotLine!))?.id ?? crowd.counters.find((c) => c.spot.queue.includes(mascotLine!))?.id;
+        if (pile) {
+          cash.add(pile, tip);
+          floaters.show(`📸 +$${tip}`, new Vector3(mascot!.x, 2.6, mascot!.z), 'tip');
+          effects.burst('sparkle', new Vector3(mascot!.x, 1.6, mascot!.z), 8, 3, 0.5);
+        }
+      }
     }
     showRides();
     showStock();
@@ -759,6 +924,7 @@ export function createParkGame(
     addTicker: (ticker) => void tickers.push(ticker),
     dispose() {
       loop.stop();
+      nightGlow.value = 0;
       for (const cleanup of cleanups) cleanup();
       input.dispose();
       panel.dispose();

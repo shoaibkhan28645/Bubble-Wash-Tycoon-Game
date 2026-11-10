@@ -173,7 +173,11 @@
     "mechanic": 10,
     "snackrunner": 10,
     "janitor": 12,
-    "shed": 8
+    "shed": 8,
+    "swings": 12,
+    "boats": 14,
+    "haunted": 16,
+    "mascot": 16
   },
   "panels": {
     "bay1": [
@@ -294,6 +298,23 @@
       "burger.speed",
       "burger.quality",
       "vendor.staffSpeed"
+    ],
+    "swings": [
+      "swings.speed",
+      "swings.quality",
+      "swings.sturdy"
+    ],
+    "boats": [
+      "boats.speed",
+      "boats.quality",
+      "boats.sturdy",
+      "boats.staffSpeed"
+    ],
+    "haunted": [
+      "haunted.speed",
+      "haunted.quality",
+      "haunted.sturdy",
+      "mascot.staffSpeed"
     ],
     "shed": [
       "player.carry",

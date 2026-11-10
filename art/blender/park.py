@@ -722,15 +722,198 @@ p.append(kit.sphere(0.07, (X, 0, 0.95), TEAL, segments=6))
 p.append(star((X, -0.3, 0.5), 0.12, WHITE, thick=0.02))
 m.mesh(p)
 
+# --- The sky swings: a striped tower, a canopy that turns, twelve chairs on long chains that swing out as it spins. ---
+X = 112.0
+m = Model('pk_swings', X)
+p = [kit.cylinder(2.7, 0.24, (X, 0, 0.12), CREAM, verts=36, bevel=0.05)]
+p.append(kit.cylinder(2.72, 0.06, (X, 0, 0.2), SKY, verts=36))
+p += ring_of(20, 2.73, 0.12, lambda x, y, z, a, i: bulb(x, y, z, 0.045))
+p.append(kit.box((1.6, 0.45, 0.12), (X, -2.85, 0.06), CREAM, bevel=0.03))
+p.append(kit.cylinder(0.75, 0.5, (X, 0, 0.45), GOLD, verts=16, bevel=0.06))
+for k in range(8):
+    p.append(kit.cylinder(0.42, 0.5, (X, 0, 0.95 + k * 0.5), (SKY, WHITE)[k % 2], verts=16))
+p.append(kit.cylinder(0.55, 0.16, (X, 0, 4.98), GOLD, verts=16, bevel=0.04))
+m.mesh(p)
+SW = 5.1
+s = [kit.cylinder(0.5, 0.3, (X, 0, SW + 0.15), GOLD, verts=16)]
+can = kit.cone(2.45, 0.35, 1.3, (X, 0, SW + 0.95), SUN, verts=24)
+stripes(can, SUN, HOTPINK, 12, centre=(X, 0))
+s.append(can)
+s.append(kit.cylinder(2.42, 0.32, (X, 0, SW + 0.18), WHITE, verts=24))
+s.append(kit.torus(2.44, 0.035, (X, 0, SW + 0.34), GOLD, major_segments=24, minor_segments=3))
+s += ring_of(24, 2.46, SW + 0.18, lambda x, y, z, a, i: bulb(x, y, z, 0.05))
+s.append(kit.sphere(0.32, (X, 0, SW + 1.75), GOLD, segments=10))
+s.append(star((X, 0, SW + 2.35), 0.42, SUN))
+m.part('spin', (X, 0, SW), s)
+CHAIN = 3.9
+for i in range(12):
+    a = i * math.pi / 6 + math.pi / 12
+    px, py = X + 2.2 * math.cos(a), 2.2 * math.sin(a)
+    col = (HOTPINK, SKY, SUN, MINT)[i % 4]
+    ox, oy = math.cos(a), math.sin(a)
+    tx, ty = -math.sin(a), math.cos(a)
+    c = []
+    for e in (-1, 1):
+        c.append(rod((px + tx * e * 0.18, py + ty * e * 0.18, SW), (px + tx * e * 0.2, py + ty * e * 0.2, SW - CHAIN + 0.35), 0.015, STEEL, verts=4))
+    c.append(kit.box((0.5, 0.46, 0.08), (px, py, SW - CHAIN + 0.32), col, bevel=0.03, rot=(0, 0, a)))
+    c.append(kit.box((0.08, 0.46, 0.42), (px - ox * 0.24, py - oy * 0.24, SW - CHAIN + 0.55), col, bevel=0.03, rot=(0, 0, a)))
+    c.append(rod((px + ox * 0.22 + tx * -0.2, py + oy * 0.22 + ty * -0.2, SW - CHAIN + 0.62), (px + ox * 0.22 + tx * 0.2, py + oy * 0.22 + ty * 0.2, SW - CHAIN + 0.62), 0.02, GOLD, verts=4))
+    m.part(f'chair{i}', (px, py, SW), c, on='spin')
+    m.marker(f'seat{i}', (px, py, SW - CHAIN + 0.38), on=f'chair{i}')
+
+# --- The paddle boats: a jetty with a little boat house, four swan boats moored along it (two seats each). ---
+X = 124.0
+m = Model('pk_boats', X)
+p = [kit.box((4.2, 1.6, 0.18), (X, 0, 0.3), WOOD, bevel=0.03)]
+for k in range(9):
+    p.append(kit.box((0.04, 1.62, 0.02), (X - 2.0 + k * 0.5, 0, 0.4), WOOD_DARK, bevel=0.0))
+for px in (-1.9, 0.0, 1.9):
+    for py in (-0.72, 0.72):
+        p.append(kit.cylinder(0.08, 0.9, (X + px, py, 0.15), WOOD_DARK, verts=8))
+        p.append(kit.sphere(0.09, (X + px, py, 0.62), WOOD_DARK, segments=6))
+p.append(kit.box((1.4, 1.2, 1.5), (X - 1.4, 1.6, 1.05), WHITE, bevel=0.05))
+p.append(kit.box((0.6, 0.06, 0.6), (X - 1.4, 0.98, 1.2), GLASS, bevel=0.02))
+p.append(kit.prism((1.6, 1.4, 0.6), (X - 1.4, 1.6, 1.8), SKY))
+for k in range(3):
+    p.append(kit.torus(0.18, 0.05, (X - 0.4 + k * 0.6, 0.86, 0.75), ('#ff5c6c', WHITE)[k % 2], rot=(math.pi / 2, 0, 0), major_segments=12, minor_segments=4))
+m.mesh(p)
+BOATS = ((WHITE, HOTPINK), (BLUSH, SKY), (WHITE, SUN), (BLUSH, MINT))
+BERTH = ((1.0, -1.6), (2.8, -1.6), (1.0, 1.6), (2.8, 1.6))
+for i, ((col, trim), (bx, by)) in enumerate(zip(BOATS, BERTH)):
+    cx, cy = X + bx, by
+    q = [blob((0.62, 0.95, 0.32), (cx, cy, 0.18), col, 12)]
+    q.append(kit.box((0.95, 1.2, 0.12), (cx, cy + 0.05, 0.36), trim, bevel=0.05))
+    q.append(kit.box((0.9, 0.35, 0.3), (cx, cy + 0.45, 0.5), col, bevel=0.1))
+    q.append(rod((cx, cy - 0.7, 0.35), (cx, cy - 0.95, 1.25), 0.1, col, verts=8))
+    q.append(kit.sphere(0.2, (cx, cy - 1.0, 1.32), col, segments=10))
+    q.append(blob((0.07, 0.17, 0.06), (cx, cy - 1.2, 1.28), '#ff9a3c', 6))
+    for e in (-1, 1):
+        q.append(kit.sphere(0.035, (cx + e * 0.12, cy - 1.08, 1.4), INK, segments=4))
+        q.append(blob((0.08, 0.42, 0.2), (cx + e * 0.5, cy + 0.15, 0.45), col, 8, rot=(0.3, 0, 0)))
+    m.part(f'boat{i}', (cx, cy, 0.0), q)
+    for k in (-1, 1):
+        m.marker(f'seat{i * 2 + (k + 1) // 2}', (cx + k * 0.22, cy + 0.12, 0.62), on=f'boat{i}')
+
+# --- The haunted house: a crooked purple house, two towers, glowing windows, a creaking door, bats and a ghost. ---
+X = 138.0
+m = Model('pk_haunted', X)
+HZ = 4.4
+p = [kit.box((8.4, 6.4, 0.2), (X, 0, 0.1), '#4a4a5a', bevel=0.04)]
+for k in range(8):
+    p.append(kit.box((1.0, 6.0, HZ), (X - 3.5 + k, 0.1, HZ / 2 + 0.1), ('#5c4b7d', '#54456f')[k % 2], bevel=0.0))
+roof = kit.prism((8.6, 6.8, 2.4), (X, 0.1, HZ + 0.1), '#3b2f52')
+p.append(roof)
+p.append(kit.box((8.8, 0.25, 0.25), (X, -3.25, HZ + 0.1), '#2d2340', bevel=0.03))
+for sx in (-1, 1):
+    p.append(kit.cylinder(1.15, 6.4, (X + sx * 4.0, -2.6, 3.3), '#6b5a8e', verts=16))
+    p.append(kit.cone(1.45, 0.05, 2.6, (X + sx * 4.0, -2.6, 7.8), '#3b2f52', verts=16))
+    p.append(kit.box((0.6, 0.12, 0.9), (X + sx * 4.0, -3.7, 4.6), '#c6ff7a', bevel=0.02))
+    p.append(kit.box((0.7, 0.14, 0.12), (X + sx * 4.0, -3.72, 5.1), '#2d2340', bevel=0.0))
+    p.append(kit.cylinder(0.03, 0.8, (X + sx * 4.0, -2.6, 9.4), INK, verts=4))
+    p.append(kit.cone(0.25, 0.0, 0.4, (X + sx * 4.0 + 0.2, -2.6, 9.6), '#ff7a3d', verts=3, rot=(0, -math.pi / 2, 0)))
+# Windows with green light and crooked boards, a sign board over the door (the game writes on it), pumpkins, a fence.
+for (wx, wz) in ((-2.0, 2.4), (2.0, 2.4), (-2.0, 3.6), (2.0, 3.6), (0.0, 3.7)):
+    p.append(kit.box((0.9, 0.1, 0.8), (X + wx, -2.95, wz), '#c6ff7a', bevel=0.02))
+    p.append(kit.box((1.0, 0.12, 0.1), (X + wx, -3.0, wz + 0.05), '#2d2340', bevel=0.0, rot=(0, 0.3, 0)))
+p.append(kit.box((1.6, 0.1, 2.3), (X, -2.94, 1.25), '#1e1830', bevel=0.02))
+p.append(kit.box((3.0, 0.16, 0.7), (X, -3.05, HZ - 0.3), '#2d2340', bevel=0.05))
+p.append(kit.box((2.8, 0.17, 0.55), (X, -3.06, HZ - 0.3), '#8a6bd8', bevel=0.04))
+for (px, py) in ((-2.6, -3.6), (2.7, -3.7), (-3.3, -3.4)):
+    p.append(blob((0.3, 0.3, 0.24), (X + px, py, 0.32), '#ff8a2a', 8))
+    p.append(kit.cylinder(0.04, 0.12, (X + px, py, 0.6), '#3f7a3f', verts=5))
+for k in range(6):
+    p.append(kit.box((0.5, 0.18, 0.75), (X - 3.4 + k * 0.6 + (k > 2) * 3.0, -4.3, 0.4), '#aab3c0', bevel=0.12))
+m.mesh(p)
+# The door swings open (hinged on its left) as riders go in and come out.
+m.part('door', (X - 0.72, -3.02, 0.1), [kit.box((1.4, 0.1, 2.15), (X, -3.02, 1.18), '#6b3f2a', bevel=0.03), kit.sphere(0.07, (X + 0.5, -3.1, 1.15), GOLD, segments=6)])
+# A ghost that pops up from behind the roof, and three bats (each with two wings that flap).
+m.part('ghost', (X, 0.6, HZ + 1.2), [blob((0.55, 0.45, 0.8), (X, 0.6, HZ + 1.2), WHITE, 12), kit.sphere(0.08, (X - 0.18, 0.18, HZ + 1.45), INK, segments=6),
+                                     kit.sphere(0.08, (X + 0.18, 0.18, HZ + 1.45), INK, segments=6), blob((0.12, 0.05, 0.16), (X, 0.17, HZ + 1.15), INK, 6)])
+for i in range(3):
+    bx, by, bz = X - 4.0 + i * 4.0, -2.6, 8.4 - i * 0.6
+    m.part(f'bat{i}', (bx, by, bz), [blob((0.14, 0.12, 0.12), (bx, by, bz), '#2d2340', 8), kit.sphere(0.03, (bx - 0.05, by - 0.11, bz + 0.04), '#ffd24a', segments=4),
+                                       kit.sphere(0.03, (bx + 0.05, by - 0.11, bz + 0.04), '#ffd24a', segments=4)])
+    for e in (-1, 1):
+        m.part(f'bat{i}{"lr"[(e + 1) // 2]}', (bx + e * 0.1, by, bz), [kit.box((0.4, 0.2, 0.03), (bx + e * 0.3, by, bz), '#3b2f52', bevel=0.0, rot=(0, 0, 0))], on=f'bat{i}')
+
+# --- The park sign by the road: two posts, a blue board with lamps all round (the game writes on it), a star. ---
+X = 152.0
+m = Model('pk_sign', X)
+p = []
+for sx in (-1, 1):
+    p.append(kit.cylinder(0.16, 5.2, (X + sx * 1.9, 0, 2.6), NAVY, verts=10))
+p.append(kit.box((4.6, 0.32, 2.0), (X, 0, 5.1), DEEP, bevel=0.15))
+p.append(kit.box((4.3, 0.34, 1.7), (X, 0, 5.1), SKY, bevel=0.1))
+for k in range(18):
+    t = k / 17
+    p.append(bulb(X - 2.2 + 4.4 * t, -0.18, 6.05, 0.06))
+    p.append(bulb(X - 2.2 + 4.4 * t, -0.18, 4.15, 0.06))
+for k in range(5):
+    p.append(bulb(X - 2.25, -0.18, 4.3 + k * 0.4, 0.06))
+    p.append(bulb(X + 2.25, -0.18, 4.3 + k * 0.4, 0.06))
+m.mesh(p)
+m.part('star', (X, 0, 6.8), [star((X, 0, 6.8), 0.7, SUN, thick=0.2), kit.sphere(0.12, (X, -0.12, 6.8), BULB, segments=6)])
+
+# --- A bus stop: a shelter with a bench, and a sign. ---
+X = 160.0
+m = Model('pk_busstop', X)
+p = [kit.box((3.4, 0.08, 2.0), (X, 0.5, 1.2), GLASS, bevel=0.02)]
+for sx in (-1, 1):
+    p.append(kit.box((0.1, 1.2, 2.3), (X + sx * 1.7, 0.0, 1.15), NAVY, bevel=0.02))
+p.append(kit.box((3.8, 1.5, 0.14), (X, 0.0, 2.35), SKY, bevel=0.05))
+p.append(kit.box((2.6, 0.45, 0.1), (X, 0.2, 0.48), WOOD, bevel=0.02))
+for sx in (-1, 1):
+    p.append(kit.box((0.08, 0.4, 0.45), (X + sx * 1.1, 0.2, 0.24), NAVY, bevel=0.0))
+p.append(kit.cylinder(0.06, 2.8, (X + 2.4, -0.4, 1.4), NAVY, verts=8))
+p.append(kit.cylinder(0.36, 0.08, (X + 2.4, -0.4, 2.9), SUN, verts=16, rot=(math.pi / 2, 0, 0)))
+p.append(kit.box((0.36, 0.1, 0.2), (X + 2.4, -0.46, 2.9), DEEP, bevel=0.03))
+m.mesh(p)
+
+# --- The tour bus: a long yellow coach, windows all along, wheels that turn. ---
+X = 172.0
+m = Model('pk_bus', X)
+p = [kit.box((2.5, 9.0, 2.6), (X, 0, 1.8), SUN, bevel=0.3, segments=2)]
+p.append(kit.box((2.54, 8.4, 0.85), (X, 0.2, 2.25), INK, bevel=0.08))
+for k in range(7):
+    p.append(kit.box((2.56, 0.08, 0.86), (X, -3.6 + k * 1.15, 2.25), SUN, bevel=0.0))
+p.append(kit.box((2.3, 0.1, 1.0), (X, -4.52, 2.15), GLASS, bevel=0.04))
+p.append(kit.box((2.52, 8.8, 0.25), (X, 0, 1.2), HOTPINK, bevel=0.0))
+p.append(kit.box((2.2, 8.4, 0.15), (X, 0, 3.12), WHITE, bevel=0.05))
+for sx in (-1, 1):
+    p.append(kit.sphere(0.13, (X + sx * 0.9, -4.52, 1.0), BULB, segments=6))
+p.append(kit.box((2.4, 0.2, 0.35), (X, -4.55, 0.65), STEEL, bevel=0.05))
+p.append(kit.box((2.6, 9.2, 0.3), (X, 0, 0.6), INK, bevel=0.06))
+m.mesh(p)
+for i, (wx, wy) in enumerate(((-1.15, -3.0), (1.15, -3.0), (-1.15, 3.0), (1.15, 3.0))):
+    w = [kit.cylinder(0.5, 0.3, (X + wx, wy, 0.5), INK, verts=14, rot=(0, math.pi / 2, 0)),
+         kit.cylinder(0.26, 0.32, (X + wx, wy, 0.5), STEEL, verts=10, rot=(0, math.pi / 2, 0))]
+    m.part(f'wheel{i}', (X + wx, wy, 0.5), w)
+
+# --- The mascot's costume: a big smiling star head and a round yellow suit (put on over a person). ---
+X = 182.0
+m = Model('pk_mascot', X)
+h = [blob((0.42, 0.38, 0.42), (X, 0, 0.0), SUN, 12)]
+for k in range(5):
+    a = math.pi / 2 + k * 2 * math.pi / 5
+    h.append(kit.cone(0.2, 0.02, 0.38, (X + 0.5 * math.cos(a), 0, 0.5 * math.sin(a)), SUN, verts=8, rot=(0, math.pi / 2 - a, 0)))
+for e in (-1, 1):
+    h.append(blob((0.07, 0.04, 0.1), (X + e * 0.14, -0.36, 0.08), INK, 6))
+    h.append(kit.sphere(0.025, (X + e * 0.13, -0.39, 0.12), WHITE, segments=4))
+    h.append(blob((0.07, 0.03, 0.04), (X + e * 0.26, -0.33, -0.05), '#ff8fc8', 6))
+h.append(kit.torus(0.1, 0.022, (X, -0.37, -0.1), INK, rot=(math.pi / 2, 0, 0), major_segments=10, minor_segments=3))
+m.part('head', (X, 0, 0), h)
+m.part('suit', (X + 3, 0, 0), [blob((0.36, 0.3, 0.38), (X + 3, 0, 0), SUN, 12), star((X + 3, -0.3, 0.1), 0.14, '#ff5fa8', thick=0.04)])
+
 toy = kit.toy_material('toy')
 for obj in models:
     kit.use_material(obj, toy)
 print('triangles', {b.name: kit.triangles([d for d in b.children_recursive if d.type == 'MESH']) for b in bases})
-RIDES = {'pk_carousel': '-carousel', 'pk_teacups': '-teacups', 'pk_bumper': '-bumper'}
+RIDES = {'pk_carousel': '-carousel', 'pk_teacups': '-teacups', 'pk_bumper': '-bumper', 'pk_swings': '-swings', 'pk_boats': '-boats', 'pk_haunted': '-haunted'}
+LAKESIDE = {'pk_sign', 'pk_busstop', 'pk_bus', 'pk_mascot'}
 MIDWAY = {'pk_ringtoss', 'pk_burger', 'pk_shed', 'pk_truck', 'pk_bin'}
 glb = Path(sys.argv[1] if len(sys.argv) > 1 else 'park.glb')
 # Each ride in a file of its own (a Playables file may weigh 512 KiB at most), the stalls and props in the first.
-for suffix, keep in (('', lambda n: n not in RIDES and n not in MIDWAY), ('-midway', lambda n: n in MIDWAY), *((f, lambda n, r=r: n == r) for r, f in RIDES.items())):
+for suffix, keep in (('', lambda n: n not in RIDES and n not in MIDWAY and n not in LAKESIDE), ('-midway', lambda n: n in MIDWAY), ('-lakeside', lambda n: n in LAKESIDE), *((f, lambda n, r=r: n == r) for r, f in RIDES.items())):
     chosen = [b for b in bases if keep(b.name)]
     kit.export(chosen + [d for b in chosen for d in b.children_recursive], str(glb.with_name(glb.stem + suffix + glb.suffix)))
 if len(sys.argv) > 2:

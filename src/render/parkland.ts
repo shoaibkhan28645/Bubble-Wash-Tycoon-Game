@@ -3,7 +3,7 @@
 // entrance plaza's pastel squares, a clipped hedge all round (open at the
 // gate), the park's arch, lamps, trees, flower beds, and the town's shops
 // across the road. Static, merged into a few meshes.
-import { BoxGeometry, Color, Float32BufferAttribute, Group, IcosahedronGeometry, Matrix4, Mesh, MeshLambertMaterial, PlaneGeometry, Quaternion, Vector3, type BufferGeometry } from 'three';
+import { BoxGeometry, BufferGeometry, CircleGeometry, Color, Float32BufferAttribute, Group, IcosahedronGeometry, Matrix4, Mesh, MeshLambertMaterial, PlaneGeometry, Quaternion, Vector3 } from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import type { ParkLayout, Rect } from '../core/config';
 import { mergeParts, toyMaterial, type Part } from './models/build';
@@ -93,6 +93,60 @@ function paving(layout: ParkLayout): Mesh {
   const mesh = new Mesh(mergeParts(parts), toyMaterial);
   mesh.receiveShadow = true;
   mesh.name = 'paving';
+  return mesh;
+}
+
+/** Shapes merged with the hand-made band below must carry the same attributes (it has no texture coordinates). */
+function withoutUv(geometry: BufferGeometry): BufferGeometry {
+  geometry.deleteAttribute('uv');
+  return geometry;
+}
+
+/** A flat ellipse on the ground. */
+const ellipse = (cx: number, cz: number, rx: number, rz: number, y: number, color: string): Part => ({
+  geometry: withoutUv(new CircleGeometry(1, 56).rotateX(-Math.PI / 2).scale(rx, 1, rz)),
+  color,
+  x: cx,
+  y,
+  z: cz,
+});
+
+/** A flat band between two ellipses (a path round a lake). */
+function band(cx: number, cz: number, inner: [number, number], outer: [number, number], y: number, color: string, segments = 64): Part {
+  const positions: number[] = [];
+  for (let i = 0; i < segments; i++) {
+    const a0 = (i / segments) * Math.PI * 2;
+    const a1 = ((i + 1) / segments) * Math.PI * 2;
+    const p = (r: [number, number], a: number) => [Math.cos(a) * r[0], 0, Math.sin(a) * r[1]];
+    positions.push(...p(inner, a0), ...p(outer, a1), ...p(outer, a0), ...p(inner, a0), ...p(inner, a1), ...p(outer, a1));
+  }
+  const geometry = new BufferGeometry();
+  geometry.setAttribute('position', new Float32BufferAttribute(positions, 3));
+  geometry.computeVertexNormals();
+  return { geometry, color, x: cx, y, z: cz };
+}
+
+/** Starlight Lake: turquoise water (lighter in the middle), a sandy shore, and a path all round it. */
+function lake(layout: ParkLayout): Mesh {
+  const { x, z, rx, rz } = layout.lake;
+  const parts: Part[] = [
+    band(x, z, [rx + 1.05, rz + 1.05], [rx + 3.15, rz + 3.15], 0.04, PATH_EDGE),
+    band(x, z, [rx + 1.2, rz + 1.2], [rx + 3.0, rz + 3.0], 0.052, PATH),
+    ellipse(x, z, rx + 0.75, rz + 0.75, 0.035, '#f3dfa8'),
+    ellipse(x, z, rx, rz, 0.06, '#47c9dc'),
+    ellipse(x, z, rx - 0.9, rz - 0.9, 0.065, '#5fd6e6'),
+  ];
+  // Lily pads here and there.
+  const rand = seeded(41);
+  for (let i = 0; i < 9; i++) {
+    const a = rand() * Math.PI * 2;
+    const r = 0.55 + rand() * 0.35;
+    parts.push(ellipse(x + Math.cos(a) * rx * r, z + Math.sin(a) * rz * r, 0.32, 0.32, 0.07, '#5fb84f'));
+    if (i % 3 === 0) parts.push(ellipse(x + Math.cos(a) * rx * r + 0.12, z + Math.sin(a) * rz * r, 0.1, 0.1, 0.075, '#ff8fc8'));
+  }
+  const mesh = new Mesh(mergeParts(parts), toyMaterial);
+  mesh.receiveShadow = true;
+  mesh.name = 'lake';
   return mesh;
 }
 
@@ -196,6 +250,7 @@ export function parkland(layout: ParkLayout, spinners: Spinners): Group {
   group.add(
     lawn(),
     paving(layout),
+    lake(layout),
     hedges(layout),
     gate,
     copies('pk_lamp', layout.lamps),

@@ -121,6 +121,7 @@ export class PersonAvatar {
   private tool: Mesh | null = null;
   private readonly hand: Object3D | null = null;
   private readonly gestureAction: AnimationAction | null = null;
+  private readonly waveAction: AnimationAction | null = null;
   private gestureLeft = 0;
   private readonly lean = { forward: 0, side: 0, wantForward: 0, wantSide: 0 };
   private readonly seenAt = new Vector3();
@@ -154,6 +155,8 @@ export class PersonAvatar {
     if (tool) this.holdTool(tool);
     const pick = animations.find((a) => a.name === 'pick-up');
     if (pick) this.gestureAction = this.mixer.clipAction(pick).setLoop(LoopOnce, 1);
+    const yes = animations.find((a) => a.name === 'emote-yes');
+    if (yes) this.waveAction = this.mixer.clipAction(yes).setLoop(LoopOnce, 1);
     this.play('idle');
   }
 
@@ -177,12 +180,21 @@ export class PersonAvatar {
 
   /** Bend down and pick something up (cash, supplies); walking cancels it. */
   pickUp(): void {
-    if (!this.gestureAction || this.gestureLeft > 0) return;
+    this.gesture(this.gestureAction);
+  }
+
+  /** A big happy nod and wave (the mascot greeting a queue); walking cancels it. */
+  wave(): void {
+    this.gesture(this.waveAction);
+  }
+
+  private gesture(action: AnimationAction | null): void {
+    if (!action || this.gestureLeft > 0) return;
     this.current?.fadeOut(0.1);
-    this.gestureAction.reset().fadeIn(0.1).play();
-    this.current = this.gestureAction;
+    action.reset().fadeIn(0.1).play();
+    this.current = action;
     this.gait = null;
-    this.gestureLeft = this.gestureAction.getClip().duration;
+    this.gestureLeft = action.getClip().duration;
   }
 
   /** The soft shadow under the feet: off while up on a ride's seat (it would float in the air). */

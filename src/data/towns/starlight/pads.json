@@ -146,6 +146,17 @@
     }
   },
   {
+    "id": "sign",
+    "name": "Park sign and lights",
+    "cost": 130000,
+    "targetMinute": 21,
+    "adds": "A big lit sign (+30% visitors), and lights all round the park: the evenings begin",
+    "effects": {
+      "arrivalBonus": 0.3,
+      "evenings": true
+    }
+  },
+  {
     "id": "janitor",
     "name": "Janitor and bins",
     "cost": 150000,
@@ -153,7 +164,71 @@
     "adds": "Bins along the paths mean less litter, and the janitor sweeps up the rest",
     "effects": {
       "staff": "janitor",
-      "bins": true,
+      "bins": true
+    }
+  },
+  {
+    "id": "swings",
+    "name": "Sky swings",
+    "cost": 180000,
+    "targetMinute": 27,
+    "adds": "Lakeside's first ride: twelve chairs that fly out as it spins",
+    "effects": {
+      "ride": "swings",
+      "arrivalBonus": 0.1
+    }
+  },
+  {
+    "id": "busstop",
+    "name": "Bus stop",
+    "cost": 210000,
+    "targetMinute": 30,
+    "adds": "Tour buses bring a crowd at a time",
+    "effects": {
+      "bus": true
+    }
+  },
+  {
+    "id": "boats",
+    "name": "Paddle boats",
+    "cost": 250000,
+    "targetMinute": 33,
+    "adds": "Swan boats round the lake, with a dock hand to send them off",
+    "effects": {
+      "ride": "boats",
+      "staff": "boats",
+      "arrivalBonus": 0.1
+    }
+  },
+  {
+    "id": "haunted",
+    "name": "Haunted house",
+    "cost": 300000,
+    "targetMinute": 36,
+    "adds": "A spooky dark ride that keeps running in any weather",
+    "effects": {
+      "ride": "haunted",
+      "arrivalBonus": 0.15
+    }
+  },
+  {
+    "id": "mascot",
+    "name": "Mascot",
+    "cost": 340000,
+    "targetMinute": 39,
+    "adds": "Starry cheers up the longest line (people wait longer) and poses for photos",
+    "effects": {
+      "staff": "mascot"
+    }
+  },
+  {
+    "id": "cashier",
+    "name": "Cashier",
+    "cost": 380000,
+    "targetMinute": 42,
+    "adds": "Collects the cash piles for you",
+    "effects": {
+      "staff": "cashier",
       "endOfContent": true
     }
   }

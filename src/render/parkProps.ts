@@ -55,15 +55,16 @@ const STOP_SECONDS = 2.6;
 const WHEEL_RADIUS = 0.45;
 
 /**
- * The delivery truck: it drives in from the road to the shed, stops there
- * while its load goes in, backs out onto the road and drives away. One run
- * at a time; out of sight between runs.
+ * A vehicle that calls at the park now and then: the delivery truck drives
+ * in from the road to the shed, stops there while its load goes in, backs
+ * out onto the road and drives away; the tour bus pulls up at the stop and
+ * drives on. One run at a time; out of sight between runs.
  */
 export class DeliveryTruck {
   readonly group = new Group();
   private readonly wheels: Object3D[] = [];
   /** The run: points still to drive to, whether backing up to each, and the stop. */
-  private legs: { to: Point; reverse: boolean; slow: boolean }[] = [];
+  private legs: { to: Point; reverse: boolean; slow: boolean; stop: boolean }[] = [];
   private stopLeft = 0;
   private stopped = false;
   private at: Point;
@@ -71,17 +72,20 @@ export class DeliveryTruck {
   constructor(
     scene: Scene,
     private readonly route: { truckIn: Point[]; truckOut: Point[] },
-    /** At the shed: the load goes in. */
+    /** At the stop: the load goes in, or the passengers get off. */
     private readonly onArrive: () => void,
+    name = 'pk_truck',
+    /** Backs out of the stop (the truck in its yard); otherwise it drives on (the bus). */
+    private readonly backOut = true,
   ) {
-    const model = parkModel('pk_truck');
-    rigidSkin(model, toyMaterial, 'pk_truck', skinnedToyMaterial);
+    const model = parkModel(name);
+    rigidSkin(model, toyMaterial, name, skinnedToyMaterial);
     model.traverse((node) => {
       node.castShadow = false;
       node.receiveShadow = true;
     });
     for (let i = 0; i < 4; i++) {
-      const wheel = model.getObjectByName(`pk_truck_wheel${i}`);
+      const wheel = model.getObjectByName(`${name}_wheel${i}`);
       if (wheel) this.wheels.push(wheel);
     }
     this.group.add(model, blobShadow(2.8, 5.4, 2.5, 'box'));
@@ -100,9 +104,10 @@ export class DeliveryTruck {
     const { truckIn, truckOut } = this.route;
     this.at = { ...truckIn[0]! };
     this.group.position.set(this.at.x, 0, this.at.z);
-    this.legs = truckIn.slice(1).map((to, i) => ({ to, reverse: false, slow: i >= truckIn.length - 3 }));
-    this.legs.push({ to: truckOut[0]!, reverse: true, slow: true });
-    for (const to of truckOut.slice(1)) this.legs.push({ to, reverse: false, slow: false });
+    this.legs = truckIn.slice(1).map((to, i) => ({ to, reverse: false, slow: i >= truckIn.length - 3, stop: i === truckIn.length - 2 }));
+    const out = this.backOut ? truckOut : [null, ...truckOut];
+    if (this.backOut) this.legs.push({ to: truckOut[0]!, reverse: true, slow: true, stop: false });
+    for (const to of out.slice(1)) if (to) this.legs.push({ to, reverse: false, slow: false, stop: false });
     this.stopped = false;
     this.group.visible = true;
   }
@@ -118,13 +123,6 @@ export class DeliveryTruck {
       this.group.visible = false;
       return;
     }
-    // The stop at the shed comes before the first leg driven backwards.
-    if (leg.reverse && !this.stopped) {
-      this.stopped = true;
-      this.stopLeft = STOP_SECONDS;
-      this.onArrive();
-      return;
-    }
     const dx = leg.to.x - this.at.x;
     const dz = leg.to.z - this.at.z;
     const d = Math.hypot(dx, dz);
@@ -138,6 +136,13 @@ export class DeliveryTruck {
       for (const wheel of this.wheels) wheel.rotation.x += ((leg.reverse ? -1 : 1) * step) / WHEEL_RADIUS;
     }
     this.group.position.set(this.at.x, 0, this.at.z);
-    if (d - step < 1e-3) this.legs.shift();
+    if (d - step >= 1e-3) return;
+    this.legs.shift();
+    // At the stop: a pause while the load goes in (or the passengers get off).
+    if (leg.stop && !this.stopped) {
+      this.stopped = true;
+      this.stopLeft = STOP_SECONDS;
+      this.onArrive();
+    }
   }
 }

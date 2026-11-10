@@ -3,7 +3,7 @@
 // file of its own (each under 512 KiB). A ride is drawn as one skinned mesh
 // (rigid.ts): its platform turns, its horses bob, and riders sit on the
 // seats marked in the model, going round with them.
-import { Group, Mesh, Object3D, Vector3, type Scene } from 'three';
+import { Group, Mesh, Object3D, Quaternion, Vector3, type Scene } from 'three';
 import type { Point } from '../../core/config';
 import { TUNING } from '../../core/config';
 import type { ParkVisitor, Ride } from '../../systems/park';
@@ -13,7 +13,7 @@ import { plate } from './kit';
 import type { PersonAvatar } from './person';
 import { rigidSkin } from './rigid';
 
-const FILES = ['building:park', 'building:park-midway', 'building:park-carousel', 'building:park-teacups', 'building:park-bumper'];
+const FILES = ['building:park', 'building:park-midway', 'building:park-lakeside', 'building:park-carousel', 'building:park-teacups', 'building:park-bumper', 'building:park-swings', 'building:park-boats', 'building:park-haunted'];
 
 /** The named model's node in whichever park file has it (not a copy). */
 export function parkPiece(name: string): Object3D {
@@ -36,6 +36,8 @@ export function parkModel(name: string): Object3D {
 
 /** Which model each of the park's pads shows once built (rides and staff have their own). */
 const PAD_MODELS: Record<string, string> = {
+  sign: 'pk_sign',
+  busstop: 'pk_busstop',
   booth: 'pk_booth',
   cart: 'pk_cart',
   benches: 'pk_benches',
@@ -51,11 +53,13 @@ const SIGNS: Record<string, { text: string; color: string; y: number; z: number;
   pk_gate: { text: 'STARLIGHT', color: '#ff5fa8', y: 5.35, z: 0.3, width: 6.9, height: 0.92 },
   pk_ringtoss: { text: 'RING TOSS', color: '#2f80d1', y: 3.3, z: 0.3, width: 2.2, height: 0.4 },
   pk_burger: { text: 'BURGERS', color: '#e8423f', y: 3.3, z: 0.32, width: 2.35, height: 0.4 },
+  pk_sign: { text: 'STARLIGHT\nFUN PARK', color: '#2f80d1', y: 5.1, z: 0.18, width: 4.1, height: 1.55 },
+  pk_haunted: { text: 'HAUNTED HOUSE', color: '#5c4b7d', y: 4.1, z: 3.16, width: 2.7, height: 0.5 },
   pk_bumper: { text: 'BUMPER CARS', color: '#ff5fa8', y: 4.25, z: -3.25, width: 4.0, height: 0.7 },
 };
 
 /** Parts that turn on their own, all the time, and how fast (radians a second): stars on top, the floss bowl. */
-const SPINNERS: Record<string, number> = { pk_booth_star: 1.2, pk_gate_star: 0.7, pk_cart_bowl: 7, pk_burger_burger: 0.8 };
+const SPINNERS: Record<string, number> = { pk_booth_star: 1.2, pk_gate_star: 0.7, pk_cart_bowl: 7, pk_burger_burger: 0.8, pk_sign_star: 0.9 };
 
 /** A model with its painted sign, if it has one. */
 export function signedModel(name: string): Object3D {
@@ -109,6 +113,21 @@ export const PARK_SOLIDS: Record<string, [number, number, number?, number?][]> =
     [2.5, 2.5],
   ],
   bumper: [[4.7, 3.45]],
+  swings: [
+    [2.6, 1.6],
+    [1.6, 2.6],
+    [2.1, 2.1],
+  ],
+  haunted: [
+    [4.2, 3.2],
+    [1.15, 1.15, -4.0, 2.6],
+    [1.15, 1.15, 4.0, 2.6],
+  ],
+  sign: [
+    [0.2, 0.2, -1.9, 0],
+    [0.2, 0.2, 1.9, 0],
+  ],
+  busstop: [[1.8, 0.6]],
   benches: [[3.2, 0.28, 0, 0.08]],
   gate: [
     [0.6, 0.6, -5, 0],
@@ -149,6 +168,19 @@ const BUMP_DISTANCE = 1.2;
 /** How quickly a free-driving bumper car changes its mind about where to go (radians a second, at most). */
 const WANDER = 2.2;
 
+/** How far the swing chairs fly out at full speed (radians from hanging straight down). */
+const SWING_OUT = 0.95;
+/** A swan boat's paddle round the lake: a share of the ride out to the loop, and back to the jetty. */
+const BOAT_LEG = 0.12;
+
+/** The lake the boats paddle round: its middle and half-widths (the water). */
+export interface Lake {
+  x: number;
+  z: number;
+  rx: number;
+  rz: number;
+}
+
 /** One bumper car: where it parks, and where it is now. */
 interface BumperCar {
   node: Object3D;
@@ -173,6 +205,14 @@ export class RideView {
   private readonly bobbers: { node: Object3D; base: number }[] = [];
   private readonly cups: Object3D[] = [];
   private readonly cars: BumperCar[] = [];
+  private readonly chairs: { node: Object3D; axis: Vector3 }[] = [];
+  private readonly boats: { node: Object3D; home: Vector3 }[] = [];
+  private readonly bats: { node: Object3D; base: Vector3; wings: Object3D[] }[] = [];
+  private readonly door: Object3D | null;
+  private readonly ghost: { node: Object3D; base: number } | null = null;
+  private clock = 0;
+  private doorOpen = 0;
+  private readonly tilt = new Quaternion();
   private readonly seats: Object3D[] = [];
   private readonly riders = new Map<ParkVisitor, Object3D>();
   private readonly arm: Object3D | null;
@@ -182,6 +222,8 @@ export class RideView {
   constructor(
     private readonly ride: Ride,
     private readonly scene: Scene,
+    /** The lake (for boats). */
+    private readonly lake: Lake | null = null,
   ) {
     const name = ride.def.model;
     const model = signedModel(name);
@@ -203,9 +245,23 @@ export class RideView {
     for (const node of parts('horse')) this.bobbers.push({ node, base: node.position.y });
     this.cups.push(...parts('cup'));
     for (const node of parts('car')) this.cars.push({ node, home: { x: node.position.x, z: node.position.z }, x: node.position.x, z: node.position.z, yaw: 0, turn: 0 });
+    // Swing chairs tilt about the line round the canopy, so they fly outwards.
+    for (const node of parts('chair')) {
+      const out = new Vector3(node.position.x, 0, node.position.z).normalize();
+      this.chairs.push({ node, axis: new Vector3(-out.z, 0, out.x) });
+    }
+    for (const node of parts('boat')) this.boats.push({ node, home: node.position.clone() });
+    for (const node of parts('bat')) {
+      const wings = ['l', 'r'].map((side) => model.getObjectByName(`${node.name}${side}`)).filter((w): w is Object3D => !!w);
+      this.bats.push({ node, base: node.position.clone(), wings });
+    }
+    this.door = model.getObjectByName(`${name}_door`) ?? null;
+    const ghost = model.getObjectByName(`${name}_ghost`);
+    if (ghost) this.ghost = { node: ghost, base: ghost.position.y };
     this.seats.push(...parts('seat').slice(0, ride.def.seats));
-    // The ride's logic follows the seats where the model has them (cups spin, cars drive).
-    if (this.seats.length === ride.def.seats) {
+    // The ride's logic follows the seats where the model has them (cups spin, cars drive); a dark ride's are inside its door.
+    if (ride.def.inside) ride.seatAt = () => ride.steps;
+    else if (this.seats.length === ride.def.seats) {
       ride.seatAt = (i) => {
         this.seats[i]!.getWorldPosition(this.seen);
         return { x: this.seen.x, z: this.seen.z };
@@ -232,7 +288,15 @@ export class RideView {
     });
     // Each teacup spins the other way, faster than the platter.
     for (const cup of this.cups) cup.rotation.y = -ride.angle * 2.4;
+    // The swing chairs fly out as the canopy picks up speed (and sway a little).
+    this.clock += dt;
+    for (const [i, chair] of this.chairs.entries()) {
+      const out = SWING_OUT * going * going + 0.04 * going * Math.sin(this.clock * 2.3 + i);
+      chair.node.quaternion.copy(this.tilt.setFromAxisAngle(chair.axis, out));
+    }
     this.drive(dt);
+    this.sail();
+    this.haunt(dt);
     if (this.arm) {
       const t = ride.sinceLaunch;
       const swing = t < 0.15 ? t / 0.15 : Math.max(0, 1 - (t - 0.15) / 0.7);
@@ -307,6 +371,64 @@ export class RideView {
     this.onBump(new Vector3(this.ride.spot.at.x + x, 0.7, this.ride.spot.at.z + z));
   }
 
+  /**
+   * Swan boats: while the ride runs, each boat with riders paddles out from
+   * the jetty, round the lake (each on its own loop, a little in from the
+   * last) and back to its mooring, bobbing as it goes.
+   */
+  private sail(): void {
+    if (this.boats.length === 0 || !this.lake) return;
+    const { ride, lake } = this;
+    const at = ride.spot.at;
+    const running = ride.phase === 'running';
+    this.boats.forEach((boat, i) => {
+      const crewed = ride.seats[i * 2]?.step === 'seated' || ride.seats[i * 2 + 1]?.step === 'seated';
+      const home = { x: at.x + boat.home.x, z: at.z + boat.home.z };
+      let p = home;
+      // Moored, a swan faces the way it was built (+z); under way, the way it's going.
+      let ahead: Point | null = null;
+      if (running && crewed) {
+        const u = Math.min(1, Math.max(0, ride.time / ride.cycle - i * 0.02));
+        const scale = 0.78 - i * 0.1;
+        const loop = (a: number) => ({ x: lake.x + lake.rx * scale * Math.cos(a), z: lake.z + lake.rz * scale * Math.sin(a) });
+        const entry = loop(Math.PI);
+        const where = (v: number) => {
+          if (v < BOAT_LEG) return lerpPoint(home, entry, smooth(v / BOAT_LEG));
+          if (v > 1 - BOAT_LEG) return lerpPoint(entry, home, smooth((v - 1 + BOAT_LEG) / BOAT_LEG));
+          return loop(Math.PI - ((v - BOAT_LEG) / (1 - 2 * BOAT_LEG)) * Math.PI * 2);
+        };
+        p = where(u);
+        ahead = where(Math.min(1, u + 0.01));
+      }
+      boat.node.position.set(p.x - at.x, boat.home.y + 0.04 * Math.sin(this.clock * 2.4 + i * 1.3), p.z - at.z);
+      if (!ahead) boat.node.rotation.y = 0;
+      else if (Math.hypot(ahead.x - p.x, ahead.z - p.z) > 1e-3) boat.node.rotation.y = Math.atan2(ahead.x - p.x, ahead.z - p.z);
+      boat.node.rotation.z = 0.04 * Math.sin(this.clock * 1.9 + i);
+    });
+  }
+
+  /** The haunted house: bats circle its towers (faster while it runs), the door swings open for riders, a ghost pops up. */
+  private haunt(dt: number): void {
+    const { ride } = this;
+    const running = ride.phase === 'running';
+    for (const [i, bat] of this.bats.entries()) {
+      const t = this.clock * (running ? 2.6 : 1.3) + i * 2.1;
+      bat.node.position.set(bat.base.x + Math.cos(t) * 1.3, bat.base.y + Math.sin(t * 2) * 0.25, bat.base.z + Math.sin(t) * 0.9);
+      bat.node.rotation.y = -t;
+      bat.wings.forEach((wing, k) => (wing.rotation.z = (k === 0 ? 1 : -1) * Math.sin(this.clock * 18 + i) * 0.9));
+    }
+    if (this.door) {
+      const steps = ride.steps;
+      const busy = ride.seats.some((v) => v && (v.step === 'boarding' || v.step === 'offRide') && Math.hypot(v.at.x - steps.x, v.at.z - steps.z) < 2.2);
+      this.doorOpen += ((busy ? 1 : 0) - this.doorOpen) * Math.min(1, dt * 6);
+      this.door.rotation.y = -1.5 * this.doorOpen;
+    }
+    if (this.ghost) {
+      const rise = running ? Math.sin(Math.PI * Math.min(1, ride.time / ride.cycle)) : 0;
+      this.ghost.node.position.y = this.ghost.base - 1.8 + 1.8 * smooth(Math.min(1, rise * 1.6)) + 0.12 * Math.sin(this.clock * 3);
+    }
+  }
+
   /** Riders sit on their seats (going round with them); off the ride, they're back on the ground. */
   private seatRiders(): void {
     const { ride } = this;
@@ -314,7 +436,15 @@ export class RideView {
     ride.seats.forEach((visitor, i) => {
       const avatar = visitor?.avatar as PersonAvatar | null | undefined;
       const seat = this.seats[i];
-      if (!visitor || visitor.step !== 'seated' || !avatar || !seat) return;
+      if (!visitor || visitor.step !== 'seated' || !avatar) return;
+      // A dark ride: in at the door, out of sight until they come out.
+      if (this.ride.def.inside) {
+        avatar.root.visible = false;
+        seated.add(visitor);
+        this.riders.set(visitor, this.group);
+        return;
+      }
+      if (!seat) return;
       seated.add(visitor);
       if (this.riders.get(visitor) === seat) return;
       this.riders.set(visitor, seat);
@@ -329,6 +459,10 @@ export class RideView {
       if (seated.has(visitor)) continue;
       this.riders.delete(visitor);
       const avatar = visitor.avatar as PersonAvatar | null;
+      if (avatar && seat === this.group) {
+        avatar.root.visible = true;
+        continue;
+      }
       if (!avatar || avatar.root.parent !== seat) continue;
       this.scene.add(avatar.root);
       avatar.root.rotation.set(0, avatar.root.rotation.y, 0);
@@ -345,8 +479,21 @@ export class RideView {
       return Math.atan2(-Math.sin(a), -Math.cos(a));
     }
     if (this.cups.length > 0) return Math.atan2(-seat.position.x, -seat.position.z);
+    // A swing chair faces the way it flies round: across its line out from the middle.
+    if (this.chairs.length > 0) {
+      const out = seat.parent!.position;
+      return Math.atan2(out.z, -out.x);
+    }
     return 0;
   }
+}
+
+function smooth(t: number): number {
+  return t * t * (3 - 2 * t);
+}
+
+function lerpPoint(a: Point, b: Point, t: number): Point {
+  return { x: a.x + (b.x - a.x) * t, z: a.z + (b.z - a.z) * t };
 }
 
 /** Where a sign or a ring floats over a ride: above its middle. */

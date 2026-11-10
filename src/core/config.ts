@@ -80,6 +80,10 @@ export interface PadEffects {
   supplies?: boolean;
   /** Litter bins along the park's paths. */
   bins?: boolean;
+  /** The park's day turns to evening now and then, and its lights come on. */
+  evenings?: boolean;
+  /** Tour buses stop by the park now and then, each bringing a crowd. */
+  bus?: boolean;
   /** A field of plots growing this crop (crops.json). */
   field?: string;
   /** Crops grow this much faster, e.g. 0.35 = 35% (the well). */
@@ -379,6 +383,8 @@ export interface RideSpot {
   exit: Point[];
   /** Where the hero (or the ride operator) stands to pull the lever. */
   lever: Point;
+  /** Where riders step on (if not the middle of its front): a jetty's end, a dark ride's door. */
+  steps?: Point;
   /** The queue ropes, each from one post to the other (two points). */
   ropes: Point[][];
 }
@@ -408,6 +414,10 @@ export interface ParkLayout extends TownLayout, WalkUpLayout {
   yard: Rect[];
   /** Where the litter bins stand (once there's a janitor). */
   bins: Point[];
+  /** The lake: its middle and the water's half-widths. */
+  lake: { x: number; z: number; rx: number; rz: number };
+  /** The tour bus: where visitors step off, its way in along the road to the stop and on out. */
+  busStop: { stop: Point; busIn: Point[]; busOut: Point[] };
   /** Decoration: lamps along the paths, trees, round flower beds (solid). */
   lamps: Point[];
   trees: (Point & { size?: number })[];

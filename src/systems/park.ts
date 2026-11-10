@@ -44,6 +44,10 @@ export interface RideDef {
   wear: number;
   /** The share of visitors who want a go. */
   wish: number;
+  /** Under a roof: it keeps running in a storm. */
+  indoor?: boolean;
+  /** A dark ride: riders go in at the door and aren't seen until they come out. */
+  inside?: boolean;
 }
 
 export const RIDES = ridesJson as Record<string, RideDef>;
@@ -166,6 +170,8 @@ export class Ride {
   fixing = 0;
   /** Where each seat really is, if the model says (seats that move on their own: teacups, bumper cars). */
   seatAt: ((i: number) => Point) | null = null;
+  /** Closed for now (an outdoor ride in a storm): riders wait, nobody launches it. */
+  paused = false;
   /** The hero's time on the lever this time they stood on it, and whether that pulled it. */
   private heroOn = 0;
   private heroPulled = false;
@@ -254,7 +260,7 @@ export class Ride {
 
   /** The ride's steps: the middle of its front (towards +z). */
   get steps(): Point {
-    return { x: this.spot.at.x, z: this.spot.at.z + this.def.plinth - 0.2 };
+    return this.spot.steps ?? { x: this.spot.at.x, z: this.spot.at.z + this.def.plinth - 0.2 };
   }
 
   /** Round the platform, from the steps' side to seat `i` (or back), the shorter way. */
@@ -277,7 +283,7 @@ export class Ride {
       this.heroOn = 0;
       this.heroPulled = false;
     }
-    if (this.phase !== 'loading' || this.broken) return null;
+    if (this.phase !== 'loading' || this.broken || this.paused) return null;
     const seated = this.seated;
     if (seated > 0) this.waited = this.waited < 0 ? 0 : this.waited + dt;
     const held = hero && this.heroOn >= RULES.leverSeconds;
@@ -401,6 +407,10 @@ export class ParkCrowd {
   stocked: (counter: WalkUpCounter) => boolean = () => true;
   /** Whether a worn-out ride may break down now (the game keeps it to one at a time, and not too early). */
   canBreak: (ride: Ride) => boolean = () => true;
+  /** A storm: outdoor rides close (their lines wait without minding); indoor rides and stalls carry on. */
+  storm = false;
+  /** Where the mascot is cheering people up: visitors in a line this close lose patience more slowly. */
+  calm: Point | null = null;
   private spawnTimer = 0;
   private readonly spare = new Map<boolean, ParkAvatar[]>([
     [false, []],
@@ -497,7 +507,10 @@ export class ParkCrowd {
       }
       counter.showProgress(!!counter.front, counter.front?.progress ?? 0, false);
     }
-    for (const ride of this.rides) this.runRide(dt, ride, lever(ride));
+    for (const ride of this.rides) {
+      ride.paused = this.storm && !ride.def.indoor;
+      this.runRide(dt, ride, lever(ride));
+    }
     for (const visitor of [...this.visitors]) {
       if (visitor.snackLeft > 0) {
         visitor.snackLeft -= dt;
@@ -510,7 +523,10 @@ export class ParkCrowd {
         }
       }
       if (visitor.step !== 'line') continue;
-      visitor.patience -= visitor.counter && !this.stocked(visitor.counter) ? dt / 2 : dt;
+      // Sheltering from a storm in an outdoor ride's line, nobody minds the wait.
+      if (visitor.ride?.paused) continue;
+      const calm = this.calm && Math.hypot(visitor.at.x - this.calm.x, visitor.at.z - this.calm.z) < PARK.mascot.calmRadius ? PARK.mascot.calmFactor : 1;
+      visitor.patience -= (visitor.counter && !this.stocked(visitor.counter) ? dt / 2 : dt) * calm;
       if (visitor.patience <= 0) this.giveUp(visitor);
     }
     for (const visitor of [...this.visitors]) {
@@ -521,7 +537,15 @@ export class ParkCrowd {
         visitor.restLeft -= dt;
         visitor.patience -= dt;
         if (visitor.patience <= 0) this.giveUp(visitor);
-        else if (visitor.restLeft <= 0) this.next(visitor);
+        else if (visitor.restLeft <= 0) {
+          const booth = this.booth;
+          if (visitor.ticket) this.next(visitor);
+          else if (booth && booth.line.length < booth.spots) {
+            booth.coming++;
+            visitor.heading = booth;
+            this.joinCounter(visitor, booth);
+          } else visitor.restLeft = IDLE_SECONDS;
+        }
       }
     }
     return playerWorking;
@@ -556,6 +580,23 @@ export class ParkCrowd {
     visitor.heading = booth;
     booth.coming++;
     visitor.path = [{ x: enter[0]!.x, z: this.layout.walkwayZ }, ...enter];
+  }
+
+  /** A busload: `count` visitors step off at `at`, one behind another, and head for the ticket booth. */
+  spawnGroup(at: Point, count: number): number {
+    const booth = this.booth;
+    if (!this.open || !booth) return 0;
+    const room = Math.max(0, PARK.visitors.max + PARK.bus.extra - this.visitors.length);
+    const n = Math.min(count, room);
+    const { enter } = booth.spot;
+    for (let i = 0; i < n; i++) {
+      const from = { x: at.x + i * 0.55, z: at.z };
+      const visitor = this.newVisitor(from, this.random() < PARK.visitors.childChance, PARK.visitors.patience * (1 + this.patienceBonus()));
+      visitor.heading = booth;
+      booth.coming++;
+      visitor.path = [{ x: from.x, z: this.layout.walkwayZ }, ...enter];
+    }
+    return n;
   }
 
   /** Their wish list, once they have a ticket: every ride, and each stall they fancy, in a random order. */
@@ -849,7 +890,11 @@ export class ParkCrowd {
             visitor.heading = null;
             visitor.wishes = visitor.wishes.filter((w) => w !== counter.id);
             if (visitor.ticket) this.next(visitor);
-            else this.giveUp(visitor);
+            else {
+              // The ticket line's full (a busload came at once): they wait about and try again.
+              visitor.step = 'idle';
+              visitor.restLeft = IDLE_SECONDS;
+            }
           }
           return;
         }
@@ -926,6 +971,15 @@ export class ParkCrowd {
         return;
     }
   }
+}
+
+/** 0 by day, 1 at night: the park's day of `day` seconds, then an evening, fading between. */
+export function eveningAt(seconds: number, rules: { day: number; evening: number; fade: number }): number {
+  const t = seconds % (rules.day + rules.evening);
+  if (t < rules.day - rules.fade) return 0;
+  if (t < rules.day) return (t - (rules.day - rules.fade)) / rules.fade;
+  if (t < rules.day + rules.evening - rules.fade) return 1;
+  return 1 - (t - (rules.day + rules.evening - rules.fade)) / rules.fade;
 }
 
 /** Middle of a rect. */
