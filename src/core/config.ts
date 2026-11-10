@@ -84,6 +84,8 @@ export interface PadEffects {
   evenings?: boolean;
   /** Tour buses stop by the park now and then, each bringing a crowd. */
   bus?: boolean;
+  /** A fireworks show over the lake every evening: a night crowd, and night rides pay more. */
+  fireworks?: boolean;
   /** A field of plots growing this crop (crops.json). */
   field?: string;
   /** Crops grow this much faster, e.g. 0.35 = 35% (the well). */
@@ -387,6 +389,22 @@ export interface RideSpot {
   steps?: Point;
   /** The queue ropes, each from one post to the other (two points). */
   ropes: Point[][];
+  /** A station platform people walk on (instead of a round one about the middle), reached by steps or stairs. */
+  deck?: Rect;
+  /** A ride that runs round a track (the log flume, the coaster). */
+  track?: TrackSpot;
+}
+
+/**
+ * A ride's track: a closed loop through these points (x, z, and the height
+ * of a car's middle), starting at the station's middle heading +x. Lifts
+ * (from one point to another, by index) haul the cars up at a steady speed;
+ * a splash pool sits where the flume comes down.
+ */
+export interface TrackSpot {
+  points: number[][];
+  lifts?: number[][];
+  pool?: Point & { r: number };
 }
 
 /** A theme park's map (Chapter 3): the shared map, the ticket booth and stalls, the rides and the paths between them. */

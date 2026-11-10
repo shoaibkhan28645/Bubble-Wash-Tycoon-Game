@@ -28,13 +28,15 @@ import type { SoundManager } from '../audio/sound';
 import type { Look, Stage } from '../render/stage';
 import { withShadows } from '../render/stage';
 import { CameraRig } from '../render/cameraRig';
+import { Fireworks } from '../render/effects/fireworks';
 import { Particles } from '../render/effects/particles';
 import { copies, parkland, ropes } from '../render/parkland';
 import { DeliveryTruck, LitterView } from '../render/parkProps';
 import { loadPeople } from '../render/assets';
 import { blobShadows } from '../render/models/actors';
-import { nightGlow, skinnedToyMaterial } from '../render/models/build';
-import { warmRigidSkin } from '../render/models/rigid';
+import { nightGlow, skinnedToyMaterial, toyMaterial } from '../render/models/build';
+import { rigidSkin, warmRigidSkin } from '../render/models/rigid';
+import { ConstructionSites } from '../render/models/site';
 import { PARK_SOLIDS, RideView, Spinners, overRide, parkModel, parkPadModel } from '../render/models/park';
 import { PadModel } from '../render/models/padModel';
 import { PersonAvatar, type Tool } from '../render/models/person';
@@ -51,6 +53,7 @@ import { PadSystem } from '../systems/pads';
 import { Litter, type LitterPiece } from '../systems/litter';
 import { ParkCrowd, eveningAt, middleOf, type Launch, type ParkAvatar, type ParkVisitor, type Ride } from '../systems/park';
 import { ParkSupplies, STALL_SUPPLY, type ParkSupply, type SupplyStall } from '../systems/parkSupplies';
+import { PLUSH, shelf, shelfBonus, winPlush } from '../systems/prizes';
 import { Player } from '../systems/player';
 import { StaffSystem } from '../systems/staff';
 import { unlockedSum } from '../systems/arrivals';
@@ -98,6 +101,7 @@ const STALL_GOODS: Record<string, { tool: Tool; icon: string }> = {
   cart: { tool: 'floss', icon: '🍭' },
   ringtoss: { tool: 'plush', icon: '🧸' },
   burger: { tool: 'burger', icon: '🍔' },
+  giftshop: { tool: 'balloon', icon: '🎈' },
 };
 /** The supplies' icons. */
 const SUPPLY_ICONS: Record<ParkSupply, string> = { sugar: '🍬', buns: '🥯', prizes: '🎁' };
@@ -189,7 +193,8 @@ export function createParkGame(
   const level = (key: string) => state.levels[key] ?? 0;
   const player = new Player(stage.scene, layout.playerStart, TUNING.player, () => 1 + levelStep(UPGRADES.kinds.walk, level('player.walk')) + perk(state, 'walk'));
   player.onFootstep(() => sound.play('step'));
-  const cash = new CashSystem(stage.scene, layout, TUNING.cash, state, effects, sound);
+  // The park takes far more a ride than a car wash: its piles hold more before the cashier comes.
+  const cash = new CashSystem(stage.scene, layout, { ...TUNING.cash, pileCap: PARK.pileCap }, state, effects, sound);
   const floaters = new Floaters(labels);
   // The hero's back: boxes of supplies from the shed to the stalls.
   const heroCarry = new Carrier<ParkSupply>(player.mesh, () => player.position, () => TUNING.supplies.carryBase + levelStep(UPGRADES.kinds.carry, level('player.carry')));
@@ -206,6 +211,9 @@ export function createParkGame(
   const launchedFlag = `launched:${current.id}`;
   const fullFlag = `fullhouse:${current.id}`;
   const count = (key: string, n = 1) => (state.counts[key] = (state.counts[key] ?? 0) + n);
+  /** How far into the evening it is (0 by day, 1 at night), and whether the fireworks barge is built. */
+  let evening = 0;
+  const fireworksBuilt = (): boolean => state.unlocked.some((id) => current.pads.find((p) => p.id === id)?.effects.fireworks);
 
   // The buildings: each pad's model grows into place, and what's solid about it stops the player (and visitors walk round).
   const solids: Rect[] = [];
@@ -222,11 +230,26 @@ export function createParkGame(
     mesh.scale.setScalar(0.001);
     growing.push({ mesh, age: 0 });
   };
+  /** The Starlight Wheel's wheel and its gondolas (kept level as it turns), and the fireworks barge, bobbing on the lake. */
+  let wheel: { spin: Object3D; cars: Object3D[] } | null = null;
+  let barge: Object3D | null = null;
   const showBuilding = (id: string, animate: boolean): void => {
     const at = layout.buildAt[id] ?? layout.pads[id];
     const mesh = parkPadModel(id);
     if (!mesh || !at) return;
     mesh.position.set(at.x, 0, at.z);
+    if (id === 'wheel') {
+      rigidSkin(mesh, toyMaterial, 'pk_wheel', skinnedToyMaterial);
+      const spin = mesh.getObjectByName('pk_wheel_wheel');
+      const cars: Object3D[] = [];
+      for (let k = 0; ; k++) {
+        const car = mesh.getObjectByName(`pk_wheel_gondola${k}`);
+        if (!car) break;
+        cars.push(car);
+      }
+      if (spin) wheel = { spin, cars };
+    }
+    if (id === 'fireworks') barge = mesh;
     stage.scene.add(withShadows(mesh));
     spinners.watch(mesh);
     grow(mesh, animate);
@@ -271,7 +294,19 @@ export function createParkGame(
     // In a storm the stalls do a roaring trade (the booth doesn't: nobody comes to a park in the rain for its own sake).
     const storm = crowd.storm && !ticket ? PARK.storm.pay : 1;
     const pay = Math.round(base * quality(counter.id) * payBonus() * storm * (crowd.rush?.payMultiplier ?? 1));
-    if (counter.kind === 'ringtoss') count('prizes');
+    if (counter.kind === 'ringtoss') {
+      count('prizes');
+      // Now and then the prize is a plush the shelf hasn't got yet.
+      const plush = winPlush(state);
+      if (plush) {
+        count('shelf');
+        const won = shelf(state).length;
+        floaters.show(`${plush.icon} ${t('newPlush', { found: won, all: PLUSH.length })}`, new Vector3(counter.at.x, 3.2, counter.at.z), 'star');
+        effects.burst('confetti', new Vector3(counter.at.x, 2.4, counter.at.z), 24, 4, 0.8);
+        sound.play('reward');
+        void saves.saveNow();
+      }
+    }
     const tip = tipFor(pay, visitor.patience / visitor.patienceMax, TUNING.customers);
     cash.add(counter.id, pay + tip);
     const at = layout.piles[counter.id] ?? counter.at;
@@ -290,7 +325,8 @@ export function createParkGame(
   const onLaunch = (ride: Ride, launch: Launch): void => {
     const rules = PARK.rides;
     const storm = crowd.storm && ride.def.indoor ? PARK.storm.pay : 1;
-    const seat = ride.def.price * quality(ride.id) * payBonus() * storm * (crowd.rush?.payMultiplier ?? 1);
+    const night = fireworksBuilt() && evening >= 0.5 ? 1 + PARK.fireworks.nightPay : 1;
+    const seat = ride.def.price * quality(ride.id) * payBonus() * storm * night * (1 + shelfBonus(shelf(state).length)) * (crowd.rush?.payMultiplier ?? 1);
     const pay = Math.round(launch.riders * seat * (launch.full ? 1 + rules.fullBonus : 1));
     const tip = launch.perfect ? Math.round(pay * rules.perfectTip) : 0;
     cash.add(ride.id, pay + tip);
@@ -317,7 +353,8 @@ export function createParkGame(
   const crowd = new ParkCrowd(
     layout,
     state,
-    () => unlockedSum(state, (e) => e.arrivalBonus),
+    // With fireworks, half as many visitors again come for the evening show.
+    () => unlockedSum(state, (e) => e.arrivalBonus) + (fireworksBuilt() ? PARK.fireworks.crowd * evening : 0),
     () => unlockedSum(state, (e) => e.patienceBonus) - litter.patiencePenalty,
     makeAvatar,
     route,
@@ -373,15 +410,21 @@ export function createParkGame(
   };
   // The ride operator's round: to the lever of the ride that needs launching (full, or a rider kept waiting longest).
   staff.walkPlans.operator = () => {
-    const ready = crowd.rides.filter((r) => r.phase === 'loading' && r.seated > 0 && !r.broken && !r.paused && r.id !== 'boats');
+    const ready = crowd.rides.filter((r) => r.phase === 'loading' && r.seated > 0 && !r.broken && !r.paused && r.id !== 'boats' && !r.def.track);
     if (ready.length === 0) return null;
     const best = ready.reduce((a, b) => (Number(b.full) - Number(a.full) || b.waited - a.waited) > 0 ? b : a);
     return best.spot.lever;
   };
   const near = (p: Point | null, q: Point, reach: number) => !!p && Math.hypot(p.x - q.x, p.z - q.z) <= reach;
-  const staffAt = (role: 'mechanic' | 'janitor' | 'boats' | 'mascot'): Point | null => {
+  const staffAt = (role: 'mechanic' | 'janitor' | 'boats' | 'mascot' | 'crew'): Point | null => {
     const avatar = staff.avatarOf(role);
     return avatar ? { x: avatar.root.position.x, z: avatar.root.position.z } : null;
+  };
+  // The coaster crew: from the coaster's lever to the flume's, to whichever has riders waiting (a full one first).
+  staff.walkPlans.crew = () => {
+    const ready = crowd.rides.filter((r) => r.def.track && r.phase === 'loading' && r.seated > 0 && !r.broken && !r.paused);
+    if (ready.length === 0) return crowd.rides.find((r) => r.id === 'coaster')?.spot.lever ?? null;
+    return ready.reduce((a, b) => ((Number(b.full) - Number(a.full) || b.waited - a.waited) > 0 ? b : a)).spot.lever;
   };
   // The dock hand stays by the jetty and sends the boats off.
   staff.walkPlans.boats = () => crowd.ride('boats')?.spot.lever ?? null;
@@ -421,6 +464,18 @@ export function createParkGame(
     view.onBump = (at) => {
       effects.burst('sparkle', at, 6, 2.5, 0.5);
       sound.play('pop');
+    };
+    // The flume's logs splash down into the pool; the coaster's riders scream over the top.
+    view.onMark = (kind, at) => {
+      if (kind === 'splash') {
+        effects.burst('water', new Vector3(at.x, 0.7, at.z), 40, 5.5, 1.2);
+        effects.burst('bubble', new Vector3(at.x, 0.6, at.z), 10, 2, 1.4);
+        floaters.show('💦', new Vector3(at.x, 2.4, at.z), 'star');
+        sound.play('spray');
+      } else {
+        floaters.show(`😱 ${t('coasterDrop')}`, new Vector3(at.x, at.y + 2.2, at.z), 'star');
+        effects.burst('sparkle', new Vector3(at.x, at.y + 1, at.z), 10, 3, 1);
+      }
     };
     ride.wear = state.supplies[`wear.${id}`] ?? 0;
     ride.broken = (state.supplies[`broken.${id}`] ?? 0) > 0;
@@ -527,6 +582,12 @@ export function createParkGame(
     entry.el.classList.toggle('is-empty', empty);
     labels.remeasure(entry.label);
   };
+  // The prize shelf's count over the gift shop, once it's open.
+  const shelfLabel = stockLabel(layout.buildAt.giftshop ?? layout.pads.giftshop ?? { x: 0, z: 0 }, STOCK_LABEL_Y + 0.8);
+  const showShelf = (): void => {
+    const open = state.unlocked.includes('giftshop');
+    showLabel(shelfLabel, open ? t('prizeShelf', { found: shelf(state).length, all: PLUSH.length }) : null);
+  };
   const showStock = (): void => {
     for (const stall of stalls()) {
       let entry = stallLabels.get(stall.id);
@@ -544,6 +605,8 @@ export function createParkGame(
   for (const pad of current.pads) if (pad.cost === 0 && !state.unlocked.includes(pad.id)) state.unlocked.push(pad.id);
   for (const id of state.unlocked) addBuilt(id, false);
 
+  const sites = new ConstructionSites(stage.scene, labels, layout);
+  for (const id of Object.keys(state.building)) sites.show(id);
   const pads = new PadSystem(
     stage.scene,
     layout,
@@ -561,20 +624,27 @@ export function createParkGame(
         flag(`ended:${current.id}`);
         showEndScreen(root, () => meta.screenClosed(), { title: t('endTitlePark'), body: t('endBodyPark') });
       }
+      // The highway to the next town: off the hero goes, once it has popped in. A town this version doesn't have yet
+      // ends the chapter instead.
       const next = done?.travel;
-      if (next && townIds().includes(next)) {
+      if (next) {
         flag(`ended:${current.id}`);
-        setTimeout(() => void travelTo(next), TRAVEL_DELAY_MS);
+        if (townIds().includes(next)) setTimeout(() => void travelTo(next), TRAVEL_DELAY_MS);
+        else showEndScreen(root, () => meta.screenClosed(), { title: t('endTitleStarlight'), body: t('endBodyStarlight') });
       }
     },
-    () => {
+    (id) => {
+      sites.show(id);
       stage.refreshShadows();
       view.refit();
       void saves.saveNow();
     },
   );
   const finishBuilds = (): void => {
-    for (const id of takeFinished(state, Date.now())) pads.finishConstruction(id);
+    for (const id of takeFinished(state, Date.now())) {
+      sites.remove(id);
+      pads.finishConstruction(id);
+    }
   };
 
   const panel = new UpgradePanel(root, (key) => upgrades.buy(key), () => {});
@@ -610,7 +680,10 @@ export function createParkGame(
   };
   const lever = (ride: Ride) => ({
     hero: near(player.position, ride.spot.lever, LEVER_REACH),
-    staff: near(operatorAt(), ride.spot.lever, LEVER_REACH) || (ride.id === 'boats' && near(staffAt('boats'), ride.spot.lever, LEVER_REACH)),
+    staff:
+      near(operatorAt(), ride.spot.lever, LEVER_REACH) ||
+      (ride.id === 'boats' && near(staffAt('boats'), ride.spot.lever, LEVER_REACH)) ||
+      (!!ride.def.track && near(staffAt('crew'), ride.spot.lever, LEVER_REACH)),
     mechanic: near(staffAt('mechanic'), ride.spot.lever, LEVER_REACH),
   });
 
@@ -684,7 +757,7 @@ export function createParkGame(
     false,
   );
   let busTimer = PARK.bus.seconds / 3;
-  const built = (effect: 'evenings' | 'bus') => state.unlocked.some((id) => current.pads.find((p) => p.id === id)?.effects[effect]);
+  const built = (effect: 'evenings' | 'bus' | 'fireworks') => state.unlocked.some((id) => current.pads.find((p) => p.id === id)?.effects[effect]);
   // The day turns to evening and back, once the lights are up; the storm comes with the haunted house.
   let dayTime = 0;
   let stormLeft = 0;
@@ -696,6 +769,10 @@ export function createParkGame(
   root.appendChild(flash);
   // The dev console can jump the park's clock (to see the evening) and end the storm.
   if (import.meta.env.DEV) Object.assign(window, { parkClock: (t: number, storm = stormLeft) => ((dayTime = t), (stormLeft = storm)) });
+  let showing = false;
+  let rocketTimer = 0;
+  const fireworks = new Fireworks(stage.scene, PARK.fireworks.sparks);
+  fireworks.onBurst = () => sound.play('pop');
   let mascotWave = 0;
   let photoTimer = PARK.mascot.photoSeconds;
   const fixed = fixedSolids(layout);
@@ -785,7 +862,7 @@ export function createParkGame(
     stormLeft = Math.max(0, stormLeft - dt);
     crowd.storm = stormLeft > 0;
     stormMix += ((crowd.storm ? 1 : 0) - stormMix) * Math.min(1, dt * 0.6);
-    const evening = built('evenings') ? eveningAt(dayTime, PARK.evening) : 0;
+    evening = built('evenings') ? eveningAt(dayTime, PARK.evening) : 0;
     nightGlow.value = Math.max(evening, stormMix * 0.6);
     stage.setLook(mixLook(mixLook(PARK_LOOK, PARK_EVENING, evening), PARK_STORM, stormMix));
     if (stormMix > 0.05) {
@@ -802,6 +879,30 @@ export function createParkGame(
         void flash.offsetWidth;
         flash.classList.add('is-on');
       }
+    }
+    // The fireworks show over the lake, every evening once there's a barge.
+    const show = fireworksBuilt() && evening > 0.6;
+    if (show && !showing) count('shows');
+    showing = show;
+    if (show) {
+      rocketTimer -= dt;
+      if (rocketTimer <= 0) {
+        const [low, high] = PARK.fireworks.rocketSeconds as [number, number];
+        rocketTimer = low + Math.random() * (high - low);
+        const from = layout.buildAt.fireworks ?? layout.lake;
+        fireworks.launch(new Vector3(from.x + (Math.random() - 0.5) * 2.4, 1.2, from.z + (Math.random() - 0.5) * 1.6), 9 + Math.random() * 5);
+      }
+    }
+    fireworks.update(dt);
+    // The Starlight Wheel turns slowly, its gondolas hanging level; the barge bobs on the water.
+    if (wheel) {
+      wheel.spin.rotation.z += PARK.wheel.turn * dt;
+      for (const car of wheel.cars) car.rotation.z = -wheel.spin.rotation.z;
+    }
+    if (barge) {
+      barge.position.y = 0.05 * Math.sin(dayTime * 1.4 + state.playSeconds * 0.9);
+      barge.rotation.z = 0.025 * Math.sin(state.playSeconds * 1.1);
+      barge.rotation.x = 0.02 * Math.sin(state.playSeconds * 0.8);
     }
     // The tour bus.
     if (built('bus')) {
@@ -838,6 +939,8 @@ export function createParkGame(
     showStock();
     spinners.update(dt);
     if (cash.update(player.position)) flag('collected');
+    sites.update(state, Date.now());
+    showShelf();
     floaters.update(dt);
     buildTimer -= dt;
     if (buildTimer <= 0) {
@@ -925,6 +1028,7 @@ export function createParkGame(
     dispose() {
       loop.stop();
       nightGlow.value = 0;
+      fireworks.dispose();
       for (const cleanup of cleanups) cleanup();
       input.dispose();
       panel.dispose();

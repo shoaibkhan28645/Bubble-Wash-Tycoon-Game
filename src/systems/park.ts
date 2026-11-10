@@ -48,6 +48,10 @@ export interface RideDef {
   indoor?: boolean;
   /** A dark ride: riders go in at the door and aren't seen until they come out. */
   inside?: boolean;
+  /** Runs round a track (the layout's): its cars leave the station and come back. */
+  track?: 'flume' | 'coaster';
+  /** A station's steps or stairs: how far out from its deck they reach the ground (metres). */
+  ramp?: number;
 }
 
 export const RIDES = ridesJson as Record<string, RideDef>;
@@ -55,6 +59,8 @@ export const RIDES = ridesJson as Record<string, RideDef>;
 const PARK = TUNING.park;
 const RULES = PARK.rides;
 
+/** The stall visitors look in on their way out (not on their wish lists). */
+const GIFT_SHOP = 'giftshop';
 /** The first visitor at a new park waits this long (as good as for ever). */
 const FIRST_PATIENCE = 3600;
 /** Seconds a visitor hangs about before looking again, when every line they want is full. */
@@ -111,6 +117,8 @@ export class ParkVisitor extends Visitor {
   /** What they last bought at a stall (a stall's kind: what they're holding), and seconds until they've finished it. */
   bought: string | null = null;
   snackLeft = 0;
+  /** Had their look in the gift shop on the way out (or passed it by). */
+  shopped = false;
 
   constructor(
     override readonly avatar: ParkAvatar | null,
@@ -253,8 +261,15 @@ export class Ride {
     return true;
   }
 
-  /** Up on the platform, or not. */
+  /** Up on the platform, or not (or partway up a station's stairs). */
   heightAt(p: Point): number {
+    const deck = this.spot.deck;
+    if (deck) {
+      const out = Math.hypot(Math.max(deck.minX - p.x, 0, p.x - deck.maxX), Math.max(deck.minZ - p.z, 0, p.z - deck.maxZ));
+      const ramp = this.def.ramp ?? 0;
+      if (out <= 0) return this.def.deck;
+      return ramp > 0 && out < ramp ? this.def.deck * (1 - out / ramp) : 0;
+    }
     return Math.hypot(p.x - this.spot.at.x, p.z - this.spot.at.z) < this.def.plinth - 0.1 ? this.def.deck : 0;
   }
 
@@ -599,19 +614,29 @@ export class ParkCrowd {
     return n;
   }
 
-  /** Their wish list, once they have a ticket: every ride, and each stall they fancy, in a random order. */
+  /**
+   * Their wish list, once they have a ticket: two to four of the rides and
+   * stalls built, picked by how popular each is (rides.json `wish`, and the
+   * stalls' in tuning.json), in the order they'll go. Everyone wants at least
+   * one ride.
+   */
   private wishList(): string[] {
-    const wishes = this.rides.filter((r) => this.random() < r.def.wish).map((r) => r.id);
-    // Everyone wants at least one ride.
-    if (wishes.length === 0 && this.rides.length > 0) wishes.push(this.rides[Math.floor(this.random() * this.rides.length)]!.id);
-    for (const counter of this.counters) {
-      const chance = (PARK.wishes as Record<string, number | number[]>)[counter.kind];
-      if (counter !== this.booth && typeof chance === 'number' && this.random() < chance) wishes.push(counter.id);
+    const options = [
+      ...this.rides.map((r) => ({ id: r.id, weight: r.def.wish })),
+      ...this.counters.flatMap((c) => {
+        const weight = (PARK.wishes as Record<string, number | number[]>)[c.kind];
+        return c !== this.booth && typeof weight === 'number' ? [{ id: c.id, weight }] : [];
+      }),
+    ];
+    const [low, high] = PARK.wishes.count as [number, number];
+    const n = Math.min(options.length, low + Math.floor(this.random() * (high - low + 1)));
+    const wishes: string[] = [];
+    while (wishes.length < n) {
+      let pick = this.random() * options.reduce((sum, o) => sum + o.weight, 0);
+      const i = options.findIndex((o) => (pick -= o.weight) < 0);
+      wishes.push(options.splice(i < 0 ? options.length - 1 : i, 1)[0]!.id);
     }
-    for (let i = wishes.length - 1; i > 0; i--) {
-      const j = Math.floor(this.random() * (i + 1));
-      [wishes[i], wishes[j]] = [wishes[j]!, wishes[i]!];
-    }
+    if (this.rides.length > 0 && !wishes.some((w) => this.ride(w))) wishes[0] = this.rides[Math.floor(this.random() * this.rides.length)]!.id;
     return wishes;
   }
 
@@ -629,7 +654,8 @@ export class ParkCrowd {
       visitor.bought = counter.kind;
       if (visitor.avatar) visitor.avatar.holding = true;
       const [low, high] = PARK.litter.afterSeconds as [number, number];
-      visitor.snackLeft = low + (high - low) * this.random();
+      // A souvenir goes home with them; a snack's wrapper gets dropped when it's finished.
+      visitor.snackLeft = counter.kind === GIFT_SHOP ? 0 : low + (high - low) * this.random();
     }
     visitor.state = 'leaving';
     visitor.step = 'walking';
@@ -648,6 +674,12 @@ export class ParkCrowd {
       visitor.step = 'toRest';
       visitor.path = this.route(visitor.at, seat.at);
       return;
+    }
+    // Done: on the way out, a look in the gift shop (if there's room in its line, and they fancy it).
+    if (visitor.wishes.length === 0 && !visitor.shopped) {
+      visitor.shopped = true;
+      const shop = this.counters.find((c) => c.kind === GIFT_SHOP);
+      if (shop && shop.line.length + shop.coming < shop.spots && this.random() < PARK.giftshop.chance) visitor.wishes = [shop.id];
     }
     const busy = (id: string): number => {
       const ride = this.ride(id);

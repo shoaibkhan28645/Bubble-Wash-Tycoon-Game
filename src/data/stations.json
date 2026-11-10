@@ -63,5 +63,10 @@
     "name": "Candy floss cart", "type": "service", "customer": "walker", "flow": "till", "serves": "candy", "stages": [],
     "seconds": 1.5, "supply": null, "size": null, "padding": 0.4, "workSpot": null,
     "ring": "beside", "fx": "none", "queueSpots": 4
+  },
+  "giftshop": {
+    "name": "Gift shop", "type": "service", "customer": "walker", "flow": "till", "serves": "souvenir", "stages": [],
+    "seconds": 1.4, "supply": null, "size": null, "padding": 0.4, "workSpot": null,
+    "ring": "beside", "fx": "none", "queueSpots": 4
   }
 }

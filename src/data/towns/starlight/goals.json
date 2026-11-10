@@ -8,32 +8,10 @@
       "gems": 15
     },
     {
-      "id": "riders",
-      "count": "riders",
-      "goal": 100,
-      "gems": 20
-    },
-    {
-      "id": "perfect",
-      "count": "perfect",
-      "goal": 10,
-      "gems": 20
-    },
-    {
-      "id": "teacups",
-      "built": "teacups",
-      "gems": 20
-    },
-    {
       "id": "fixes",
       "count": "fixes",
       "goal": 10,
       "gems": 20
-    },
-    {
-      "id": "stars",
-      "stars": 5,
-      "gems": 15
     },
     {
       "id": "perfectDay",
@@ -42,10 +20,31 @@
       "gems": 20
     },
     {
-      "id": "prizes",
-      "count": "prizes",
-      "goal": 6,
+      "id": "stars",
+      "stars": 5,
       "gems": 15
+    },
+    {
+      "id": "shelf",
+      "count": "shelf",
+      "goal": 6,
+      "gems": 20
+    },
+    {
+      "id": "coaster",
+      "built": "coaster",
+      "gems": 25
+    },
+    {
+      "id": "fireworks",
+      "count": "shows",
+      "goal": 1,
+      "gems": 20
+    },
+    {
+      "id": "wheel",
+      "built": "wheel",
+      "gems": 30
     }
   ]
 }

@@ -6,5 +6,6 @@
   "ticket": { "name": "Park ticket", "icon": "🎟️", "payFactor": 1 },
   "candy": { "name": "Candy floss", "icon": "🍭", "payFactor": 1 },
   "prize": { "name": "A go at ring toss", "icon": "🧸", "payFactor": 1 },
-  "burger": { "name": "Burger", "icon": "🍔", "payFactor": 1 }
+  "burger": { "name": "Burger", "icon": "🍔", "payFactor": 1 },
+  "souvenir": { "name": "Souvenir", "icon": "🎈", "payFactor": 1 }
 }

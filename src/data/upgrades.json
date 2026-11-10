@@ -160,24 +160,28 @@
     "baker": 3,
     "market": 3,
     "marketstaff": 3,
-    "booth": 6,
-    "cart": 8,
-    "seller": 8,
-    "carousel": 8,
-    "operator": 10,
-    "teacups": 9,
-    "bumper": 8,
-    "ringtoss": 9,
-    "burger": 10,
-    "vendor": 10,
-    "mechanic": 10,
-    "snackrunner": 10,
-    "janitor": 12,
-    "shed": 8,
-    "swings": 12,
-    "boats": 14,
-    "haunted": 16,
-    "mascot": 16
+    "booth": 60,
+    "cart": 75,
+    "seller": 80,
+    "carousel": 60,
+    "operator": 150,
+    "teacups": 250,
+    "bumper": 125,
+    "ringtoss": 200,
+    "burger": 300,
+    "vendor": 300,
+    "mechanic": 250,
+    "snackrunner": 300,
+    "janitor": 400,
+    "shed": 120,
+    "swings": 700,
+    "boats": 900,
+    "haunted": 1100,
+    "mascot": 1100,
+    "flume": 1800,
+    "giftshop": 2000,
+    "coaster": 3000,
+    "crew": 3000
   },
   "panels": {
     "bay1": [
@@ -321,6 +325,22 @@
       "snackrunner.staffCarry",
       "snackrunner.staffSpeed",
       "janitor.staffSpeed"
+    ],
+    "flume": [
+      "flume.speed",
+      "flume.quality",
+      "flume.sturdy"
+    ],
+    "giftshop": [
+      "giftshop.speed",
+      "giftshop.quality",
+      "seller.staffSpeed"
+    ],
+    "coaster": [
+      "coaster.speed",
+      "coaster.quality",
+      "coaster.sturdy",
+      "crew.staffSpeed"
     ]
   }
 }

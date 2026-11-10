@@ -42,6 +42,7 @@ const ROLES = {
   janitor: 'janitor',
   boats: 'dockhand',
   mascot: 'mascot',
+  crew: 'crew',
 } as const;
 export type Role = keyof typeof ROLES;
 
@@ -71,7 +72,7 @@ const WORKS: Record<Role, StationKind[]> = {
   baker: [],
   marketstaff: ['stall'],
   orchardhand: [],
-  seller: ['booth', 'cart'],
+  seller: ['booth', 'cart', 'giftshop'],
   operator: [],
   vendor: ['ringtoss', 'burger'],
   mechanic: [],
@@ -79,6 +80,7 @@ const WORKS: Record<Role, StationKind[]> = {
   janitor: [],
   boats: [],
   mascot: [],
+  crew: [],
 };
 
 /** Roles that carry a stack on their back: supplies, or crates of produce. */

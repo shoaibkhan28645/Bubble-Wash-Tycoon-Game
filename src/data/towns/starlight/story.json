@@ -191,6 +191,68 @@
       "body": "The park now has someone to collect the takings from the rides and stalls. The owner has his hands free for bigger plans.",
       "speaker": "mentor",
       "words": "The big rides next: a log flume, a roller coaster to beat MegaLand, and fireworks over the lake."
+    },
+    {
+      "id": "flume",
+      "when": {
+        "built": "flume"
+      },
+      "icon": "💦",
+      "headline": "Splash! Log flume opens at Starlight",
+      "body": "Hollowed logs float round the Thrill Zone's new flume, up the lift and down into the splash pool. Riders come off soaked and go straight back to the end of the line.",
+      "speaker": "mentor",
+      "words": "Mind you don't stand too near the pool. The Thrill Zone's open!"
+    },
+    {
+      "id": "giftshop",
+      "when": {
+        "built": "giftshop"
+      },
+      "icon": "🎁",
+      "headline": "Gift shop opens by the gate",
+      "body": "Starlight's new gift shop sells balloons, hats and plush toys to visitors on their way home, and shows off the park's prize shelf of plush toys won at ring toss.",
+      "speaker": "mentor",
+      "words": "Everyone wants something to take home. And look at that prize shelf: win the whole set!"
+    },
+    {
+      "id": "fireworks",
+      "when": {
+        "built": "fireworks"
+      },
+      "icon": "🎆",
+      "headline": "First fireworks over Starlight Lake",
+      "body": "Rockets burst over the water as the sun went down at Starlight tonight. Crowds now stay late for the show, and the rides are busier than ever after dark.",
+      "speaker": "mentor",
+      "words": "Fireworks every evening! Folk come for the show and ride till the end. Night rides pay more."
+    },
+    {
+      "id": "coaster",
+      "when": {
+        "built": "coaster"
+      },
+      "icon": "🎢",
+      "headline": "MegaLand closes; the crowds come home",
+      "body": "The Starlight Comet, a pink roller coaster with a loop and a drop over the lake, opened today, and MegaLand across the water has closed its gates. Its crowds came straight over the bridge.",
+      "speaker": "rival",
+      "words": "A loop-the-loop. Fine. You win this one. I hear Bay City's looking for someone with ideas...",
+      "effect": {
+        "rush": {
+          "seconds": 150,
+          "dirt": "muddy",
+          "payMultiplier": 1.5
+        }
+      }
+    },
+    {
+      "id": "landmark",
+      "when": {
+        "built": "wheel"
+      },
+      "icon": "🎡",
+      "headline": "The Starlight Wheel shines over the town",
+      "body": "The giant Starlight Wheel turned for the first time tonight, lit from rim to hub like a star. It can be seen from all over town, and every ticket at the park is worth more for it.",
+      "speaker": "mentor",
+      "words": "The city's been asking about you. Downtown is next. The highway's open whenever you're ready."
     }
   ]
 }

@@ -32,7 +32,7 @@ const MAX_CATCH_UP = 1;
 
 type Pose = 'idle' | GaitPose | 'scrub' | 'sit' | 'ride';
 /** What a person holds while working. */
-export type Tool = 'sponge' | 'towel' | 'polisher' | 'nozzle' | 'bag' | 'clipboard' | 'can' | 'soda' | 'floss' | 'plush' | 'burger' | 'wrench' | 'broom';
+export type Tool = 'sponge' | 'towel' | 'polisher' | 'nozzle' | 'bag' | 'clipboard' | 'can' | 'soda' | 'floss' | 'plush' | 'burger' | 'wrench' | 'broom' | 'balloon';
 
 const TOOL_PARTS: Record<Tool, Part[]> = {
   sponge: [{ geometry: rbox(0.13, 0.07, 0.09, 0.03), color: '#ffd24a' }],
@@ -92,6 +92,12 @@ const TOOL_PARTS: Record<Tool, Part[]> = {
   broom: [
     { geometry: cylinder(0.015, 0.8, 6), color: '#c98a52', y: -0.15 },
     { geometry: box(0.2, 0.12, 0.08), color: '#ffd24a', y: -0.58 },
+  ],
+  // A souvenir balloon from the gift shop, high on its string.
+  balloon: [
+    { geometry: cylinder(0.006, 0.62, 4), color: '#ffffff', y: 0.3 },
+    { geometry: sphere(0.15, 10), color: '#ff5fa8', y: 0.72 },
+    { geometry: sphere(0.03, 5), color: '#ff5fa8', y: 0.56 },
   ],
   // A red soda can.
   soda: [

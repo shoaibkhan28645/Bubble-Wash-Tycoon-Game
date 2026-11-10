@@ -13,7 +13,7 @@ import { insideRect } from './stations';
 export type ParkSupply = 'sugar' | 'buns' | 'prizes';
 
 /** What each kind of stall sells from. */
-export const STALL_SUPPLY: Partial<Record<string, ParkSupply>> = { cart: 'sugar', burger: 'buns', ringtoss: 'prizes' };
+export const STALL_SUPPLY: Partial<Record<string, ParkSupply>> = { cart: 'sugar', burger: 'buns', ringtoss: 'prizes', giftshop: 'prizes' };
 
 const RULES = TUNING.park.supplies;
 /** The save remembers that the shed's first load came (it, and the stalls, start full). */

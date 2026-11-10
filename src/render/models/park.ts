@@ -12,8 +12,23 @@ import { skinnedToyMaterial, toyMaterial } from './build';
 import { plate } from './kit';
 import type { PersonAvatar } from './person';
 import { rigidSkin } from './rigid';
+import { Track, trackMesh } from '../track';
 
-const FILES = ['building:park', 'building:park-midway', 'building:park-lakeside', 'building:park-carousel', 'building:park-teacups', 'building:park-bumper', 'building:park-swings', 'building:park-boats', 'building:park-haunted'];
+const FILES = [
+  'building:park',
+  'building:park-midway',
+  'building:park-lakeside',
+  'building:park-thrills',
+  'building:park-carousel',
+  'building:park-teacups',
+  'building:park-bumper',
+  'building:park-swings',
+  'building:park-boats',
+  'building:park-haunted',
+  'building:park-flume',
+  'building:park-coaster',
+  'building:park-wheel',
+];
 
 /** The named model's node in whichever park file has it (not a copy). */
 export function parkPiece(name: string): Object3D {
@@ -44,6 +59,9 @@ const PAD_MODELS: Record<string, string> = {
   ringtoss: 'pk_ringtoss',
   burger: 'pk_burger',
   shed: 'pk_shed',
+  giftshop: 'pk_giftshop',
+  fireworks: 'pk_barge',
+  wheel: 'pk_wheel',
 };
 
 /** Sign boards painted in the game (art/blender/park.py leaves them blank): words, colour, middle and size. */
@@ -56,6 +74,9 @@ const SIGNS: Record<string, { text: string; color: string; y: number; z: number;
   pk_sign: { text: 'STARLIGHT\nFUN PARK', color: '#2f80d1', y: 5.1, z: 0.18, width: 4.1, height: 1.55 },
   pk_haunted: { text: 'HAUNTED HOUSE', color: '#5c4b7d', y: 4.1, z: 3.16, width: 2.7, height: 0.5 },
   pk_bumper: { text: 'BUMPER CARS', color: '#ff5fa8', y: 4.25, z: -3.25, width: 4.0, height: 0.7 },
+  pk_flume: { text: 'LOG FLUME', color: '#3f8f4f', y: 2.75, z: 1.19, width: 2.3, height: 0.32 },
+  pk_coaster: { text: 'STARLIGHT COMET', color: '#2f80d1', y: 4.25, z: 1.72, width: 3.1, height: 0.42 },
+  pk_giftshop: { text: 'GIFTS', color: '#ff5fa8', y: 3.3, z: 0.34, width: 2.2, height: 0.4 },
 };
 
 /** Parts that turn on their own, all the time, and how fast (radians a second): stars on top, the floss bowl. */
@@ -138,6 +159,24 @@ export const PARK_SOLIDS: Record<string, [number, number, number?, number?][]> =
     [2.2, 4.0],
     [3.3, 3.3],
   ],
+  // The flume's station, the low channel along its west side, and the splash pool.
+  flume: [
+    [3.6, 1.35, 0, -0.3],
+    [0.75, 2.6, -4.5, 3.3],
+    [1.8, 1.8, 1.3, 6.6],
+  ],
+  // The coaster's station and its stairs.
+  coaster: [
+    [3.9, 1.6],
+    [0.85, 0.6, 0, -2.2],
+  ],
+  giftshop: [
+    [1.55, 0.25, 0, 1.0],
+    [1.7, 0.08, 0, -1.24],
+    [0.08, 0.6, -1.64, -0.7],
+    [0.08, 0.6, 1.64, -0.7],
+  ],
+  wheel: [[3.9, 1.8]],
 };
 
 /** Turns the always-turning parts of a model (stars, the floss bowl). */
@@ -210,6 +249,14 @@ export class RideView {
   private readonly bats: { node: Object3D; base: Vector3; wings: Object3D[] }[] = [];
   private readonly door: Object3D | null;
   private readonly ghost: { node: Object3D; base: number } | null = null;
+  /** A track ride's track, its cars (each this far along it from the station's middle when parked), and how far round the last frame. */
+  private readonly track: Track | null = null;
+  private readonly vehicles: { node: Object3D; offset: number }[] = [];
+  private lap = 0;
+  /** Where the flume's logs splash down and the coaster tips over its first drop (metres along). */
+  private readonly marks: { kind: 'splash' | 'drop'; s: number; every: boolean }[] = [];
+  /** A log splashed into the pool, or the train tipped over the top (where). */
+  onMark: ((kind: 'splash' | 'drop', at: Vector3) => void) | null = null;
   private clock = 0;
   private doorOpen = 0;
   private readonly tilt = new Quaternion();
@@ -227,7 +274,7 @@ export class RideView {
   ) {
     const name = ride.def.model;
     const model = signedModel(name);
-    rigidSkin(model, toyMaterial, name, skinnedToyMaterial);
+    const skinned = rigidSkin(model, toyMaterial, name, skinnedToyMaterial);
     model.traverse((node) => {
       node.castShadow = node.receiveShadow = true;
     });
@@ -258,6 +305,25 @@ export class RideView {
     this.door = model.getObjectByName(`${name}_door`) ?? null;
     const ghost = model.getObjectByName(`${name}_ghost`);
     if (ghost) this.ghost = { node: ghost, base: ghost.position.y };
+    // A track ride: its track drawn in the world, its cars and logs moved along it (far from the station, so never culled with it).
+    const spot = ride.spot.track;
+    if (ride.def.track && spot) {
+      const track = new Track(spot, ride.def.track);
+      this.track = track;
+      const mesh = trackMesh(track, ride.spot.deck ? [ride.spot.deck] : []);
+      mesh.position.set(-ride.spot.at.x, 0, -ride.spot.at.z);
+      this.group.add(mesh);
+      if (skinned) skinned.frustumCulled = false;
+      for (const node of [...parts('car'), ...parts('log')]) this.vehicles.push({ node, offset: node.position.x });
+      const pool = model.getObjectByName(`${name}_pool`);
+      if (pool && spot.pool) {
+        pool.position.set(spot.pool.x - ride.spot.at.x, 0, spot.pool.z - ride.spot.at.z);
+        this.marks.push({ kind: 'splash', s: track.nearest(spot.pool), every: true });
+      }
+      const top = spot.lifts?.[0];
+      if (top && ride.def.track === 'coaster') this.marks.push({ kind: 'drop', s: track.marks[top[1] ?? 0]!, every: false });
+      this.ride_();
+    }
     this.seats.push(...parts('seat').slice(0, ride.def.seats));
     // The ride's logic follows the seats where the model has them (cups spin, cars drive); a dark ride's are inside its door.
     if (ride.def.inside) ride.seatAt = () => ride.steps;
@@ -295,6 +361,7 @@ export class RideView {
       chair.node.quaternion.copy(this.tilt.setFromAxisAngle(chair.axis, out));
     }
     this.drive(dt);
+    this.ride_();
     this.sail();
     this.haunt(dt);
     if (this.arm) {
@@ -303,6 +370,35 @@ export class RideView {
       this.arm.rotation.x = LEVER_SWING * swing;
     }
     this.seatRiders();
+  }
+
+  /**
+   * A track ride: while it runs, its train (or its logs) goes once round the
+   * track, at the track's own pace (hauled up the lift, racing down the
+   * drop) squeezed into the ride's time; parked in the station otherwise.
+   */
+  private ride_(): void {
+    const { track, ride } = this;
+    if (!track) return;
+    const lap = ride.phase === 'running' ? track.distanceAt((ride.time / ride.cycle) * track.lapSeconds) : 0;
+    const at = ride.spot.at;
+    for (const { node, offset } of this.vehicles) {
+      track.frame(offset + lap, this.seen, node.quaternion);
+      node.position.set(this.seen.x - at.x, this.seen.y, this.seen.z - at.z);
+    }
+    // The splash as each log comes down into the pool; the screams as the train tips over the top.
+    if (lap > this.lap && this.onMark) {
+      for (const mark of this.marks) {
+        for (const { offset } of mark.every ? this.vehicles : this.vehicles.slice(-1)) {
+          const due = (((mark.s - offset) % track.length) + track.length) % track.length;
+          if (this.lap < due && due <= lap) {
+            track.frame(offset + lap, this.seen, this.tilt);
+            this.onMark(mark.kind, this.seen.clone());
+          }
+        }
+      }
+    }
+    this.lap = lap;
   }
 
   /**
@@ -474,6 +570,8 @@ export class RideView {
 
   /** Which way a rider faces in seat `i`, in its seat's own terms: a horse's nose, a cup's middle, a car's front. */
   private facing(i: number, seat: Object3D): number {
+    // A log or a coaster car: facing the way it goes.
+    if (this.track) return Math.PI / 2;
     if (this.bobbers.length > 0) {
       const a = this.ride.def.seatStart + (i * 2 * Math.PI) / this.ride.def.seats;
       return Math.atan2(-Math.sin(a), -Math.cos(a));
