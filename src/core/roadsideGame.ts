@@ -1,7 +1,7 @@
 import { Loop } from './loop';
 import * as platform from '../platform/youtube';
 import { GameClock } from './clock';
-import { TUNING, UPGRADES, fixedSolids, roadLaneAt, type Rect } from './config';
+import { CHARACTERS, TUNING, UPGRADES, fixedSolids, roadLaneAt, type Point, type Rect } from './config';
 import type { Game } from './game';
 import { townIds, type RoadsideTown } from './towns';
 
@@ -38,6 +38,10 @@ import { Buildings } from '../systems/buildings';
 import { PadSystem } from '../systems/pads';
 import { createMeta } from './meta';
 import { WashSounds } from '../audio/washSounds';
+import { WaitingDrivers } from '../systems/waitingDrivers';
+import { NavGrid } from '../systems/nav';
+import { PersonAvatar } from '../render/models/person';
+import { loadPeople } from '../render/assets';
 import { CarModel, blobShadows } from '../render/models/actors';
 import { FuelHoses } from '../render/models/fuel';
 import { ConstructionSites } from '../render/models/site';
@@ -119,15 +123,36 @@ export function createRoadsideGame(
     town.onPaid(paid);
     onboarding?.onPaid(paid);
   };
-  const traffic = new Traffic(pool, layout, state, cash, effects, sound, labels, floaters, onPaid, mart);
   /** Every car's footprint this frame: nobody walks through a car, parked or moving. */
   let carRects: Rect[] = [];
+  // Drivers who get out while they wait in line: a can from the vending machine, a seat on the bench.
+  let driversMade = 0;
+  const drivers = new WaitingDrivers(
+    layout,
+    (id) => state.unlocked.includes(id),
+    () => {
+      const avatar = new PersonAvatar(CHARACTERS.shoppers[driversMade++ % CHARACTERS.shoppers.length]!, 'soda');
+      stage.scene.add(avatar.root);
+      return avatar;
+    },
+    // Round what's built and round the cars (a driver from the far bay walks round the near bay's line).
+    (from: Point, to: Point) => new NavGrid(layout.walk, [...buildings.obstacles(), ...fixedSolids(layout), ...carRects], 0.3).findPath(from, to),
+    (at) => traffic.sellSnack(at),
+  );
+  /** Their people load once there's something to get out for. */
+  const loadDrivers = (): void => {
+    if (drivers.ready || !(state.unlocked.includes('bench') || state.unlocked.includes('vending'))) return;
+    loadPeople(CHARACTERS.shoppers)
+      .then(() => (drivers.ready = true))
+      .catch((error) => platform.logWarning(error));
+  };
+  const traffic = new Traffic(pool, layout, state, cash, effects, sound, labels, floaters, onPaid, mart, drivers);
   const street = createStreetLife(stage.scene, layout, pool, () => carRects);
 
   const staff = new StaffSystem(stage.scene, layout, state, labels, cash);
   Car.rules = new RoadRules(
     () => pool.active,
-    () => [player.position, ...staff.positions(), ...mart.positions(), ...street.people()],
+    () => [player.position, ...staff.positions(), ...mart.positions(), ...drivers.positions(), ...street.people()],
     (p) => roadLaneAt(layout, p),
   );
 
@@ -135,6 +160,7 @@ export function createRoadsideGame(
     buildings.show(id, animate);
     traffic.addStation(id);
     staff.hire(id);
+    if (id === 'bench' || id === 'vending') loadDrivers();
   };
   for (const id of state.unlocked) addBuilt(id, false);
 

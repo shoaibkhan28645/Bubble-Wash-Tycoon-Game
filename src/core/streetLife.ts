@@ -8,7 +8,8 @@ import { loadPeople } from '../render/assets';
 import { PersonAvatar } from '../render/models/person';
 import type { CarPool } from '../systems/cars';
 import { PassingTraffic } from '../systems/passing';
-import { Pedestrians } from '../systems/pedestrians';
+import { Pedestrians, type BenchVisit } from '../systems/pedestrians';
+import { benchSeats } from '../systems/waitingDrivers';
 
 export interface StreetLife {
   update(dt: number): void;
@@ -19,6 +20,11 @@ export interface StreetLife {
 export function createStreetLife(scene: Scene, layout: LocationLayout, pool: CarPool, cars: () => readonly Rect[]): StreetLife {
   const characters = TUNING.streetLife.characters;
   let made = 0;
+  // The benches on the lot people can walk in and sit on: each faces the way its town piece is turned.
+  const visits: BenchVisit[] = (layout.benchVisits ?? []).map((v) => {
+    const piece = layout.town.find((p) => p.model === 'prop_bench' && Math.hypot(p.x - v.bench.x, p.z - v.bench.z) < 0.1);
+    return { from: v.from, via: v.via, seats: benchSeats(v.bench, piece?.rot ?? 0) };
+  });
   const people = new Pedestrians(
     layout.walkways,
     () => {
@@ -28,6 +34,7 @@ export function createStreetLife(scene: Scene, layout: LocationLayout, pool: Car
     },
     Math.random,
     cars,
+    visits,
   );
   let ready = false;
   loadPeople(characters)

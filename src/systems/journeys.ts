@@ -170,6 +170,11 @@ export class Journeys {
   drainPatience(car: Car, dt: number): void {
     car.patience -= dt;
     if (car.patience > 0) return;
+    // Its driver is out of the car: they hurry back first, then off it storms.
+    if (car.away) {
+      car.recall = true;
+      return;
+    }
     // Out of patience: pay for what it got (fuel), honk, storm off in a puff of dust.
     this.till.payServed(car);
     this.lot.forecourt.remove(car);
@@ -213,6 +218,8 @@ export class Journeys {
     // joining later waits behind it rather than slipping into the line's front spot and blocking its way in.
     const head = lane.queue[0];
     if (!lane.idle || !head || (head.state !== 'queued' && !insideRect(head.position, this.layout.lot))) return;
+    // Its driver is out stretching their legs (on their way back now): it waits for them.
+    if (head.away) return;
     const next = lane.queue.shift()!;
     next.state = 'entering';
     next.station = lane;

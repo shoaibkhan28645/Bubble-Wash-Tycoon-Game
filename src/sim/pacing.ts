@@ -170,7 +170,8 @@ export function incomePerSecond(pads: readonly PadDef[], unlocked: ReadonlySet<s
     const vipEvery = (TUNING.vip.minSeconds + TUNING.vip.maxSeconds) / 2;
     perSecond += (ticketPay({ basePay: best, payMultiplier: vipMultiplier() }, stages, ['wash']) * bonus) / vipEvery;
   }
-  if (built('vending')) perSecond += arrivals * share('wash') * TUNING.vending.pay * 0.5;
+  // A can for the drivers who get out while the car ahead is washed (about one in five washes).
+  if (built('vending')) perSecond += arrivals * share('wash') * TUNING.vending.pay * 0.2;
   return perSecond;
 }
 

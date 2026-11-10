@@ -7,6 +7,8 @@ import { Station } from './stations';
 export interface Walker {
   readonly root: { position: { x: number; z: number; set(x: number, y: number, z: number): unknown }; rotation: { y: number }; visible: boolean };
   holding: boolean;
+  /** Sitting down (on a bench). */
+  seated?: boolean;
   update(dt: number, scrubbing?: boolean): void;
 }
 

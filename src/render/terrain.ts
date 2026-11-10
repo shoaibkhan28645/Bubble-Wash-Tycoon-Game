@@ -145,7 +145,10 @@ export function scatter(id: string, items: { x: number; z: number; s: number; r:
   return mesh;
 }
 
-/** Trimmed hedges round the lot (not on the street side), open where cars drive out; bumpy tops. */
+/** Half the width of the gap in the hedge where a garden path leads onto the lot (to its benches). */
+const GATE_HALF = 0.8;
+
+/** Trimmed hedges round the lot (not on the street side), open where cars drive out and where a path leads in; bumpy tops. */
 function hedges(layout: LocationLayout): Mesh {
   const { lot, exitZ, earlyExitZ } = layout;
   const parts: Part[] = [];
@@ -160,7 +163,13 @@ function hedges(layout: LocationLayout): Mesh {
     }
   };
   const inset = 0.45;
-  run(lot.minX - inset, lot.minZ + 1.6, lot.minX - inset, lot.maxZ + inset);
+  // Along the side: open where a garden path comes up to it.
+  const gates = [...new Set((layout.benchVisits ?? []).map((v) => v.from.z))].sort((a, b) => a - b);
+  let along = lot.minZ + 1.6;
+  for (const z of [...gates, lot.maxZ + inset + GATE_HALF]) {
+    if (z - GATE_HALF > along) run(lot.minX - inset, along, lot.minX - inset, z - GATE_HALF);
+    along = z + GATE_HALF;
+  }
   run(lot.minX - inset, lot.maxZ + inset, lot.maxX + inset, lot.maxZ + inset);
   const exits = [earlyExitZ, exitZ].sort((a, b) => a - b);
   let from = lot.minZ + SIDE_HEDGE_START;

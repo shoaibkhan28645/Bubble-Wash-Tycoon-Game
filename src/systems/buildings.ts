@@ -32,7 +32,11 @@ export const SOLID: Record<string, [number, number, number?, number?][]> = {
   hose: [[0.45, 0.45]],
   register: [[1, 0.45]],
   soap: [[1.1, 0.4]],
-  bench: [[1.1, 0.35]],
+  // The bench, and the potted plant at its end.
+  bench: [
+    [1.1, 0.35],
+    [0.35, 0.35, 1.5, 0],
+  ],
   vending: [[0.65, 0.45]],
   sign: [[0.35, 0.35]],
   // The tunnel, its water tank and its control box.

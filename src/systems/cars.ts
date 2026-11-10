@@ -56,6 +56,12 @@ export class Car implements Customer {
   waited = 0;
   /** Its driver is away at the Mini-Mart (the car waits at the pump until they're back). */
   shopping = false;
+  /** Its driver got out while it waited in line (vending machine, bench): it doesn't drive in without them. */
+  away = false;
+  /** Its driver is wanted back at the car now (out of patience). */
+  recall = false;
+  /** Its driver has had the chance to get out while it waited (once a visit). */
+  stretched = false;
   /** What it came for (its ticket), in visiting order, and what it has had so far. */
   needs: Need[] = ['wash'];
   served: Need[] = [];
@@ -141,6 +147,9 @@ export class Car implements Customer {
     this.needs = needs;
     this.served = [];
     this.shopping = false;
+    this.away = false;
+    this.recall = false;
+    this.stretched = false;
     this.model.mesh.scale.setScalar(1);
     this.model.setType(def);
     // Cars that only want fuel arrive clean: no mud means no wash wanted.

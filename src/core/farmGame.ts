@@ -44,7 +44,7 @@ import { perk } from '../systems/career';
 import { CashSystem } from '../systems/cash';
 import { Carrier, carriedItems } from '../systems/carry';
 import { takeFinished } from '../systems/construction';
-import { Crops, StandStock, type CropId, type CrateCarrier, type GoodId } from '../systems/crops';
+import { Crops, StandStock, type CropId, type CrateCarrier, type GoodId, type Plot } from '../systems/crops';
 import { ANIMALS, Livestock, type AnimalKind } from '../systems/animals';
 import { Deliveries, VANS } from '../systems/deliveries';
 import { BarnStore } from '../systems/barn';
@@ -76,6 +76,17 @@ const OUTLET_WALK = 6;
 
 /** A new building grows into place over this long. */
 const REVEAL_SECONDS = 0.6;
+/** The farmhand's watering round: the first a little after the start, then this often (seconds), if a field is growing. */
+const WATER_FIRST_SECONDS = 15;
+const WATER_EVERY_SECONDS = 40;
+const WATER_RETRY_SECONDS = 5;
+/** A round that takes longer than this (seconds) is given up. */
+const WATER_GIVE_UP_SECONDS = 30;
+/** Seconds filling the can at the well, and pouring it over the plot. */
+const FILL_SECONDS = 1.3;
+const POUR_SECONDS = 2.4;
+/** How far from the well's middle the farmhand stands to fill the can (the well is about 1.9 m across). */
+const WELL_REACH = 1.75;
 /** Upgrade pads appear once the well is dug (one thing at a time). */
 const UPGRADES_AFTER = 'well';
 /** The newcomer's pointing hand helps until the stand has a helper. */
@@ -391,7 +402,87 @@ export function createFarmGame(
   };
   // The farmhand's round: pick the nearest ripe plot until the crate stack is full (or nothing's ripe), then stock the stand.
   // Hungry hens come first: then corn is picked before anything else, and taken to the feed store.
+  // The old well at work: now and then (unless their load is full), the farmhand fills a watering can
+  // at the well and waters a field that's still growing (the well's faster crops, there to see).
+  const wellAt = layout.pads.well;
+  const fillSpot = wellAt ? { x: wellAt.x - WELL_REACH, z: wellAt.z } : null;
+  const watering: { stage: 'idle' | 'toWell' | 'filling' | 'toField' | 'watering'; due: number; plot: Plot | null; pour: number; took: number } = {
+    stage: 'idle',
+    due: WATER_FIRST_SECONDS,
+    plot: null,
+    pour: 0,
+    took: 0,
+  };
+  /** The growing vegetable or corn plot nearest `at` (the orchard's trees are left to their picker). */
+  const growingPlot = (at: Point, now: number): Plot | null => {
+    let best: Plot | null = null;
+    let bestDistance = Infinity;
+    for (const plot of crops.plots) {
+      if (plot.crop === 'apple' || crops.ripe(plot, now)) continue;
+      const d = Math.hypot(plot.at.x - at.x, plot.at.z - at.z);
+      if (d < bestDistance) [best, bestDistance] = [plot, d];
+    }
+    return best;
+  };
+  const waterRound = (dt: number, now: number): void => {
+    const hand = staff.avatarOf('farmhand');
+    if (!hand || !fillSpot || !wellAt || !state.unlocked.includes('well')) return;
+    const at = { x: hand.root.position.x, z: hand.root.position.z };
+    const near = (p: Point, reach: number) => Math.hypot(p.x - at.x, p.z - at.z) <= reach;
+    if (watering.stage === 'idle') {
+      watering.due -= dt;
+      const carrier = staff.crateCarriers<GoodId>('farmhand')[0];
+      if (watering.due > 0 || !carrier || carrier.full) return;
+      watering.plot = growingPlot(at, now);
+      if (!watering.plot) {
+        watering.due = WATER_RETRY_SECONDS;
+        return;
+      }
+      watering.stage = 'toWell';
+      watering.took = 0;
+      return;
+    }
+    // Something in the way for too long: give it up until next time.
+    watering.took += dt;
+    if (watering.took > WATER_GIVE_UP_SECONDS) {
+      hand.holding = false;
+      watering.stage = 'idle';
+      watering.due = WATER_EVERY_SECONDS;
+      return;
+    }
+    if (watering.stage === 'toWell' && near(fillSpot, 0.4)) {
+      staff.act('farmhand', FILL_SECONDS, wellAt);
+      hand.holding = true;
+      effects.burst('water', new Vector3(wellAt.x, 1.1, wellAt.z), 6, 1.6, 0.3);
+      watering.stage = 'filling';
+    } else if (watering.stage === 'filling' && !staff.isActing('farmhand')) {
+      // The plot may have ripened meanwhile: the nearest one still growing.
+      watering.plot = growingPlot(at, now) ?? watering.plot;
+      watering.stage = 'toField';
+    } else if (watering.stage === 'toField' && watering.plot && near(watering.plot.at, 0.5)) {
+      staff.act('farmhand', POUR_SECONDS, watering.plot.at);
+      hand.holding = false;
+      sound.play('spray');
+      watering.stage = 'watering';
+      watering.pour = 0;
+    } else if (watering.stage === 'watering') {
+      const plot = watering.plot!;
+      watering.pour -= dt;
+      if (watering.pour <= 0) {
+        watering.pour = 0.18;
+        effects.burst('water', new Vector3(plot.at.x + (Math.random() - 0.5) * 1.6, 0.9, plot.at.z + (Math.random() - 0.5) * 1.6), 3, 1.4, 0.4);
+      }
+      if (!staff.isActing('farmhand')) {
+        watering.stage = 'idle';
+        watering.due = WATER_EVERY_SECONDS;
+        watering.plot = null;
+      }
+    }
+  };
   staff.carryPlans.farmhand = (carrier, at) => {
+    // On the watering round: to the well, then to the growing plot.
+    if (watering.stage === 'toWell' || watering.stage === 'filling') return fillSpot;
+    if ((watering.stage === 'toField' || watering.stage === 'watering') && watering.plot) return watering.plot.at;
     const stand = outlet(at);
     const now = Date.now();
     const carrying = carrier.stack.length > 0;
@@ -820,6 +911,7 @@ export function createFarmGame(
     pads.update(dt, player.position);
     upgrades.update(dt, player.position);
     staff.update(dt, walkups.counters, null, solids, (counter) => insideRect(player.position, counter.zone), null, []);
+    waterRound(dt, now);
     const carriers = [playerCarry, ...staff.crateCarriers<GoodId>()];
     machines.update(dt, now, carriers);
     // Only the hero and the farmhand pick crops (the egg collector just walks across the fields), and the orchard picker apples.

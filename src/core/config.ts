@@ -229,6 +229,16 @@ export interface TownLayout {
   upgradePads: Record<string, Point>;
   /** Where each staff member stands when idle. */
   staffSpots: Record<string, Point>;
+  /**
+   * The manager's round, in order: a spot by each business (`after` it's built) and the point
+   * to look at while making a note there.
+   */
+  managerRound?: (Point & { look: Point; after: string })[];
+  /**
+   * Benches people out walking may stop at: from a walkway's dead end (`from`, where the hedge has
+   * a gap), along `via`, to a bench (one of the town's `prop_bench` pieces) to sit on for a while.
+   */
+  benchVisits?: { from: Point; via: Point[]; bench: Point }[];
 }
 
 /** A walk-up counter (a farm stand, a market stall): where customers are served, where they line up, and where its worker stands. */

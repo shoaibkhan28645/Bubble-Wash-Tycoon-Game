@@ -31,7 +31,7 @@ export function pickRebalance<L extends Lane>(lanes: readonly L[]): { car: Car; 
     for (const from of sources) {
       if (from === to) continue;
       const car = from.queue[0]!;
-      if (car.state === 'queued' && canUse(car, to)) return { car, from, to };
+      if (car.state === 'queued' && !car.away && canUse(car, to)) return { car, from, to };
     }
   }
   return null;

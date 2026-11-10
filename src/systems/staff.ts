@@ -75,7 +75,11 @@ const CARRIES: readonly Role[] = ['runner', 'farmhand', 'eggcollector', 'milker'
 export type CarryPlan = (carrier: Carrier<CarryItem>, helperAt: Point) => Point | null;
 
 /** What each worker holds while working a station. */
-const TOOLS: Partial<Record<Role, Tool>> = { washer: 'sponge', dryerStaff: 'towel', garage: 'polisher', attendant: 'nozzle' };
+const TOOLS: Partial<Record<Role, Tool>> = { washer: 'sponge', dryerStaff: 'towel', garage: 'polisher', attendant: 'nozzle', manager: 'clipboard', farmhand: 'can' };
+/** Seconds the manager spends at each stop of the round, making a note. */
+const NOTE_SECONDS = 2.6;
+/** A stop the manager can't get to in this long (something built in the way) is skipped. */
+const STOP_GIVE_UP_SECONDS = 25;
 
 const ARRIVE = 0.2;
 const PICK_UP_SECONDS = 0.7;
@@ -99,6 +103,14 @@ class Helper {
   worked = 0;
   /** Seconds left standing still (e.g. picking up cash). */
   hold = 0;
+  /** Seconds left standing still doing something with their hands (a note on the clipboard, watering), facing `actFace`. */
+  acting = 0;
+  actFace: Point | null = null;
+  /** The manager: which stop of the round is next, and whether they're watching over a golden VIP. */
+  round = 0;
+  watching = false;
+  /** Seconds spent on the way to the current stop. */
+  stopTime = 0;
   private path: Point[] = [];
   private pathFor: Point | null = null;
   /** Seconds kept waiting by a car in the way. */
@@ -197,9 +209,16 @@ class Helper {
   }
 
   showCoffee(on: boolean): void {
+    this.showBubble(on ? '☕' : null);
+  }
+
+  /** A little bubble over their head (a coffee on a break, a note on the manager's round), or none. */
+  showBubble(text: string | null): void {
     if (!this.bubble) return;
-    this.bubble.visible = on;
-    if (on) this.bubble.at.set(this.position.x, 2.4, this.position.z);
+    this.bubble.visible = text !== null;
+    if (text === null) return;
+    if (this.bubble.el.textContent !== text) this.bubble.el.textContent = text;
+    this.bubble.at.set(this.position.x, 2.4, this.position.z);
   }
 }
 
@@ -237,6 +256,19 @@ export class StaffSystem {
     const helper = new Helper(role, this.scene, start, capacity, this.labels);
     helper.target = this.home(role);
     this.helpers.push(helper);
+  }
+
+  /** A helper stops where they are for a while, doing something with their hands (the farmhand watering), facing `face`. */
+  act(role: Role, seconds: number, face: Point): void {
+    const helper = this.helpers.find((h) => h.role === role);
+    if (!helper) return;
+    helper.acting = seconds;
+    helper.actFace = face;
+  }
+
+  /** Still busy with what `act` gave them. */
+  isActing(role: Role): boolean {
+    return (this.helpers.find((h) => h.role === role)?.acting ?? 0) > 0;
   }
 
   /** A helper's figure, by role (the farm draws the farmhand's pickup in its place). */
@@ -295,6 +327,14 @@ export class StaffSystem {
         helper.avatar.update(dt);
         continue;
       }
+      if (helper.acting > 0) {
+        helper.acting -= dt;
+        if (helper.actFace) helper.face(helper.actFace);
+        // The manager's note, or a look at the golden VIP, shows over their head (they often face away from the camera).
+        if (helper.role === 'manager') helper.showBubble(helper.acting > 0 ? (helper.watching ? '⭐' : '📋') : null);
+        helper.avatar.update(dt, true);
+        continue;
+      }
       if (helper.role === 'runner') {
         if (supplies) this.planRun(helper, stations, supplies);
       } else if (helper.carrier) {
@@ -302,14 +342,16 @@ export class StaffSystem {
         helper.target = this.carryPlans[helper.role]?.(helper.carrier, helper.position) ?? this.home(helper.role);
       }
       else if (helper.role === 'cashier') this.planCashier(dt, helper);
-      else if (helper.role === 'valet' || helper.role === 'manager') {
+      else if (helper.role === 'manager') this.planManager(dt, helper, stations);
+      else if (helper.role === 'valet') {
         helper.assigned = null;
-        helper.target = (helper.role === 'valet' && valetCall) || this.home(helper.role);
+        helper.target = valetCall || this.home(helper.role);
       } else {
         helper.assigned = pickStation(stations, WORKS[helper.role], helper.assigned, skip);
         helper.target = helper.assigned ? sideOf(helper.assigned, SIDE) : this.home(helper.role);
       }
       const there = helper.walk(dt, speed, this.nav, cars, aroundCars);
+      if (there && helper.role === 'manager') this.managerArrived(helper, stations);
       // Work starts as soon as the helper is beside the station, even before the exact spot.
       const station = helper.assigned;
       helper.working = station && insideRect(helper.position, station.zone) ? station : null;
@@ -318,6 +360,52 @@ export class StaffSystem {
       helper.carrier?.update(dt, !there);
       helper.avatar.update(dt, !!helper.working?.needsWork);
     }
+  }
+
+  /**
+   * The manager walks a round of the businesses with a clipboard, stopping at
+   * each for a note; while a golden VIP is being served, they stand by its car.
+   */
+  private planManager(dt: number, helper: Helper, stations: readonly AnyStation[]): void {
+    helper.assigned = null;
+    helper.avatar.holding = true;
+    const vip = vipStation(stations);
+    helper.watching = !!vip;
+    if (vip) {
+      helper.target = { x: vip.at.x + 1.6, z: vip.zone.maxZ + 0.3 };
+      return;
+    }
+    helper.stopTime += dt;
+    if (helper.stopTime > STOP_GIVE_UP_SECONDS) {
+      helper.stopTime = 0;
+      helper.round++;
+    }
+    const stops = this.roundStops();
+    helper.target = stops.length > 0 ? stops[helper.round % stops.length]! : this.home('manager');
+  }
+
+  /** At a stop: a note on the clipboard, facing the business, then on to the next. By a VIP: keep an eye on it. */
+  private managerArrived(helper: Helper, stations: readonly AnyStation[]): void {
+    if (helper.watching) {
+      const vip = vipStation(stations);
+      if (vip) {
+        helper.actFace = vip.at;
+        helper.acting = 1;
+      }
+      return;
+    }
+    const stops = this.roundStops();
+    if (stops.length === 0) return;
+    const stop = stops[helper.round % stops.length]!;
+    helper.actFace = stop.look;
+    helper.acting = NOTE_SECONDS;
+    helper.round++;
+    helper.stopTime = 0;
+  }
+
+  /** The stops of the manager's round at the businesses built so far. */
+  private roundStops(): (Point & { look: Point })[] {
+    return (this.layout.managerRound ?? []).filter((s) => this.state.unlocked.includes(s.after));
   }
 
   /** Cashier: walk to the fullest cash pile and bank it; wait by the register when all is collected. */
@@ -379,4 +467,12 @@ export class StaffSystem {
   private level(key: string): number {
     return this.state.levels[key] ?? 0;
   }
+}
+
+/** The station serving a golden VIP right now, if any. */
+function vipStation(stations: readonly AnyStation[]): AnyStation | undefined {
+  return stations.find((s) => {
+    const car = s.customer as { vip?: boolean; state?: string } | null;
+    return !!car?.vip && (car.state === 'entering' || car.state === 'waiting');
+  });
 }

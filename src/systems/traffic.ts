@@ -14,6 +14,7 @@ import { Departures } from './departures';
 import { Journeys } from './journeys';
 import { Forecourt } from './forecourt';
 import type { Mart } from './mart';
+import type { WaitingDrivers } from './waitingDrivers';
 import { Till, type Paid } from './till';
 import { Tunnel } from './tunnel';
 
@@ -74,6 +75,8 @@ export class Traffic {
     onPaid: (paid: Paid) => void,
     /** The Mini-Mart across the road, where drivers at the pumps buy snacks. */
     readonly mart: Mart,
+    /** Drivers who get out while waiting in line (the vending machine, the bench); none in tests. */
+    readonly drivers: WaitingDrivers | null = null,
   ) {
     this.moods = new CarMoods(labels);
     this.till = new Till(layout, state, cash, floaters, sound, onPaid);
@@ -138,6 +141,7 @@ export class Traffic {
       this.journeys.advanceQueue(lane);
       for (const car of [...lane.queue]) this.wait(dt, car);
     }
+    this.drivers?.update(dt, this.lanes());
     this.forecourt.advance();
     for (const car of [...this.forecourt.line]) this.wait(dt, car);
     for (const station of [...this.bays, ...this.finishing, ...this.forecourt.pumps]) {
@@ -167,17 +171,18 @@ export class Traffic {
     return [...this.bays, ...(this.tunnel ? [this.tunnel] : [])];
   }
 
-  /** A car in line: drive up, lose patience, maybe buy a snack from the vending machine. */
+  /** A car in line: drive up and lose patience (its driver may get out meanwhile: WaitingDrivers). */
   private wait(dt: number, car: Car): void {
     car.update(dt, TUNING.cars.speed);
     if (car.state === 'arriving' && car.arrived) car.state = 'queued';
     if (car.state !== 'queued') return;
     car.waited += dt;
-    if (!car.snacked && car.waited >= TUNING.vending.afterSeconds && this.state.unlocked.includes('vending')) {
-      car.snacked = true;
-      this.till.sellSnack(car.position);
-    }
     this.journeys.drainPatience(car, dt);
+  }
+
+  /** A driver bought a can at the vending machine. */
+  sellSnack(at: Point): void {
+    this.till.sellSnack(at);
   }
 
   /** The car in a bay or finishing station: drive in, get served, then move on. True if the player worked it. */

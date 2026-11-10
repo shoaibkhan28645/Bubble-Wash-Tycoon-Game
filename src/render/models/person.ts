@@ -30,9 +30,9 @@ const VIEW_MARGIN = 2.5;
 /** Animation time saved up off screen is played on, up to this much (seconds). */
 const MAX_CATCH_UP = 1;
 
-type Pose = 'idle' | GaitPose | 'scrub';
+type Pose = 'idle' | GaitPose | 'scrub' | 'sit';
 /** What a person holds while working. */
-export type Tool = 'sponge' | 'towel' | 'polisher' | 'nozzle' | 'bag';
+export type Tool = 'sponge' | 'towel' | 'polisher' | 'nozzle' | 'bag' | 'clipboard' | 'can' | 'soda';
 
 const TOOL_PARTS: Record<Tool, Part[]> = {
   sponge: [{ geometry: rbox(0.13, 0.07, 0.09, 0.03), color: '#ffd24a' }],
@@ -48,6 +48,23 @@ const TOOL_PARTS: Record<Tool, Part[]> = {
   nozzle: [
     { geometry: rbox(0.06, 0.12, 0.09, 0.02), color: '#3fae5a' },
     { geometry: cylinder(0.018, 0.14, 6), color: '#3b4a5e', y: -0.04, z: 0.09, rx: Math.PI / 2 },
+  ],
+  // A brown board held flat in front of the hand, paper up (so it reads from the camera above), and a silver clip.
+  clipboard: [
+    { geometry: rbox(0.2, 0.025, 0.26, 0.008), color: '#b07a45', z: 0.13 },
+    { geometry: box(0.16, 0.01, 0.2), color: '#ffffff', y: 0.016, z: 0.12 },
+    { geometry: box(0.08, 0.02, 0.03), color: '#c9ced6', y: 0.022, z: 0.245 },
+  ],
+  // A green watering can hanging from the hand, its spout forward.
+  can: [
+    { geometry: cylinder(0.095, 0.16, 12), color: '#4fb06a', y: -0.11 },
+    { geometry: cylinder(0.017, 0.2, 6), color: '#4fb06a', y: -0.08, z: 0.13, rx: Math.PI / 3 },
+    { geometry: rbox(0.025, 0.08, 0.09, 0.01), color: '#3b8a52', y: -0.01 },
+  ],
+  // A red soda can.
+  soda: [
+    { geometry: cylinder(0.035, 0.1, 10), color: '#e8423f', y: -0.02 },
+    { geometry: cylinder(0.036, 0.015, 10), color: '#d8dde4', y: 0.035 },
   ],
 };
 const toolGeometries = new Map<Tool, BufferGeometry>();
@@ -77,6 +94,8 @@ export class PersonAvatar {
   private offScreen = 0;
   /** Shows the tool all the time, e.g. a shopping bag being carried. */
   holding = false;
+  /** Sitting down (on a bench): the sit pose, whatever the speed says. */
+  seated = false;
 
   constructor(character: string, tool: Tool | null = null) {
     const { scene, animations } = asset(`person:${character}`);
@@ -88,7 +107,7 @@ export class PersonAvatar {
     this.root.name = 'person';
     this.root.add(model, blobShadow(1.2, 1.2));
     this.mixer = new AnimationMixer(model);
-    const clips: Record<Pose, string> = { idle: 'idle', walk: 'walk', jog: 'jog', sprint: 'sprint', scrub: 'interact-right' };
+    const clips: Record<Pose, string> = { idle: 'idle', walk: 'walk', jog: 'jog', sprint: 'sprint', scrub: 'interact-right', sit: 'sit' };
     for (const [pose, name] of Object.entries(clips) as [Pose, string][]) {
       const clip = animations.find((a) => a.name === name);
       if (clip) this.actions.set(pose, this.mixer.clipAction(clip));
@@ -134,9 +153,14 @@ export class PersonAvatar {
    */
   update(dt: number, scrubbing = false, groundSpeed?: number): void {
     const speed = groundSpeed ?? this.measure(dt);
-    const moving = speed > STANDING;
+    const moving = speed > STANDING && !this.seated;
     this.gestureLeft -= dt;
-    if (this.gestureLeft <= 0 || moving) {
+    if (this.seated) {
+      this.gestureLeft = 0;
+      this.gait = null;
+      this.play('sit');
+      if (this.current) this.current.timeScale = 1;
+    } else if (this.gestureLeft <= 0 || moving) {
       this.gestureLeft = 0;
       if (moving) {
         const { pose, rate } = pickGait(GAITS, speed, this.gait);
