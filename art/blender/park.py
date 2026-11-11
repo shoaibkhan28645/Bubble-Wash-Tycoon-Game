@@ -42,6 +42,22 @@ kit.torus = lambda *a, **k: smooth(_torus(*a, **k))
 models = []
 bases = []
 
+
+def open_cup(r_bottom, r_top, depth, at, outside, inside, verts=24, wall=0.05):
+    """A cup open at the top (riders sit in it, in view): its outside wall,
+    and its inside wall facing in, with no lid over it."""
+    walls = []
+    for k, (col, inset) in enumerate(((outside, 0.0), (inside, wall))):
+        kit.bpy.ops.mesh.primitive_cone_add(vertices=verts, radius1=r_bottom - inset, radius2=r_top - inset, depth=depth, location=at, end_fill_type='NOTHING')
+        obj = kit.bpy.context.object
+        if k == 1:
+            kit.bpy.ops.object.mode_set(mode='EDIT')
+            kit.bpy.ops.mesh.select_all(action='SELECT')
+            kit.bpy.ops.mesh.flip_normals()
+            kit.bpy.ops.object.mode_set(mode='OBJECT')
+        walls.append(smooth(kit._finish(obj, col)))
+    return walls
+
 # The fairground palette: candy colours and gold trim.
 PINK = '#ff8fc8'
 HOTPINK = '#ff5fa8'
@@ -352,8 +368,8 @@ for i, (col, dots) in enumerate(CUPS):
     c = [kit.cylinder(0.98, 0.08, (cx, cy, z0 + 0.04), WHITE, verts=24, bevel=0.02)]
     c.append(kit.torus(0.98, 0.03, (cx, cy, z0 + 0.08), GOLD, major_segments=24, minor_segments=4))
     c.append(kit.cylinder(0.12, 0.25, (cx, cy, z0 + 0.2), GOLD, verts=10))
-    cup = kit.cone(0.55, 0.88, 0.8, (cx, cy, z0 + 0.72), col, verts=24)
-    c.append(cup)
+    # Open at the top, white inside, so the riders in it are in plain view.
+    c += open_cup(0.55, 0.88, 0.8, (cx, cy, z0 + 0.72), col, WHITE)
     c.append(kit.cylinder(0.8, 0.08, (cx, cy, z0 + 0.4), col, verts=24))
     c.append(kit.torus(0.88, 0.055, (cx, cy, z0 + 1.12), WHITE, major_segments=28, minor_segments=6))
     c.append(kit.cylinder(0.78, 0.04, (cx, cy, z0 + 0.6), BLUSH, verts=20))

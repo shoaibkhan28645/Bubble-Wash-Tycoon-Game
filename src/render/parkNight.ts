@@ -50,6 +50,13 @@ const BULB_HALO = 0.75;
 const BEAM_LENGTH = 36;
 const BEAM_WIDTH = 1.7;
 const BEAM_SWEEP = 0.45;
+/**
+ * The pools of light lie this high (metres): over every layer of the ground
+ * (the paths are stacked a hair apart up to about 6 cm, the plaza's squares
+ * at 6), so they never sink under one, or fight it and flicker.
+ */
+const POOL_HEIGHT = 0.1;
+const WASH_HEIGHT = 0.11;
 /** Below this much evening, none of it shows. */
 const DARK_ENOUGH = 0.02;
 /** A marquee light's halo (metres across); how many lights in each lit run, and how fast the runs chase round (lights a second), idle and running. */
@@ -119,7 +126,7 @@ export class ParkNight {
     this.pools = new InstancedMesh(flat, this.poolMaterial, Math.max(1, lamps.length));
     const place = new Object3D();
     lamps.forEach((lamp, i) => {
-      place.position.set(lamp.x, 0.04, lamp.z);
+      place.position.set(lamp.x, POOL_HEIGHT, lamp.z);
       place.scale.set(LAMP_POOL * 2, 1, LAMP_POOL * 2);
       place.updateMatrix();
       this.pools.setMatrixAt(i, place.matrix);
@@ -198,7 +205,7 @@ export class ParkNight {
     const material = this.rideMaterial.clone();
     material.color.set(glow.color);
     const mesh = new Mesh(new PlaneGeometry(glow.radius * 2, glow.radius * 2).rotateX(-Math.PI / 2), material);
-    mesh.position.set(glow.at.x, 0.05, glow.at.z);
+    mesh.position.set(glow.at.x, WASH_HEIGHT, glow.at.z);
     mesh.renderOrder = 1;
     this.group.add(mesh);
     this.rides.push({ glow, mesh, phase: this.rides.length * 1.7 });
@@ -254,8 +261,7 @@ export class ParkNight {
     const lit = 0.62 + 0.9 * evening;
     this.bulbMaterial.color.setRGB(lit, lit, lit);
     if (!on) return;
-    const flicker = 1 + 0.04 * Math.sin(this.clock * 7.3);
-    this.poolMaterial.opacity = 0.95 * evening * flicker;
+    this.poolMaterial.opacity = 0.95 * evening;
     this.lampHalos.opacity = 0.75 * evening;
     // The string bulbs twinkle a little, all together.
     this.bulbHalos.opacity = evening * (0.75 + 0.25 * Math.sin(this.clock * 2.6));
