@@ -198,6 +198,8 @@ export class Ride {
   timeScale = 1;
   /** Its sturdy-parts upgrade: each ride wears it this many times as much. */
   wearScale = 1;
+  /** Its operator's quick-launch upgrade: they wait this many times as long before launching a part-full ride. */
+  waitScale = 1;
   /** Worn this far (it breaks down at 1, when allowed), and broken down: no launching until it's fixed. */
   wear = 0;
   broken = false;
@@ -380,7 +382,7 @@ export class Ride {
       this.heroPulled = true;
       return { by: 'hero', perfect: false };
     }
-    if (staff && this.waited >= RULES.operatorWait) return { by: 'staff', perfect: false };
+    if (staff && this.waited >= RULES.operatorWait * this.waitScale) return { by: 'staff', perfect: false };
     return null;
   }
 
@@ -525,6 +527,19 @@ export class ParkCrowd {
   }
 
   /** Opens a ride a built pad provides. */
+  /**
+   * A ride just built: for its first few minutes everyone wants a go (it's
+   * far likelier to be on a new visitor's wish list).
+   */
+  openRide(id: string): void {
+    this.openings.set(id, PARK.opening.seconds);
+  }
+
+  /** Seconds left of a ride's opening rush (0: none). */
+  openingLeft(id: string): number {
+    return this.openings.get(id) ?? 0;
+  }
+
   addRide(padId: string, kind: string): Ride | null {
     const spot = this.layout.rides[padId];
     const def = RIDES[kind];
@@ -576,6 +591,10 @@ export class ParkCrowd {
    * Returns true if the hero served someone.
    */
   update(dt: number, work: (counter: WalkUpCounter) => { rate: number; byPlayer: boolean }, lever: LeverState): boolean {
+    for (const [id, left] of this.openings) {
+      if (left <= dt) this.openings.delete(id);
+      else this.openings.set(id, left - dt);
+    }
     this.spawn(dt);
     for (const visitor of [...this.visitors]) this.walk(dt, visitor);
     let playerWorking = false;
@@ -776,9 +795,12 @@ export class ParkCrowd {
    * stalls' in tuning.json), in the order they'll go. Everyone wants at least
    * one ride.
    */
+  /** Rides in their opening rush, and the seconds left of it. */
+  private readonly openings = new Map<string, number>();
+
   private wishList(count?: number, likes: Record<string, number> = {}): string[] {
     const options = [
-      ...this.rides.map((r) => ({ id: r.id, weight: r.def.wish * (likes[r.id] ?? 1) })),
+      ...this.rides.map((r) => ({ id: r.id, weight: r.def.wish * (likes[r.id] ?? 1) * (this.openings.has(r.id) ? PARK.opening.wish : 1) })),
       ...this.counters.flatMap((c) => {
         const weight = (PARK.wishes as Record<string, number | number[]>)[c.kind];
         return c !== this.booth && typeof weight === 'number' ? [{ id: c.id, weight: weight * (likes[c.kind] ?? 1) }] : [];

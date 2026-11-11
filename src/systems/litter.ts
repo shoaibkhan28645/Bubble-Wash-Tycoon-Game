@@ -1,8 +1,9 @@
 // Litter in the park (Chapter 3): visitors who finish a snack drop the
 // wrapper or the cup where they are, less often once there are bins. The
 // hero picks litter up just by walking over it (like cash), and the janitor
-// sweeps it up. A messy park makes visitors a little less patient. It never
-// piles up past a few pieces.
+// sweeps it up. A messy park makes visitors a little less patient, and a
+// ride or a stall with litter lying about near it takes a little less. It
+// never piles up past a few pieces.
 import { TUNING, type Point } from '../core/config';
 
 const RULES = TUNING.park.litter;
@@ -47,6 +48,18 @@ export class Litter {
       if (!piece.taken && e < d) [best, d] = [piece, e];
     }
     return best;
+  }
+
+  /** Pieces lying within `radius` of `at`. */
+  near(at: Point, radius: number): number {
+    let n = 0;
+    for (const piece of this.pieces) if (Math.hypot(piece.at.x - at.x, piece.at.z - at.z) <= radius) n++;
+    return n;
+  }
+
+  /** What a ride or a stall at `at` loses with litter lying about near it (a share of its takings, 0 when it's clean). */
+  messAt(at: Point): number {
+    return Math.min(RULES.payCap, this.near(at, RULES.near) * RULES.payPerPiece);
   }
 
   /** Less patience in a messy park: a little per piece. */

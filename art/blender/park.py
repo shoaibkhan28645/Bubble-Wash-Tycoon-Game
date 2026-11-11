@@ -1145,13 +1145,9 @@ for k in (-1, 1):
 X = 230.0
 m = Model('pk_giftshop', X)
 p = stall(X, 3.4, 2.6, PINK, MINT, WHITE)
+# Two shelves, six places each: the game puts the plush toys won at the ring toss on them.
 for row, z in enumerate((1.55, 2.1)):
     p.append(kit.box((3.0, 0.3, 0.05), (X, 1.05, z - 0.18), WOOD, bevel=0.0))
-    for k in range(6):
-        col = (SUN, SKY, LILAC, MINT, '#c9a27a', CORAL)[(k + row * 2) % 6]
-        px = X - 1.25 + k * 0.5
-        p.append(kit.sphere(0.13, (px, 1.0, z - 0.03), col, segments=8))
-        p.append(kit.sphere(0.09, (px, 0.98, z + 0.15), col, segments=8))
 for k, col in enumerate((HOTPINK, SKY, SUN)):
     p.append(rod((X - 1.3 + k * 0.25, -0.9, 1.1), (X - 1.4 + k * 0.3, -0.95, 2.4), 0.008, WHITE, verts=3))
     p.append(blob((0.2, 0.2, 0.25), (X - 1.4 + k * 0.3, -0.95, 2.6), col, 8))

@@ -78,6 +78,13 @@
       "max": 10,
       "factor": 0.9
     },
+    "launch": {
+      "name": "Quick launch",
+      "effect": "Launches a part-full ride 15% sooner",
+      "base": 120,
+      "max": 8,
+      "factor": 0.85
+    },
     "stamina": {
       "name": "Stamina",
       "effect": "Shorter coffee breaks",
@@ -299,6 +306,7 @@
       "carousel.seats",
       "carousel.sturdy",
       "operator.staffSpeed",
+      "operator.launch",
       "player.walk"
     ],
     "teacups": [
@@ -329,7 +337,8 @@
       "boats.speed",
       "boats.price",
       "boats.sturdy",
-      "boats.staffSpeed"
+      "boats.staffSpeed",
+      "boats.launch"
     ],
     "haunted": [
       "haunted.speed",
@@ -360,7 +369,8 @@
       "coaster.price",
       "coaster.seats",
       "coaster.sturdy",
-      "crew.staffSpeed"
+      "crew.staffSpeed",
+      "crew.launch"
     ],
     "wheel": [
       "wheel.speed",

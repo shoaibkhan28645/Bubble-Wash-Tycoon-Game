@@ -30,6 +30,7 @@ import { withShadows } from '../render/stage';
 import { CameraRig } from '../render/cameraRig';
 import { Fireworks } from '../render/effects/fireworks';
 import { ParkNight } from '../render/parkNight';
+import { PlushShelf } from '../render/plushShelf';
 import { Particles } from '../render/effects/particles';
 import { copies, parkland, ropes } from '../render/parkland';
 import { DeliveryTruck, LitterView } from '../render/parkProps';
@@ -333,14 +334,19 @@ export function createParkGame(
     mesh.scale.setScalar(0.001);
     growing.push({ mesh, age: 0 });
   };
-  /** The fireworks barge, bobbing on the lake. */
+  /** The fireworks barge, bobbing on the lake; the gift shop's shelves of plush toys. */
   let barge: Object3D | null = null;
+  let plushShelf: PlushShelf | null = null;
   const showBuilding = (id: string, animate: boolean): void => {
     const at = layout.buildAt[id] ?? layout.pads[id];
     const mesh = parkPadModel(id);
     if (!mesh || !at) return;
     mesh.position.set(at.x, 0, at.z);
     if (id === 'fireworks') barge = mesh;
+    if (id === 'giftshop') {
+      plushShelf = new PlushShelf(stage.scene, at);
+      plushShelf.show(shelf(state));
+    }
     stage.scene.add(withShadows(mesh));
     spinners.watch(mesh);
     grow(mesh, animate);
@@ -396,7 +402,9 @@ export function createParkGame(
     if (goods) (visitor.avatar as PersonAvatar | null)?.holdTool(goods.tool);
     // In a storm the stalls do a roaring trade (the booth doesn't: nobody comes to a park in the rain for its own sake).
     const storm = crowd.storm && !ticket ? PARK.storm.pay : 1;
-    const pay = Math.round(base * quality(counter.id) * payBonus() * storm * (crowd.rush?.payMultiplier ?? 1));
+    // Litter lying about near it puts people off a little.
+    const mess = litter.messAt(counter.at);
+    const pay = Math.round(base * quality(counter.id) * payBonus() * storm * (1 - mess) * (crowd.rush?.payMultiplier ?? 1));
     if (counter.kind === 'ringtoss') {
       count('prizes');
       meta.count('prize');
@@ -405,6 +413,7 @@ export function createParkGame(
       if (plush) {
         count('shelf');
         const won = shelf(state).length;
+        plushShelf?.show(shelf(state));
         floaters.show(`${plush.icon} ${t('newPlush', { found: won, all: PLUSH.length })}`, new Vector3(counter.at.x, 3.2, counter.at.z), 'star');
         effects.burst('confetti', new Vector3(counter.at.x, 2.4, counter.at.z), 24, 4, 0.8);
         sound.play('reward');
@@ -415,7 +424,7 @@ export function createParkGame(
     cash.add(counter.id, pay + tip);
     visitor.spent += pay + tip;
     const at = layout.piles[counter.id] ?? counter.at;
-    floaters.show(`+$${pay} ${ticket ? '🎟️' : (goods?.icon ?? '')}`, new Vector3(at.x, 1.2, at.z), 'cash');
+    floaters.show(`+$${pay} ${ticket ? '🎟️' : (goods?.icon ?? '')}${mess > 0 ? ' 🗑️' : ''}`, new Vector3(at.x, 1.2, at.z), 'cash');
     if (tip > 0) floaters.show(`+$${tip} tip`, new Vector3(at.x + 0.6, 1.9, at.z), 'tip');
     state.stars = nextStars(state.stars, tip > 0 ? 'happy' : 'okay', TUNING.stars);
     if (visitor.manual) flag(soldFlag);
@@ -433,13 +442,14 @@ export function createParkGame(
     const storm = crowd.storm && ride.def.indoor ? PARK.storm.pay : 1;
     const night = fireworksBuilt() && evening >= 0.5 ? 1 + PARK.fireworks.nightPay : 1;
     const seat = ride.def.price * quality(ride.id) * payBonus() * storm * night * (1 + shelfBonus(shelf(state).length)) * (crowd.rush?.payMultiplier ?? 1);
-    const pay = Math.round(launch.riders * seat * (launch.full ? 1 + rules.fullBonus : 1) * (launch.serviced ? 1 + rules.serviceBonus : 1));
+    const mess = litter.messAt(ride.spot.at);
+    const pay = Math.round(launch.riders * seat * (1 - mess) * (launch.full ? 1 + rules.fullBonus : 1) * (launch.serviced ? 1 + rules.serviceBonus : 1));
     const tip = launch.perfect ? Math.round(pay * rules.perfectTip) : 0;
     cash.add(ride.id, pay + tip);
-    for (const rider of ride.seats) if (rider?.vip) rider.spent += Math.round(seat * (launch.full ? 1 + rules.fullBonus : 1));
+    for (const rider of ride.seats) if (rider) rider.spent += Math.round(seat * (1 - mess) * (launch.full ? 1 + rules.fullBonus : 1));
     if (trip) trip.rides += ride.seats.filter((v) => v?.trip && v.step === 'seated').length;
     const at = layout.piles[ride.id] ?? ride.spot.lever;
-    floaters.show(`+$${pay} ${ride.def.icon}`, new Vector3(at.x, 1.2, at.z), 'cash');
+    floaters.show(`+$${pay} ${ride.def.icon}${mess > 0 ? ' 🗑️' : ''}`, new Vector3(at.x, 1.2, at.z), 'cash');
     const top = overRide(ride, 4.6);
     if (launch.full) floaters.show(`🎉 ${t('fullHouse')}`, top, 'star');
     if (launch.perfect) {
@@ -520,6 +530,12 @@ export function createParkGame(
           count('vipDays');
           sound.play('reward');
           onPaid({ amount: bonus, tip: bonus, automated: false, at: visitor.at });
+        } else if (visitor.spent > 0) {
+          // Anyone else with a perfect day tips on their way out: half as much again as they spent.
+          const tip = Math.round(visitor.spent * PARK.perfectDay.tip);
+          cash.add('booth', tip);
+          floaters.show(`❤️ ${t('perfectDayTip')} +$${tip.toLocaleString('en-US')}`, new Vector3(visitor.at.x, 2.9, visitor.at.z), 'tip');
+          onPaid({ amount: tip, tip, automated: true, at: visitor.at });
         }
         state.stars = nextStars(state.stars, 'happy', TUNING.stars);
         count('perfectDay');
@@ -633,6 +649,7 @@ export function createParkGame(
   const addRide = (id: string, kind: string, animate: boolean): void => {
     const ride = crowd.addRide(id, kind);
     if (!ride) return;
+    if (animate) crowd.openRide(id);
     const view = new RideView(ride, stage.scene, layout.lake);
     view.onBump = (at) => {
       effects.burst('sparkle', at, 6, 2.5, 0.5);
@@ -679,6 +696,9 @@ export function createParkGame(
     solids.push({ minX: box.x - 0.32, maxX: box.x + 0.32, minZ: box.z - 0.3, maxZ: box.z + 0.3 });
     stage.refreshShadows();
   };
+  /** Who operates a ride: the ride operator, the dock hand or the coaster crew (by its zone). */
+  const operatorOf = (ride: Ride): string =>
+    (Object.entries(OPERATOR_ZONES) as [string, readonly string[]][]).find(([, zones]) => zones.includes(ride.def.zone))?.[0] ?? 'operator';
   /** The ride's zone has its operator hired (they launch a full ride). */
   const hasOperator = (ride: Ride): boolean =>
     (Object.entries(OPERATOR_ZONES) as [string, readonly string[]][]).some(([role, zones]) => zones.includes(ride.def.zone) && state.unlocked.includes(role));
@@ -699,6 +719,7 @@ export function createParkGame(
           : ride.full
             ? t(hasOperator(ride) ? 'rideFull' : 'rideFullPull', { icon })
             : t('rideLoading', { icon, seated: ride.seated, seats });
+      const shown = litter.messAt(ride.spot.at) > 0 ? `${text} 🗑️` : text;
       // The wear gauge: green, amber, then red once it's worth servicing (in steps of 5%, so the page isn't touched every frame).
       const worn = ride.broken ? 20 : Math.min(20, Math.round(ride.wear * 20));
       if (worn !== sign.worn) {
@@ -706,9 +727,9 @@ export function createParkGame(
         sign.fill.style.width = `${worn * 5}%`;
         sign.fill.className = worn >= PARK.rides.serviceAt * 20 ? 'is-worn' : worn >= 10 ? 'is-used' : '';
       }
-      if (text === sign.shown) continue;
-      sign.shown = text;
-      sign.words.textContent = text;
+      if (shown === sign.shown) continue;
+      sign.shown = shown;
+      sign.words.textContent = shown;
       sign.el.classList.toggle('is-full', ride.full && ride.phase === 'loading' && !ride.broken);
       sign.el.classList.toggle('is-empty', ride.broken);
       labels.remeasure(sign.label);
@@ -1073,6 +1094,7 @@ export function createParkGame(
     for (const ride of crowd.rides) {
       ride.timeScale = levelFactor(UPGRADES.kinds.speed, level(`${ride.id}.speed`));
       ride.wearScale = levelFactor(UPGRADES.kinds.sturdy, level(`${ride.id}.sturdy`));
+      ride.waitScale = levelFactor(UPGRADES.kinds.launch, level(`${operatorOf(ride)}.launch`));
       ride.setSeats(ride.def.seats + level(`${ride.id}.seats`));
     }
     const serving = crowd.update(dt, work, lever);
@@ -1206,6 +1228,8 @@ export function createParkGame(
       count('spotless');
     }
     spotless = nowSpotless;
+    const opening = crowd.rides.find((r) => crowd.openingLeft(r.id) > 0);
+    chips.set('opening', opening ? `🎉 ${t('openingChip', { name: opening.def.name, time: formatClock(crowd.openingLeft(opening.id)) })}` : null, 'party');
     chips.set('spotless', spotless ? `✨ ${t('spotlessChip', { percent: Math.round(PARK.spotless.bonus * 100) })}` : null, 'good');
     // The fireworks show over the lake, every evening once there's a barge.
     const show = fireworksBuilt() && evening > 0.6;

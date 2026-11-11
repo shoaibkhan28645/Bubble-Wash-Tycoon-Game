@@ -128,6 +128,8 @@ const EN = {
   coasterDrop: 'Wheee!',
   spotless: 'Spotless! A clean park pays more',
   spotlessChip: 'Spotless park +{percent}%',
+  openingChip: 'Grand opening: {name} · {time}',
+  perfectDayTip: 'Perfect day!',
   tripArrived: 'A school trip! Give the class {goal} rides in {minutes} minutes for a reward',
   tripChip: 'School trip {rides}/{goal} rides · {time}',
   tripDone: 'School trip done!',

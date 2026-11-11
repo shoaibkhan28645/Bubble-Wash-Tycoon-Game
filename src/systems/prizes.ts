@@ -8,23 +8,25 @@ import type { GameState } from '../core/gameState';
 export interface Plush {
   id: string;
   icon: string;
+  /** Its colour on the gift shop's shelf. */
+  color: string;
   golden?: boolean;
 }
 
 /** The shelf, in order: a duck from the car wash, a cow from the farm, and the park's own. */
 export const PLUSH: readonly Plush[] = [
-  { id: 'duck', icon: '🦆' },
-  { id: 'cow', icon: '🐮' },
-  { id: 'star', icon: '⭐' },
-  { id: 'rocket', icon: '🚀' },
-  { id: 'bear', icon: '🧸' },
-  { id: 'bunny', icon: '🐰' },
-  { id: 'cat', icon: '🐱' },
-  { id: 'dog', icon: '🐶' },
-  { id: 'unicorn', icon: '🦄' },
-  { id: 'frog', icon: '🐸' },
-  { id: 'panda', icon: '🐼' },
-  { id: 'golden', icon: '🌟', golden: true },
+  { id: 'duck', icon: '🦆', color: '#ffd84a' },
+  { id: 'cow', icon: '🐮', color: '#f4f1ea' },
+  { id: 'star', icon: '⭐', color: '#ffb52e' },
+  { id: 'rocket', icon: '🚀', color: '#ff5c5c' },
+  { id: 'bear', icon: '🧸', color: '#b9824f' },
+  { id: 'bunny', icon: '🐰', color: '#ffb3d1' },
+  { id: 'cat', icon: '🐱', color: '#ff9a45' },
+  { id: 'dog', icon: '🐶', color: '#d9b48a' },
+  { id: 'unicorn', icon: '🦄', color: '#c9a7ff' },
+  { id: 'frog', icon: '🐸', color: '#6fd36a' },
+  { id: 'panda', icon: '🐼', color: '#3a3a44' },
+  { id: 'golden', icon: '🌟', color: '#ffe066', golden: true },
 ];
 
 const RULES = TUNING.park.prizes;

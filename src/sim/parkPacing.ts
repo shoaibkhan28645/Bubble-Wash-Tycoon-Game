@@ -109,14 +109,20 @@ export function parkStage(town: ParkTown, built: ReadonlySet<string>, opts: Park
         const base = ticket ? visitor.basePay : ((PARK.stalls as Record<string, number>)[counter.kind] ?? 0);
         const pay = Math.round(base * payBonus);
         if (!ticket) take(counter.kind);
-        earn(counter.id, 1, pay + tipFor(pay, visitor.patience / visitor.patienceMax, TUNING.customers));
+        const paid = pay + tipFor(pay, visitor.patience / visitor.patienceMax, TUNING.customers);
+        visitor.spent += paid;
+        earn(counter.id, 1, paid);
       },
+      // A perfect day: a tip on the way out (the Visitor of the Day's bonus isn't modelled).
+      onPerfectDay: (visitor) => earn('perfectDay', 1, Math.round(visitor.spent * PARK.perfectDay.tip)),
       onGaveUp: () => {
         if (measuring) gaveUp++;
       },
       onLaunch: (ride, launch) => {
         const seat = ride.def.price * payBonus * night;
-        earn(ride.id, launch.riders, Math.round(launch.riders * seat * (launch.full ? 1 + PARK.rides.fullBonus : 1)));
+        const full = launch.full ? 1 + PARK.rides.fullBonus : 1;
+        for (const rider of ride.seats) if (rider) rider.spent += Math.round(seat * full);
+        earn(ride.id, launch.riders, Math.round(launch.riders * seat * full));
       },
     },
     random,
