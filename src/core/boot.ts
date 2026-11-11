@@ -4,7 +4,7 @@ import { getLoadingScreen } from '../ui/loadingScreen';
 import { setLanguage } from '../ui/strings';
 import { loadAssets, swapTownModels } from '../render/assets';
 import { createStage } from '../render/stage';
-import { createGame, type Game } from './game';
+import { createGame, preloadGame, type Game } from './game';
 import { Lifecycle } from './lifecycle';
 import { parseSave } from './migrate';
 import { SaveManager } from './save';
@@ -43,6 +43,8 @@ export async function boot(root: HTMLElement): Promise<void> {
   // A town this build doesn't have (a save from a newer version): keep its progress, play the first town.
   if (!townIds().includes(state.currentTown)) switchTown(state, START_TOWN_ID);
   setTown(await loadTown(state.currentTown));
+  // A later town's own code downloads alongside its models and sounds.
+  preloadGame(town().kind);
   loading.setProgress(0.5);
   // Models and sounds load side by side; the bar shows the slower of the two.
   let models = 0;
@@ -65,8 +67,8 @@ export async function boot(root: HTMLElement): Promise<void> {
   let debugTicker: ((dt: number) => void) | null = null;
   let game: Game;
   /** Builds the town being played and draws its first frame (behind the loading screen). */
-  const openTown = (): void => {
-    game = createGame(root, stage, state, lifecycle, saves, sound, travel);
+  const openTown = async (): Promise<void> => {
+    game = await createGame(root, stage, state, lifecycle, saves, sound, travel);
     // Towns the hero isn't in keep earning while he plays.
     game.addTicker(backgroundEarner(state));
     if (debugTicker) game.addTicker(debugTicker);
@@ -88,17 +90,18 @@ export async function boot(root: HTMLElement): Promise<void> {
     game.dispose();
     switchTown(state, id);
     const to = await loadTown(id);
+    preloadGame(to.kind);
     loading.setProgress(0.3);
     await swapTownModels(from.models, to.models, (fraction) => loading.setProgress(0.3 + fraction * 0.6));
     setTown(to);
-    openTown();
+    await openTown();
     loading.setProgress(1);
     await saves.saveNow();
     await loading.hide();
     game.start();
   };
 
-  openTown();
+  await openTown();
   // Offline earnings since the last save (Tech Guide boot sequence).
   const offline = applyOffline(state, state.savedAt);
   loading.setProgress(1);

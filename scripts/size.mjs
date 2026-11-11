@@ -50,6 +50,8 @@ const lazy = new Set([
     .filter((c) => c !== characters.player && !Object.values(characters.staff).includes(c))
     .map((c) => `models/people/character-${c}.glb`),
 ]);
+// Code chunks index.html doesn't load: each later town's game (and the dev panel), fetched when needed.
+for (const f of sizes.keys()) if (f.startsWith('assets/') && f.endsWith('.js') && !referenced.includes(f)) lazy.add(f);
 const models = [...sizes.keys()].filter((f) => f.startsWith('models/') && !f.endsWith('.md') && !lazy.has(f));
 const sounds = [...sizes.keys()].filter((f) => f.startsWith('audio/') && f.endsWith('.mp3') && !lazy.has(f));
 const initial = ['index.html', ...referenced, ...models, ...sounds].filter((f) => sizes.has(f));
@@ -58,7 +60,7 @@ const sum = (names, key) => names.reduce((total, n) => total + sizes.get(n)[key]
 const all = [...sizes.keys()];
 
 console.log(`Initial: ${kib(sum(initial, 'gz'))} gzip (${kib(sum(initial, 'raw'))} raw), ${initial.length} files`);
-console.log(`Loaded later (other towns and their sounds, Car of the Day, shoppers, people out walking): ${kib(sum([...lazy].filter((f) => sizes.has(f)), 'gz'))} gzip, ${lazy.size} files`);
+console.log(`Loaded later (other towns' code, models and sounds, Car of the Day, shoppers, people out walking): ${kib(sum([...lazy].filter((f) => sizes.has(f)), 'gz'))} gzip, ${lazy.size} files`);
 console.log(`dist total: ${kib(sum(all, 'raw'))} raw, ${all.length} files`);
 // Budgets (Tech Guide): fail the command if one is broken.
 const INITIAL_BUDGET = 15 * 1024 * 1024;

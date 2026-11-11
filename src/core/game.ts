@@ -1,5 +1,8 @@
 // The game for the town being played: each kind of town builds its own
-// (the car wash town, the farm village), all behind the same Game interface.
+// (the car wash town, the farm village, the theme park), all behind the same
+// Game interface. The first town's code comes with the game; each later
+// kind's is its own chunk, downloaded the first time the hero goes there
+// (so a new town adds nothing to the start).
 import type { GameClock } from './clock';
 import type { GameState } from './gameState';
 import type { Lifecycle } from './lifecycle';
@@ -11,8 +14,6 @@ import type { Traffic } from '../systems/traffic';
 import type { StaffSystem } from '../systems/staff';
 import { town } from './config';
 import { createRoadsideGame } from './roadsideGame';
-import { createFarmGame } from './farmGame';
-import { createParkGame } from './parkGame';
 
 export interface Game {
   readonly stage: Stage;
@@ -39,8 +40,18 @@ export interface Game {
   dispose(): void;
 }
 
-/** Builds the town being played (see setTown). */
-export function createGame(
+/** A later kind of town's code, fetched once (the second time it's already here). */
+const farmGame = () => import('./farmGame');
+const parkGame = () => import('./parkGame');
+
+/** Starts downloading a kind of town's code (while its models load), so opening it doesn't wait. */
+export function preloadGame(kind: string): void {
+  if (kind === 'farm') void farmGame();
+  else if (kind === 'park') void parkGame();
+}
+
+/** Builds the town being played (see setTown), downloading its code first if it's a later kind of town. */
+export async function createGame(
   container: HTMLElement,
   stage: Stage,
   state: GameState,
@@ -48,9 +59,9 @@ export function createGame(
   saves: SaveManager,
   sound: SoundManager,
   travelTo: (id: string) => Promise<void>,
-): Game {
+): Promise<Game> {
   const current = town();
   if (current.kind === 'carWash') return createRoadsideGame(container, stage, state, lifecycle, saves, sound, travelTo, current);
-  if (current.kind === 'farm') return createFarmGame(container, stage, state, lifecycle, saves, sound, travelTo, current);
-  return createParkGame(container, stage, state, lifecycle, saves, sound, travelTo, current);
+  if (current.kind === 'farm') return (await farmGame()).createFarmGame(container, stage, state, lifecycle, saves, sound, travelTo, current);
+  return (await parkGame()).createParkGame(container, stage, state, lifecycle, saves, sound, travelTo, current);
 }
