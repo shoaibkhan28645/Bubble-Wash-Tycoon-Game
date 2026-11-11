@@ -9,8 +9,9 @@
 // (crops, hens, cows, the bakery), moved as fast as the people and machines
 // built can move them, and sold to villagers (one of everything per
 // basket) at the stand and the market, with the rest going out in vans at
-// order prices. Upgrades and the day's specials are left out, so a real
-// player is usually a little faster. The
+// order prices. The hero arrives with what the farmland left over, and the
+// car wash town keeps earning in the background all along. Upgrades and the
+// day's specials are left out, so a real player is usually a little faster. The
 // helpers' rates come from the game itself, played hands off for several
 // minutes at four stages of the farm; the model comes within about 10% of
 // what each earned.
@@ -25,12 +26,17 @@ export interface FarmPacingOptions {
   stars: number;
   /** Goods a minute the hero moves on his own (pick or pack, carry, hand over), all chains together, when not serving. */
   heroPerMinute: number;
+  /** What the hero arrives with (left from the car wash town after buying the farmland). */
+  startCash: number;
+  /** Cash a minute the car wash town earns meanwhile (finished, with its manager). */
+  background: number;
   /** Simulated seconds per step, and the longest run. */
   step: number;
   maxMinutes: number;
 }
 
-export const FARM_PACING: FarmPacingOptions = { stars: 4, heroPerMinute: 16, step: 1, maxMinutes: 240 };
+/** The start cash and the background are the whole journey's (src/sim/journey.ts; tests/journey.test.ts keeps them in step). */
+export const FARM_PACING: FarmPacingOptions = { stars: 4, heroPerMinute: 16, startCash: 11000, background: 2215, step: 1, maxMinutes: 240 };
 
 /** Goods a minute each helper moves (round trips with a full back, less breaks), measured in play. */
 const HELPERS = { farmhand: 18, pickup: 28, eggcollector: 6, milker: 6, baker: 6, orchardhand: 10 };
@@ -195,10 +201,11 @@ export function simulateFarmPacing(
   const unlocked = new Set<string>();
   const finishing = new Map<string, number>();
   const bought = new Map<string, number>();
-  let cash = 0;
+  let cash = opts.startCash;
   let income = 0;
   let incomeFor = -1;
   let awaySeconds = 0;
+  const background = opts.background / 60;
   for (let t = 0; t <= opts.maxMinutes * 60; t += opts.step) {
     for (const [id, at] of finishing) {
       if (at > t) continue;
@@ -220,20 +227,20 @@ export function simulateFarmPacing(
       incomeFor = unlocked.size;
     }
     // Waiting on a long build (the landmark's hours): the player comes back when it's done, and the farm earned
-    // offline meanwhile (at the manager's full rate, once there is one).
+    // offline meanwhile (at the manager's full rate, once there is one), and so did the car wash.
     if (finishing.size > 0) {
       const wait = Math.max(...finishing.values()) - t;
       if (wait > AWAY_AFTER_SECONDS) {
         const rules = TUNING.offline;
         const rate = unlocked.has('manager') ? rules.managerRate : rules.rate;
-        cash += income * rate * Math.min(wait, (rules.capHours[0] ?? 0) * 3600);
+        cash += (income * rate + background) * Math.min(wait, (rules.capHours[0] ?? 0) * 3600);
         awaySeconds += wait;
         for (const [id] of finishing) unlocked.add(id);
         finishing.clear();
         continue;
       }
     }
-    cash += income * opts.step;
+    cash += (income + background) * opts.step;
   }
   const pads = town.pads.map((p) => ({
     id: p.id,

@@ -69,10 +69,11 @@ export function simulatePacing(
     }
     if (bought.size === town.pads.length) break;
     income = incomePerSecond(town.pads, unlocked, opts, t);
-    // Waiting only on a long build (the landmark's hours) before the last goal: a player closes the game and comes
-    // back when it's done. That time isn't play; the town earns offline meanwhile.
+    // Waiting on a long build (the landmark's hours) with only the land for the next town left: a player closes the
+    // game and comes back when it's done. That time isn't play; the town earns offline meanwhile, and that's most of
+    // what buys the land.
     const next = town.pads.find((p) => !unlocked.has(p.id) && !finishing.has(p.id) && !bought.has(p.id));
-    if (next?.afterGoals && finishing.size > 0 && cash >= next.cost - income * 60) {
+    if (next?.afterGoals && finishing.size > 0) {
       const wait = Math.max(...finishing.values()) - t;
       if (wait > AWAY_AFTER_SECONDS) {
         const rules = TUNING.offline;

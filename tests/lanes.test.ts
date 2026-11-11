@@ -98,9 +98,9 @@ describe('pay', () => {
     expect(bill(car({ ...def('vip'), basePay: best.basePay })).pay).toBe(5 * best.basePay);
   });
 
-  it('detailing doubles the pay', () => {
+  it('detailing adds its share to the pay', () => {
     const detailed = { ...car(), stages: [stage('prerinse'), stage('detail')] };
-    expect(bill(detailed).pay).toBe(30);
+    expect(bill(detailed).pay).toBe(Math.round(15 * (1 + stage('prerinse').payBonus + stage('detail').payBonus)));
   });
 
   it('fuel pays a share of base pay; fuel and a wash together pay the combo bonus', () => {

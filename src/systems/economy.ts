@@ -66,12 +66,13 @@ export function builtStages(unlocked: readonly string[], station?: StageDef['sta
 }
 
 const UNITS: [number, string][] = [
+  [1e12, 'T'],
   [1e9, 'B'],
   [1e6, 'M'],
   [1e3, 'K'],
 ];
 
-/** $999, $1.2K, $15K, $3.4M. Rounds down so the player never sees more than they have. */
+/** $999, $1.2K, $15K, $3.4M, $2.5B, $1.1T. Rounds down so the player never sees more than they have. */
 export function formatCash(amount: number): string {
   const value = Math.max(0, Math.floor(amount));
   for (const [size, unit] of UNITS) {
@@ -86,6 +87,15 @@ export function formatCash(amount: number): string {
 }
 
 // ---- Upgrades ------------------------------------------------------------
+
+/**
+ * How an upgrade target's prices scale (upgrades.json `costScale`). The
+ * hero's own upgrades are bought again in every town, priced for that town
+ * (`heroScale`): about half its first purchase.
+ */
+export function upgradeScale(target: string, townId: string): number {
+  return (UPGRADES.costScale[target] ?? 1) * (target === 'player' ? (UPGRADES.heroScale?.[townId] ?? 1) : 1);
+}
 
 /** Cost of buying the next level: base × target scale × growth^level (GDD: 1.15× per level). */
 export function upgradeCost(kind: UpgradeKind, scale: number, level: number, growth: number): number {

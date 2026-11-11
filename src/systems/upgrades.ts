@@ -6,7 +6,7 @@ import type { Particles } from '../render/effects/particles';
 import { PadModel } from '../render/models/padModel';
 import type { UpgradePanel, UpgradeRow } from '../ui/upgradePanel';
 import type { WorldLabels } from '../ui/worldLabels';
-import { upgradeCost } from './economy';
+import { upgradeCost, upgradeScale } from './economy';
 
 const TITLES: Record<string, string> = {
   bay1: 'Hand wash bay 1',
@@ -50,10 +50,11 @@ const STAFF_NAMES: Record<string, string> = {
 /** The staff room opens once the register is built (minute 2). */
 const STAFF_ROOM_AFTER = 'register';
 
-/** Cost of the next level of an upgrade key like "bay1.speed". */
-export function costOf(key: string, level: number): number {
+/** The hero's own upgrades (keys "player.*"): their price follows the town they're bought in. */
+/** Cost of the next level of an upgrade key like "bay1.speed" (in `townId`, the town being played by default). */
+export function costOf(key: string, level: number, townId: string = town().id): number {
   const [target, kind] = key.split('.') as [string, string];
-  return upgradeCost(UPGRADES.kinds[kind]!, UPGRADES.costScale[target] ?? 1, level, UPGRADES.growth);
+  return upgradeCost(UPGRADES.kinds[kind]!, upgradeScale(target, townId), level, UPGRADES.growth);
 }
 
 /**

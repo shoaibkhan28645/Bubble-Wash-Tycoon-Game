@@ -11,10 +11,10 @@ const modelFiles = Object.keys(import.meta.glob('../public/models/**/*.glb')).ma
 const padIds = ROADSIDE.pads.map((p) => p.id);
 
 describe('roadside pads.json', () => {
-  it('has the 26 town-1 pads in order, from the free bay to the truck', () => {
+  it('has the 26 town-1 pads in order, from the free bay to the farmland', () => {
     expect(ROADSIDE.pads).toHaveLength(26);
     expect(ROADSIDE.pads[0]).toMatchObject({ id: 'bay1', cost: 0 });
-    expect(ROADSIDE.pads.at(-1)).toMatchObject({ id: 'truck', cost: 25000, effects: { travel: 'willowbrook' } });
+    expect(ROADSIDE.pads.at(-1)).toMatchObject({ id: 'truck', afterGoals: true, effects: { travel: 'willowbrook' } });
   });
 
   it('the fuel pump comes in the first ten minutes, before the first washer', () => {

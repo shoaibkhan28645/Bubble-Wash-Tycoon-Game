@@ -514,6 +514,8 @@ export interface UpgradesData {
   maxLevels?: Record<string, number>;
   /** Cost multiplier by upgrade target (station, staff or player). */
   costScale: Record<string, number>;
+  /** The hero's own upgrades (walk, carry, scrub) cost this many times as much in each town (by town id): about half its first purchase. */
+  heroScale?: Record<string, number>;
   /** Which "target.kind" upgrades each upgrade pad offers. */
   panels: Record<string, string[]>;
 }

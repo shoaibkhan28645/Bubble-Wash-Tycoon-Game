@@ -95,6 +95,8 @@ describe('formatCash', () => {
     [15_900, '$15K'],
     [3_450_000, '$3.4M'],
     [2e9, '$2B'],
+    [140e6, '$140M'],
+    [1.15e12, '$1.1T'],
     [-5, '$0'],
   ])('%d → %s', (amount, text) => {
     expect(formatCash(amount)).toBe(text);

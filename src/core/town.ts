@@ -100,7 +100,7 @@ export function createTown(deps: {
     }
     if (!openGoals && allGoalsDone(state)) {
       openGoals = true;
-      toast(root, `🚚 ${t('goalsOpen')}`);
+      toast(root, `🌾 ${t('goalsOpen')}`);
     }
     if (board) {
       const ready = readyCount(state);

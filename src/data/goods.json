@@ -2,21 +2,21 @@
   "eggs": {
     "name": "Eggs",
     "icon": "🥚",
-    "price": 120
+    "price": 240
   },
   "milk": {
     "name": "Milk",
     "icon": "🥛",
-    "price": 160
+    "price": 320
   },
   "bread": {
     "name": "Bread",
     "icon": "🍞",
-    "price": 260
+    "price": 520
   },
   "pie": {
     "name": "Apple pie",
     "icon": "🥧",
-    "price": 480
+    "price": 960
   }
 }

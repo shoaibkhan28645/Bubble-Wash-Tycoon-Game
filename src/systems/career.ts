@@ -5,7 +5,7 @@
 import { RANKS, UPGRADES, type RankDef } from '../core/config';
 import type { GameState, TownState } from '../core/gameState';
 import type { TownDef } from '../core/towns';
-import { upgradeCost } from './economy';
+import { upgradeCost, upgradeScale } from './economy';
 
 /** The lifetime count (state.counts) that keeps the best net worth reached. */
 export const BEST_NET_WORTH = 'bestNetWorth';
@@ -20,7 +20,7 @@ export function townValue(def: TownDef, town: TownState): number {
     const [target, kind] = key.split('.') as [string, string];
     const upgrade = UPGRADES.kinds[kind];
     if (!upgrade) continue;
-    for (let l = 0; l < level; l++) value += upgradeCost(upgrade, UPGRADES.costScale[target] ?? 1, l, UPGRADES.growth);
+    for (let l = 0; l < level; l++) value += upgradeCost(upgrade, upgradeScale(target, def.id), l, UPGRADES.growth);
   }
   return value;
 }

@@ -26,17 +26,11 @@ describe('farm pacing simulator', () => {
     expect(rates[2]).toBeGreaterThan(rates[1]!);
   });
 
-  // One pad can't be held to 20%. The strategy plans the corn field, the hen house and the barn half a minute
-  // apart (minutes 3, 3.5 and 4); with prices rising pad by pad, and the hero's own two hands setting the income
-  // until the first helper, each of those takes about as long to save for as the one before, so the barn comes
-  // at minute 5 or so. (Chapter 1's matching pad, the soap shelf, is further off still in its own simulator.)
-  const ALLOWED: Record<string, number> = { barn: 0.35 };
-
-  it('buys every pad within 20% of the minute the strategy plans (its section 7), the barn within 35%', () => {
+  it('buys every pad within 20% of the minute planned (arriving with what the farmland left, the car wash earning meanwhile)', () => {
     for (const pad of report.pads) {
       if (pad.targetMinute === 0) continue;
       const off = Math.abs(pad.boughtMinute! / pad.targetMinute - 1);
-      expect(off, `${pad.id} at ${pad.boughtMinute} min, planned ${pad.targetMinute}`).toBeLessThanOrEqual(ALLOWED[pad.id] ?? 0.2);
+      expect(off, `${pad.id} at ${pad.boughtMinute} min, planned ${pad.targetMinute}`).toBeLessThanOrEqual(0.2);
     }
   });
 

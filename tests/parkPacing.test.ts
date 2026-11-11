@@ -1,7 +1,7 @@
 // The pacing simulator on Chapter 3, Starlight Fun Park. `npm run pacing` prints the full report.
 import { describe, expect, it } from 'vitest';
 import { STARLIGHT } from '../src/core/starlight';
-import { parkStage, simulateParkPacing } from '../src/sim/parkPacing';
+import { PARK_PACING, parkStage, simulateParkPacing } from '../src/sim/parkPacing';
 
 // Tests run in Node; the project has no Node types, so just what's used here.
 declare const process: { env: Record<string, string | undefined> };
@@ -22,7 +22,7 @@ describe('park pacing simulator', () => {
     const rates = ['carousel', 'bumper', 'teacups', 'swings', 'haunted', 'flume', 'coaster'].map((id) => parkStage(STARLIGHT, upTo(id)).perSecond);
     for (let i = 1; i < rates.length; i++) expect(rates[i]!).toBeGreaterThan(rates[i - 1]!);
     // The park outgrows the other towns' background income well before the end.
-    expect(rates.at(-1)! * 60).toBeGreaterThan(5 * 17300);
+    expect(rates.at(-1)! * 60).toBeGreaterThan(5 * PARK_PACING.background);
   });
 
   it('keeps the crowd within what the park holds', () => {

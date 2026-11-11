@@ -14,8 +14,8 @@
 // hero and the staff: the hero sells tickets and launches the carousel until
 // there's a seller and an operator, serves the other stalls part of the
 // time, and carries supplies until the snack runner does; the operator and
-// the coaster crew launch their rides; the truck tops up the shed. The other
-// towns keep earning in the background all along (about $17k a minute when
+// the coaster crew launch their rides; the truck tops up the shed. The hero
+// arrives with what the park's land left over, and the other towns keep earning in the background all along (about $35k a minute when
 // the park opens). Upgrades, tips for perfect launches, the mascot's photos
 // and the storm are left out, so a real player is usually a little faster.
 import { TUNING, type PadDef } from '../core/config';
@@ -28,6 +28,8 @@ import { STALL_SUPPLY, type ParkSupply } from '../systems/parkSupplies';
 export interface ParkPacingOptions {
   /** Star rating held (sets how often visitors come). */
   stars: number;
+  /** What the hero arrives with (left from Willowbrook after buying the park's land). */
+  startCash: number;
   /** Cash a minute the other towns earn while the hero is here (the car wash and the farm, both finished). */
   background: number;
   /** Simulated seconds per step of the timeline, and the longest run (minutes). */
@@ -39,7 +41,17 @@ export interface ParkPacingOptions {
   dt: number;
 }
 
-export const PARK_PACING: ParkPacingOptions = { stars: 4, background: 17300, step: 1, maxMinutes: 240, warmup: 120, measure: 300, dt: 0.2 };
+/** The start cash and the background are the whole journey's (src/sim/journey.ts; tests/journey.test.ts keeps them in step). */
+export const PARK_PACING: ParkPacingOptions = {
+  stars: 4,
+  startCash: 358000,
+  background: 35200,
+  step: 1,
+  maxMinutes: 240,
+  warmup: 120,
+  measure: 300,
+  dt: 0.2,
+};
 
 const PARK = TUNING.park;
 /** How hard the hero works a stall nobody else serves (he has the tickets, the levers and the boxes to see to as well). */
@@ -209,7 +221,7 @@ export function simulateParkPacing(
   const finishing = new Map<string, number>();
   const bought = new Map<string, number>();
   const stages: { built: string; stage: ParkStage }[] = [];
-  let cash = 0;
+  let cash = opts.startCash;
   let income = 0;
   let incomeFor = -1;
   let awaySeconds = 0;
