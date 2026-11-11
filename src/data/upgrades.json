@@ -3,10 +3,10 @@
   "kinds": {
     "price": {
       "name": "Ticket price",
-      "effect": "+15% a ticket",
+      "effect": "+10% a ticket",
       "base": 80,
       "max": 10,
-      "factor": 1.15
+      "bonus": 0.1
     },
     "seats": {
       "name": "Extra seats",
@@ -27,14 +27,14 @@
       "effect": "10% faster",
       "base": 60,
       "max": 10,
-      "factor": 0.9
+      "faster": 0.1
     },
     "quality": {
       "name": "Quality",
-      "effect": "+15% pay",
+      "effect": "+10% pay",
       "base": 80,
       "max": 10,
-      "factor": 1.15
+      "bonus": 0.1
     },
     "queue": {
       "name": "Queue",
@@ -42,13 +42,6 @@
       "base": 100,
       "max": 9,
       "every": 3
-    },
-    "walk": {
-      "name": "Walk speed",
-      "effect": "+10% walk speed",
-      "base": 50,
-      "max": 10,
-      "step": 0.1
     },
     "carry": {
       "name": "Carry stack",
@@ -62,7 +55,7 @@
       "effect": "Hand washes 10% faster",
       "base": 40,
       "max": 10,
-      "factor": 0.9
+      "faster": 0.1
     },
     "storage": {
       "name": "Bigger storage",
@@ -76,7 +69,7 @@
       "effect": "Works 10% faster",
       "base": 150,
       "max": 10,
-      "factor": 0.9
+      "faster": 0.1
     },
     "launch": {
       "name": "Quick launch",
@@ -110,7 +103,7 @@
       "effect": "Crops grow 10% faster",
       "base": 70,
       "max": 10,
-      "factor": 0.9
+      "faster": 0.1
     },
     "crates": {
       "name": "Bigger stand",
@@ -135,37 +128,37 @@
     },
     "trip": {
       "name": "Faster trips",
-      "effect": "Trips 10% shorter",
+      "effect": "Trips 10% faster",
       "base": 700,
       "max": 5,
-      "factor": 0.9
+      "faster": 0.1
     },
     "oven": {
       "name": "Bigger oven",
       "effect": "Bakes 10% faster",
       "base": 900,
       "max": 5,
-      "factor": 1.1
+      "bonus": 0.1
     }
   },
   "costScale": {
-    "bay1": 1,
-    "bay2": 1.3,
-    "dryer": 1.6,
-    "wax": 2,
+    "bay1": 2,
+    "bay2": 2.6,
+    "dryer": 3.2,
+    "wax": 4,
     "player": 1,
-    "soap": 1,
-    "washer": 1,
-    "runner": 1.2,
-    "dryerStaff": 1.5,
-    "tunnel": 3,
-    "garage": 4,
-    "cashier": 2,
-    "valet": 2.2,
-    "manager": 1,
-    "pump1": 1.2,
-    "pump2": 1.6,
-    "attendant": 1.2,
+    "soap": 2,
+    "washer": 2,
+    "runner": 2.4,
+    "dryerStaff": 3.0,
+    "tunnel": 6,
+    "garage": 8,
+    "cashier": 4,
+    "valet": 4.4,
+    "manager": 2,
+    "pump1": 2.4,
+    "pump2": 3.2,
+    "attendant": 2.4,
     "stand": 15,
     "standhand": 19.5,
     "farmhand": 24.0,
@@ -203,11 +196,13 @@
     "giftshop": 1000.0,
     "coaster": 1500.0,
     "wheel": 1800.0,
-    "crew": 1500.0
+    "crew": 1500.0,
+    "mart": 2.4,
+    "clerk": 2.4
   },
   "heroScale": {
-    "roadside": 1,
-    "willowbrook": 40,
+    "roadside": 2,
+    "willowbrook": 30,
     "starlight": 2500
   },
   "panels": {
@@ -225,19 +220,19 @@
     ],
     "pump1": [
       "pump1.speed",
-      "pump1.quality",
       "pump2.speed",
-      "pump2.quality",
       "attendant.staffSpeed"
+    ],
+    "mart": [
+      "mart.speed",
+      "clerk.staffSpeed"
     ],
     "dryer": [
       "dryer.speed",
-      "dryer.quality",
       "dryerStaff.staffSpeed"
     ],
     "wax": [
-      "wax.speed",
-      "wax.quality"
+      "wax.speed"
     ],
     "soap": [
       "soap.storage",
@@ -245,7 +240,6 @@
       "runner.staffSpeed"
     ],
     "staffRoom": [
-      "player.walk",
       "player.carry",
       "player.scrub",
       "cashier.staffSpeed",
@@ -257,8 +251,7 @@
       "tunnel.quality"
     ],
     "garage": [
-      "garage.speed",
-      "garage.quality"
+      "garage.speed"
     ],
     "stand": [
       "stand.speed",
@@ -271,7 +264,6 @@
       "field2.grow"
     ],
     "well": [
-      "player.walk",
       "player.carry",
       "farmhand.staffSpeed",
       "farmhand.staffCarry"
@@ -311,8 +303,7 @@
       "carousel.seats",
       "carousel.sturdy",
       "operator.staffSpeed",
-      "operator.launch",
-      "player.walk"
+      "operator.launch"
     ],
     "teacups": [
       "teacups.speed",

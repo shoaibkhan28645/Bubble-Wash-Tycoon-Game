@@ -15,11 +15,12 @@
 // helpers' rates come from the game itself, played hands off for several
 // minutes at four stages of the farm; the model comes within about 10% of
 // what each earned.
-import { CROPS, GOODS, TUNING, type PadDef } from '../core/config';
+import { CROPS, GOODS, TUNING, UPGRADES, type PadDef } from '../core/config';
 import type { TownDef } from '../core/towns';
 import { ANIMALS } from '../systems/animals';
 import { VANS } from '../systems/deliveries';
-import { spawnSeconds } from '../systems/economy';
+import { levelFactor, levelStep, spawnSeconds } from '../systems/economy';
+import type { Levels } from './pacing';
 
 export interface FarmPacingOptions {
   /** Star rating held (sets how often villagers come). */
@@ -33,10 +34,31 @@ export interface FarmPacingOptions {
   /** Simulated seconds per step, and the longest run. */
   step: number;
   maxMinutes: number;
+  /**
+   * What the farm takes in the game for every dollar this model gives (measured hands off, five stages and the
+   * finished farm: 0.55 to 0.86 of the model, 0.75 on average).
+   */
+  efficiency: number;
+  /**
+   * How much of the production upgrades (growth, the helpers' speed and carrying, more animals, the oven, the vans)
+   * the farm really turns into sales, as a power of what this model makes of them. Fully upgraded, the finished
+   * farm takes about twice as much in the game (most of it from quality); this model at full strength gives over
+   * three times as much, selling every extra crate somewhere, where the game's villagers and orders don't take them all.
+   */
+  production: number;
 }
 
 /** The start cash and the background are the whole journey's (src/sim/journey.ts; tests/journey.test.ts keeps them in step). */
-export const FARM_PACING: FarmPacingOptions = { stars: 4, heroPerMinute: 16, startCash: 11000, background: 2215, step: 1, maxMinutes: 240 };
+export const FARM_PACING: FarmPacingOptions = {
+  stars: 4,
+  heroPerMinute: 16,
+  startCash: 5100,
+  background: 2450,
+  step: 1,
+  maxMinutes: 240,
+  efficiency: 0.75,
+  production: 0.2,
+};
 
 /** Goods a minute each helper moves (round trips with a full back, less breaks), measured in play. */
 const HELPERS = { farmhand: 18, pickup: 28, eggcollector: 6, milker: 6, baker: 6, orchardhand: 10 };
@@ -70,13 +92,27 @@ export interface FarmFlows {
   perSecond: number;
 }
 
-/** Cash per second the farm makes with what's built. */
-export function farmIncomePerSecond(pads: readonly PadDef[], unlocked: ReadonlySet<string>, opts: FarmPacingOptions = FARM_PACING): number {
-  return farmFlows(pads, unlocked, opts).perSecond;
+/** The farm upgrades this model counts: everything that makes, moves or sells more (not the stand's crates or the offline hours). */
+export function farmUpgradeCounts(key: string): boolean {
+  const [target, kind] = key.split('.') as [string, string];
+  if (kind === 'staffSpeed' || kind === 'staffCarry') return ['farmhand', 'orchardhand', 'eggcollector', 'milker', 'baker'].includes(target);
+  return ['quality', 'speed', 'grow', 'flock', 'herd', 'oven', 'trip'].includes(kind) || key === 'player.carry';
 }
 
-export function farmFlows(pads: readonly PadDef[], unlocked: ReadonlySet<string>, opts: FarmPacingOptions = FARM_PACING): FarmFlows {
+/** Cash per second the farm makes with what's built (and the upgrade levels bought). */
+export function farmIncomePerSecond(pads: readonly PadDef[], unlocked: ReadonlySet<string>, opts: FarmPacingOptions = FARM_PACING, levels: Levels = {}): number {
+  return farmFlows(pads, unlocked, opts, levels).perSecond * opts.efficiency;
+}
+
+export function farmFlows(pads: readonly PadDef[], unlocked: ReadonlySet<string>, opts: FarmPacingOptions = FARM_PACING, levels: Levels = {}): FarmFlows {
   const built = (id: string) => unlocked.has(id);
+  const level = (key: string) => levels[key] ?? 0;
+  /** How much faster a speed upgrade makes something (×2 at the top level), and what a pay upgrade multiplies by. */
+  const faster = (key: string, kind = 'speed') => (1 / levelFactor(UPGRADES.kinds[kind], level(key))) ** opts.production;
+  const pay = (key: string) => levelFactor(UPGRADES.kinds.quality, level(key));
+  /** A helper carries more with the carry upgrade; a trip has its walk either way, so it helps by about half as much. */
+  const carry = (key: string) => (1 + levelStep(UPGRADES.kinds.staffCarry, level(key)) / (2 * TUNING.supplies.carryBase)) ** opts.production;
+  const helperRate = (role: string, base: number) => base * faster(`${role}.staffSpeed`, 'staffSpeed') * carry(`${role}.staffCarry`);
   const effects = pads.filter((p) => built(p.id)).map((p) => p.effects);
   const sum = (pick: (e: PadDef['effects']) => number | undefined) => effects.reduce((s, e) => s + (pick(e) ?? 0), 0);
   const has = (pick: (e: PadDef['effects']) => unknown) => effects.some((e) => !!pick(e));
@@ -90,13 +126,14 @@ export function farmFlows(pads: readonly PadDef[], unlocked: ReadonlySet<string>
     if (!built(pad.id) || !pad.effects.field) continue;
     const crop = pad.effects.field;
     const plots = 6;
-    made[crop] = (made[crop] ?? 0) + (plots * speed) / CROPS[crop]!.growSeconds;
+    made[crop] = (made[crop] ?? 0) + (plots * speed * faster(`${pad.id}.grow`, 'grow')) / CROPS[crop]!.growSeconds;
   }
   const fed = has((e) => e.feeder);
   for (const pad of pads) {
     if (!built(pad.id) || !pad.effects.pen) continue;
     const def = ANIMALS[pad.effects.pen];
-    made[def.good] = (made[def.good] ?? 0) + (def.count / def.every / def.perPack) * (fed ? def.fedSpeed : 1);
+    const more = levelStep(UPGRADES.kinds.flock, level(`${pad.id}.flock`)) + levelStep(UPGRADES.kinds.herd, level(`${pad.id}.herd`));
+    made[def.good] = (made[def.good] ?? 0) + ((def.count * ((def.count + more) / def.count) ** opts.production) / def.every / def.perPack) * (fed ? def.fedSpeed : 1);
   }
   // Feed: without the feed truck, a share of the corn goes to the animals.
   if (fed && !machine.has('feedTruck')) {
@@ -111,14 +148,15 @@ export function farmFlows(pads: readonly PadDef[], unlocked: ReadonlySet<string>
   const picker = staff.has('orchardhand');
   const crops = ['veg', 'corn', ...(picker ? [] : ['apple'])].filter((g) => made[g]);
   const helpers: Record<string, number> = {
-    crops: staff.has('farmhand') ? (machine.has('pickup') ? HELPERS.pickup : HELPERS.farmhand) : 0,
-    apples: picker ? HELPERS.orchardhand : 0,
-    eggs: staff.has('eggcollector') ? HELPERS.eggcollector : 0,
-    milk: staff.has('milker') ? HELPERS.milker : 0,
-    baked: staff.has('baker') ? HELPERS.baker : 0,
+    crops: staff.has('farmhand') ? helperRate('farmhand', machine.has('pickup') ? HELPERS.pickup : HELPERS.farmhand) : 0,
+    apples: picker ? helperRate('orchardhand', HELPERS.orchardhand) : 0,
+    eggs: staff.has('eggcollector') ? helperRate('eggcollector', HELPERS.eggcollector) : 0,
+    milk: staff.has('milker') ? helperRate('milker', HELPERS.milker) : 0,
+    baked: staff.has('baker') ? helperRate('baker', HELPERS.baker) : 0,
   };
   // The hero works the chains the helpers can't keep up with (all of them, at first), sharing out his time.
-  const bakes = built('bakery') ? (60 / TUNING.bakery.seconds) * 2 : 0;
+  const oven = levelFactor(UPGRADES.kinds.oven, level('bakery.oven')) ** opts.production;
+  const bakes = built('bakery') ? (60 / TUNING.bakery.seconds) * 2 * oven : 0;
   const output: Record<string, number> = {
     crops: crops.reduce((s, g) => s + made[g]! * 60, 0),
     apples: picker ? (made.apple ?? 0) * 60 : 0,
@@ -128,9 +166,9 @@ export function farmFlows(pads: readonly PadDef[], unlocked: ReadonlySet<string>
   };
   // Serving takes the hero's time too, at the stand until there's a stand helper, and at the market until its staff come.
   const market = has((e) => e.counter === 'stall');
-  const serving = (staff.has('standhand') ? 0 : SERVING) + (market && !staff.has('marketstaff') ? SERVING : 0);
+  const serving = (staff.has('standhand') ? 0 : SERVING / faster('stand.speed')) + (market && !staff.has('marketstaff') ? SERVING / faster('market.speed') : 0);
   // Shared out evenly, smallest need first: what one chain can't use goes to the others.
-  let spare = opts.heroPerMinute * Math.max(0, 1 - serving);
+  let spare = opts.heroPerMinute * carry('player.carry') * Math.max(0, 1 - serving);
   const hero: Record<string, number> = {};
   const short = Object.keys(output)
     .map((c) => ({ c, need: output[c]! - helpers[c]! }))
@@ -149,7 +187,7 @@ export function farmFlows(pads: readonly PadDef[], unlocked: ReadonlySet<string>
   if (picker && made.apple) moved.apple = Math.min(made.apple, movers('apples'));
   for (const g of ['eggs', 'milk']) if (made[g]) moved[g] = Math.min(made[g]!, movers(g));
   if (built('bakery')) {
-    const batches = Math.min(1 / TUNING.bakery.seconds, moved.corn ?? 0);
+    const batches = Math.min(oven / TUNING.bakery.seconds, moved.corn ?? 0);
     const pies = Math.min(batches, moved.apple ?? 0);
     moved.corn = (moved.corn ?? 0) - batches;
     moved.apple = (moved.apple ?? 0) - pies;
@@ -161,7 +199,9 @@ export function farmFlows(pads: readonly PadDef[], unlocked: ReadonlySet<string>
   const villagers = 1 / spawnSeconds(TUNING.villagers.spawnSeconds, opts.stars, TUNING.stars.arrivalPerStar, sum((e) => e.arrivalBonus));
   // Villagers go to the shorter line: half of them shop at the market once there is one.
   const marketShare = market ? 0.5 : 0;
-  const shopPrice = (1 + sum((e) => e.payBonus)) * (1 + marketShare * (TUNING.market.premium - 1)) * TIP;
+  // The stand's and the market's quality upgrades: each on what sells there.
+  const quality = (1 - marketShare) * pay('stand.quality') + marketShare * TUNING.market.premium * pay('market.quality');
+  const shopPrice = (1 + sum((e) => e.payBonus)) * quality * TIP;
   const vanPrice = (1 + sum((e) => e.payBonus)) * TUNING.deliveries.premium;
   const auto = has((e) => e.driver);
   // The vans go first (they pay more, and the helpers fill a waiting van before the stand): each carries so many
@@ -174,7 +214,7 @@ export function farmFlows(pads: readonly PadDef[], unlocked: ReadonlySet<string>
     const van = VANS[pad.id];
     if (!van) continue;
     const [low, high] = van.load;
-    let room = ((low + high) / 2 / (van.trip + LOADING_SECONDS)) * (auto ? 1 : HERO_VAN_SHARE);
+    let room = ((low + high) / 2 / (van.trip / faster(`${pad.id}.trip`, 'trip') + LOADING_SECONDS)) * (auto ? 1 : HERO_VAN_SHARE);
     for (const good of [...van.goods].sort((a, b) => price(b) - price(a))) {
       const n = Math.min(room, left[good] ?? 0);
       if (n <= 0) continue;

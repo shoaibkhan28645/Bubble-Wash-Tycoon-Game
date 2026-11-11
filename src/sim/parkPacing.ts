@@ -15,13 +15,16 @@
 // there's a seller and an operator, serves the other stalls part of the
 // time, and carries supplies until the snack runner does; the operator and
 // the coaster crew launch their rides; the truck tops up the shed. The hero
-// arrives with what the park's land left over, and the other towns keep earning in the background all along (about $35k a minute when
-// the park opens). Upgrades, tips for perfect launches, the mascot's photos
-// and the storm are left out, so a real player is usually a little faster.
-import { TUNING, type PadDef } from '../core/config';
+// arrives with what the park's land left over, and the other towns keep
+// earning in the background all along (about $51k a minute when the park
+// opens). What the crowd takes here is scaled to what the game's park takes
+// (PARK_EFFICIENCY, measured). Tips for perfect launches, the mascot's
+// photos and the storm are left out; upgrades are counted in
+// src/sim/journey.ts, whose bot buys them.
+import { TUNING, UPGRADES, type PadDef } from '../core/config';
 import { newGame } from '../core/gameState';
 import type { ParkTown } from '../core/towns';
-import { tipFor } from '../systems/economy';
+import { levelFactor, tipFor } from '../systems/economy';
 import { ParkCrowd } from '../systems/park';
 import { STALL_SUPPLY, type ParkSupply } from '../systems/parkSupplies';
 
@@ -44,8 +47,8 @@ export interface ParkPacingOptions {
 /** The start cash and the background are the whole journey's (src/sim/journey.ts; tests/journey.test.ts keeps them in step). */
 export const PARK_PACING: ParkPacingOptions = {
   stars: 4,
-  startCash: 358000,
-  background: 35200,
+  startCash: 224000,
+  background: 51300,
   step: 1,
   maxMinutes: 240,
   warmup: 120,
@@ -211,6 +214,34 @@ export function parkStage(town: ParkTown, built: ReadonlySet<string>, opts: Park
   return { perSecond: perMinute / 60, units, cash, visitors: Math.round(crowded / opts.measure), gaveUp: Math.round((gaveUp / minutes) * 10) / 10 };
 }
 
+/** The park upgrades this model counts: the rides' ticket prices and the stalls' quality. */
+export function parkUpgradeCounts(key: string): boolean {
+  const kind = key.split('.')[1];
+  return kind === 'price' || kind === 'quality';
+}
+
+/**
+ * What a stage of the park earns a second with the upgrade levels bought: each
+ * ride's ticket price and each stall's quality on what it took (at most twice
+ * as much). The speed upgrades aren't counted: the crowd, not the rides, is
+ * what holds most stages back.
+ */
+export function parkIncome(stage: ParkStage, levels: Readonly<Record<string, number>> = {}): number {
+  let perMinute = 0;
+  for (const [id, cash] of Object.entries(stage.cash)) {
+    const price = levelFactor(UPGRADES.kinds.price, levels[`${id}.price`] ?? 0) * levelFactor(UPGRADES.kinds.quality, levels[`${id}.quality`] ?? 0);
+    perMinute += cash * price;
+  }
+  return (perMinute / 60) * PARK_EFFICIENCY;
+}
+
+/**
+ * What the park takes in the game for every dollar its crowd takes here, once its staff run it (measured hands off:
+ * 0.36 to 0.72 from the haunted house on, 0.5 for the finished park). Here visitors walk straight to what they want,
+ * rides never break down and litter costs nothing; in the game they keep to the paths, and both happen.
+ */
+export const PARK_EFFICIENCY = 0.5;
+
 /** Plays the park's pads in order and returns when each was bought, plus the park's own income a minute at the end. */
 export function simulateParkPacing(
   town: ParkTown,
@@ -247,7 +278,7 @@ export function simulateParkPacing(
     if (unlocked.size !== incomeFor) {
       const stage = parkStage(town, unlocked, opts);
       stages.push({ built: [...unlocked].at(-1)!, stage });
-      income = stage.perSecond;
+      income = stage.perSecond * PARK_EFFICIENCY;
       incomeFor = unlocked.size;
     }
     // Waiting on a long build (the landmark's hours): the player comes back when it's done. The park earned offline

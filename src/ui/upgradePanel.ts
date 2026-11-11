@@ -68,7 +68,8 @@ export class UpgradePanel {
     this.title.textContent = title;
     this.rows = rows;
     this.cash = cash;
-    this.lastRender = '';
+    // Never matches a list (an empty one included), so the first refresh always draws this panel's rows.
+    this.lastRender = '\u0000';
     this.el.hidden = false;
     this.refresh();
   }

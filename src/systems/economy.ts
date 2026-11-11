@@ -102,9 +102,17 @@ export function upgradeCost(kind: UpgradeKind, scale: number, level: number, gro
   return Math.round(kind.base * scale * growth ** level);
 }
 
-/** Multiplier from a "factor" upgrade at a level, e.g. speed 0.9^L, quality 1.15^L. */
+/**
+ * Multiplier from an upgrade at a level. A pay upgrade (`bonus`) multiplies
+ * pay, at most twice over: quality 1 + 0.1 × L. A speed upgrade (`faster`)
+ * multiplies time, at most halving it: 1 / (1 + 0.1 × L). Others multiply
+ * their factor in each level (wear 0.85^L).
+ */
 export function levelFactor(kind: UpgradeKind | undefined, level: number): number {
-  return kind?.factor === undefined ? 1 : kind.factor ** level;
+  if (!kind) return 1;
+  if (kind.bonus !== undefined) return 1 + kind.bonus * level;
+  if (kind.faster !== undefined) return 1 / (1 + kind.faster * level);
+  return kind.factor === undefined ? 1 : kind.factor ** level;
 }
 
 /** Amount added by a "step" upgrade at a level, e.g. carry +1 per level. */

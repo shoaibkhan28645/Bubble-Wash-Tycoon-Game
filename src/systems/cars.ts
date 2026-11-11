@@ -45,6 +45,8 @@ export class Car implements Customer {
   special = false;
   /** Will stop at the detailing garage (if built). */
   wantsDetail = false;
+  /** Seconds spent finished, waiting for a busy garage (it gives detailing a miss after a few). */
+  detailWait = 0;
   /** Bought a snack from the vending machine while waiting. */
   snacked = false;
   /** Which car this is in the order they came on (lower came first). */
@@ -133,6 +135,7 @@ export class Car implements Customer {
     this.vip = !!def.vip;
     this.special = !!def.special;
     this.wantsDetail = false;
+    this.detailWait = 0;
     this.snacked = false;
     this.waited = 0;
     this.state = 'arriving';

@@ -22,7 +22,7 @@
     { "id": "fuel", "goal": 8, "growth": 1.06, "gems": 5, "requires": "pump1" },
     { "id": "combo", "goal": 5, "growth": 1.05, "gems": 6, "requires": "pump1" },
     { "id": "fullRide", "goal": 8, "growth": 1.04, "gems": 6, "town": "park" },
-    { "id": "parkEarn", "goal": 120000, "growth": 1.15, "gems": 6, "town": "park" },
+    { "id": "parkEarn", "goal": 240000, "growth": 1.15, "gems": 6, "town": "park" },
     { "id": "perfectDay", "goal": 4, "growth": 1.03, "gems": 6, "town": "park" },
     { "id": "litter", "goal": 10, "growth": 1.03, "gems": 5, "town": "park", "requires": "cart" },
     { "id": "fix", "goal": 3, "growth": 1, "gems": 6, "town": "park", "requires": "bumper" },

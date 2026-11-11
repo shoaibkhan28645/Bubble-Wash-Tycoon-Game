@@ -287,7 +287,7 @@ export function createParkGame(
   stage.scene.add(withShadows(parkland(layout, spinners), false, true));
 
   const level = (key: string) => state.levels[key] ?? 0;
-  const player = new Player(stage.scene, layout.playerStart, TUNING.player, () => 1 + levelStep(UPGRADES.kinds.walk, level('player.walk')) + perk(state, 'walk'));
+  const player = new Player(stage.scene, layout.playerStart, TUNING.player, () => 1 + perk(state, 'walk'));
   player.onFootstep(() => sound.play('step'));
   /** How loud a sound at `at` is to the hero (1 close by, 0 far off). */
   const hearing = (at: Point, near = HEAR_NEAR, fade = HEAR_FADE): number =>
@@ -376,7 +376,8 @@ export function createParkGame(
   };
 
   const onPaid = (paid: Paid): void => {
-    if (paid.automated) income.add(clock.now, paid.amount);
+    // The town's steady staff takings: what it earns while the hero is elsewhere (one-offs left out).
+    if (paid.automated && !paid.bonus) income.add(clock.now, paid.amount);
     meta.onPaid(paid);
     town.onPaid(paid);
   };

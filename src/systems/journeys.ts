@@ -106,7 +106,16 @@ export class Journeys {
             { x: lane, z: this.layout.collectZ },
           ]
         : [];
-    const next = nextStop(this.lot.finishing, from, car.wantsDetail);
+    let next = nextStop(this.lot.finishing, from, car.wantsDetail);
+    // A car that asked for detailing gives it a miss if the garage stays busy, rather than hold up every car
+    // behind it (a golden VIP and the Car of the Day wait: they came for the full treatment).
+    if (next?.kind === 'garage' && !car.vip && !car.special && (next.customer || this.firstInLine(next) !== car)) {
+      car.detailWait += dt;
+      if (car.detailWait > TUNING.cars.detailPatience) {
+        car.wantsDetail = false;
+        next = nextStop(this.lot.finishing, from, false);
+      }
+    }
     if (next) {
       // Wait here until the next station is free and it's this car's turn.
       if (next.customer || !this.wayClear(from, next) || this.firstInLine(next) !== car || this.heldFor(next, car)) return;

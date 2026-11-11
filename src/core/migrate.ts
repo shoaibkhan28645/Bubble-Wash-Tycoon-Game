@@ -1,8 +1,27 @@
 import { newDaily, newGame, newTownState, type Build, type Contract, type ContractsState, type DailyState, type DeliveriesState, type GameState, type GoalsState, type Order, type TownState } from './gameState';
 import { START_TOWN_ID } from './towns';
+import { UPGRADES } from './config';
+import { upgradeCost } from '../systems/economy';
 
 /** Bump when the save shape changes, and add a migration for the old version. */
-export const SAVE_VERSION = 10;
+export const SAVE_VERSION = 11;
+
+/**
+ * Upgrades taken out in v11, with what their first level cost then: the
+ * hero's walk speed (times the town's hero price, below), and quality at the
+ * fuel pumps, dryer, waxer and detailing garage (a car's quality is its
+ * wash's now). What was spent on them is given back, at those prices.
+ */
+export const REMOVED_UPGRADES: Readonly<Record<string, number>> = {
+  'player.walk': 50,
+  'pump1.quality': 96,
+  'pump2.quality': 128,
+  'dryer.quality': 128,
+  'wax.quality': 160,
+  'garage.quality': 320,
+};
+/** The hero's upgrades cost this many times as much in each town before v11. */
+const OLD_HERO_SCALE: Readonly<Record<string, number>> = { roadside: 1, willowbrook: 40, starlight: 2500 };
 
 type SaveObject = Record<string, unknown>;
 export type Migration = (save: SaveObject) => SaveObject;
@@ -35,6 +54,29 @@ export const MIGRATIONS: Readonly<Record<number, Migration>> = {
     deliveries: noDeliveries(),
     towns: isObject(save.towns) ? Object.fromEntries(Object.entries(save.towns).map(([id, town]) => [id, isObject(town) ? { ...town, deliveries: noDeliveries() } : town])) : save.towns,
   }),
+  // v11: upgrades reworked. Those taken out are refunded, in every town.
+  10: (save) => {
+    let refund = 0;
+    const strip = (town: SaveObject, townId: string): SaveObject => {
+      if (!isObject(town.levels)) return town;
+      const levels = { ...town.levels };
+      for (const [key, base] of Object.entries(REMOVED_UPGRADES)) {
+        const level = levels[key];
+        delete levels[key];
+        if (typeof level !== 'number' || !Number.isFinite(level)) continue;
+        const scale = key.startsWith('player.') ? (OLD_HERO_SCALE[townId] ?? 1) : 1;
+        for (let l = 0; l < Math.min(level, 20); l++) refund += upgradeCost({ name: '', effect: '', base, max: 0 }, scale, l, UPGRADES.growth);
+      }
+      return { ...town, levels };
+    };
+    const current = typeof save.currentTown === 'string' ? save.currentTown : START_TOWN_ID;
+    const here = strip(save, current);
+    const towns = isObject(save.towns)
+      ? Object.fromEntries(Object.entries(save.towns).map(([id, town]) => [id, isObject(town) ? strip(town, id) : town]))
+      : save.towns;
+    const cash = typeof save.cash === 'number' && Number.isFinite(save.cash) ? save.cash : 0;
+    return { ...here, towns, cash: cash + refund };
+  },
 };
 
 function noDeliveries(): DeliveriesState {

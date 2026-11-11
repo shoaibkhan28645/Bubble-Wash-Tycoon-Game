@@ -46,6 +46,17 @@ const STAFF_NAMES: Record<string, string> = {
   marketstaff: 'Market staff',
   field1: 'Vegetables',
   field2: 'Corn',
+  clerk: 'Shop clerk',
+  cashier: 'Cashier',
+  valet: 'Valet',
+  operator: 'Ride operator',
+  seller: 'Ticket seller',
+  vendor: 'Midway vendor',
+  mechanic: 'Mechanic',
+  snackrunner: 'Snack runner',
+  janitor: 'Janitor',
+  mascot: 'Mascot',
+  crew: 'Coaster crew',
 };
 /** The staff room opens once the register is built (minute 2). */
 const STAFF_ROOM_AFTER = 'register';

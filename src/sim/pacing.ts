@@ -7,11 +7,12 @@
 // It is a model, not the game: no cars are driven and nobody walks. Cars
 // arrive at the game's rate, want what the game's tickets want, and are
 // served as fast as the built stations and the people working them allow.
-// Money from contracts, goals and rewarded ads is left out, and the bot
-// never buys upgrades, so a real player is usually a little faster.
-import { CARS, STATIONS, TUNING, stationDef, type CarDef, type PadDef, type StageDef } from '../core/config';
+// Money from contracts, goals and rewarded ads is left out. Upgrades are
+// counted when they're bought (src/sim/journey.ts has the bot that buys them).
+// What staff earn was checked against the game itself, stage by stage.
+import { CARS, STATIONS, TUNING, UPGRADES, stationDef, type CarDef, type PadDef, type StageDef } from '../core/config';
 import type { TownDef } from '../core/towns';
-import { builtStages, spawnSeconds, ticketPay, washSeconds } from '../systems/economy';
+import { builtStages, levelFactor, spawnSeconds, ticketPay, washSeconds } from '../systems/economy';
 import type { Need, TicketKind } from '../systems/tickets';
 
 export interface PacingOptions {
@@ -97,6 +98,9 @@ export function simulatePacing(
   return { pads, finalIncomePerMinute: Math.round(income * 60), awayMinutes: Math.round(awaySeconds / 60) };
 }
 
+/** What staff earn in the game for every dollar this model gives them (measured; see incomePerSecond). */
+export const STAFF_EFFICIENCY = 0.75;
+
 /** A build that would keep the player waiting longer than this is waited out away from the game. */
 const AWAY_AFTER_SECONDS = 15 * 60;
 
@@ -105,9 +109,30 @@ function goalsDone(town: TownDef, unlocked: Set<string>): boolean {
   return town.goals.goals.every((goal) => !goal.built || unlocked.has(goal.built));
 }
 
-/** Cash per second the town makes with what's built: customers served times what each pays. */
-export function incomePerSecond(pads: readonly PadDef[], unlocked: ReadonlySet<string>, opts: PacingOptions, playSeconds = 0): number {
+/** Upgrade levels bought, by key ("bay1.quality"). */
+export type Levels = Readonly<Record<string, number>>;
+
+/** The car wash upgrades this model counts: the wash's quality, the stations' and the front-line staff's speed, the hero's scrubbing. */
+export function washUpgradeCounts(key: string): boolean {
+  const [target, kind] = key.split('.') as [string, string];
+  if (kind === 'quality') return true;
+  if (kind === 'speed') return ['bay1', 'bay2', 'tunnel', 'pump1', 'pump2', 'mart'].includes(target);
+  if (kind === 'staffSpeed') return ['washer', 'attendant', 'clerk'].includes(target);
+  return key === 'player.scrub';
+}
+
+/**
+ * Cash per second the town makes with what's built (and the upgrade levels
+ * bought): customers served times what each pays.
+ */
+export function incomePerSecond(pads: readonly PadDef[], unlocked: ReadonlySet<string>, opts: PacingOptions, playSeconds = 0, levels: Levels = {}): number {
   const built = (id: string) => unlocked.has(id);
+  const level = (key: string) => levels[key] ?? 0;
+  /** A speed upgrade's time multiplier (½ at the top level), and a pay upgrade's multiplier (×2 at the top). */
+  const time = (key: string) => levelFactor(UPGRADES.kinds.speed, level(key));
+  const pay = (key: string) => levelFactor(UPGRADES.kinds.quality, level(key));
+  /** Staff work faster with their speed upgrade. */
+  const quick = (role: string) => 1 / levelFactor(UPGRADES.kinds.staffSpeed, level(`${role}.staffSpeed`));
   const list = [...unlocked];
   const sum = (pick: (p: PadDef) => number | undefined) => pads.filter((p) => built(p.id)).reduce((s, p) => s + (pick(p) ?? 0), 0);
   const staff = new Set(pads.filter((p) => built(p.id) && p.effects.staff).map((p) => p.effects.staff!));
@@ -129,6 +154,7 @@ export function incomePerSecond(pads: readonly PadDef[], unlocked: ReadonlySet<s
   // Who works: staff on their stations part of each shift; the player shares out what's left.
   const shift = TUNING.staff.workSeconds / (TUNING.staff.workSeconds + TUNING.staff.breakSeconds);
   const staffRate = TUNING.staff.workRate * shift;
+  const rate = (role: string) => staffRate * quick(role);
   const unstaffed = [
     !staff.has('washer'),
     pumps > 0 && !staff.has('attendant'),
@@ -139,15 +165,24 @@ export function incomePerSecond(pads: readonly PadDef[], unlocked: ReadonlySet<s
 
   // How fast customers are served, per need, in customers per second.
   const bayStages = builtStages(list, 'bay');
-  const dirtSeconds = mean(cars.filter((c) => c.dirt !== 'swamp'), (c) => washSeconds(c.dirt, bayStages, TUNING.wash));
+  const bayIds = pads.filter((p) => built(p.id) && p.effects.bay).map((p) => p.id);
+  const pumpIds = pads.filter((p) => built(p.id) && p.effects.pump).map((p) => p.id);
+  const bayTime = mean(bayIds, (id) => time(`${id}.speed`));
+  const dirtSeconds = mean(cars.filter((c) => c.dirt !== 'swamp'), (c) => washSeconds(c.dirt, bayStages, TUNING.wash)) * (bayIds.length ? bayTime : 1);
   const bays = stations('bay');
-  const bayWorkers = Math.min(bays, (staff.has('washer') ? staffRate : 0) + (staff.has('washer') ? 0 : player));
-  const tunnel = built('tunnel') ? (stationDef('tunnel').capacity ?? 1) / (stationDef('tunnel').seconds ?? 1) : 0;
+  // The hero scrubs faster with the scrub upgrade (a washer's speed is their own).
+  const scrub = 1 / levelFactor(UPGRADES.kinds.scrub, level('player.scrub'));
+  const bayWorkers = Math.min(bays, (staff.has('washer') ? rate('washer') : 0) + (staff.has('washer') ? 0 : player * scrub));
+  const tunnel = built('tunnel') ? (stationDef('tunnel').capacity ?? 1) / ((stationDef('tunnel').seconds ?? 1) * time('tunnel.speed')) : 0;
+  const bayWash = dirtSeconds > 0 ? bayWorkers / dirtSeconds : 0;
   const capacity: Record<Need, number> = {
-    wash: (dirtSeconds > 0 ? bayWorkers / dirtSeconds : 0) + tunnel,
-    fuel: Math.min(pumps, staff.has('attendant') ? staffRate : player) / (STATIONS.pump?.seconds ?? 1),
-    snack: (staff.has('clerk') ? staffRate : player) / (STATIONS.counter?.seconds ?? 1),
+    wash: bayWash + tunnel,
+    fuel: Math.min(pumps, staff.has('attendant') ? rate('attendant') : player) / ((STATIONS.pump?.seconds ?? 1) * (pumpIds.length ? mean(pumpIds, (id) => time(`${id}.speed`)) : 1)),
+    snack: (staff.has('clerk') ? rate('clerk') : player) / ((STATIONS.counter?.seconds ?? 1) * time('mart.speed')),
   };
+  // A car's quality is its wash's: the bays' or the tunnel's, by how many cars each washes.
+  const washQuality =
+    bayWash + tunnel > 0 ? (bayWash * mean(bayIds.length ? bayIds : ['bay1'], (id) => pay(`${id}.quality`)) + tunnel * pay('tunnel.quality')) / (bayWash + tunnel) : 1;
   const served = (need: Need) => {
     const demand = arrivals * share(need);
     return demand > 0 ? Math.min(1, (capacity[need] ?? 0) / demand) : 0;
@@ -162,18 +197,25 @@ export function incomePerSecond(pads: readonly PadDef[], unlocked: ReadonlySet<s
   for (const kind of kinds) {
     const servedShare = Math.min(...kind.needs.map(served));
     const garage = kind.needs.includes('wash') ? (stationDef('garage').chance ?? 0) : 0;
-    const pay = (1 - garage) * ticketPay(payer, stages, kind.needs) + garage * ticketPay(payer, [...stages, ...detail], kind.needs);
-    perSecond += arrivals * (kind.weight / totalWeight) * servedShare * pay * bonus;
+    const quality = kind.needs.includes('wash') ? washQuality : 1;
+    const bill = (1 - garage) * ticketPay(payer, stages, kind.needs, quality) + garage * ticketPay(payer, [...stages, ...detail], kind.needs, quality);
+    perSecond += arrivals * (kind.weight / totalWeight) * servedShare * bill * bonus;
   }
   // The golden VIP (from the first VIP time on) and the vending machine.
   if (playSeconds >= TUNING.vip.firstSeconds) {
     const best = Math.max(...cars.map((c) => c.basePay));
     const vipEvery = (TUNING.vip.minSeconds + TUNING.vip.maxSeconds) / 2;
-    perSecond += (ticketPay({ basePay: best, payMultiplier: vipMultiplier() }, stages, ['wash']) * bonus) / vipEvery;
+    perSecond += (ticketPay({ basePay: best, payMultiplier: vipMultiplier() }, stages, ['wash'], washQuality) * bonus) / vipEvery;
   }
   // A can for the drivers who get out while the car ahead is washed (about one in five washes).
   if (built('vending')) perSecond += arrivals * share('wash') * TUNING.vending.pay * 0.2;
-  return perSecond;
+  // Measured in the game itself (hands off, ten minutes a stage, from the cashier on, with and without upgrades):
+  // staff take about three quarters of what this model gives them (cars lost to a full line, walking, the odd
+  // jam at the exit). The hero's own work is set by playerEffort.
+  const front = [true, pumps > 0, selling];
+  const staffed = [staff.has('washer') || built('tunnel'), staff.has('attendant'), staff.has('clerk')].filter((s, i) => s && front[i]).length;
+  const staffedShare = staffed / front.filter(Boolean).length;
+  return perSecond * (1 - (1 - STAFF_EFFICIENCY) * staffedShare);
 }
 
 function vipMultiplier(): number {

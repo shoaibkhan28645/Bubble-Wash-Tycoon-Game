@@ -95,7 +95,7 @@ export function createRoadsideGame(
   stage.scene.add(terrain(layout, bayIds.map((id) => layout.pads[id]!.x), layout.pads.tunnel?.x ?? null));
   const level = (key: string) => state.levels[key] ?? 0;
   // Walk upgrades and the Entrepreneur rank add speed.
-  const player = new Player(stage.scene, layout.playerStart, TUNING.player, () => 1 + levelStep(UPGRADES.kinds.walk, level('player.walk')) + perk(state, 'walk'));
+  const player = new Player(stage.scene, layout.playerStart, TUNING.player, () => 1 + perk(state, 'walk'));
   player.onFootstep(() => sound.play('step'));
   const playerCarry = new Carrier(
     player.mesh,
@@ -117,7 +117,8 @@ export function createRoadsideGame(
   const { mart, loadShoppers } = createMart({ scene: stage.scene, layout, state, labels, floaters, sound });
   const pool = new CarPool(stage.scene);
   const onPaid = (paid: Paid): void => {
-    if (paid.automated) income.add(clock.now, paid.amount);
+    // The town's steady staff takings: what it earns while the hero is elsewhere (one-offs left out).
+    if (paid.automated && !paid.bonus) income.add(clock.now, paid.amount);
     else flag('washed');
     meta.onPaid(paid);
     town.onPaid(paid);

@@ -152,7 +152,7 @@ export function createFarmGame(
   });
 
   const level = (key: string) => state.levels[key] ?? 0;
-  const player = new Player(stage.scene, layout.playerStart, TUNING.player, () => 1 + levelStep(UPGRADES.kinds.walk, level('player.walk')) + perk(state, 'walk'));
+  const player = new Player(stage.scene, layout.playerStart, TUNING.player, () => 1 + perk(state, 'walk'));
   player.onFootstep(() => sound.play('step'));
   const playerCarry: CrateCarrier = new Carrier<GoodId>(
     player.mesh,
@@ -278,7 +278,7 @@ export function createFarmGame(
       floaters.show(`🎀 +${order.gems} 💎`, new Vector3(at.x, 2.3, at.z), 'star');
     }
     sound.play('ching');
-    onPaid({ amount: pay, tip: 0, automated: autoVans(), at });
+    onPaid({ amount: pay, tip: 0, automated: autoVans(), at, bonus: !!order.special });
   });
   deliveries.tripScale = (van) => levelFactor(UPGRADES.kinds.trip, level(`${van}.trip`));
   const fleet = new VanFleet((model) => motion.vehicle(model));
@@ -331,7 +331,8 @@ export function createFarmGame(
   };
 
   const onPaid = (paid: Paid): void => {
-    if (paid.automated) income.add(clock.now, paid.amount);
+    // The town's steady staff takings: what it earns while the hero is elsewhere (one-offs left out).
+    if (paid.automated && !paid.bonus) income.add(clock.now, paid.amount);
     else flag(servedFlag);
     meta.onPaid(paid);
     town.onPaid(paid);

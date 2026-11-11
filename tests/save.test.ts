@@ -240,6 +240,17 @@ describe('old saves', () => {
     expect(parseSave(serialize(state)).state.deliveries).toEqual(state.deliveries);
   });
 
+  it('refunds the upgrades v11 took out (walk speed, quality off the wash), in every town, and keeps the rest', () => {
+    const v10 = JSON.parse(fixtures['./fixtures/save-v10.json']!);
+    v10.levels = { 'player.walk': 2, 'stand.quality': 1 };
+    v10.towns.roadside.levels = { 'dryer.quality': 1, 'pump1.quality': 2, 'bay1.quality': 3, 'player.walk': 1 };
+    const { state } = parseSave(JSON.stringify(v10));
+    // Willowbrook's walk (×40 for the hero there): 2000 + 2300; the car wash's: dryer 128, pumps 96 + 110, walk 50.
+    expect(state.cash).toBe(v10.cash + 2000 + 2300 + 128 + 96 + 110 + 50);
+    expect(state.levels).toEqual({ 'stand.quality': 1 });
+    expect(state.towns.roadside!.levels).toEqual({ 'bay1.quality': 3 });
+  });
+
   it('drops broken orders and trips, and never reuses an order id', () => {
     const text = JSON.stringify({ version: 10, deliveries: { orders: [{ id: 9, good: 'milk', qty: 4, pay: 900, buyer: 'x', loaded: 7 }, { id: 'a' }, null], trips: { van: { order: 1 }, tanker: { order: 9, leftAt: 1, backAt: 2 } }, nextId: 2 } });
     const { deliveries } = parseSave(text).state;

@@ -34,10 +34,21 @@ function awayRate(town: TownState): number {
   return town.unlocked.includes(MANAGER) ? TUNING.offline.managerRate : TUNING.offline.rate;
 }
 
+/**
+ * A town's steady takings a minute: its staff's measured rate, held to the
+ * most that town can make (tuning `offline.maxRate`, well above a fully
+ * upgraded town). A save from before v11 could hold a rate a lucky golden VIP
+ * had blown up; this keeps it from paying out forever.
+ */
+export function steadyRate(id: string, town: TownState): number {
+  const max = (TUNING.offline.maxRate as Record<string, number | undefined>)[id];
+  return max === undefined ? town.autoRate : Math.min(town.autoRate, max);
+}
+
 /** Cash per second from the towns the hero isn't in (their staff keep working). */
 export function backgroundIncome(state: GameState): number {
   let perMinute = 0;
-  for (const town of Object.values(state.towns)) perMinute += town.autoRate * awayRate(town);
+  for (const [id, town] of Object.entries(state.towns)) perMinute += steadyRate(id, town) * awayRate(town);
   return perMinute / 60;
 }
 
@@ -48,9 +59,9 @@ export function backgroundIncome(state: GameState): number {
 export function empireOfflineEarnings(state: GameState, since: number, now: number): { seconds: number; cash: number } {
   let seconds = 0;
   let cash = 0;
-  for (const town of [currentTownState(state), ...Object.values(state.towns)]) {
+  for (const [id, town] of [[state.currentTown, currentTownState(state)] as const, ...Object.entries(state.towns)]) {
     const capLevel = town.levels[`${MANAGER}.offlineHours`] ?? 0;
-    const earned = offlineEarnings(town.autoRate, since, now, TUNING.offline, town.unlocked.includes(MANAGER), capLevel);
+    const earned = offlineEarnings(steadyRate(id, town), since, now, TUNING.offline, town.unlocked.includes(MANAGER), capLevel);
     seconds = Math.max(seconds, earned.seconds);
     cash += earned.cash;
   }

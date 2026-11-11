@@ -1,4 +1,5 @@
 import type { SoundManager } from '../audio/sound';
+import { steadyRate } from '../core/empire';
 import type { GameState } from '../core/gameState';
 import { loadedTown, townIds, type TownDef } from '../core/towns';
 import { currentRank, netWorth, nextRank } from '../systems/career';
@@ -56,7 +57,8 @@ export function openEmpireMap(deps: {
     line.textContent = stop.teaser;
     const statusLine = document.createElement('span');
     statusLine.className = 'empire-status';
-    const rate = status === 'here' ? state.autoRate : (state.towns[stop.id]?.autoRate ?? 0);
+    const progress = status === 'here' ? state : state.towns[stop.id];
+    const rate = progress ? steadyRate(stop.id, progress) : 0;
     statusLine.textContent =
       status === 'here'
         ? t('mapHere', { rate: formatCash(rate) })

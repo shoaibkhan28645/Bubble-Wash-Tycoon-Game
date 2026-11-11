@@ -25,6 +25,12 @@ export interface Paid {
   car?: Car;
   /** A snack was sold (the vending machine). */
   snack?: boolean;
+  /**
+   * A one-off, not the town's steady takings: a golden VIP, the Car of the
+   * Day, the Buyer of the Day's order. It isn't counted in the town's income
+   * a minute (what the town earns while the hero is elsewhere, or away).
+   */
+  bonus?: boolean;
 }
 
 /**
@@ -52,7 +58,7 @@ export class Till {
     if (car.served.length > 1) this.floaters.show(`COMBO ×${comboMultiplier(car.served.length)}`, new Vector3(at.x - 0.4, 2.6, at.z), 'combo');
     this.rate(tip > 0 ? 'happy' : 'okay');
     this.sound.play('ching');
-    this.onPaid({ amount: pay + tip, tip, automated: !car.manual, at, car });
+    this.onPaid({ amount: pay + tip, tip, automated: !car.manual, at, car, bonus: car.vip || car.special });
   }
 
   /** A car that ran out of patience still pays for what it got (its fuel), at the forecourt. */
@@ -61,7 +67,7 @@ export class Till {
     const pay = this.bill(car).pay;
     const at = this.pay('fuel', pay, car.position);
     this.floaters.show(`+$${pay}`, new Vector3(at.x, 1.2, at.z), 'cash');
-    this.onPaid({ amount: pay, tip: 0, automated: !car.manual, at, car });
+    this.onPaid({ amount: pay, tip: 0, automated: !car.manual, at, car, bonus: car.vip || car.special });
   }
 
   /** A waiting driver buys a snack from the vending machine. */

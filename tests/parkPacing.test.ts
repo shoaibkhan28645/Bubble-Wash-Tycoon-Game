@@ -29,12 +29,12 @@ describe('park pacing simulator', () => {
     for (const { stage } of report.stages) expect(stage.visitors).toBeLessThanOrEqual(40 + 12);
   });
 
-  it('buys every pad within 20% of the minute the strategy plans', () => {
-    for (const pad of report.pads) {
-      if (pad.targetMinute === 0) continue;
-      const off = Math.abs(pad.boughtMinute! / pad.targetMinute - 1);
-      expect(off, `${pad.id} at ${pad.boughtMinute} min, planned ${pad.targetMinute}`).toBeLessThanOrEqual(0.2);
-    }
+  // The planned minutes are a player who buys upgrades (tests/journey.test.ts holds every pad to them). This bot
+  // never buys one: the park earns about half as much by the end, so the land takes it far longer to save for.
+  it('never buying an upgrade, gets to the land within two and a half times the planned length', () => {
+    const land = report.pads.at(-1)!;
+    expect(land.boughtMinute!).toBeGreaterThan(land.targetMinute);
+    expect(land.boughtMinute!).toBeLessThan(land.targetMinute * 2.5);
   });
 
   it.runIf(process.env.PACING_REPORT)('prints the report', () => {

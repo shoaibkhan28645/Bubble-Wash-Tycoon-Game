@@ -345,7 +345,8 @@ export class StaffSystem {
       // Leave a station to the player, or to another helper already on it.
       const skip = (station: AnyStation) =>
         playerAt(station) || (!manager && !!station.customer?.vip) || this.helpers.some((o) => o !== helper && o.assigned === station);
-      const speed = (TUNING.staff.walkSpeed * (this.bonuses[helper.role]?.speed ?? 1)) / levelFactor(UPGRADES.kinds.staffSpeed, this.level(`${helper.role}.staffSpeed`));
+      // The speed upgrade makes them quicker at the job, not on their feet: they walk at a natural pace.
+      const speed = TUNING.staff.walkSpeed * (this.bonuses[helper.role]?.speed ?? 1);
       if (this.takeBreak(dt, helper)) {
         helper.avatar.update(dt);
         continue;

@@ -499,7 +499,11 @@ export interface UpgradeKind {
   effect: string;
   base: number;
   max: number;
-  /** Multiplied in once per level (speed 0.9, quality 1.15). */
+  /** Pay (or output) up by this share a level, added: +10% a level makes level 10 twice as much. */
+  bonus?: number;
+  /** This much faster a level, added: 10% a level makes level 10 twice as fast (half the time). */
+  faster?: number;
+  /** Multiplied in once per level (wear 0.85, launch 0.85). */
   factor?: number;
   /** Added once per level (walk +0.1, carry +1). */
   step?: number;
@@ -514,7 +518,7 @@ export interface UpgradesData {
   maxLevels?: Record<string, number>;
   /** Cost multiplier by upgrade target (station, staff or player). */
   costScale: Record<string, number>;
-  /** The hero's own upgrades (walk, carry, scrub) cost this many times as much in each town (by town id): about half its first purchase. */
+  /** The hero's own upgrades (carry, scrub) cost this many times as much in each town (by town id): about half its first purchase. */
   heroScale?: Record<string, number>;
   /** Which "target.kind" upgrades each upgrade pad offers. */
   panels: Record<string, string[]>;

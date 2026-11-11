@@ -118,15 +118,25 @@ describe('upgrades (1.15× cost curve)', () => {
     expect(upgradeCost(speed, scale.wax!, 0, 1.15)).toBeGreaterThan(upgradeCost(speed, scale.bay1!, 0, 1.15));
   });
 
-  it('speed takes 10% off per level, compounding (never reaches zero)', () => {
+  it('speed makes the job 10% faster per level, twice as fast at the top level', () => {
     expect(levelFactor(speed, 0)).toBe(1);
-    expect(levelFactor(speed, 1)).toBeCloseTo(0.9);
-    expect(levelFactor(speed, 10)).toBeCloseTo(0.9 ** 10);
-    expect(levelFactor(speed, 10)).toBeGreaterThan(0.3);
+    expect(levelFactor(speed, 1)).toBeCloseTo(1 / 1.1);
+    expect(levelFactor(speed, 10)).toBeCloseTo(0.5);
   });
 
-  it('quality adds 15% pay per level, compounding', () => {
-    expect(levelFactor(UPGRADES.kinds.quality, 2)).toBeCloseTo(1.3225);
+  it('quality adds 10% pay per level, twice the pay at the top level', () => {
+    expect(levelFactor(UPGRADES.kinds.quality, 2)).toBeCloseTo(1.2);
+    expect(levelFactor(UPGRADES.kinds.quality, 10)).toBeCloseTo(2);
+    expect(levelFactor(UPGRADES.kinds.price, 10)).toBeCloseTo(2);
+  });
+
+  it('no pay or speed upgrade more than doubles it', () => {
+    for (const id of ['price', 'quality', 'speed', 'staffSpeed', 'scrub', 'grow', 'trip', 'oven']) {
+      const kind = UPGRADES.kinds[id]!;
+      expect(kind.bonus ?? kind.faster, id).toBeDefined();
+      const top = levelFactor(kind, kind.max);
+      expect(Math.max(top, 1 / top), id).toBeLessThanOrEqual(2.0001);
+    }
   });
 
   it('queue adds a waiting spot every 3 levels', () => {

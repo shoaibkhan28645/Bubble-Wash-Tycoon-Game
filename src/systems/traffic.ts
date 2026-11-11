@@ -158,7 +158,8 @@ export class Traffic {
     });
     if (this.mart.isOpen) {
       const till = work(this.mart.counter);
-      this.mart.update(dt, till.rate, this.boost);
+      // The checkout's speed upgrade (the clerk's own is in their rate).
+      this.mart.update(dt, till.rate / levelFactor(UPGRADES.kinds.speed, this.level('mart.speed')), this.boost);
       if (till.byPlayer && this.mart.counter.serving) playerWorking = true;
     }
     this.departures.update(dt);
@@ -246,7 +247,8 @@ export class Traffic {
     if (def.serves) car.served.push(def.serves);
     // Every stage built at the stations it stands in for: the tunnel's brushes, pre-soak and blowers are the bay's and the dryer's.
     car.stages.push(...def.stages.flatMap((at) => builtStages(this.state.unlocked, at as StageDef['station'])));
-    car.quality *= levelFactor(UPGRADES.kinds.quality, this.level(`${station.id}.quality`));
+    // Quality is the wash's (a bay's or the tunnel's): it doesn't stack with the other stations a car passes.
+    if (def.serves === 'wash') car.quality = levelFactor(UPGRADES.kinds.quality, this.level(`${station.id}.quality`));
     const p = car.position;
     if (def.fx === 'fuel') {
       this.effects.burst('sparkle', new Vector3(p.x, 1.2, p.z), 10, 4, car.def.size[0]);
