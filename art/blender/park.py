@@ -834,43 +834,122 @@ for i, ((col, trim), (bx, by)) in enumerate(zip(BOATS, BERTH)):
     for k in (-1, 1):
         m.marker(f'seat{i * 2 + (k + 1) // 2}', (cx + k * 0.22, cy + 0.12, 0.62), on=f'boat{i}')
 
-# --- The haunted house: a crooked purple house, two towers, glowing windows, a creaking door, bats and a ghost. ---
+# --- The haunted house: a crooked two-storey house under a steep shingled roof (dormers lit green, a belfry, a brick
+# chimney a ghost rises out of), two towers with bent witch-hat roofs, a sagging porch with lanterns, boarded windows
+# glowing green after dark, jack-o'-lanterns, a little graveyard and a dead tree; bats circle the towers. ---
 X = 138.0
 m = Model('pk_haunted', X)
-HZ = 4.4
-p = [kit.box((8.4, 6.4, 0.2), (X, 0, 0.1), '#4a4a5a', bevel=0.04)]
-for k in range(8):
-    p.append(kit.box((1.0, 6.0, HZ), (X - 3.5 + k, 0.1, HZ / 2 + 0.1), ('#5c4b7d', '#54456f')[k % 2], bevel=0.0))
-roof = kit.prism((8.6, 6.8, 2.4), (X, 0.1, HZ + 0.1), '#3b2f52')
-p.append(roof)
-p.append(kit.box((8.8, 0.25, 0.25), (X, -3.25, HZ + 0.1), '#2d2340', bevel=0.03))
+HZ = 4.5
+RIDGE = HZ + 3.1
+WALL, WALL2, ROOF, ROOF2, IRON, STONE = '#4f3f6e', '#5c4b7d', '#2f2645', '#40345e', '#241c33', '#3a3350'
+SPOOK = '#b8ff6a'
+p = [kit.box((8.4, 6.4, 0.2), (X, 0, 0.1), '#3a3a4a', bevel=0.04)]
+# The ground floor, and the upper floor a little wider and askew, with clapboard lines and a dark band between.
+p.append(kit.box((7.6, 6.0, 2.4), (X, 0.1, 1.4), WALL, bevel=0.03))
+p.append(kit.box((8.0, 6.1, 1.95), (X, 0.1, 3.55), WALL2, bevel=0.03, rot=(0, 0, 0.025)))
+p.append(kit.box((8.1, 6.1, 0.14), (X, 0.1, 2.6), IRON, bevel=0.0))
+for k in range(5):
+    p.append(kit.box((7.62, 0.04, 0.035), (X, -2.92, 0.55 + k * 0.38), '#3e3158', bevel=0.0))
+for k in range(4):
+    p.append(kit.box((8.02, 0.04, 0.035), (X, -2.97, 2.9 + k * 0.38), '#4a3c68', bevel=0.0, rot=(0, 0, 0.025)))
+# The roof: steep, shingled in rows, iron cresting along its ridge.
+p.append(kit.prism((8.8, 6.9, 3.1), (X, 0.1, HZ), ROOF))
+SLOPE = math.atan2(3.1, 3.45)
+for s in (-1, 1):
+    ny, nz = s * math.sin(SLOPE), math.cos(SLOPE)
+    for k in range(1, 8):
+        t = k / 8
+        y, z = 0.1 + s * 3.45 * (1 - t), HZ + 3.1 * t
+        p.append(kit.box((8.86, 0.16, 0.05), (X, y + ny * 0.03, z + nz * 0.03), ROOF2 if k % 2 else IRON, bevel=0.0, rot=(-s * SLOPE, 0, 0)))
+p.append(kit.box((9.0, 0.14, 0.14), (X, 0.1, RIDGE + 0.04), IRON, bevel=0.02))
+for k in range(15):
+    p.append(kit.cone(0.06, 0.0, 0.32, (X - 4.2 + k * 0.6, 0.1, RIDGE + 0.27), IRON, verts=4))
+# Dormers on the front of the roof, lit green, a shutter hanging askew on one.
 for sx in (-1, 1):
-    p.append(kit.cylinder(1.15, 6.4, (X + sx * 4.0, -2.6, 3.3), '#6b5a8e', verts=16))
-    p.append(kit.cone(1.45, 0.05, 2.6, (X + sx * 4.0, -2.6, 7.8), '#3b2f52', verts=16))
-    p.append(kit.box((0.6, 0.12, 0.9), (X + sx * 4.0, -3.7, 4.6), '#c6ff7a', bevel=0.02))
-    p.append(kit.box((0.7, 0.14, 0.12), (X + sx * 4.0, -3.72, 5.1), '#2d2340', bevel=0.0))
-    p.append(kit.cylinder(0.03, 0.8, (X + sx * 4.0, -2.6, 9.4), INK, verts=4))
-    p.append(kit.cone(0.25, 0.0, 0.4, (X + sx * 4.0 + 0.2, -2.6, 9.6), '#ff7a3d', verts=3, rot=(0, -math.pi / 2, 0)))
-# Windows with green light and crooked boards, a sign board over the door (the game writes on it), pumpkins, a fence.
-for (wx, wz) in ((-2.0, 2.4), (2.0, 2.4), (-2.0, 3.6), (2.0, 3.6), (0.0, 3.7)):
-    p.append(kit.box((0.9, 0.1, 0.8), (X + wx, -2.95, wz), '#c6ff7a', bevel=0.02))
-    p.append(kit.box((1.0, 0.12, 0.1), (X + wx, -3.0, wz + 0.05), '#2d2340', bevel=0.0, rot=(0, 0.3, 0)))
+    dx = X + sx * 2.3
+    p.append(kit.box((1.2, 1.3, 1.3), (dx, -1.75, 5.9), WALL2, bevel=0.03))
+    p.append(kit.prism((1.45, 1.55, 0.7), (dx, -1.75, 6.55), ROOF))
+    p.append(kit.box((0.62, 0.06, 0.66), (dx, -2.43, 5.95), SPOOK, bevel=0.02))
+    p.append(kit.box((0.06, 0.08, 0.7), (dx, -2.47, 5.95), IRON, bevel=0.0))
+    p.append(kit.box((0.66, 0.08, 0.06), (dx, -2.47, 5.95), IRON, bevel=0.0))
+    p.append(kit.box((0.3, 0.06, 0.66), (dx + sx * 0.5, -2.47, 5.88), '#6b5a8e', bevel=0.0, rot=(0, sx * 0.35, 0)))
+# The belfry on the ridge, a round green window, a pointed roof and a crooked weathervane.
+BX = X - 0.9
+p.append(kit.box((1.5, 1.5, 1.4), (BX, 0.1, RIDGE + 0.3), WALL2, bevel=0.03))
+p.append(kit.cylinder(0.33, 0.08, (BX, -0.67, RIDGE + 0.35), SPOOK, verts=14, rot=(math.pi / 2, 0, 0)))
+p.append(kit.torus(0.35, 0.05, (BX, -0.68, RIDGE + 0.35), IRON, rot=(math.pi / 2, 0, 0), major_segments=14, minor_segments=4))
+p.append(kit.cone(1.25, 0.02, 2.0, (BX, 0.1, RIDGE + 2.0), ROOF, verts=4, rot=(0, 0, math.pi / 4)))
+p.append(kit.cylinder(0.03, 0.9, (BX, 0.1, RIDGE + 3.3), IRON, verts=4))
+p.append(kit.box((0.6, 0.04, 0.06), (BX + 0.1, 0.1, RIDGE + 3.55), IRON, bevel=0.0, rot=(0, 0.25, 0)))
+p.append(kit.cone(0.1, 0.0, 0.2, (BX + 0.42, 0.1, RIDGE + 3.63), IRON, verts=3, rot=(0, -math.pi / 2 + 0.25, 0)))
+# The chimney at the back the ghost rises out of: crooked brick, a cap.
+CX, CY = X + 2.6, 1.3
+p.append(kit.box((1.25, 1.25, 3.4), (CX, CY, 7.5), '#6b4a5a', bevel=0.02, rot=(0, 0.05, 0)))
+for k in range(4):
+    p.append(kit.box((1.27, 1.27, 0.05), (CX + 0.02 * k, CY, 6.6 + k * 0.6), '#523846', bevel=0.0, rot=(0, 0.05, 0)))
+p.append(kit.box((1.5, 1.5, 0.2), (CX + 0.08, CY, 9.25), IRON, bevel=0.03, rot=(0, 0.05, 0)))
+# The towers: a stone base, a ring at the top, a bent witch-hat roof with a pennant, two lit windows each.
+for sx in (-1, 1):
+    tx = X + sx * 4.0
+    p.append(kit.cylinder(1.22, 0.7, (tx, -2.6, 0.45), STONE, verts=16))
+    p.append(kit.cylinder(1.12, 6.2, (tx, -2.6, 3.7), '#6b5a8e', verts=16))
+    p.append(kit.cylinder(1.26, 0.22, (tx, -2.6, 6.8), IRON, verts=16))
+    p.append(kit.cone(1.5, 0.16, 2.4, (tx, -2.6, 8.1), ROOF, verts=16, rot=(0, sx * 0.06, 0)))
+    p.append(kit.cone(0.2, 0.0, 0.9, (tx + sx * 0.32, -2.6, 9.62), ROOF, verts=8, rot=(0, sx * 0.55, 0)))
+    p.append(kit.cylinder(0.025, 0.7, (tx + sx * 0.62, -2.6, 10.1), INK, verts=4))
+    p.append(kit.cone(0.22, 0.0, 0.36, (tx + sx * 0.62 + 0.18, -2.6, 10.3), '#ff7a3d', verts=3, rot=(0, -math.pi / 2, 0)))
+    for wz in (3.0, 5.2):
+        p.append(kit.box((0.52, 0.12, 0.72), (tx, -3.68, wz), SPOOK, bevel=0.02))
+        p.append(kit.cylinder(0.26, 0.12, (tx, -3.68, wz + 0.36), SPOOK, verts=10, rot=(math.pi / 2, 0, 0)))
+        p.append(kit.box((0.64, 0.14, 0.08), (tx, -3.72, wz - 0.4), IRON, bevel=0.0))
+        p.append(kit.box((0.06, 0.14, 0.9), (tx, -3.72, wz + 0.05), IRON, bevel=0.0))
+# Boarded windows on the house's front, lit green, shutters hanging off one.
+for (wx, wz, w) in ((-2.2, 1.55, 0.9), (2.2, 1.55, 0.9), (-2.2, 3.6, 0.8), (2.2, 3.6, 0.8)):
+    p.append(kit.box((w, 0.1, 0.85), (X + wx, -3.0 if wz > 2.6 else -2.95, wz), SPOOK, bevel=0.02))
+    fy = -3.06 if wz > 2.6 else -3.01
+    p.append(kit.box((w + 0.12, 0.08, 0.1), (X + wx, fy, wz - 0.45), IRON, bevel=0.0))
+    p.append(kit.box((w + 0.2, 0.1, 0.12), (X + wx, fy - 0.02, wz + 0.05), '#6b3f2a', bevel=0.0, rot=(0, 0.35, 0)))
+    p.append(kit.box((w + 0.2, 0.1, 0.12), (X + wx, fy - 0.03, wz - 0.15), '#6b3f2a', bevel=0.0, rot=(0, -0.3, 0)))
+p.append(kit.box((0.32, 0.06, 0.8), (X - 2.85, -2.99, 1.45), '#6b5a8e', bevel=0.0, rot=(0, -0.4, 0)))
+# The door's frame, the sign board over it (the game writes on it), the sagging porch on crooked posts, lanterns.
 p.append(kit.box((1.6, 0.1, 2.3), (X, -2.94, 1.25), '#1e1830', bevel=0.02))
-p.append(kit.box((3.0, 0.16, 0.7), (X, -3.05, HZ - 0.3), '#2d2340', bevel=0.05))
-p.append(kit.box((2.8, 0.17, 0.55), (X, -3.06, HZ - 0.3), '#8a6bd8', bevel=0.04))
-for (px, py) in ((-2.6, -3.6), (2.7, -3.7), (-3.3, -3.4)):
-    p.append(blob((0.3, 0.3, 0.24), (X + px, py, 0.32), '#ff8a2a', 8))
-    p.append(kit.cylinder(0.04, 0.12, (X + px, py, 0.6), '#3f7a3f', verts=5))
-for k in range(6):
-    p.append(kit.box((0.5, 0.18, 0.75), (X - 3.4 + k * 0.6 + (k > 2) * 3.0, -4.3, 0.4), '#aab3c0', bevel=0.12))
+p.append(kit.box((3.0, 0.16, 0.7), (X, -3.05, 4.1), '#2d2340', bevel=0.05))
+p.append(kit.box((2.8, 0.17, 0.55), (X, -3.06, 4.1), '#8a6bd8', bevel=0.04))
+for sx in (-1, 1):
+    # The porch roof hangs on crooked brackets from the wall (no posts in the way of the queue or the way out).
+    p.append(rod((X + sx * 1.25, -2.95, 1.85), (X + sx * 1.3, -3.62, 2.62), 0.06, '#5a4430', verts=5))
+    p.append(kit.box((0.2, 0.2, 0.3), (X + sx * 0.98, -2.98, 2.05), IRON, bevel=0.03))
+    p.append(kit.box((0.13, 0.13, 0.2), (X + sx * 0.98, -3.06, 2.05), BULB, bevel=0.02))
+p.append(kit.prism((2.9, 1.35, 0.5), (X, -3.4, 2.6), ROOF2))
+p.append(kit.box((1.9, 0.4, 0.12), (X, -3.32, 0.26), STONE, bevel=0.03))
+# Jack-o'-lanterns (their faces light up after dark).
+for (px, py, r) in ((1.65, -3.35, 0.28), (4.95, -3.45, 0.3), (5.25, -2.6, 0.22)):
+    p.append(blob((r, r, r * 0.8), (X + px, py, 0.3 + r * 0.8), '#ff8a2a', 8))
+    p.append(kit.cylinder(0.04, 0.12, (X + px, py, 0.3 + r * 1.65), '#3f7a3f', verts=5))
+    for e in (-1, 1):
+        p.append(kit.box((r * 0.28, 0.04, r * 0.24), (X + px + e * r * 0.32, py - r * 0.95, 0.3 + r * 0.95), BULB, bevel=0.0))
+    p.append(kit.box((r * 0.7, 0.04, r * 0.16), (X + px, py - r * 0.95, 0.3 + r * 0.55), BULB, bevel=0.0))
+# A little graveyard on the right, between the house and the old tree: headstones every which way, a cross.
+for (gx, gy, tilt, h) in ((5.65, -1.4, 0.12, 0.7), (6.15, -0.9, -0.15, 0.6), (5.7, -0.2, 0.08, 0.8), (6.2, 0.35, -0.1, 0.55)):
+    p.append(kit.box((0.48, 0.16, h), (X + gx, gy, 0.12 + h / 2), '#9aa3b0', bevel=0.12, rot=(0, tilt, 0)))
+    p.append(kit.box((0.5, 0.36, 0.06), (X + gx, gy - 0.25, 0.13), '#4f6b45', bevel=0.02))
+p.append(kit.box((0.12, 0.1, 1.0), (X + 5.9, 0.9, 0.6), '#9aa3b0', bevel=0.02, rot=(0, 0.1, 0)))
+p.append(kit.box((0.55, 0.1, 0.12), (X + 5.92, 0.9, 0.85), '#9aa3b0', bevel=0.02, rot=(0, 0.1, 0)))
+# A dead tree behind the left tower: a twisted trunk and bare branches.
+TX, TY = X - 4.6, 3.1
+p.append(kit.cone(0.26, 0.12, 3.4, (TX, TY, 1.7), '#3b2b2b', verts=7, rot=(0.06, -0.05, 0)))
+for (a, b) in (((TX, TY, 2.4), (TX - 0.9, TY - 0.2, 3.3)), ((TX, TY, 2.9), (TX + 0.8, TY + 0.3, 3.9)), ((TX - 0.1, TY, 3.3), (TX - 0.5, TY - 0.4, 4.4)),
+               ((TX - 0.9, TY - 0.2, 3.3), (TX - 1.4, TY - 0.1, 3.5)), ((TX + 0.8, TY + 0.3, 3.9), (TX + 1.1, TY - 0.2, 4.4))):
+    p.append(rod(a, b, 0.07, '#3b2b2b', verts=5))
 m.mesh(p)
 # The door swings open (hinged on its left) as riders go in and come out.
 m.part('door', (X - 0.72, -3.02, 0.1), [kit.box((1.4, 0.1, 2.15), (X, -3.02, 1.18), '#6b3f2a', bevel=0.03), kit.sphere(0.07, (X + 0.5, -3.1, 1.15), GOLD, segments=6)])
-# A ghost that pops up from behind the roof, and three bats (each with two wings that flap).
-m.part('ghost', (X, 0.6, HZ + 1.2), [blob((0.55, 0.45, 0.8), (X, 0.6, HZ + 1.2), WHITE, 12), kit.sphere(0.08, (X - 0.18, 0.18, HZ + 1.45), INK, segments=6),
-                                     kit.sphere(0.08, (X + 0.18, 0.18, HZ + 1.45), INK, segments=6), blob((0.12, 0.05, 0.16), (X, 0.17, HZ + 1.15), INK, 6)])
+# A ghost hidden in the chimney that rises out of it while the ride runs, and three bats (each with two wings that flap).
+GX, GY, GZ = CX, CY, 9.9
+m.part('ghost', (GX, GY, GZ), [blob((0.5, 0.42, 0.72), (GX, GY, GZ), WHITE, 12), kit.sphere(0.08, (GX - 0.17, GY - 0.4, GZ + 0.22), INK, segments=6),
+                               kit.sphere(0.08, (GX + 0.17, GY - 0.4, GZ + 0.22), INK, segments=6), blob((0.11, 0.05, 0.15), (GX, GY - 0.41, GZ - 0.04), INK, 6)])
 for i in range(3):
-    bx, by, bz = X - 4.0 + i * 4.0, -2.6, 8.4 - i * 0.6
+    bx, by, bz = X - 4.0 + i * 4.0, -2.6, 8.6 - i * 0.4
     m.part(f'bat{i}', (bx, by, bz), [blob((0.14, 0.12, 0.12), (bx, by, bz), '#2d2340', 8), kit.sphere(0.03, (bx - 0.05, by - 0.11, bz + 0.04), '#ffd24a', segments=4),
                                        kit.sphere(0.03, (bx + 0.05, by - 0.11, bz + 0.04), '#ffd24a', segments=4)])
     for e in (-1, 1):
@@ -1099,7 +1178,7 @@ m = Model('pk_wheel', X)
 # Eight open gondolas (two seats each, riders in plain view, facing the camera) on a wheel that stops to load one at
 # the bottom, beside the boarding deck: gondola k hangs at angle -90deg + k*45deg, so turning the wheel clockwise
 # brings each next gondola down in turn.
-WR, WH, GONDOLAS = 5.6, 7.8, 8
+WR, WH, GONDOLAS = 5.6, 8.1, 8
 p = [kit.box((5.4, 2.4, 0.4), (X, 1.6, 0.2), WHITE, bevel=0.06)]
 p.append(kit.box((5.0, 0.12, 0.4), (X, 0.38, 0.35), HOTPINK, bevel=0.03))
 for sx in (-1, 1):
@@ -1139,20 +1218,21 @@ for k in range(GONDOLAS):
     gx, gz = X + WR * math.cos(a), WH + WR * math.sin(a)
     col = (PINK, MINT, SKY, SUN)[k % 4]
     # Hung from its pin: a little dome on top, side bars down to an open tub with a white rim, a bench at the back.
+    # The tub hangs low enough that a rider's head stays clear of the dome.
     g = [kit.cylinder(0.1, 0.16, (gx, 0, gz), GOLD, verts=8, rot=(math.pi / 2, 0, 0))]
     g.append(rod((gx, 0, gz), (gx, 0, gz - 0.32), 0.05, INK, verts=4))
     g.append(blob((0.58, 0.5, 0.2), (gx, 0, gz - 0.38), col, 10))
     g.append(kit.sphere(0.08, (gx, 0, gz - 0.16), WHITE, segments=6))
     for e in (-1, 1):
-        g.append(rod((gx + e * 0.5, 0, gz - 0.42), (gx + e * 0.55, 0, gz - 1.26), 0.035, WHITE, verts=4))
-    g.append(kit.box((1.2, 0.92, 0.44), (gx, 0, gz - 1.48), col, bevel=0.12, segments=2))
-    g.append(kit.box((1.24, 0.96, 0.07), (gx, 0, gz - 1.27), WHITE, bevel=0.03))
-    g.append(kit.box((1.0, 0.62, 0.05), (gx, 0.06, gz - 1.28), '#2d3440', bevel=0.0))
-    g.append(kit.box((1.04, 0.14, 0.32), (gx, 0.36, gz - 1.12), col, bevel=0.05))
-    g.append(star((gx, -0.47, gz - 1.5), 0.15, WHITE, thick=0.04))
+        g.append(rod((gx + e * 0.5, 0, gz - 0.42), (gx + e * 0.55, 0, gz - 1.56), 0.035, WHITE, verts=4))
+    g.append(kit.box((1.2, 0.92, 0.44), (gx, 0, gz - 1.78), col, bevel=0.12, segments=2))
+    g.append(kit.box((1.24, 0.96, 0.07), (gx, 0, gz - 1.57), WHITE, bevel=0.03))
+    g.append(kit.box((1.0, 0.62, 0.05), (gx, 0.06, gz - 1.58), '#2d3440', bevel=0.0))
+    g.append(kit.box((1.04, 0.14, 0.32), (gx, 0.36, gz - 1.42), col, bevel=0.05))
+    g.append(star((gx, -0.47, gz - 1.8), 0.15, WHITE, thick=0.04))
     m.part(f'gondola{k}', (gx, 0, gz), g, on='wheel')
     for i, e in enumerate((-1, 1)):
-        m.marker(f'seat{k * 2 + i}', (gx + e * 0.26, 0.04, gz - 1.22), on=f'gondola{k}')
+        m.marker(f'seat{k * 2 + i}', (gx + e * 0.26, 0.04, gz - 1.55), on=f'gondola{k}')
 
 toy = kit.toy_material('toy')
 for obj in models:

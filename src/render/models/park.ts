@@ -155,10 +155,13 @@ export const PARK_SOLIDS: Record<string, [number, number, number?, number?][]> =
     [1.6, 2.6],
     [2.1, 2.1],
   ],
+  // The haunted house, its towers, its little graveyard on the right and the dead tree behind.
   haunted: [
     [4.2, 3.2],
     [1.15, 1.15, -4.0, 2.6],
     [1.15, 1.15, 4.0, 2.6],
+    [0.5, 1.3, 5.9, 0.35],
+    [0.3, 0.3, -4.6, -3.1],
   ],
   sign: [
     [0.2, 0.2, -1.9, 0],
@@ -391,6 +394,8 @@ export class RideView {
       this.berthOf.push(this.boats.length);
       this.boats.push({ node, home: node.position.clone() });
     }
+    // The boats paddle far across the lake from the jetty: never culled with it (they vanished with the jetty off screen).
+    if (skinned && this.boats.length > 0) skinned.frustumCulled = false;
     for (const node of parts('bat')) {
       const wings = ['l', 'r'].map((side) => model.getObjectByName(`${node.name}${side}`)).filter((w): w is Object3D => !!w);
       this.bats.push({ node, base: node.position.clone(), wings });

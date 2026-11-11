@@ -40,19 +40,23 @@ export const instancedToyMaterial = toyMaterial.clone();
  */
 export const nightGlow = { value: 0 };
 const BULB = new Color('#fff3a0');
+/** The haunted house's windows (SPOOK in art/blender/park.py): they glow green after dark. */
+const SPOOK = new Color('#b8ff6a');
 /** A vertex this close to the bulb colour (linear RGB) glows. */
 const BULB_MATCH = 0.06;
 for (const material of [toyMaterial, skinnedToyMaterial, instancedToyMaterial]) {
   material.onBeforeCompile = (shader) => {
     shader.uniforms.uNight = nightGlow;
     shader.uniforms.uBulb = { value: BULB };
+    shader.uniforms.uSpook = { value: SPOOK };
     shader.fragmentShader = shader.fragmentShader
-      .replace('#include <common>', '#include <common>\nuniform float uNight;\nuniform vec3 uBulb;')
+      .replace('#include <common>', '#include <common>\nuniform float uNight;\nuniform vec3 uBulb;\nuniform vec3 uSpook;')
       .replace(
         '#include <emissivemap_fragment>',
         `#include <emissivemap_fragment>
 #ifdef USE_COLOR
   totalEmissiveRadiance += vColor.rgb * (1.0 - step(${BULB_MATCH.toFixed(3)}, distance(vColor.rgb, uBulb))) * uNight * 2.6;
+  totalEmissiveRadiance += vColor.rgb * (1.0 - step(${BULB_MATCH.toFixed(3)}, distance(vColor.rgb, uSpook))) * uNight * 1.4;
 #endif`,
       );
   };
