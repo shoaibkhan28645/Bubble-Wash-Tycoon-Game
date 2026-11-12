@@ -5,10 +5,11 @@
 // never back through the line. A visitor who waits too long gives up, steps
 // out of the line and leaves unhappy. Counters are stations like the car
 // wash's, serving Customers on foot instead of cars.
-import { TUNING, stationDef, type WalkUpLayout, type CounterSpot, type Dirt, type Point } from '../core/config';
+import { TUNING, stationDef, type WalkUpLayout, type CounterSpot, type Dirt, type Point, type Rect } from '../core/config';
 import type { GameState } from '../core/gameState';
 import type { Customer, CustomerState } from './customers';
 import { spawnSeconds } from './economy';
+import { aroundCar, carIn } from './roadRules';
 import { Station } from './stations';
 import type { WorldLabels } from '../ui/worldLabels';
 import type { Need } from './tickets';
@@ -45,6 +46,8 @@ export class Visitor implements Customer {
   /** Where they are, and the points still to walk to. */
   at: Point;
   path: Point[] = [];
+  /** Seconds they've waited for a vehicle in their way. */
+  held = 0;
   /** The counter they're lining up at (null once served or gone). */
   counter: WalkUpCounter | null = null;
   /** The counter they're walking in to, before they take a place in its line. */
@@ -80,6 +83,8 @@ export class WalkUpCounter extends Station<Visitor> {
   readonly line: Visitor[] = [];
   /** Visitors walking in to it, not in line yet. */
   coming = 0;
+  /** Out of what it sells (a park stall waiting for supplies): nothing to do there till it's restocked. */
+  outOfStock = false;
 
   constructor(
     id: string,
@@ -99,8 +104,9 @@ export class WalkUpCounter extends Station<Visitor> {
     return first && first.state === 'waiting' ? first : null;
   }
 
+  /** Someone at the window to serve (and something to sell them): staff don't stand at a stall with nothing to sell. */
   override get needsWork(): boolean {
-    return this.front !== null;
+    return this.front !== null && !this.outOfStock;
   }
 
   override get idle(): boolean {
@@ -120,6 +126,8 @@ export class WalkUpCounter extends Station<Visitor> {
 
 /** The first visitor at a new counter waits this long (as good as for ever). */
 const FIRST_PATIENCE = 3600;
+/** Seconds a visitor waits for a vehicle in their way before walking round it. */
+const VEHICLE_WAIT_SECONDS = 2.5;
 
 export interface ServedVisitor {
   visitor: Visitor;
@@ -135,6 +143,8 @@ export class WalkUps {
   readonly visitors: Visitor[] = [];
   /** The town's story: a rival takes some visitors (below 1). */
   rateFactor = 1;
+  /** The farm's vehicles on their way (their footprints): visitors don't walk through them. */
+  vehicles: () => readonly Rect[] = () => [];
   /** The town's story: a rush where every visitor pays more (dirt doesn't apply on foot). */
   rush: { dirt: Dirt; payMultiplier: number } | null = null;
   /** Rewarded boost: serving goes this much faster. */
@@ -309,6 +319,18 @@ export class WalkUps {
   }
 
   private walk(dt: number, visitor: Visitor): void {
+    // A vehicle in the way: wait for it to pass, and if it stands there, walk round it.
+    const next = visitor.path[0];
+    const car = next ? carIn(visitor.at, next, this.vehicles()) : null;
+    if (car && next) {
+      visitor.held += dt;
+      if (visitor.held < VEHICLE_WAIT_SECONDS) {
+        visitor.avatar?.update(dt);
+        return;
+      }
+      visitor.held = 0;
+      visitor.path.unshift(...aroundCar(visitor.at, next, car));
+    } else visitor.held = 0;
     let budget = this.rules.walkSpeed * dt;
     const moving = visitor.path.length > 0;
     while (budget > 0 && visitor.path.length > 0) {

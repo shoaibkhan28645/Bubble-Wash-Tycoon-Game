@@ -24,3 +24,51 @@ export function routeAt(route: readonly Point[], marks: readonly number[], dista
   }
   return { at: route[0] ?? { x: 0, z: 0 }, heading: 0 };
 }
+
+/**
+ * A route with its corners rounded off, as a driver takes them: each bend an
+ * arc of `radius` (less where the straights either side are short), as
+ * points about `step` apart. The first and last points stay where they are.
+ */
+export function smoothRoute(route: readonly Point[], radius: number, step = 0.4): Point[] {
+  const out: Point[] = [];
+  const push = (p: Point) => {
+    const last = out[out.length - 1];
+    if (!last || Math.hypot(p.x - last.x, p.z - last.z) > 1e-3) out.push({ x: p.x, z: p.z });
+  };
+  if (route.length === 0) return out;
+  push(route[0]!);
+  for (let i = 1; i < route.length - 1; i++) {
+    const [a, b, c] = [route[i - 1]!, route[i]!, route[i + 1]!];
+    const inLen = Math.hypot(b.x - a.x, b.z - a.z);
+    const outLen = Math.hypot(c.x - b.x, c.z - b.z);
+    if (inLen < 1e-4 || outLen < 1e-4) continue;
+    const u = { x: (b.x - a.x) / inLen, z: (b.z - a.z) / inLen };
+    const v = { x: (c.x - b.x) / outLen, z: (c.z - b.z) / outLen };
+    const cross = u.x * v.z - u.z * v.x;
+    const turn = Math.abs(Math.atan2(cross, u.x * v.x + u.z * v.z));
+    if (turn < 1e-3) {
+      push(b);
+      continue;
+    }
+    // The arc starts and ends this far either side of the corner: no more than the straights allow
+    // (all of the first and last, half of one shared with another bend).
+    const room = Math.min(inLen * (i === 1 ? 1 : 0.5), outLen * (i === route.length - 2 ? 1 : 0.5));
+    const half = Math.tan(turn / 2);
+    const t = Math.min(radius * half, room);
+    const r = t / half;
+    const start = { x: b.x - u.x * t, z: b.z - u.z * t };
+    const side = cross > 0 ? 1 : -1;
+    const centre = { x: start.x - u.z * r * side, z: start.z + u.x * r * side };
+    const n = Math.max(1, Math.ceil((r * turn) / step));
+    const rx = start.x - centre.x;
+    const rz = start.z - centre.z;
+    for (let k = 0; k <= n; k++) {
+      const angle = side * turn * (k / n);
+      const [s, co] = [Math.sin(angle), Math.cos(angle)];
+      push({ x: centre.x + rx * co - rz * s, z: centre.z + rx * s + rz * co });
+    }
+  }
+  if (route.length > 1) push(route[route.length - 1]!);
+  return out;
+}

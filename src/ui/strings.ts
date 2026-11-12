@@ -204,7 +204,7 @@ const EN = {
   goal_harvest: 'Harvest {n} crates',
   goal_orchard: 'Plant the apple orchard',
   goal_bakery: 'Open the mill and bakery',
-  goal_windmill: 'Restore the windmill',
+  goal_windmill: 'Build the windmill',
   goal_barn: 'Raise the red barn',
   goal_farmgate: 'Put up the farm gate sign',
   task_wash: 'Wash {n} cars',

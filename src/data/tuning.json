@@ -12,7 +12,7 @@
   "farm": { "harvestSeconds": 0.7, "standCapacity": 10 },
   "animals": {
     "hens": { "count": 4, "every": 12, "cap": 36, "perPack": 6, "packSeconds": 0.6, "fedSpeed": 2, "feedEach": 1, "good": "eggs" },
-    "cows": { "count": 3, "every": 24, "cap": 18, "perPack": 1, "packSeconds": 0.5, "fedSpeed": 1.5, "feedEach": 2, "good": "milk" }
+    "cows": { "count": 1, "every": 12, "cap": 18, "perPack": 1, "packSeconds": 0.5, "fedSpeed": 1.5, "feedEach": 2, "good": "milk" }
   },
   "feed": { "perCrate": 24, "cap": 96, "awayHours": 8 },
   "deliveries": {
@@ -31,7 +31,7 @@
   "bakery": { "seconds": 10, "shelf": 12, "packSeconds": 0.5, "reserve": 4 },
   "market": { "premium": 1.5 },
   "machines": {
-    "pickup": { "bed": 12, "speed": 6, "wait": 12, "unloadSeconds": 0.12, "farmhand": { "speed": 1.35, "carry": 3 } },
+    "pickup": { "bed": 12, "wait": 12, "unloadSeconds": 0.12, "farmhand": { "speed": 1.35, "carry": 3 } },
     "feedTruck": { "trip": 50, "feed": 48 }
   },
   "vans": {

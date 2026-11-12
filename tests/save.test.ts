@@ -268,6 +268,15 @@ describe('old saves', () => {
     expect(state.unlocked).not.toContain('road');
   });
 
+  it('v13: the cow barn holds three cows (two "more cows" levels): a third level is refunded', () => {
+    const v12 = JSON.parse(fixtures['./fixtures/save-v12.json']!);
+    v12.levels = { 'cowbarn.herd': 3, 'henhouse.flock': 4 };
+    const before = v12.cash;
+    const { state } = parseSave(JSON.stringify(v12));
+    expect(state.levels).toEqual({ 'cowbarn.herd': 2, 'henhouse.flock': 4 });
+    expect(state.cash).toBeGreaterThan(before);
+  });
+
   it('drops broken orders and trips, and never reuses an order id', () => {
     const text = JSON.stringify({ version: 10, deliveries: { orders: [{ id: 9, good: 'milk', qty: 4, pay: 900, buyer: 'x', loaded: 7 }, { id: 'a' }, null], trips: { van: { order: 1 }, tanker: { order: 9, leftAt: 1, backAt: 2 } }, nextId: 2 } });
     const { deliveries } = parseSave(text).state;

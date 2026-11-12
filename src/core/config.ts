@@ -10,6 +10,7 @@ import charactersJson from '../data/characters.json';
 import upgradesJson from '../data/upgrades.json';
 import dailyJson from '../data/daily.json';
 import adsJson from '../data/ads.json';
+import type { LegPlan, Narrow } from '../systems/farmTraffic';
 import contractsJson from '../data/contracts.json';
 import cropsJson from '../data/crops.json';
 import goodsJson from '../data/goods.json';
@@ -351,16 +352,20 @@ export interface FarmLayout extends TownLayout, WalkUpLayout {
   bakery: { table: Point; zone: Rect };
   /** The old windmill on its hill (restored as the landmark). */
   windmill: Point;
-  /** The machines: the barn doors where crates are unloaded, and the routes the machines drive. */
+  /** The machines: the barn doors where crates are unloaded, and the ways the machines drive. */
   machines: {
     barnDoor: Rect;
     /** The pickup's run from where it parks, between the fields, to the barn doors. */
-    pickupRoute: Point[];
+    pickupOut: Point[];
+    /** And home again: backing out of the barn's track, up the main track, and backing into its spot. */
+    pickupBack: LegPlan[];
     /** Behind the parked pickup's tailgate, where it's loaded. */
     pickupBay: Rect;
-    /** Where the feed truck stops, out to the edge of the map. */
-    feedTruckRoute: Point[];
+    /** The feed truck's visit: in from town to the feed store, where it stops; turning round; and away. */
+    feedTruckVisit: LegPlan[];
   };
+  /** Tracks one vehicle wide, where vehicles going opposite ways take turns (systems/farmTraffic.ts). */
+  narrows: Narrow[];
   /** The duck pond (an ellipse in this rect). */
   pond: Rect;
   /** Low hills of the countryside beyond the farm. */

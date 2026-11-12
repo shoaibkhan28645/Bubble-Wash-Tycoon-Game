@@ -165,7 +165,7 @@ describe('Willowbrook', () => {
     expect(pads.some((p) => p.id === 'combine')).toBe(false);
     const inside = (p: { x: number; z: number }, r: Rect) => p.x >= r.minX && p.x <= r.maxX && p.z >= r.minZ && p.z <= r.maxZ;
     // The pickup parks on the track between the two crop fields, off their plots, is loaded just behind it, and runs to the barn doors.
-    const pickup = machines.pickupRoute;
+    const pickup = machines.pickupOut;
     const park = pickup[0]!;
     const track = layout.tracks.find((t) => inside(park, t));
     expect(track).toBeDefined();
@@ -178,10 +178,21 @@ describe('Willowbrook', () => {
     expect(Math.abs((bay.minZ + bay.maxZ) / 2 - park.z)).toBeLessThan(0.3);
     expect(inside(pickup.at(-1)!, machines.barnDoor)).toBe(true);
     for (const p of pickup) expect(inside(p, layout.walk)).toBe(true);
-    // The feed truck comes in through the farm gate.
-    const truck = machines.feedTruckRoute;
+    // Home again it backs into its spot, facing its way out.
+    const home = machines.pickupBack.at(-1)!;
+    expect(home.reverse).toBe(true);
+    expect(home.path.at(-1)).toEqual(park);
+    expect(home.path.at(-2)!.x).toBeGreaterThan(park.x);
+    expect(machines.pickupBack[0]!.path[0]).toEqual(pickup.at(-1));
+    // The feed truck comes in through the farm gate to the feed store, and leaves the same way.
+    const [visitIn, ...rest] = machines.feedTruckVisit;
+    const truck = visitIn!.path;
     const gateX = truck.find((p, i) => i > 0 && (truck[i - 1]!.z - layout.fenceZ) * (p.z - layout.fenceZ) < 0);
     expect(gateX).toBeDefined();
+    expect(Math.hypot(truck.at(-1)!.x - layout.pads.feedstore!.x, truck.at(-1)!.z - layout.pads.feedstore!.z)).toBeLessThan(5);
+    expect(visitIn!.hold).toBeGreaterThan(0);
+    for (let i = 1; i < machines.feedTruckVisit.length; i++) expect(machines.feedTruckVisit[i]!.path[0]).toEqual(machines.feedTruckVisit[i - 1]!.path.at(-1));
+    expect(rest.at(-1)!.path.at(-1)!.x).toBeGreaterThan(layout.lot.maxX + 20);
   });
 
   it('counts deliveries for a town goal', () => {
@@ -206,5 +217,14 @@ describe('Willowbrook', () => {
       if (goal.built) expect(padIds).toContain(goal.built);
     }
     for (const beat of story.beats) if (beat.when.built) expect(padIds).toContain(beat.when.built);
+  });
+});
+
+describe('the dairy', () => {
+  it('starts with one cow and holds three at most (two "more cows" upgrades)', async () => {
+    const { ANIMALS } = await import('../src/systems/animals');
+    const { UPGRADES } = await import('../src/core/config');
+    expect(ANIMALS.cows.count).toBe(1);
+    expect(ANIMALS.cows.count + (UPGRADES.kinds.herd!.step ?? 0) * UPGRADES.kinds.herd!.max).toBe(3);
   });
 });

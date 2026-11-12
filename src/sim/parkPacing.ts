@@ -16,7 +16,7 @@
 // time, and carries supplies until the snack runner does; the operator and
 // the coaster crew launch their rides; the truck tops up the shed. The hero
 // arrives with what the park's land left over, and the other towns keep
-// earning in the background all along (about $53k a minute when the park
+// earning in the background all along (about $49k a minute when the park
 // opens). What the crowd takes here is scaled to what the game's park takes
 // (PARK_EFFICIENCY, measured). Tips for perfect launches, the mascot's
 // photos and the storm are left out; upgrades are counted in
@@ -47,8 +47,8 @@ export interface ParkPacingOptions {
 /** The start cash and the background are the whole journey's (src/sim/journey.ts; tests/journey.test.ts keeps them in step). */
 export const PARK_PACING: ParkPacingOptions = {
   stars: 4,
-  startCash: 21500,
-  background: 52700,
+  startCash: 19600,
+  background: 49100,
   step: 1,
   maxMinutes: 240,
   warmup: 120,
@@ -236,11 +236,12 @@ export function parkIncome(stage: ParkStage, levels: Readonly<Record<string, num
 }
 
 /**
- * What the park takes in the game for every dollar its crowd takes here, once its staff run it (measured hands off:
- * 0.36 to 0.72 from the haunted house on, 0.5 for the finished park). Here visitors walk straight to what they want,
- * rides never break down and litter costs nothing; in the game they keep to the paths, and both happen.
+ * What the park takes in the game for every dollar its crowd takes here, once its staff run it (measured hands off,
+ * 15 minutes a stage, the rating holding at 5 stars: 0.5 to 0.63 from the haunted house on, 0.56 on average). Here
+ * visitors walk straight to what they want, rides never break down and litter costs nothing; in the game they keep
+ * to the paths, and both happen.
  */
-export const PARK_EFFICIENCY = 0.5;
+export const PARK_EFFICIENCY = 0.56;
 
 /** Plays the park's pads in order and returns when each was bought, plus the park's own income a minute at the end. */
 export function simulateParkPacing(

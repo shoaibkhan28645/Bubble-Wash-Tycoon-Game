@@ -600,8 +600,9 @@ export class ParkCrowd {
     let playerWorking = false;
     for (const counter of this.counters) {
       const front = counter.front;
+      counter.outOfStock = !this.stocked(counter);
       const rate = work(counter);
-      if (front && rate.rate > 0 && this.stocked(counter)) {
+      if (front && rate.rate > 0 && !counter.outOfStock) {
         if (rate.byPlayer) {
           front.manual = true;
           playerWorking = true;
@@ -823,6 +824,8 @@ export class ParkCrowd {
     visitor.progress = 0;
     this.leaveCounterLine(visitor);
     this.events.onServed(visitor, counter);
+    // Served (the tip's paid on how long they waited): the next wait starts afresh.
+    visitor.patience = visitor.patienceMax;
     if (!visitor.ticket) {
       visitor.ticket = true;
       const group = visitor.group;
@@ -1043,9 +1046,22 @@ export class ParkCrowd {
     });
   }
 
-  /** Out of patience: steps out of the line and goes home, unhappy. */
+  /**
+   * Out of patience: steps out of the line and goes home, unhappy. At a stall that has sold out
+   * nobody's cross (running out costs sales, not the rating): they let that wish go and try something
+   * else. And someone who never got as far as the ticket line (it was full) just walks on.
+   */
   private giveUp(visitor: ParkVisitor): void {
     const counter = visitor.counter;
+    if (counter?.outOfStock && visitor.ticket) {
+      this.leaveCounterLine(visitor);
+      visitor.wishes = visitor.wishes.filter((w) => w !== counter.id);
+      visitor.patience = visitor.patienceMax;
+      visitor.state = 'leaving';
+      this.next(visitor);
+      return;
+    }
+    const quiet = !visitor.ticket && visitor.step === 'idle';
     if (counter) {
       this.leaveCounterLine(visitor);
       const { aside } = counter.spot;
@@ -1056,9 +1072,9 @@ export class ParkCrowd {
       visitor.ride = null;
       visitor.path = [];
     }
-    visitor.state = 'angry';
+    visitor.state = quiet ? 'leaving' : 'angry';
     this.leaveGroup(visitor);
-    this.events.onGaveUp(visitor);
+    if (!quiet) this.events.onGaveUp(visitor);
     if (!visitor.ticket) {
       // Never got in: back along the pavement.
       visitor.step = 'leaving';
@@ -1120,6 +1136,8 @@ export class ParkCrowd {
     let seat = -1;
     for (let i = 0; i < ride.seats.length; i++) if (!ride.seats[i] && (seat < 0 || gap(i) < gap(seat))) seat = i;
     this.leaveRideLine(visitor);
+    // Patience is for a wait: on board, the next wait starts afresh.
+    visitor.patience = visitor.patienceMax;
     visitor.slot = -1;
     ride.seats[seat] = visitor;
     visitor.seat = seat;

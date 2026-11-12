@@ -305,11 +305,75 @@ const CAR_ROOM = 0.15;
  * they're already standing in: they may step out of it).
  */
 export function carAhead(at: Point, next: Point, cars: readonly Rect[]): boolean {
+  return carIn(at, next, cars) !== null;
+}
+
+/** Which car (its footprint) is just in front of someone walking from `at` towards `next`, if any. */
+export function carIn(at: Point, next: Point, cars: readonly Rect[]): Rect | null {
   const dx = next.x - at.x;
   const dz = next.z - at.z;
   const len = Math.hypot(dx, dz);
-  if (len < 1e-4) return false;
+  if (len < 1e-4) return null;
   const probe = { x: at.x + (dx / len) * Math.min(WALKER_LOOK, len), z: at.z + (dz / len) * Math.min(WALKER_LOOK, len) };
   const grown = (r: Rect) => ({ minX: r.minX - CAR_ROOM, maxX: r.maxX + CAR_ROOM, minZ: r.minZ - CAR_ROOM, maxZ: r.maxZ + CAR_ROOM });
-  return cars.some((r) => insideRect(probe, grown(r)) && !insideRect(at, grown(r)));
+  return cars.find((r) => insideRect(probe, grown(r)) && !insideRect(at, grown(r))) ?? null;
+}
+
+/**
+ * The way round a car (its footprint, `room` clear of it) from `at` to `to`:
+ * by its nearest corner, or two, whichever way is shorter. Empty if the
+ * straight way doesn't go through it.
+ */
+export function aroundCar(at: Point, to: Point, car: Rect, room = 0.55): Point[] {
+  const r = { minX: car.minX - room, maxX: car.maxX + room, minZ: car.minZ - room, maxZ: car.maxZ + room };
+  const inner = { minX: car.minX - room * 0.8, maxX: car.maxX + room * 0.8, minZ: car.minZ - room * 0.8, maxZ: car.maxZ + room * 0.8 };
+  if (!crossesRect(at, to, inner)) return [];
+  const corners = [
+    { x: r.minX, z: r.minZ },
+    { x: r.maxX, z: r.minZ },
+    { x: r.maxX, z: r.maxZ },
+    { x: r.minX, z: r.maxZ },
+  ];
+  const length = (way: Point[]) => [at, ...way, to].reduce((sum, p, i, all) => (i === 0 ? 0 : sum + Math.hypot(p.x - all[i - 1]!.x, p.z - all[i - 1]!.z)), 0);
+  const clear = (way: Point[]) => [at, ...way, to].every((p, i, all) => i === 0 || !crossesRect(all[i - 1]!, p, inner));
+  const ways: Point[][] = [];
+  for (let i = 0; i < 4; i++) {
+    ways.push([corners[i]!]);
+    ways.push([corners[i]!, corners[(i + 1) % 4]!], [corners[(i + 1) % 4]!, corners[i]!]);
+  }
+  let best: Point[] = [];
+  let shortest = Infinity;
+  for (const way of ways) {
+    if (!clear(way)) continue;
+    const l = length(way);
+    if (l < shortest) {
+      shortest = l;
+      best = way;
+    }
+  }
+  return best;
+}
+
+/** The segment from `a` to `b` passes through the rect (Liang-Barsky clipping). */
+function crossesRect(a: Point, b: Point, r: Rect): boolean {
+  let t0 = 0;
+  let t1 = 1;
+  const dx = b.x - a.x;
+  const dz = b.z - a.z;
+  for (const [p, q] of [
+    [-dx, a.x - r.minX],
+    [dx, r.maxX - a.x],
+    [-dz, a.z - r.minZ],
+    [dz, r.maxZ - a.z],
+  ] as const) {
+    if (Math.abs(p) < 1e-9) {
+      if (q < 0) return false;
+      continue;
+    }
+    const t = q / p;
+    if (p < 0) t0 = Math.max(t0, t);
+    else t1 = Math.min(t1, t);
+    if (t0 > t1) return false;
+  }
+  return true;
 }

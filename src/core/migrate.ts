@@ -4,7 +4,7 @@ import { UPGRADES } from './config';
 import { upgradeCost } from '../systems/economy';
 
 /** Bump when the save shape changes, and add a migration for the old version. */
-export const SAVE_VERSION = 12;
+export const SAVE_VERSION = 13;
 
 /**
  * Upgrades taken out in v11, with what their first level cost then: the
@@ -122,7 +122,25 @@ export const MIGRATIONS: Readonly<Record<number, Migration>> = {
     if (!counts.upkeep) counts.upkeep = n('fixes') + n('services');
     return { ...here, towns, counts, franchiseStars: Math.max(stars, 0) };
   },
+  // v13: the cow barn starts with one cow and holds three (two "more cows" levels, not three): a third level is refunded.
+  12: (save) => {
+    let refund = 0;
+    const herd = (town: SaveObject): SaveObject => {
+      if (!isObject(town.levels)) return town;
+      const level = town.levels['cowbarn.herd'];
+      if (typeof level !== 'number' || level <= HERD_MAX) return town;
+      for (let l = HERD_MAX; l < Math.min(level, 10); l++) refund += upgradeCost(UPGRADES.kinds.herd!, UPGRADES.costScale.cowbarn ?? 1, l, UPGRADES.growth);
+      return { ...town, levels: { ...town.levels, 'cowbarn.herd': HERD_MAX } };
+    };
+    const towns = isObject(save.towns) ? Object.fromEntries(Object.entries(save.towns).map(([id, t]) => [id, isObject(t) ? herd(t) : t])) : save.towns;
+    const here = herd(save);
+    const cash = typeof save.cash === 'number' && Number.isFinite(save.cash) ? save.cash : 0;
+    return { ...here, towns, cash: cash + refund };
+  },
 };
+
+/** The cow barn's "more cows" levels (v13): one cow, then two more. */
+const HERD_MAX = 2;
 
 function noDeliveries(): DeliveriesState {
   return { orders: [], trips: {}, nextId: 1, refillAt: 0, buyerDay: '', fairDay: '' };

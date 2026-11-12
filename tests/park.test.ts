@@ -165,6 +165,65 @@ describe('the park', () => {
     expect(gaveUp.length).toBeGreaterThan(0);
   });
 
+  it("doesn't keep staff at a stall with nothing to sell: its line waits, and the seller goes back to the tickets", async () => {
+    const { pickStation } = await import('../src/systems/staffPlan');
+    const { crowd } = park();
+    crowd.addCounter('cart', 'cart', null);
+    const cart = crowd.counters.find((c) => c.id === 'cart')!;
+    let stocked = true;
+    crowd.stocked = (counter) => counter !== cart || stocked;
+    // People in both lines.
+    for (let t = 0; t < 200 && (!cart.front || !crowd.booth?.front); t += STEP) crowd.update(STEP, (c) => ({ rate: c === crowd.booth ? 1 : 0, byPlayer: false }), () => ({ hero: false, staff: true }));
+    expect(cart.front).not.toBeNull();
+    expect(crowd.booth?.front).not.toBeNull();
+    const nobody = () => false;
+    // Stocked, the seller stays with the cart's customer; out of candy floss, they go to the booth.
+    expect(pickStation([crowd.booth!, cart], ['booth', 'cart'], cart, nobody)).toBe(cart);
+    stocked = false;
+    crowd.update(STEP, () => ({ rate: 0, byPlayer: false }), () => ({ hero: false, staff: true }));
+    expect(cart.needsWork).toBe(false);
+    expect(pickStation([crowd.booth!, cart], ['booth', 'cart'], cart, nobody)).toBe(crowd.booth);
+    stocked = true;
+    crowd.update(STEP, () => ({ rate: 0, byPlayer: false }), () => ({ hero: false, staff: true }));
+    expect(cart.needsWork).toBe(true);
+  });
+
+  it("gives every wait its own patience: served, a visitor's patience is back to full for the next line", () => {
+    const { crowd, served } = park();
+    const patience: number[] = [];
+    run(crowd, 1, 1, { hero: false, staff: true });
+    for (let t = 0; t < 120 && served.length < 3; t += STEP) {
+      const before = served.length;
+      crowd.update(STEP, () => ({ rate: 1, byPlayer: false }), () => ({ hero: false, staff: true }));
+      if (served.length > before) patience.push(...crowd.visitors.filter((v) => v.ticket && v.step !== 'line').map((v) => v.patience / v.patienceMax));
+    }
+    expect(served.length).toBeGreaterThan(0);
+    expect(patience.length).toBeGreaterThan(0);
+    // Everyone just through the booth has all their patience for the carousel's line.
+    expect(Math.max(...patience)).toBeCloseTo(1, 5);
+  });
+
+  it("lets a wish go at a stall that has sold out, without minding (it costs sales, not the rating)", () => {
+    const { crowd, gaveUp } = park();
+    crowd.addCounter('cart', 'cart', null);
+    const cart = crowd.counters.find((c) => c.id === 'cart')!;
+    crowd.stocked = (counter) => counter !== cart;
+    const left: ParkVisitor[] = [];
+    for (let t = 0; t < 400; t += STEP) {
+      const before = [...cart.line] as ParkVisitor[];
+      const cross = gaveUp.length;
+      crowd.update(STEP, (c) => ({ rate: c === crowd.booth ? 1 : 0, byPlayer: false }), () => ({ hero: false, staff: true }));
+      const gone = before.filter((v) => !cart.line.includes(v));
+      left.push(...gone);
+      // Leaving the empty cart's line, nobody was cross, and the cart's off their list.
+      for (const v of gone) {
+        expect(gaveUp.slice(cross)).not.toContain(v);
+        expect(v.wishes).not.toContain('cart');
+      }
+    }
+    expect(left.length).toBeGreaterThan(0);
+  });
+
   it('serves the candy floss cart to visitors who want it', () => {
     const { crowd, served } = park();
     crowd.addCounter('cart', 'cart', null);

@@ -1,24 +1,24 @@
 // The farm's machines (Chapter 2, Part D), as played: the farm pickup, parked
 // on the track between the fields, which the farmhand loads as he picks and
-// which takes each full load to the barn doors and comes back; and the feed
-// truck that comes from town when the feed store runs low.
+// which takes each full load to the barn doors (backing out again, and
+// backing into its spot when it's home); and the feed truck that comes from
+// town when the feed store runs low. Both drive as the farm's vans do
+// (systems/farmTraffic.ts).
 import { Group, Vector3, type Object3D, type Scene } from 'three';
 import { GOODS, TUNING, type FarmLayout, type Rect } from './config';
 import type { GameState } from './gameState';
 import { farmMover } from '../render/models/farm';
-import { VanFleet } from '../render/models/vans';
+import { VanFleet, vehicleSize } from '../render/models/vans';
 import type { FarmMotion } from '../render/farmMotion';
 import type { Livestock } from '../systems/animals';
 import type { BarnStore } from '../systems/barn';
 import type { StaffSystem } from '../systems/staff';
 import { Carrier } from '../systems/carry';
 import type { CrateCarrier, GoodId } from '../systems/crops';
+import type { Driver, FarmTraffic } from '../systems/farmTraffic';
 import { insideRect } from '../systems/stations';
-import { routeAt, routeMarks } from '../systems/vehicles';
 import type { Label, WorldLabels } from '../ui/worldLabels';
 
-/** Seconds the pickup takes to turn round at either end of its run. */
-const TURN_SECONDS = 1.1;
 /** It sets off with this many crates aboard once nobody has loaded it for a while (or with a full bed). */
 const MIN_LOAD = 4;
 
@@ -31,7 +31,7 @@ export interface Machines {
   update(dt: number, now: number, carriers: readonly CrateCarrier[]): void;
 }
 
-type PickupPhase = 'parked' | 'out' | 'unloading' | 'turnBack' | 'back' | 'turnHome';
+type PickupPhase = 'parked' | 'out' | 'unloading' | 'back';
 
 export function createMachines(deps: {
   scene: Scene;
@@ -42,12 +42,16 @@ export function createMachines(deps: {
   livestock: Livestock;
   /** The farm's staff: the pickup speeds the farmhand up (no more walks to the barn). */
   staff: StaffSystem;
-  /** Turns wheels and puffs exhaust (render/farmMotion.ts). */
+  /** Turns wheels, leans bodies, lights lamps and puffs exhaust (render/farmMotion.ts). */
   motion: FarmMotion;
+  /** The farm's vehicles on the move: the pickup and the feed truck drive among the vans. */
+  traffic: FarmTraffic;
+  /** Makes a spot solid: where the pickup parks (people walk round it). */
+  solid: (rect: Rect) => void;
 }): Machines {
-  const { scene, layout, state, labels, barn, livestock } = deps;
-  // The feed truck drives its route (the delivery vans are the farm game's own).
-  const fleet = new VanFleet((model) => deps.motion.vehicle(model));
+  const { scene, layout, state, labels, barn, livestock, traffic } = deps;
+  // The feed truck drives its visit (the delivery vans are the farm game's own).
+  const fleet = new VanFleet(traffic, (model, driver) => deps.motion.vehicle(model, driver));
   scene.add(fleet.group);
   const { machines: spots } = layout;
   const has = (id: string) => state.unlocked.includes(id);
@@ -62,16 +66,15 @@ export function createMachines(deps: {
   }
 
   // The pickup: parked between the fields, its bed loaded from behind the tailgate; off to the barn when full.
-  const route = spots.pickupRoute;
-  const marks = routeMarks(route);
-  const length = marks[marks.length - 1] ?? 0;
-  const { bed: bedSize, speed, wait, unloadSeconds } = TUNING.machines.pickup;
+  const route = spots.pickupOut;
+  const park = route[0]!;
+  const parkFacing = Math.atan2(route[1]!.x - park.x, route[1]!.z - park.z);
+  const { bed: bedSize, wait, unloadSeconds } = TUNING.machines.pickup;
   let pickup: {
     model: Object3D;
+    driver: Driver;
     bed: CrateCarrier;
     phase: PickupPhase;
-    along: number;
-    turn: number;
     idle: number;
     timer: number;
   } | null = null;
@@ -93,7 +96,14 @@ export function createMachines(deps: {
     deps.staff.bonuses.farmhand = TUNING.machines.pickup.farmhand;
     const model = farmMover('fm_pickup', 'box');
     group.add(model);
-    deps.motion.vehicle(model);
+    const { length, width } = vehicleSize('fm_pickup');
+    const driver = traffic.add('pickup', length, width);
+    traffic.park(driver, park, parkFacing);
+    deps.motion.vehicle(model, driver);
+    // Where it parks is solid (people walk round to its tailgate), lengthwise along the track.
+    const [hl, hw] = [length / 2, width / 2];
+    const alongX = Math.abs(Math.sin(parkFacing)) > Math.abs(Math.cos(parkFacing));
+    deps.solid({ minX: park.x - (alongX ? hl : hw), maxX: park.x + (alongX ? hl : hw), minZ: park.z - (alongX ? hw : hl), maxZ: park.z + (alongX ? hw : hl) });
     // Crates stand in the bed in two rows of three, two layers (the carrier draws its stack 1 m up and half a metre back).
     const pile = new Group();
     pile.position.set(0, -0.08, -0.35);
@@ -101,15 +111,14 @@ export function createMachines(deps: {
     const bed = new Carrier<GoodId>(pile, () => ({ x: model.position.x, z: model.position.z }), () => bedSize);
     bed.arrange = (i) => [((i % 2) - 0.5) * 0.55, Math.floor(i / 6) * 0.22, ((Math.floor(i / 2) % 3) - 1) * 0.5];
     for (const good of Object.keys(GOODS) as GoodId[]) for (let i = 0; i < (state.supplies[`pickup.${good}`] ?? 0); i++) bed.push(good);
-    pickup = { model, bed, phase: 'parked', along: 0, turn: 0, idle: 0, timer: 0 };
-    place(0, 0);
+    pickup = { model, driver, bed, phase: 'parked', idle: 0, timer: 0 };
+    place();
   };
-  /** Puts the pickup `distance` along its run, turned `extra` radians from the way the run goes. */
-  const place = (distance: number, extra: number): void => {
+  /** Draws the pickup where it has driven to. */
+  const place = (): void => {
     if (!pickup) return;
-    const { at, heading } = routeAt(route, marks, distance);
-    pickup.model.position.set(at.x, 0, at.z);
-    pickup.model.rotation.y = heading + extra;
+    pickup.model.position.set(pickup.driver.position.x, 0, pickup.driver.position.z);
+    pickup.model.rotation.y = pickup.driver.facing;
   };
   const runPickup = (dt: number, carriers: readonly CrateCarrier[]): void => {
     if (!pickup) return;
@@ -127,14 +136,19 @@ export function createMachines(deps: {
           carrier.timer = TUNING.supplies.handSeconds;
           pickup.idle = 0;
         }
-        if (bed.full || (bed.stack.length >= MIN_LOAD && pickup.idle >= wait)) pickup.phase = 'out';
-        place(0, 0);
+        // Off when it's full (or has a load and nobody's loading it), and the main track's clear.
+        const out = [{ path: route }];
+        if ((bed.full || (bed.stack.length >= MIN_LOAD && pickup.idle >= wait)) && traffic.clear(pickup.driver, out)) {
+          traffic.plan(pickup.driver, out);
+          pickup.phase = 'out';
+        }
         break;
       }
       case 'out':
-        pickup.along = Math.min(length, pickup.along + speed * dt);
-        place(pickup.along, 0);
-        if (pickup.along >= length) pickup.phase = 'unloading';
+        if (traffic.drive(pickup.driver, dt)) {
+          pickup.phase = 'unloading';
+          pickup.timer = 0;
+        }
         break;
       case 'unloading':
         // Crate by crate in at the barn doors; if the barn's full, it brings the rest back.
@@ -146,32 +160,20 @@ export function createMachines(deps: {
           barn.store(good, 1);
         }
         if (bed.stack.length === 0 || !barn.hasRoom) {
-          pickup.phase = 'turnBack';
-          pickup.turn = 0;
+          // Backs out of the barn's track, drives up the main track and backs into its spot.
+          traffic.plan(pickup.driver, spots.pickupBack);
+          pickup.phase = 'back';
         }
         break;
-      case 'turnBack':
-      case 'turnHome': {
-        // A neat turn on the spot, round to face the other way.
-        pickup.turn = Math.min(1, pickup.turn + dt / TURN_SECONDS);
-        const k = pickup.turn * pickup.turn * (3 - 2 * pickup.turn);
-        const home = pickup.phase === 'turnHome';
-        place(pickup.along, home ? Math.PI * (1 + k) : Math.PI * k);
-        if (pickup.turn >= 1) {
-          pickup.phase = home ? 'parked' : 'back';
+      case 'back':
+        if (traffic.drive(pickup.driver, dt)) {
+          traffic.park(pickup.driver, park, parkFacing);
+          pickup.phase = 'parked';
           pickup.idle = 0;
         }
         break;
-      }
-      case 'back':
-        pickup.along = Math.max(0, pickup.along - speed * dt);
-        place(pickup.along, Math.PI);
-        if (pickup.along <= 0) {
-          pickup.phase = 'turnHome';
-          pickup.turn = 0;
-        }
-        break;
     }
+    place();
     bed.update(dt, pickup.phase === 'out' || pickup.phase === 'back');
     saveBed();
     const text = `🛻 ${bed.stack.length} / ${bed.capacity()}`;
@@ -186,7 +188,7 @@ export function createMachines(deps: {
 
   // The feed truck: a visit from town whenever the feed store runs low.
   const feedTruck = () => ({ left: state.plots['feedtruck.left'], back: state.plots['feedtruck.back'] });
-  const buildFeedTruck = (): void => fleet.add('feedtruck', 'fm_feedtruck', spots.feedTruckRoute, 'visit');
+  const buildFeedTruck = (): void => fleet.addVisit('feedtruck', 'fm_feedtruck', spots.feedTruckVisit);
   const runFeedTruck = (now: number): void => {
     const { left, back } = feedTruck();
     const { trip, feed } = TUNING.machines.feedTruck;
@@ -217,6 +219,7 @@ export function createMachines(deps: {
       runPickup(dt, carriers);
       if (has('feedtruck')) runFeedTruck(now);
       fleet.update(
+        dt,
         () => {
           const { left, back } = feedTruck();
           return left !== undefined && back !== undefined ? Math.min(1, (now - left) / Math.max(1, back - left)) : null;

@@ -37,6 +37,7 @@ import { warmRigidSkin } from '../render/models/rigid';
 import { CropPlots, FARM_SOLIDS, farmModel, farmPadModel } from '../render/models/farm';
 import { PensView } from '../render/models/pens';
 import { VanFleet } from '../render/models/vans';
+import { FarmTraffic } from '../systems/farmTraffic';
 import { PersonAvatar } from '../render/models/person';
 import { ConstructionSites } from '../render/models/site';
 import { unlockedSum } from '../systems/arrivals';
@@ -97,7 +98,9 @@ const STOCK_LABEL_Y = 3.4;
 const TRAVEL_DELAY_MS = 1500;
 /** Pads taken out of the game, and what they cost: a save that bought one is paid back. */
 const RETIRED_PADS: Record<string, number> = { tractor: 8250, tractordriver: 17000, combine: 54000 };
-/** The restored windmill's sails turn this fast (radians a second). */
+/** Half the width of the windmill's tower at the ground (metres): solid. */
+const WINDMILL_BASE = 2.1;
+/** The windmill's sails turn this fast (radians a second). */
 const SAILS_TURN = 0.6;
 
 /** Warm late-afternoon countryside light: a soft sky, golden sun, long views over the hills. */
@@ -195,7 +198,8 @@ export function createFarmGame(
   const UPGRADE: Record<AnimalKind, string> = { hens: 'flock', cows: 'herd' };
   const animals = (penId: string) => {
     const kind = layout.pens[penId]?.animal;
-    return kind ? ANIMALS[kind].count + levelStep(UPGRADES.kinds[UPGRADE[kind]], level(`${penId}.${UPGRADE[kind]}`)) : 0;
+    const upgrade = UPGRADES.kinds[UPGRADE[kind ?? 'hens']];
+    return kind ? ANIMALS[kind].count + levelStep(upgrade, Math.min(upgrade?.max ?? 0, level(`${penId}.${UPGRADE[kind]}`))) : 0;
   };
   const livestock = new Livestock(
     state,
@@ -281,7 +285,12 @@ export function createFarmGame(
     onPaid({ amount: pay, tip: 0, automated: autoVans(), at, bonus: !!order.special });
   });
   deliveries.tripScale = (van) => levelFactor(UPGRADES.kinds.trip, level(`${van}.trip`));
-  const fleet = new VanFleet((model) => motion.vehicle(model));
+  // The farm's vehicles drive as the town's cars do: they stop for people and each other, and take turns on the main track.
+  const traffic = new FarmTraffic(
+    () => [player.position, ...staff.positions(), ...walkups.positions()],
+    layout.narrows,
+  );
+  const fleet = new VanFleet(traffic, (model, driver) => motion.vehicle(model, driver));
   stage.scene.add(fleet.group);
   // The barn keeps what's unloaded at its doors, and passes it on to the stand and the vans.
   const barn = new BarnStore(state, layout.machines.barnDoor, () => TUNING.barn.capacity + unlockedSum(state, (e) => e.storage));
@@ -369,6 +378,7 @@ export function createFarmGame(
     onServed,
     onGaveUp,
   );
+  walkups.vehicles = () => traffic.footprints();
   // Villagers wait for the next crate at an empty counter: running out costs sales, not the rating.
   walkups.stocked = (counter) => stock.total(counter.id) > 0;
   loadPeople(CHARACTERS.villagers)
@@ -600,6 +610,8 @@ export function createFarmGame(
 
   const machines = createMachines({
     motion,
+    traffic,
+    solid: (rect) => solids.push(rect),
     scene: stage.scene,
     layout,
     state,
@@ -609,29 +621,29 @@ export function createFarmGame(
     staff,
   });
 
+  // The windmill: none until it's bought; then it goes up in the farm's west paddock (a construction site meanwhile)
+  // and stands there with its sails turning. Nobody walks through its tower.
   let windmill: Object3D | null = null;
   let sails: Object3D | null = null;
-  const showWindmill = (restored: boolean): void => {
-    if (windmill) stage.scene.remove(windmill);
+  const showWindmill = (): void => {
+    if (windmill) return;
     const { x, z } = layout.windmill;
     windmill = new Group();
     windmill.position.set(x, heightAt(layout, x, z) - 0.05, z);
     windmill.rotation.y = 0.35;
-    windmill.add(farmModel(restored ? 'fm_windmill_fixed' : 'fm_windmill'));
-    if (restored) {
-      // The sails turn about the hub, at the front of the cap (art/blender/farm.py).
-      const hub = new Group();
-      hub.position.set(0, 6.9, 1.75);
-      const model = farmModel('fm_sails');
-      model.position.set(0, -6.9, -1.75);
-      hub.add(model);
-      windmill.add(hub);
-      sails = hub;
-    }
+    windmill.add(farmModel('fm_windmill_fixed'));
+    // The sails turn about the hub, at the front of the cap (art/blender/farm.py).
+    const hub = new Group();
+    hub.position.set(0, 6.9, 1.75);
+    const model = farmModel('fm_sails');
+    model.position.set(0, -6.9, -1.75);
+    hub.add(model);
+    windmill.add(hub);
+    sails = hub;
+    solids.push({ minX: x - WINDMILL_BASE, maxX: x + WINDMILL_BASE, minZ: z - WINDMILL_BASE, maxZ: z + WINDMILL_BASE });
     stage.scene.add(withShadows(windmill));
     stage.refreshShadows();
   };
-  showWindmill(state.unlocked.includes('windmill'));
 
   const addBuilt = (id: string, animate: boolean): void => {
     showBuilding(id, animate);
@@ -656,7 +668,7 @@ export function createFarmGame(
     if (effects?.van) {
       const spot = layout.vans[id];
       if (spot) {
-        fleet.add(id, id === 'tanker' ? 'fm_tanker' : 'fm_van', spot.route, 'round', spot.back);
+        fleet.addRound(id, id === 'tanker' ? 'fm_tanker' : 'fm_van', spot.route, spot.back);
         // Where it parks is solid (people walk round to its bay), lengthwise along its way out.
         const [at, next] = spot.route as [Point, Point];
         const [half, side] = id === 'tanker' ? [2.75, 1.05] : [2.05, 1.0];
@@ -668,7 +680,7 @@ export function createFarmGame(
     staff.hire(id);
     machines.built(id);
     if (id === 'bakery') bakery.start(Date.now());
-    if (id === 'windmill') showWindmill(true);
+    if (id === 'windmill') showWindmill();
   };
   // The tractor and its driver were retired (the pickup does their job), and the combine harvester: a save
   // that had bought them, or was building them, gets their price back, and anything part-paid on their pads.
@@ -908,10 +920,13 @@ export function createFarmGame(
     state.playSeconds += dt;
     const now = Date.now();
     const move = input.read();
-    player.update(dt, move, [...solids, ...fixed], view.walkable);
+    traffic.tick();
+    // Nobody walks through a vehicle on its way (parked ones stand on solid spots of their own).
+    const vehicles = traffic.footprints();
+    player.update(dt, move, [...solids, ...fixed, ...vehicles], view.walkable);
     pads.update(dt, player.position);
     upgrades.update(dt, player.position);
-    staff.update(dt, walkups.counters, null, solids, (counter) => insideRect(player.position, counter.zone), null, []);
+    staff.update(dt, walkups.counters, null, solids, (counter) => insideRect(player.position, counter.zone), null, vehicles);
     waterRound(dt, now);
     const carriers = [playerCarry, ...staff.crateCarriers<GoodId>()];
     machines.update(dt, now, carriers);
@@ -935,7 +950,7 @@ export function createFarmGame(
         vanIds().map((v) => ({ wants: () => deliveries.wants(v), fill: () => deliveries.fill(v) })),
       );
     }
-    fleet.update((van) => deliveries.tripProgress(van, now), (van) => VANS[van]?.trip ?? 60);
+    fleet.update(dt, (van) => deliveries.tripProgress(van, now), (van) => VANS[van]?.trip ?? 60);
     // Standing in front of the orders board opens it (once each time).
     const onSpot = boardShown && insideRect(player.position, layout.boardSpot);
     if (onSpot && !onBoardSpot) openBoard();
