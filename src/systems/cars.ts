@@ -1,9 +1,10 @@
 import type { Scene } from 'three';
-import type { CarDef, Point, Rect, StageDef } from '../core/config';
+import { TUNING, type CarDef, type Point, type Rect, type StageDef } from '../core/config';
 import { CarModel } from '../render/models/actors';
 import type { Customer, CustomerState } from './customers';
 import type { Station } from './stations';
 import type { Need } from './tickets';
+import { smoothRouteMarked } from './vehicles';
 
 /** A car's progress through the lot (see CustomerState); an angry car poofs away. */
 export type CarState = CustomerState;
@@ -11,6 +12,20 @@ export type CarState = CustomerState;
 const TURN_RATE = 10;
 /** How far along its way a car looks for a turn to indicate. */
 const TURN_LOOK = 4;
+/** Pulling away, and easing to a stop (m/s²; the road rules plan stops at the same rate), and the hardest it brakes. */
+const ACCEL = 10;
+const BRAKE = 10;
+const HARD_BRAKE = 24;
+/** How hard it takes a bend (sideways, m/s²): the tighter the bend, the slower. */
+const CORNER = 9;
+/** The radius it drives its corners at (less where the way is too short for it). */
+const ROUND = 2;
+/** It rolls up to the end of its way this little faster than a standstill, so it gets there. */
+const ARRIVE = 0.04;
+/** It steers for a point this far ahead along its way. */
+const STEER_LOOK = 0.8;
+/** Held up by a car in its way while going no faster than this (m/s), it brakes the last bit rather than stop dead. */
+const SLIDE = 3;
 /** Counts cars as they come on: an earlier car has right of way where two ways cross. */
 let spawned = 0;
 
@@ -64,16 +79,26 @@ export class Car implements Customer {
   recall = false;
   /** Its driver has had the chance to get out while it waited (once a visit). */
   stretched = false;
+  /** Its way ends off the map (driving away along the road): it doesn't slow down for the end. */
+  offMap = false;
   /** What it came for (its ticket), in visiting order, and what it has had so far. */
   needs: Need[] = ['wash'];
   served: Need[] = [];
+  /** The way ahead, its corners rounded off, and for each point how many of the way in's waypoints it's round by then. */
   private path: Point[] = [];
-  /** Waypoints on the way to its lane (the turn off the road), until passed. */
+  private done: number[] = [];
+  /** Waypoints on the way to its lane (the turn off the road), until passed; how many have been since the way was set. */
   private approach: Point[] = [];
+  private shifted = 0;
   private heading = 0;
+  /** How fast it's going now (m/s). */
+  private vel = 0;
 
-  /** Who has to wait for whom on the road; none in tests. */
-  static rules: { blocked(car: Car): boolean } | null = null;
+  /**
+   * Who has to wait for whom on the road (none in tests): whether a car must stop now, and how much
+   * further it can go before it will have to (it eases off in time).
+   */
+  static rules: { blocked(car: Car): boolean; room?(car: Car, speed: number): number; holdOf?(car: Car): 'person' | 'car' | 'way' | null } | null = null;
 
   constructor(readonly model: CarModel) {}
 
@@ -93,6 +118,11 @@ export class Car implements Customer {
     const hw = this.def.size[along ? 2 : 0] / 2;
     const hl = this.def.size[along ? 0 : 2] / 2;
     return { minX: x - hw, maxX: x + hw, minZ: z - hl, maxZ: z + hl };
+  }
+
+  /** How fast it's going (m/s). */
+  get speed(): number {
+    return this.vel;
   }
 
   /** Which way it faces (radians, 0 = +z). */
@@ -153,6 +183,7 @@ export class Car implements Customer {
     this.away = false;
     this.recall = false;
     this.stretched = false;
+    this.offMap = false;
     this.model.mesh.scale.setScalar(1);
     this.model.setType(def);
     // Cars that only want fuel arrive clean: no mud means no wash wanted.
@@ -161,63 +192,151 @@ export class Car implements Customer {
     this.model.mesh.visible = true;
     const first = approach[0] ?? goal;
     this.heading = Math.atan2(first.x - at.x, first.z - at.z);
+    // It comes on from along the road already driving.
+    this.vel = TUNING.cars.speed;
     this.route(approach, goal);
   }
 
   /** Drive these waypoints, then to a spot in a line (which can still move up with driveTo). */
   route(approach: Point[], goal: Point): void {
     this.approach = [...approach];
-    this.path = [...this.approach, goal];
+    this.setPath([...this.approach, goal]);
   }
 
   /** Carry on along the way in still to drive, then through these waypoints to a new goal. */
   then(points: Point[], goal: Point): void {
     this.approach.push(...points);
-    this.path = [...this.approach, goal];
+    this.setPath([...this.approach, goal]);
   }
 
   /** New destination down the lane, keeping the way in if not yet driven. */
   driveTo(goal: Point): void {
-    this.path = [...this.approach, goal];
+    const end = this.path[this.path.length - 1];
+    // Already on its way there (a line shuffling up re-sends everyone): it carries on as it is.
+    if (end && end.x === goal.x && end.z === goal.z) return;
+    this.setPath([...this.approach, goal]);
   }
 
   /** Drive a fixed route (leaving the lot). */
   follow(points: Point[]): void {
     this.approach = [];
-    this.path = [...points];
+    this.setPath(points);
   }
 
+  /** The way from where it is through these points, its corners rounded off as a driver takes them. */
+  private setPath(points: Point[]): void {
+    const { points: way, ends } = smoothRouteMarked([this.position, ...points], ROUND);
+    // A point `ends` says it's round the route's point e by: that many waypoints of the way in are behind it.
+    const count = (e: number) => Math.max(0, Math.min(this.approach.length, e));
+    const already = count(ends[0] ?? 0);
+    this.path = way.slice(1);
+    this.done = ends.slice(1).map(count);
+    this.shifted = 0;
+    while (this.shifted < already) {
+      this.approach.shift();
+      this.shifted++;
+    }
+  }
+
+  /** Reached the next point of its way (and maybe passed one of the way in's waypoints). */
+  private reach(): void {
+    this.path.shift();
+    const done = this.done.shift() ?? 0;
+    while (this.shifted < done && this.approach.length > 0) {
+      this.approach.shift();
+      this.shifted++;
+    }
+  }
+
+  /**
+   * One frame of driving, as a driver would: pulling away gently, slowing for a bend ahead and to
+   * stop at the end of its way, easing off in good time for a car or a person it will have to stop
+   * for (the road rules say how much room it has, and when it must wait), and steering smoothly round.
+   */
   update(dt: number, speed: number): void {
     const next = this.path[0];
-    // Something in the way: wait for it to clear (the road rules decide).
+    // Something in the way: wait for it to clear (the road rules decide). Giving way, or coming up slowly
+    // behind a car, it brakes to a stop (there's room to); for a person in front, it stops at once.
     this.held = !!next && !!Car.rules?.blocked(this);
     this.heldFor = this.held ? this.heldFor + dt : 0;
-    if (this.held) {
-      this.model.animate(dt, false, true, this.turnAhead());
+    const hold = this.held ? (Car.rules?.holdOf?.(this) ?? 'car') : null;
+    const braking = this.vel > 0 && (hold === 'way' || (hold === 'car' && this.vel <= SLIDE));
+    if ((this.held && !braking) || !next) {
+      this.vel = 0;
+      this.model.animate(dt, false, this.held, this.held ? this.turnAhead() : 0);
       return;
     }
-    this.model.animate(dt, !!next, false, next ? this.turnAhead() : 0);
-    if (!next) return;
+    const room = Car.rules?.room?.(this, this.vel) ?? Infinity;
+    const top = braking ? 0 : Math.min(speed, this.fastestAhead(speed), Math.sqrt(2 * BRAKE * room));
+    const before = this.vel;
+    this.vel = before < top ? Math.min(top, before + ACCEL * dt) : Math.max(top, before - HARD_BRAKE * dt);
     const p = this.model.mesh.position;
-    const dx = next.x - p.x;
-    const dz = next.z - p.z;
-    const dist = Math.hypot(dx, dz);
-    const step = speed * dt;
-    if (dist <= step) {
-      p.x = next.x;
-      p.z = next.z;
-      if (next === this.approach[0]) this.approach.shift();
-      this.path.shift();
-    } else {
-      p.x += (dx / dist) * step;
-      p.z += (dz / dist) * step;
+    // Never further than the room ahead (braking the last bit up to a car, it's within it already).
+    let budget = hold === 'car' ? this.vel * dt : Math.min(this.vel * dt, room);
+    const moved = budget > 1e-6;
+    while (budget > 1e-6 && this.path.length > 0) {
+      const target = this.path[0]!;
+      const dx = target.x - p.x;
+      const dz = target.z - p.z;
+      const dist = Math.hypot(dx, dz);
+      if (dist <= budget) {
+        p.x = target.x;
+        p.z = target.z;
+        budget -= dist;
+        this.reach();
+      } else {
+        p.x += (dx / dist) * budget;
+        p.z += (dz / dist) * budget;
+        budget = 0;
+      }
     }
-    if (dist > 0.01) {
-      const goal = Math.atan2(dx, dz);
-      const diff = Math.atan2(Math.sin(goal - this.heading), Math.cos(goal - this.heading));
-      this.heading += diff * Math.min(1, dt * TURN_RATE);
+    if (moved) {
+      // Steering for a point just ahead along the way: round a bend it turns as it goes.
+      const ahead = this.aim(STEER_LOOK) ?? next;
+      const dx = ahead.x - p.x;
+      const dz = ahead.z - p.z;
+      if (Math.hypot(dx, dz) > 0.05) {
+        const goal = Math.atan2(dx, dz);
+        const diff = Math.atan2(Math.sin(goal - this.heading), Math.cos(goal - this.heading));
+        this.heading += diff * Math.min(1, dt * TURN_RATE);
+      }
     }
     this.model.mesh.rotation.y = this.heading;
+    const accel = (this.vel - before) / Math.max(dt, 1e-3);
+    this.model.animate(dt, this.vel > 0.2, braking || accel < -1.5, this.turnAhead(), accel);
+  }
+
+  /** The fastest it may be going now to take the bends ahead at a safe speed, and to stop at the end of its way. */
+  private fastestAhead(speed: number): number {
+    let best = speed;
+    let s = 0;
+    let prev = this.position;
+    const reach = (speed * speed) / (2 * BRAKE) + 1;
+    for (let i = 0; i < this.path.length; i++) {
+      const point = this.path[i]!;
+      const seg = Math.hypot(point.x - prev.x, point.z - prev.z);
+      s += seg;
+      if (s > reach) break;
+      const after = this.path[i + 1];
+      if (!after) {
+        if (!this.offMap) best = Math.min(best, Math.sqrt(2 * BRAKE * (s + ARRIVE)));
+        break;
+      }
+      const out = Math.hypot(after.x - point.x, after.z - point.z);
+      if (seg > 0.05 && out > 1e-4) {
+        const ax = point.x - prev.x;
+        const az = point.z - prev.z;
+        const bx = after.x - point.x;
+        const bz = after.z - point.z;
+        const turn = Math.abs(Math.atan2(ax * bz - az * bx, ax * bx + az * bz));
+        if (turn > 0.02) {
+          const corner = Math.sqrt((CORNER * (seg + out)) / 2 / turn);
+          best = Math.min(best, Math.sqrt(corner * corner + 2 * BRAKE * s));
+        }
+      }
+      prev = point;
+    }
+    return best;
   }
 
   /** Which way the way ahead turns, for the indicators: 1 left, -1 right, 0 straight on. */

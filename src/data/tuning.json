@@ -5,7 +5,7 @@
     "supplyCapacity": 6,
     "usesPerItem": 4
   },
-  "cars": { "speed": 8, "spawnSeconds": 4.5, "queueSpots": 2, "leaveDelay": 0.35, "detailPatience": 3 },
+  "cars": { "speed": 9, "spawnSeconds": 4.5, "queueSpots": 2, "leaveDelay": 0.15, "detailPatience": 3 },
   "construction": { "gemSeconds": 120 },
   "snack": { "walkSpeed": 2.3 },
   "villagers": { "spawnSeconds": 5, "patience": 45, "walkSpeed": 2.2, "pay": [180, 180] },

@@ -175,6 +175,8 @@ export class CarModel {
   private dip = 0;
   private dipSpeed = 0;
   private roll = 0;
+  /** Nose up speeding up, down slowing (smoothed). */
+  private pitch = 0;
   private time = 0;
   private wheelRadius = 0.3;
   /** Where the car was last frame and which way it faced, to roll the wheels and lean into turns. */
@@ -210,11 +212,12 @@ export class CarModel {
 
   /**
    * One frame of driving: the wheels roll as far as the car went and the front ones steer into the
-   * turn; the body leans out in a corner, squats as it pulls away and dips its nose when it stops;
-   * the brake lights glow as it stops and while it waits (`held`), and the indicators blink on the
-   * side it's about to turn (`turn`: 1 left, -1 right).
+   * turn; the body leans out in a corner, squats as it pulls away and dips its nose when it stops,
+   * and tips back a little while it speeds up and forward while it slows (`accel`, m/s²); the brake
+   * lights glow as it slows, stops and while it waits (`held`), and the indicators blink on the side
+   * it's about to turn (`turn`: 1 left, -1 right).
    */
-  animate(dt: number, moving: boolean, held = false, turn = 0): void {
+  animate(dt: number, moving: boolean, held = false, turn = 0, accel = 0): void {
     this.time += dt;
     const step = Math.min(dt, 0.05);
     const p = this.mesh.position;
@@ -251,7 +254,8 @@ export class CarModel {
     this.wasMoving = moving;
     this.dipSpeed += (-70 * this.dip - 8 * this.dipSpeed) * step;
     this.dip += this.dipSpeed * step;
-    this.body.rotation.set(-this.dip * 0.05, 0, this.roll);
+    this.pitch += (Math.max(-0.03, Math.min(0.03, accel * 0.004)) - this.pitch) * Math.min(1, step * 6);
+    this.body.rotation.set(-this.dip * 0.05 - this.pitch, 0, this.roll);
     this.body.position.y = moving ? Math.abs(Math.sin(this.time * 13)) * 0.012 : 0;
     // Brake lights: on as it stops and while it waits; off once it's parked or moving again.
     this.sinceStop = moving ? 0 : this.sinceStop + dt;

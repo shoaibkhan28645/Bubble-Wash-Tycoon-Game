@@ -1,6 +1,8 @@
 // Cars are solid: before each step a moving car checks the stretch of its
 // route just ahead, following its turns, and waits while its body there
-// would run into another car or a person. Where two cars' ways cross or
+// would run into another car or a person. Further ahead, the faster it goes,
+// it sees what it will have to stop for (room) and eases off in time, so it
+// draws up behind it rather than stopping dead. Where two cars' ways cross or
 // merge, the car that came on later gives way before it reaches the other's
 // path, so the two don't end up nose to nose. If cars still lock up waiting
 // on each other (gridlock), the one that came first eases through after a
@@ -34,12 +36,15 @@ const HEAD_ON = 0.9;
 const GRIDLOCK = 4;
 /** The most cars in a ring of gridlock looked for. */
 const RING = 12;
+/** How far ahead (beyond LOOK) a car looks to ease off in time, at most, and how hard it plans to brake (m/s²). */
+const ROOM_LOOK = 9;
+const EASE = 10;
 /** A car about to drive onto the road looks this far along its way; the traffic coming along the road, this far ahead of each car. */
 const JOIN_LOOK = 5;
 const JOIN_AHEAD = 10;
 
 /** What the rules need of a car. */
-type RoadCar = Pick<Car, 'position' | 'aim' | 'facing' | 'def' | 'model' | 'state' | 'station' | 'serial' | 'held' | 'heldFor'> & Partial<Pick<Car, 'pathKey'>>;
+type RoadCar = Pick<Car, 'position' | 'aim' | 'facing' | 'def' | 'model' | 'state' | 'station' | 'serial' | 'held' | 'heldFor'> & Partial<Pick<Car, 'pathKey' | 'speed'>>;
 
 /** A car's body: centre, which way it points (unit), half length and half width. */
 interface Body {
@@ -54,6 +59,8 @@ export class RoadRules {
   private readonly waitingOn = new Map<RoadCar, RoadCar>();
   /** A car easing through gridlock, and the car it is getting past: it carries on until they're clear. */
   private readonly passing = new Map<RoadCar, RoadCar>();
+  /** What each car was last held up by: a person, a car in its way, or giving way (to a lane's traffic, at a crossing). */
+  private readonly holds = new Map<RoadCar, 'person' | 'car' | 'way'>();
 
   constructor(
     private readonly cars: () => Iterable<RoadCar>,
@@ -64,6 +71,7 @@ export class RoadRules {
   ) {}
 
   blocked(car: RoadCar): boolean {
+    this.holds.delete(car);
     const dir = heading(car);
     if (!dir) return false;
     const p = car.position;
@@ -71,7 +79,10 @@ export class RoadRules {
     // Nobody steps out in front of a car: people always get to cross.
     for (const person of this.people()) {
       const { along, side } = relative(p, dir, person);
-      if (along > 0 && along < length / 2 + PERSON + PERSON_GAP && side < width / 2 + PERSON_SIDE) return true;
+      if (along > 0 && along < length / 2 + PERSON + PERSON_GAP && side < width / 2 + PERSON_SIDE) {
+        this.holds.set(car, 'person');
+        return true;
+      }
     }
     this.waitingOn.delete(car);
     const passing = this.passing.get(car);
@@ -98,6 +109,7 @@ export class RoadRules {
           continue;
         }
         this.waitingOn.set(car, other);
+        this.holds.set(car, 'car');
         return true;
       }
       const near = Math.hypot(other.position.x - p.x, other.position.z - p.z) < JOIN_AHEAD + JOIN_LOOK + length;
@@ -119,7 +131,52 @@ export class RoadRules {
         held = true;
       }
     }
+    if (held) this.holds.set(car, 'way');
     return held;
+  }
+
+  /**
+   * What held a car up last time: a person in front of it (it stops), a car in its way (a metre and more
+   * short of it, so it may brake the last bit), or giving way (that's decided further off: there's room
+   * to brake into it).
+   */
+  holdOf(car: RoadCar): 'person' | 'car' | 'way' | null {
+    return this.holds.get(car) ?? null;
+  }
+
+  /**
+   * How much further a car going `speed` can drive before it would be held up by a car or a person
+   * ahead (Infinity: nothing in the stretch it looks at, which is longer the faster it goes). At 0 it's
+   * at the point where blocked() holds it: driving up to that gently, it stops where it would have anyway.
+   */
+  room(car: RoadCar, speed: number): number {
+    const dir = heading(car);
+    if (!dir) return Infinity;
+    const p = car.position;
+    const [width, , length] = car.def.size;
+    const look = Math.min(ROOM_LOOK, Math.ceil((LOOK + (speed * speed) / (2 * EASE) + 0.5) * 2) / 2);
+    let room = Infinity;
+    const stop = length / 2 + PERSON + PERSON_GAP;
+    for (const person of this.people()) {
+      const { along, side } = relative(p, dir, person);
+      // (A hair over, so it always comes on far enough for blocked() to hold it.)
+      if (along > 0 && side < width / 2 + PERSON_SIDE && along - stop < look) room = Math.min(room, Math.max(0, along - stop) + 0.02);
+    }
+    const ahead = sweep(car, look);
+    const passing = this.passing.get(car);
+    const reach = look + length;
+    for (const other of this.cars()) {
+      if (other === car || other === passing || !other.model.mesh.visible || other.state === 'angry' || sameTunnel(car, other)) continue;
+      const o = other.position;
+      if (Math.abs(o.x - p.x) > reach + other.def.size[2] || Math.abs(o.z - p.z) > reach + other.def.size[2]) continue;
+      const i = hitIndex(car, ahead, other);
+      if (i < 0) continue;
+      // A car going the same way will itself go on a bit before it could stop: following it, there's that much more.
+      const theirs = other.speed ?? 0;
+      const same = theirs > 0.3 && dot({ x: Math.sin(other.facing), z: Math.cos(other.facing) }, dir) > SAME_WAY ? (theirs * theirs) / (2 * EASE) : 0;
+      room = Math.min(room, Math.max(0, (i + 1) * STEP - LOOK) + same);
+    }
+    return room;
   }
 
   /** Following who waits on whom from `other` comes back round to `car`, every car on the way held up and come after it. */
@@ -229,25 +286,30 @@ function sweepNow(car: RoadCar, distance: number, wide: number): Body[] {
  * one behind waits; a car overlapping one that stands still drives out of it.
  */
 function hits(car: RoadCar, ahead: Body[], other: RoadCar): boolean {
+  return hitIndex(car, ahead, other) >= 0;
+}
+
+/** Which of `car`'s bodies along its way first runs into `other` (as hits() says), or -1. */
+function hitIndex(car: RoadCar, ahead: Body[], other: RoadCar): number {
   const first = ahead[0];
-  if (!first) return false;
+  if (!first) return -1;
   const [ow, , ol] = other.def.size;
   const f = { x: Math.sin(other.facing), z: Math.cos(other.facing) };
   const them: Body = { at: other.position, dir: f, hl: ol / 2, hw: ow / 2 };
   const [width, , length] = car.def.size;
   // Coming the other way in the other lane: they just pass (wide trucks reach over the line).
   const r = { x: car.position.x - other.position.x, z: car.position.z - other.position.z };
-  if (dot(f, first.dir) < -HEAD_ON && Math.abs(r.x * f.z - r.z * f.x) > ONCOMING_SIDE) return false;
+  if (dot(f, first.dir) < -HEAD_ON && Math.abs(r.x * f.z - r.z * f.x) > ONCOMING_SIDE) return -1;
   if (overlap({ at: car.position, dir: first.dir, hl: length / 2, hw: width / 2 - SIDE_SLACK }, them)) {
     // A standing car can't move off: this one drives out of it.
-    if (!heading(other)) return false;
+    if (!heading(other)) return -1;
     const away = dot(first.dir, r);
-    return away < -0.1 || (Math.abs(away) <= 0.1 && car.serial > other.serial);
+    return away < -0.1 || (Math.abs(away) <= 0.1 && car.serial > other.serial) ? 0 : -1;
   }
   // Never held up by a car behind it (round a tight turn its tail may seem to swing into one).
   const facing = { x: Math.sin(car.facing), z: Math.cos(car.facing) };
-  if (dot(facing, r) > length / 2) return false;
-  return ahead.some((body) => overlap(body, them));
+  if (dot(facing, r) > length / 2) return -1;
+  return ahead.findIndex((body) => overlap(body, them));
 }
 
 /** Where a body's front is: `hl` on from `at` along `dir`. */

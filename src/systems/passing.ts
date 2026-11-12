@@ -68,6 +68,7 @@ export class PassingTraffic {
     // Clean (no wash wanted), just passing through.
     car.spawn(def, { x: from, z }, [], { x: to, z }, def, []);
     car.state = 'leaving';
+    car.offMap = true;
     this.passers.push({ car, dir });
   }
 }

@@ -31,24 +31,44 @@ export function routeAt(route: readonly Point[], marks: readonly number[], dista
  * points about `step` apart. The first and last points stay where they are.
  */
 export function smoothRoute(route: readonly Point[], radius: number, step = 0.4): Point[] {
-  const out: Point[] = [];
-  const push = (p: Point) => {
-    const last = out[out.length - 1];
-    if (!last || Math.hypot(p.x - last.x, p.z - last.z) > 1e-3) out.push({ x: p.x, z: p.z });
+  return smoothRouteMarked(route, radius, step).points;
+}
+
+/**
+ * smoothRoute, saying how far round the route each point is: `ends[j]` is the
+ * last of the route's points (by index) that the way has been round by
+ * `points[j]` (a corner counts once its bend is done).
+ */
+export function smoothRouteMarked(route: readonly Point[], radius: number, step = 0.4): { points: Point[]; ends: number[] } {
+  const points: Point[] = [];
+  const ends: number[] = [];
+  const push = (p: Point, end: number) => {
+    const last = points[points.length - 1];
+    if (last && Math.hypot(p.x - last.x, p.z - last.z) <= 1e-3) {
+      ends[ends.length - 1] = Math.max(ends[ends.length - 1]!, end);
+      return;
+    }
+    points.push({ x: p.x, z: p.z });
+    ends.push(Math.max(end, ends[ends.length - 1] ?? 0));
   };
-  if (route.length === 0) return out;
-  push(route[0]!);
+  if (route.length === 0) return { points, ends };
+  push(route[0]!, 0);
   for (let i = 1; i < route.length - 1; i++) {
     const [a, b, c] = [route[i - 1]!, route[i]!, route[i + 1]!];
     const inLen = Math.hypot(b.x - a.x, b.z - a.z);
     const outLen = Math.hypot(c.x - b.x, c.z - b.z);
-    if (inLen < 1e-4 || outLen < 1e-4) continue;
+    if (inLen < 1e-4 || outLen < 1e-4) {
+      // On top of its neighbour: round it as soon as that's reached.
+      if (inLen < 1e-4) ends[ends.length - 1] = Math.max(ends[ends.length - 1]!, i);
+      else push(b, i);
+      continue;
+    }
     const u = { x: (b.x - a.x) / inLen, z: (b.z - a.z) / inLen };
     const v = { x: (c.x - b.x) / outLen, z: (c.z - b.z) / outLen };
     const cross = u.x * v.z - u.z * v.x;
     const turn = Math.abs(Math.atan2(cross, u.x * v.x + u.z * v.z));
     if (turn < 1e-3) {
-      push(b);
+      push(b, i);
       continue;
     }
     // The arc starts and ends this far either side of the corner: no more than the straights allow
@@ -66,9 +86,9 @@ export function smoothRoute(route: readonly Point[], radius: number, step = 0.4)
     for (let k = 0; k <= n; k++) {
       const angle = side * turn * (k / n);
       const [s, co] = [Math.sin(angle), Math.cos(angle)];
-      push({ x: centre.x + rx * co - rz * s, z: centre.z + rx * s + rz * co });
+      push({ x: centre.x + rx * co - rz * s, z: centre.z + rx * s + rz * co }, k === n ? i : i - 1);
     }
   }
-  if (route.length > 1) push(route[route.length - 1]!);
-  return out;
+  if (route.length > 1) push(route[route.length - 1]!, route.length - 1);
+  return { points, ends };
 }

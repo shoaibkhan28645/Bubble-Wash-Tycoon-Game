@@ -27,10 +27,12 @@ export class Departures {
 
   /** Already following its route out. */
   driveOff(car: Car): void {
+    car.offMap = true;
     this.cars.add(car);
   }
 
   stormOff(car: Car): void {
+    car.offMap = true;
     car.state = 'angry';
     car.timer = 0;
     this.cars.add(car);
