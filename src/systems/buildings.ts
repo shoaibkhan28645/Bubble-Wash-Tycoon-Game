@@ -1,6 +1,6 @@
 import type { Object3D, Scene } from 'three';
 import type { LocationLayout, Rect } from '../core/config';
-import { benchModel, boardModel, hoseModel, registerModel, shelfModel, signModel, truckModel, vendingModel } from '../render/models/props';
+import { boardModel, registerModel, shelfModel, signModel, truckModel, vendingModel } from '../render/models/props';
 import { dispenserModel, forecourtModel, laneSide } from '../render/models/fuel';
 import { martModel, MART_TILL_Z } from '../render/models/mart';
 import { DryerModel } from '../render/models/dryer';
@@ -29,14 +29,8 @@ export const SOLID: Record<string, [number, number, number?, number?][]> = {
   // Hand wash bays: the two side walls (cars and people go in and out at the ends) and the coin panel.
   bay1: BAY_WALLS,
   bay2: BAY_WALLS,
-  hose: [[0.45, 0.45]],
   register: [[1, 0.45]],
   soap: [[1.1, 0.4]],
-  // The bench, and the potted plant at its end.
-  bench: [
-    [1.1, 0.35],
-    [0.35, 0.35, 1.5, 0],
-  ],
   vending: [[0.65, 0.45]],
   sign: [[0.35, 0.35]],
   // The tunnel, its water tank and its control box.
@@ -147,10 +141,8 @@ export class Buildings {
 
   private model(id: string): Object3D | null {
     if (id.startsWith('bay')) return washBayModel(`BAY ${id.slice(3)}`);
-    if (id === 'hose') return hoseModel();
     if (id === 'register') return registerModel();
     if (id === 'soap') return shelfModel();
-    if (id === 'bench') return benchModel();
     if (id === 'pump1') return forecourtModel(this.layout, id);
     if (id === 'pump2') return dispenserModel(laneSide(this.layout, id));
     if (id === 'mart') return martModel();

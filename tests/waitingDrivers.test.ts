@@ -1,4 +1,4 @@
-// Drivers waiting in a wash line get out: a seat on the bench, a can from the vending machine, back in time.
+// Drivers waiting in a wash line get out for a can from the vending machine, and are back in time.
 import { describe, expect, it } from 'vitest';
 import { CARS, TUNING } from '../src/core/config';
 import { ROADSIDE } from '../src/core/towns';
@@ -40,54 +40,42 @@ function run(d: WaitingDrivers, lanes: Station[], seconds: number): void {
 }
 
 describe('drivers waiting in line', () => {
-  it('get out and sit on the bench while the bay ahead is busy; the car waits for them', () => {
+  it('get out for a can while the bay ahead is busy; the car waits for them', () => {
     const { bay, waiting } = bayWithLine();
-    const d = drivers(['bench']);
+    const d = drivers(['vending']);
     d.ready = true;
-    run(d, [bay], 6);
+    run(d, [bay], 1);
     expect(waiting.away).toBe(true);
-    expect(d.sitting).toBe(1);
   });
 
   it('hurry back once the car ahead is nearly done, and get in', () => {
     const { bay, washing, waiting } = bayWithLine();
-    const d = drivers(['bench']);
+    const d = drivers(['vending']);
     d.ready = true;
-    run(d, [bay], 6);
+    run(d, [bay], 1);
     washing.progress = 0.9;
-    run(d, [bay], 6);
-    expect(d.sitting).toBe(0);
+    run(d, [bay], 8);
     expect(waiting.away).toBe(false);
     expect(d.count).toBe(0);
   });
 
-  it('a long wait: up from the bench for a can at the vending machine (sold there), then back to the bench', () => {
-    const snacks: { x: number; z: number }[] = [];
-    const { bay, waiting } = bayWithLine();
-    const d = drivers(['bench', 'vending'], snacks);
-    d.ready = true;
-    run(d, [bay], 20);
-    expect(snacks).toHaveLength(1);
-    expect(snacks[0]).toEqual(layout.pads.vending);
-    expect(waiting.snacked).toBe(true);
-    expect(d.sitting).toBe(1);
-  });
-
-  it('with only the vending machine: a can, then straight back', () => {
+  it('a can at the vending machine (sold there), then straight back', () => {
     const snacks: unknown[] = [];
     const { bay, waiting } = bayWithLine();
     const d = drivers(['vending'], snacks);
     d.ready = true;
     run(d, [bay], 20);
     expect(snacks).toHaveLength(1);
+    expect(snacks[0]).toEqual(layout.pads.vending);
+    expect(waiting.snacked).toBe(true);
     expect(waiting.away).toBe(false);
   });
 
   it('out of patience, the driver comes straight back (before storming off)', () => {
     const { bay, waiting } = bayWithLine();
-    const d = drivers(['bench']);
+    const d = drivers(['vending']);
     d.ready = true;
-    run(d, [bay], 3);
+    run(d, [bay], 1);
     expect(waiting.away).toBe(true);
     waiting.recall = true;
     run(d, [bay], 8);
@@ -100,19 +88,11 @@ describe('drivers waiting in line', () => {
     expect(waiting.away).toBe(false);
     const road = bayWithLine();
     road.waiting.model.mesh.position.z = layout.lot.minZ - 3;
-    const d = drivers(['bench']);
+    const d = drivers(['vending']);
     d.ready = true;
     run(d, [road.bay], 5);
     expect(road.waiting.away).toBe(false);
     expect(TUNING.waitingDrivers.chance).toBeGreaterThan(0);
-  });
-
-  it('two seats on the bench: never more than two sitting', () => {
-    const lines = [bayWithLine(), bayWithLine(), bayWithLine()];
-    const d = drivers(['bench']);
-    d.ready = true;
-    run(d, lines.map((l) => l.bay), 6);
-    expect(d.sitting).toBeLessThanOrEqual(2);
   });
 
   it('the valet never moves a car whose driver is out', () => {

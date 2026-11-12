@@ -142,7 +142,7 @@ export function createRoadsideGame(
   );
   /** Their people load once there's something to get out for. */
   const loadDrivers = (): void => {
-    if (drivers.ready || !(state.unlocked.includes('bench') || state.unlocked.includes('vending'))) return;
+    if (drivers.ready || !state.unlocked.includes('vending')) return;
     loadPeople(CHARACTERS.shoppers)
       .then(() => (drivers.ready = true))
       .catch((error) => platform.logWarning(error));
@@ -161,7 +161,7 @@ export function createRoadsideGame(
     buildings.show(id, animate);
     traffic.addStation(id);
     staff.hire(id);
-    if (id === 'bench' || id === 'vending') loadDrivers();
+    if (id === 'vending') loadDrivers();
   };
   for (const id of state.unlocked) addBuilt(id, false);
 

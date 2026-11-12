@@ -10,7 +10,7 @@
     { "id": "roadtrip", "client": "Road Trip Club", "icon": "🗺️", "task": "combo", "goal": 10, "minutes": 60, "gems": 12, "requires": "pump1" },
     { "id": "snacks", "client": "Snack Attack Club", "icon": "🍿", "task": "snack", "goal": 12, "minutes": 60, "gems": 10, "requires": "mart" },
     { "id": "rangers", "client": "Park Rangers", "icon": "🌲", "task": "wash:suv", "goal": 8, "minutes": 90, "cash": 45, "requires": "dryer" },
-    { "id": "school", "client": "Maple School Run", "icon": "🚐", "task": "wash:minivan", "goal": 6, "minutes": 120, "cash": 60, "requires": "bench" },
+    { "id": "school", "client": "Maple School Run", "icon": "🚐", "task": "wash:minivan", "goal": 6, "minutes": 120, "cash": 60, "requires": "vending" },
     { "id": "racers", "client": "Turbo Racing Team", "icon": "🏎️", "task": "wash:sports", "goal": 6, "minutes": 120, "cash": 80, "requires": "wax" },
     { "id": "shine", "client": "Glossy Magazine", "icon": "✨", "task": "wax", "goal": 15, "minutes": 120, "gems": 15, "requires": "wax" },
     { "id": "rally", "client": "Mud Rally League", "icon": "🛻", "task": "wash:monster", "goal": 4, "minutes": 180, "gems": 20, "requires": "tunnel" },

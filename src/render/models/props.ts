@@ -18,17 +18,11 @@ function prop(name: string): Object3D {
   return copy;
 }
 
-/** Garden hose: a wheeled reel cart with a coiled hose, a spray gun and a puddle. */
-export const hoseModel = (): Object3D => prop('prop_hose');
-
 /** Pay kiosk: a counter with the till, a card reader and a tip jar under a striped awning. */
 export const registerModel = (): Object3D => prop('prop_register');
 
 /** Supply shelf: soap bottles below, towel stacks in the middle, wax tins on top. */
 export const shelfModel = (): Object3D => prop('prop_shelf');
-
-/** Waiting bench, with a potted plant. */
-export const benchModel = (): Object3D => prop('prop_bench');
 
 /** The truck to the next town: a blue cab and a pink box with bubbles, driving off towards +x. */
 export const truckModel = (): Object3D => prop('prop_truck');

@@ -30,20 +30,20 @@ describe('net worth', () => {
   it('counts cash, cash piles, built and half-paid pads, buildings going up and upgrades', () => {
     const state = newGame();
     state.cash = 500;
-    state.unlocked = ['bay1', 'hose', 'register'];
+    state.unlocked = ['bay1', 'pump1', 'register'];
     state.building = { mart: { endsAt: 0, halved: false } };
     state.padPaid = { bay2: 120 };
     state.levels = { 'bay1.speed': 2 };
     state.piles = { bay1: 30 };
     const upgrades = costOf('bay1.speed', 0) + costOf('bay1.speed', 1);
-    expect(townValue(ROADSIDE, state)).toBe(30 + cost('hose') + cost('register') + cost('mart') + 120 + upgrades);
+    expect(townValue(ROADSIDE, state)).toBe(30 + cost('pump1') + cost('register') + cost('mart') + 120 + upgrades);
     expect(netWorth(state, ROADSIDE, () => undefined)).toBe(500 + townValue(ROADSIDE, state));
   });
 
   it('adds the towns the hero is not in', () => {
     const state = newGame();
-    state.towns.testville = { ...newTownState(), unlocked: ['hose'] };
-    expect(netWorth(state, ROADSIDE, () => ROADSIDE)).toBe(cost('hose'));
+    state.towns.testville = { ...newTownState(), unlocked: ['pump1'] };
+    expect(netWorth(state, ROADSIDE, () => ROADSIDE)).toBe(cost('pump1'));
     // A town whose data isn't loaded counts as nothing yet.
     expect(netWorth(state, ROADSIDE, () => undefined)).toBe(0);
   });

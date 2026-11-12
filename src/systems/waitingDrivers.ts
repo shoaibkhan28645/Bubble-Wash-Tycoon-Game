@@ -1,7 +1,7 @@
-// Drivers waiting in a wash line stretch their legs: they get out and sit on
-// the waiting bench (a long wait: up for a can from the vending machine, then
-// back to the bench), and hurry back to the car as its turn comes. The car
-// doesn't drive in without them.
+// Drivers waiting in a wash line stretch their legs: once the vending
+// machine is built, they get out for a can, and hurry back to the car as its
+// turn comes. The car doesn't drive in without them. (A bench's seats are
+// worked out here too: people out walking sit on the town's benches.)
 import { TUNING, type LocationLayout, type Point } from '../core/config';
 import type { Lane } from './arrivals';
 import type { Car } from './cars';
@@ -35,10 +35,6 @@ const MACHINE_FRONT = 0.95;
 const MAX_WALK = 10;
 /** Seconds at the machine, choosing and paying. */
 const BUYING_SECONDS = 1.3;
-/** Sat this long and still waiting, a driver gets up for a can (if the machine's built). */
-const SNACK_AFTER = 3;
-/** Down on the bench, a driver stays at least this long (so it reads as sitting, not a bob). */
-const MIN_SIT = 1.5;
 /** Called back, drivers jog (metres a second). */
 const HURRY_SPEED = 3.2;
 /** Drivers go out only while the car in their bay has this much of its wash still to go. */
@@ -46,7 +42,7 @@ const LEAVE_BEFORE = 0.4;
 /** And are called back once the car in their bay is this far through, so they're back as it pulls out. */
 const RETURN_AT = 0.55;
 
-type Stage = 'toMachine' | 'buying' | 'toBench' | 'sitting' | 'back';
+type Stage = 'toMachine' | 'buying' | 'back';
 
 interface Outing {
   car: Car;
@@ -55,11 +51,8 @@ interface Outing {
   path: Point[];
   stage: Stage;
   timer: number;
-  seat: Seat | null;
   /** The car door it walks back to (re-aimed if the car moves up the line meanwhile). */
   door: Point;
-  /** Seconds sat on the bench this time. */
-  sat: number;
 }
 
 export class WaitingDrivers {
@@ -69,8 +62,6 @@ export class WaitingDrivers {
   started = 0;
   private readonly outings: Outing[] = [];
   private readonly spare: Walker[] = [];
-  private readonly taken = new Set<Seat>();
-  readonly seats: Seat[];
   private readonly machine: { stand: Point; at: Point } | null;
 
   constructor(
@@ -78,14 +69,12 @@ export class WaitingDrivers {
     private readonly built: (id: string) => boolean,
     /** A person to show (null in tests: the walking still happens). */
     private readonly makeWalker: (() => Walker) | null,
-    /** A walking route round what's built (the bench, the machine, the bays). */
+    /** A walking route round what's built (the machine, the bays). */
     private readonly route: (from: Point, to: Point) => Point[],
     /** A can was bought at the machine. */
     private readonly onSnack: (at: Point) => void,
     private readonly rand: () => number = Math.random,
   ) {
-    const bench = layout.pads.bench;
-    this.seats = bench ? benchSeats(bench) : [];
     const vending = layout.pads.vending;
     this.machine = vending ? { at: vending, stand: { x: vending.x, z: vending.z + MACHINE_FRONT } } : null;
   }
@@ -99,19 +88,13 @@ export class WaitingDrivers {
     return this.outings.length;
   }
 
-  /** The people sitting on the bench right now. */
-  get sitting(): number {
-    return this.outings.filter((o) => o.stage === 'sitting').length;
-  }
-
   update(dt: number, lanes: readonly Lane[]): void {
     if (this.ready) for (const lane of lanes) this.letOut(lane);
     for (const outing of [...this.outings]) {
       const lane = lanes.find((l) => l.queue.includes(outing.car));
-      // Its turn is coming (or it's had enough of waiting): back to the car. Just sat down, they stay a moment.
+      // Its turn is coming (or it's had enough of waiting): back to the car.
       const due = !lane || (lane.queue[0] === outing.car && freeSoon(lane));
-      const settled = outing.stage !== 'sitting' || outing.sat >= MIN_SIT;
-      if (outing.car.recall || (due && settled)) this.callBack(outing);
+      if (outing.car.recall || due) this.callBack(outing);
       this.step(dt, outing);
     }
   }
@@ -128,13 +111,11 @@ export class WaitingDrivers {
     const car = lane.queue[0];
     if (!car || car.stretched || car.away || car.vip || car.state !== 'queued' || !car.arrived || !insideRect(car.position, this.layout.lot)) return;
     car.stretched = true;
-    // To the bench if there's a seat, or else straight to the machine.
-    const seat = this.built('bench') ? this.freeSeat() : null;
+    // Off to the machine for a can.
     const machine = this.wantsCan(car) ? this.machine : null;
-    const first = seat?.front ?? machine?.stand;
-    if (!first || this.rand() >= TUNING.waitingDrivers.chance) return;
-    const door = doorOf(car, first);
-    if (Math.hypot(first.x - door.x, first.z - door.z) > MAX_WALK) return;
+    if (!machine || this.rand() >= TUNING.waitingDrivers.chance) return;
+    const door = doorOf(car, machine.stand);
+    if (Math.hypot(machine.stand.x - door.x, machine.stand.z - door.z) > MAX_WALK) return;
     const walker = this.spare.pop() ?? this.makeWalker?.() ?? null;
     if (walker) {
       walker.root.visible = true;
@@ -144,43 +125,14 @@ export class WaitingDrivers {
     }
     car.away = true;
     this.started++;
-    const outing: Outing = { car, walker, at: { ...door }, path: [], stage: 'toMachine', timer: 0, seat: null, door, sat: 0 };
-    if (seat) this.sitDown(outing);
-    else this.go(outing, 'toMachine', machine!.stand);
+    const outing: Outing = { car, walker, at: { ...door }, path: [], stage: 'toMachine', timer: 0, door };
+    this.go(outing, 'toMachine', machine.stand);
     this.outings.push(outing);
   }
 
   /** The vending machine is built and this driver hasn't had a can yet. */
   private wantsCan(car: Car): boolean {
     return !!this.machine && this.built('vending') && !car.snacked;
-  }
-
-  /** Up off the seat, if sitting: out in front of the bench, the seat free again. */
-  private standUp(outing: Outing): void {
-    if (outing.walker) outing.walker.seated = false;
-    if (!outing.seat) return;
-    this.taken.delete(outing.seat);
-    outing.at = { ...outing.seat.front };
-    outing.walker?.root.position.set(outing.at.x, 0, outing.at.z);
-    outing.seat = null;
-  }
-
-  private freeSeat(): Seat | null {
-    return this.seats.find((s) => !this.taken.has(s)) ?? null;
-  }
-
-  /** Off to a free seat on the bench (or straight back if none is free). */
-  private sitDown(outing: Outing): void {
-    const seat = this.built('bench') ? this.freeSeat() : null;
-    if (!seat) {
-      this.callBack(outing);
-      return;
-    }
-    this.taken.add(seat);
-    outing.seat = seat;
-    outing.sat = 0;
-    this.go(outing, 'toBench', seat.front);
-    outing.path.push(seat.at);
   }
 
   private go(outing: Outing, stage: Stage, to: Point): void {
@@ -190,7 +142,6 @@ export class WaitingDrivers {
 
   private callBack(outing: Outing): void {
     if (outing.stage === 'back' || outing.stage === 'buying') return;
-    this.standUp(outing);
     outing.door = doorOf(outing.car, outing.at);
     this.go(outing, 'back', outing.door);
   }
@@ -204,20 +155,9 @@ export class WaitingDrivers {
       outing.car.snacked = true;
       this.onSnack(this.machine!.at);
       if (walker) walker.holding = true;
-      // Back to the bench with it (or the car, if its turn has come meanwhile).
-      outing.stage = 'toBench';
-      if (outing.car.recall || outing.car.state !== 'queued') this.callBack(outing);
-      else this.sitDown(outing);
-      return;
-    }
-    if (outing.stage === 'sitting') {
-      outing.sat += dt;
-      walker?.update(dt);
-      // A long wait: up for a can from the machine.
-      if (outing.sat >= SNACK_AFTER && this.wantsCan(outing.car)) {
-        this.standUp(outing);
-        this.go(outing, 'toMachine', this.machine!.stand);
-      }
+      // Back to the car with it.
+      outing.door = doorOf(outing.car, outing.at);
+      this.go(outing, 'back', outing.door);
       return;
     }
     if (outing.stage === 'back') {
@@ -259,14 +199,6 @@ export class WaitingDrivers {
       if (walker) walker.root.rotation.y = Math.PI;
       return;
     }
-    if (outing.stage === 'toBench') {
-      outing.stage = 'sitting';
-      if (walker && outing.seat) {
-        walker.seated = true;
-        walker.root.rotation.y = outing.seat.facing;
-      }
-      return;
-    }
     // Back at the car: in they get.
     this.remove(outing);
   }
@@ -279,7 +211,6 @@ export class WaitingDrivers {
 
   private remove(outing: Outing): void {
     this.outings.splice(this.outings.indexOf(outing), 1);
-    if (outing.seat) this.taken.delete(outing.seat);
     outing.car.away = false;
     outing.car.recall = false;
     if (outing.walker) {

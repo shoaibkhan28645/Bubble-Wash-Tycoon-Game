@@ -54,9 +54,11 @@ describe('washSeconds', () => {
 
 describe('builtStages', () => {
   it('follows the pads that are built', () => {
-    expect(builtStages(['bay1'])).toEqual([]);
-    expect(builtStages(['bay1', 'hose', 'soap']).map((s) => s.id)).toEqual(['prerinse', 'foam']);
-    const all = ['bay1', 'hose', 'soap', 'dryer', 'wax'];
+    // Bay 1 comes with its pre-rinse (there's no garden hose to buy).
+    expect(builtStages([]).map((s) => s.id)).toEqual([]);
+    expect(builtStages(['bay1']).map((s) => s.id)).toEqual(['prerinse']);
+    expect(builtStages(['bay1', 'soap']).map((s) => s.id)).toEqual(['prerinse', 'foam']);
+    const all = ['bay1', 'soap', 'dryer', 'wax'];
     expect(builtStages(all, 'bay').map((s) => s.id)).toEqual(['prerinse', 'foam']);
     expect(builtStages(all, 'dryer').map((s) => s.id)).toEqual(['dry']);
   });
