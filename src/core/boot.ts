@@ -101,9 +101,11 @@ export async function boot(root: HTMLElement): Promise<void> {
     game.start();
   };
 
+  // When the game was last saved: taken now, before the town opens (opening it can save: a story beat, a goal).
+  const lastSaved = state.savedAt;
   await openTown();
   // Offline earnings since the last save (Tech Guide boot sequence).
-  const offline = applyOffline(state, state.savedAt);
+  const offline = applyOffline(state, lastSaved);
   loading.setProgress(1);
 
   if (debug) {

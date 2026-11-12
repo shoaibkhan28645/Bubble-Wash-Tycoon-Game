@@ -85,7 +85,7 @@
   "pads": { "fillSeconds": 2, "minDrainPerSecond": 20, "radius": 1.15, "revealDelay": 0.6, "upgradeRadius": 0.9 },
   "supplies": { "shelfCapacity": 8, "restockSeconds": 3, "carryBase": 3, "handSeconds": 0.15, "reach": 1.6 },
   "staff": { "workRate": 0.85, "walkSpeed": 3.5, "workSeconds": 45, "breakSeconds": 8 },
-  "offline": { "rate": 0.5, "managerRate": 1, "capHours": [2, 4, 6, 8], "minAwaySeconds": 60, "resumeAwaySeconds": 120, "incomeWindowSeconds": 600, "maxRate": { "roadside": 8000, "willowbrook": 120000, "starlight": 10000000 } },
+  "offline": { "rate": 0.5, "managerRate": 1, "capMinutes": [20, 40, 60, 80], "minAwaySeconds": 60, "resumeAwaySeconds": 120, "incomeWindowSeconds": 600, "maxRate": { "roadside": 8000, "willowbrook": 120000, "starlight": 10000000 } },
   "park": {
     "pileCap": 20000,
     "visitors": { "spawnSeconds": 3.4, "patience": 55, "walkSpeed": 2.3, "ticket": 720, "max": 40, "childChance": 0.3 },

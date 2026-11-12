@@ -141,8 +141,8 @@ describe('contracts.json and goals.json', () => {
     // The last goal is the landmark, and the truck waits for every goal.
     expect(ROADSIDE.goals.goals.at(-1)?.built).toBe('landmark');
     expect(ROADSIDE.pads.find((p) => p.id === 'truck')?.afterGoals).toBe(true);
-    expect(padById('landmark')?.buildSeconds).toBeGreaterThanOrEqual(4 * 3600);
-    expect(padById('landmark')?.buildSeconds).toBeLessThanOrEqual(8 * 3600);
+    // The landmark goes up in 20 minutes: the player plays on meanwhile, saving for the land.
+    expect(padById('landmark')?.buildSeconds).toBe(20 * 60);
     expect(ROADSIDE.layout.sites.landmark).toBeDefined();
   });
 });

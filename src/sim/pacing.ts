@@ -79,7 +79,7 @@ export function simulatePacing(
       if (wait > AWAY_AFTER_SECONDS) {
         const rules = TUNING.offline;
         const rate = unlocked.has('manager') ? rules.managerRate : rules.rate;
-        cash += income * rate * Math.min(wait, (rules.capHours[0] ?? 0) * 3600);
+        cash += income * rate * Math.min(wait, (rules.capMinutes[0] ?? 0) * 60);
         awaySeconds += wait;
         for (const [id] of finishing) unlocked.add(id);
         finishing.clear();
@@ -102,7 +102,7 @@ export function simulatePacing(
 export const STAFF_EFFICIENCY = 0.75;
 
 /** A build that would keep the player waiting longer than this is waited out away from the game. */
-const AWAY_AFTER_SECONDS = 15 * 60;
+const AWAY_AFTER_SECONDS = 30 * 60;
 
 /** The bot counts the town's goals done once every pad they name is built (counts and stars come with play). */
 function goalsDone(town: TownDef, unlocked: Set<string>): boolean {

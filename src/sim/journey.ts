@@ -3,9 +3,9 @@
 // is played by a bot that buys the next pad the moment it can, with what
 // really comes with it: the money left after buying the land, and the towns
 // already built earning in the background all the while (their staff's
-// takings, at their managers' full rate). The landmark's long build is
-// waited out away from the game, earning offline (up to the first cap) in
-// every town.
+// takings, at their managers' full rate). The landmark builds in 20 minutes
+// and the bot plays on meanwhile, saving for the land (a build longer than
+// half an hour would be waited out away from the game, earning offline).
 //
 // The bot buys upgrades too, as a player does: whenever the cheapest one on
 // offer costs no more than a quarter of the next pad, it buys it. Each map's
@@ -71,7 +71,7 @@ export interface JourneyLeg {
   levels: Record<string, number>;
 }
 
-const AWAY_AFTER_SECONDS = 15 * 60;
+const AWAY_AFTER_SECONDS = 30 * 60;
 /** The bot buys an upgrade once it costs no more than this share of the next pad. */
 export const UPGRADE_SHARE = 0.25;
 /** The staff room's upgrade pad comes with the register, every other pad with its own station. */
@@ -126,7 +126,10 @@ export function playLeg(map: JourneyMap, startCash: number, background: number, 
       offer = upgradesOnOffer(map.town, unlocked).filter(map.counts);
       offerFor = unlocked.size;
     }
-    const limit = UPGRADE_SHARE * (next()?.cost ?? 0);
+    // Saving for the land, a player keeps to the upgrades they were buying before it (a quarter of the landmark's price).
+    const target = next();
+    const budgetFor = target?.afterGoals ? [...pads].reverse().find((p) => !p.afterGoals) : target;
+    const limit = UPGRADE_SHARE * (budgetFor?.cost ?? 0);
     for (;;) {
       let best = '';
       let price = Infinity;
@@ -171,7 +174,7 @@ export function playLeg(map: JourneyMap, startCash: number, background: number, 
       if (wait > AWAY_AFTER_SECONDS) {
         const rules = TUNING.offline;
         const rate = unlocked.has('manager') ? rules.managerRate : rules.rate;
-        cash += (map.steady(unlocked, levels) * rate + background) * Math.min(wait, (rules.capHours[0] ?? 0) * 3600);
+        cash += (map.steady(unlocked, levels) * rate + background) * Math.min(wait, (rules.capMinutes[0] ?? 0) * 60);
         away += wait;
         for (const [id] of finishing) unlocked.add(id);
         finishing.clear();

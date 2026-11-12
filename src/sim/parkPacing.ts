@@ -16,7 +16,7 @@
 // time, and carries supplies until the snack runner does; the operator and
 // the coaster crew launch their rides; the truck tops up the shed. The hero
 // arrives with what the park's land left over, and the other towns keep
-// earning in the background all along (about $51k a minute when the park
+// earning in the background all along (about $53k a minute when the park
 // opens). What the crowd takes here is scaled to what the game's park takes
 // (PARK_EFFICIENCY, measured). Tips for perfect launches, the mascot's
 // photos and the storm are left out; upgrades are counted in
@@ -47,8 +47,8 @@ export interface ParkPacingOptions {
 /** The start cash and the background are the whole journey's (src/sim/journey.ts; tests/journey.test.ts keeps them in step). */
 export const PARK_PACING: ParkPacingOptions = {
   stars: 4,
-  startCash: 224000,
-  background: 51300,
+  startCash: 21500,
+  background: 52700,
   step: 1,
   maxMinutes: 240,
   warmup: 120,
@@ -62,7 +62,7 @@ const HERO_STALL = 0.35;
 /** Before the snack runner, the hero carries this share of what the truck brings to the stalls. */
 const HERO_CARRY = 0.7;
 /** Long builds the player waits out away from the game. */
-const AWAY_AFTER_SECONDS = 15 * 60;
+const AWAY_AFTER_SECONDS = 30 * 60;
 /** The share of the park's day that's evening (when the fireworks bring a night crowd and night rides pay more). */
 const EVENING_SHARE = PARK.evening.evening / (PARK.evening.day + PARK.evening.evening);
 
@@ -288,7 +288,7 @@ export function simulateParkPacing(
       if (wait > AWAY_AFTER_SECONDS) {
         const rules = TUNING.offline;
         const rate = unlocked.has('manager') ? rules.managerRate : rules.rate;
-        const capped = Math.min(wait, (rules.capHours[0] ?? 0) * 3600);
+        const capped = Math.min(wait, (rules.capMinutes[0] ?? 0) * 60);
         cash += (income * rate + background) * capped;
         awaySeconds += wait;
         for (const [id] of finishing) unlocked.add(id);

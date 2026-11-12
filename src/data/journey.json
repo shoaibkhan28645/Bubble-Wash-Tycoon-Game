@@ -1,8 +1,8 @@
 [
-  { "id": "roadside", "name": "Dusty Roadside Lot", "chapter": 1, "icon": "🧽", "teaser": "A car wash, fuel pumps and a Mini-Mart", "franchiseStars": 0 },
-  { "id": "willowbrook", "name": "Willowbrook", "chapter": 2, "icon": "🚜", "teaser": "Crops, a dairy, a poultry farm and farm vehicles", "franchiseStars": 8 },
-  { "id": "starlight", "name": "Starlight Fun Park", "chapter": 3, "icon": "🎡", "teaser": "Rides, a roller coaster, fireworks and a big wheel", "franchiseStars": 14 },
-  { "id": "downtown", "name": "Downtown Bay City", "chapter": 4, "icon": "🏙️", "teaser": "A hotel, a cinema and office towers", "franchiseStars": 20 },
-  { "id": "port", "name": "Port & Industrial Park", "chapter": 5, "icon": "🏭", "teaser": "A factory, a truck fleet and a cargo port", "franchiseStars": 26 },
-  { "id": "skyline", "name": "Skyline HQ", "chapter": 6, "icon": "🌆", "teaser": "An airport, a research campus and your own tower", "franchiseStars": 32 }
+  { "id": "roadside", "name": "Dusty Roadside Lot", "chapter": 1, "icon": "🧽", "teaser": "A car wash, fuel pumps and a Mini-Mart" },
+  { "id": "willowbrook", "name": "Willowbrook", "chapter": 2, "icon": "🚜", "teaser": "Crops, a dairy, a poultry farm and farm vehicles" },
+  { "id": "starlight", "name": "Starlight Fun Park", "chapter": 3, "icon": "🎡", "teaser": "Rides, a roller coaster, fireworks and a big wheel" },
+  { "id": "downtown", "name": "Downtown Bay City", "chapter": 4, "icon": "🏙️", "teaser": "A hotel, a cinema and office towers" },
+  { "id": "port", "name": "Port & Industrial Park", "chapter": 5, "icon": "🏭", "teaser": "A factory, a truck fleet and a cargo port" },
+  { "id": "skyline", "name": "Skyline HQ", "chapter": 6, "icon": "🌆", "teaser": "An airport, a research campus and your own tower" }
 ]

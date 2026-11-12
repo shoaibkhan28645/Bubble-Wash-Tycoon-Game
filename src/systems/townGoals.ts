@@ -1,7 +1,7 @@
 // Town goals (GDD "Town goals"): the main progress bar. Each is a building
 // opened, a lifetime count or a star rating; once reached it stays reached,
-// and claiming it pays gems and franchise stars. Every goal reached opens
-// the road to the next town (the truck pad).
+// and earns a franchise star on the spot (the gems wait to be claimed).
+// Every goal reached puts the land for the next town up for sale.
 import { town, type GoalDef } from '../core/config';
 import type { GameState } from '../core/gameState';
 
@@ -21,21 +21,21 @@ function reached(state: GameState, goal: GoalDef): boolean {
   return value >= target - 1e-6;
 }
 
-/** Marks newly reached goals as done (for good). Returns their ids. */
+/** Marks newly reached goals as done (for good), each earning its franchise star. Returns their ids. */
 export function checkGoals(state: GameState): string[] {
   const done = state.goals.done;
   const fresh = goals().filter((goal) => !done.includes(goal.id) && reached(state, goal)).map((goal) => goal.id);
   done.push(...fresh);
+  state.franchiseStars += fresh.length * town().goals.franchiseStars;
   return fresh;
 }
 
-/** Takes a reached goal's gems and franchise stars. Returns the gems (0 if not ready). */
+/** Takes a reached goal's gems (its star came when it was reached). Returns the gems (0 if not ready). */
 export function claimGoal(state: GameState, id: string): number {
   const goal = goals().find((g) => g.id === id);
   if (!goal || !state.goals.done.includes(id) || state.goals.claimed.includes(id)) return 0;
   state.goals.claimed.push(id);
   state.gems += goal.gems;
-  state.franchiseStars += town().goals.franchiseStars;
   return goal.gems;
 }
 

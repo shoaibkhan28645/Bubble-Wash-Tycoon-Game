@@ -3,7 +3,7 @@ import { CARS } from '../src/core/config';
 import { newGame, newTownState } from '../src/core/gameState';
 import { ROADSIDE } from '../src/core/towns';
 import { rushed } from '../src/systems/arrivals';
-import { JOURNEY, stopStatus } from '../src/systems/journey';
+import { JOURNEY, previousStop, stopStatus } from '../src/systems/journey';
 import { beatFlag, catchUpFlags, dueBeats, newsFor, storyArrivalFactor, storyStartFlag } from '../src/systems/story';
 
 const { story } = ROADSIDE;
@@ -96,20 +96,22 @@ describe('a rush', () => {
 describe('the journey', () => {
   const exists = (id: string) => id === 'roadside';
 
-  it('has six towns, the first one free, each needing more franchise stars', () => {
+  it('has six towns in order, starting with the car wash', () => {
     expect(JOURNEY.map((s) => s.chapter)).toEqual([1, 2, 3, 4, 5, 6]);
-    expect(JOURNEY[0]).toMatchObject({ id: 'roadside', franchiseStars: 0 });
-    for (let i = 1; i < JOURNEY.length; i++) expect(JOURNEY[i]!.franchiseStars).toBeGreaterThan(JOURNEY[i - 1]!.franchiseStars);
+    expect(JOURNEY[0]!.id).toBe('roadside');
+    expect(previousStop(JOURNEY[2]!)?.id).toBe('willowbrook');
+    expect(previousStop(JOURNEY[0]!)).toBeUndefined();
   });
 
-  it('marks where the hero is, what he owns, and what is locked or still to come', () => {
+  it('opens a town only once its land is bought: franchise stars alone never do', () => {
     const state = newGame();
     const [roadside, farm, market] = JOURNEY;
     expect(stopStatus(roadside!, state, exists)).toBe('here');
     expect(stopStatus(farm!, state, exists)).toBe('locked');
-    state.franchiseStars = 8;
-    expect(stopStatus(farm!, state, exists)).toBe('soon');
-    expect(stopStatus(farm!, state, () => true)).toBe('open');
+    state.franchiseStars = 99;
+    expect(stopStatus(farm!, state, () => true)).toBe('locked');
+    expect(stopStatus(farm!, state, () => true, true)).toBe('open');
+    expect(stopStatus(farm!, state, exists, true)).toBe('soon');
     expect(stopStatus(market!, state, () => true)).toBe('locked');
     state.towns.willowbrook = newTownState();
     expect(stopStatus(farm!, state, exists)).toBe('owned');

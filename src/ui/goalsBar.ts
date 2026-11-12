@@ -55,7 +55,7 @@ export class GoalsBar {
   }
 }
 
-/** Every goal with its progress; reached ones can be claimed here for gems and a franchise star. */
+/** Every goal with its progress; reached ones can be claimed here for their gems. */
 export function showGoals(root: HTMLElement, state: GameState, onClaim: (id: string) => void): void {
   const list = document.createElement('div');
   list.className = 'mission-list';

@@ -4,7 +4,7 @@ import { UPGRADES } from './config';
 import { upgradeCost } from '../systems/economy';
 
 /** Bump when the save shape changes, and add a migration for the old version. */
-export const SAVE_VERSION = 11;
+export const SAVE_VERSION = 12;
 
 /**
  * Upgrades taken out in v11, with what their first level cost then: the
@@ -20,6 +20,16 @@ export const REMOVED_UPGRADES: Readonly<Record<string, number>> = {
   'wax.quality': 160,
   'garage.quality': 320,
 };
+/** Each town's land pad, and the town it opens (v12: the land is the only way into a town). */
+export const LAND_PADS: Readonly<Record<string, { pad: string; opens: string }>> = {
+  roadside: { pad: 'truck', opens: 'willowbrook' },
+  willowbrook: { pad: 'road', opens: 'starlight' },
+  starlight: { pad: 'highway', opens: 'downtown' },
+};
+/** The landmarks: from v12 they build in this many seconds. */
+const LANDMARKS = ['landmark', 'windmill', 'wheel'];
+const LANDMARK_SECONDS = 1200;
+
 /** The hero's upgrades cost this many times as much in each town before v11. */
 const OLD_HERO_SCALE: Readonly<Record<string, number>> = { roadside: 1, willowbrook: 40, starlight: 2500 };
 
@@ -76,6 +86,41 @@ export const MIGRATIONS: Readonly<Record<number, Migration>> = {
       : save.towns;
     const cash = typeof save.cash === 'number' && Number.isFinite(save.cash) ? save.cash : 0;
     return { ...here, towns, cash: cash + refund };
+  },
+  // v12: a goal's franchise star comes when it's reached (not claimed); a town opens only by buying its land; the
+  // landmarks build in 20 minutes.
+  11: (save) => {
+    const current = typeof save.currentTown === 'string' ? save.currentTown : START_TOWN_ID;
+    const towns: Record<string, unknown> = isObject(save.towns) ? { ...save.towns } : {};
+    const all: [string, SaveObject][] = [[current, save], ...Object.entries(towns).flatMap(([id, t]): [string, SaveObject][] => (isObject(t) ? [[id, t]] : []))];
+    // Every goal reached so far has its star (one each, in every town).
+    let stars = 0;
+    for (const [, town] of all) stars += isObject(town.goals) && Array.isArray(town.goals.done) ? town.goals.done.length : 0;
+    // A town reached some other way (the map used to open towns by stars): its land counts as bought.
+    const owned = new Set(all.map(([id]) => id));
+    const fix = (id: string, town: SaveObject): SaveObject => {
+      let out = town;
+      const land = LAND_PADS[id];
+      const unlocked = Array.isArray(town.unlocked) ? (town.unlocked as unknown[]) : null;
+      if (land && unlocked && owned.has(land.opens) && !unlocked.includes(land.pad)) out = { ...out, unlocked: [...unlocked, land.pad] };
+      // A landmark going up: done within 20 minutes.
+      if (isObject(out.building)) {
+        const building: Record<string, unknown> = { ...out.building };
+        for (const lm of LANDMARKS) {
+          const b = building[lm];
+          if (isObject(b) && typeof b.endsAt === 'number') building[lm] = { ...b, endsAt: Math.min(b.endsAt, Date.now() + LANDMARK_SECONDS * 1000) };
+        }
+        out = { ...out, building };
+      }
+      return out;
+    };
+    for (const [id, t] of Object.entries(towns)) if (isObject(t)) towns[id] = fix(id, t);
+    const here = fix(current, save);
+    // The park's upkeep goal counts rides serviced as well as fixed.
+    const counts = isObject(save.counts) ? { ...save.counts } : {};
+    const n = (k: string) => (typeof counts[k] === 'number' ? (counts[k] as number) : 0);
+    if (!counts.upkeep) counts.upkeep = n('fixes') + n('services');
+    return { ...here, towns, counts, franchiseStars: Math.max(stars, 0) };
   },
 };
 

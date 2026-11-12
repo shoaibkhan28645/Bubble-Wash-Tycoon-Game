@@ -1,0 +1,178 @@
+{
+  "version": 12,
+  "savedAt": 1793400000000,
+  "cash": 5400,
+  "gems": 35,
+  "unlocked": [
+    "stand",
+    "field1",
+    "well"
+  ],
+  "levels": {},
+  "staff": [],
+  "padPaid": {},
+  "piles": {},
+  "stars": 3,
+  "autoRate": 0,
+  "supplies": {
+    "stand.veg": 3
+  },
+  "flags": [
+    "washed",
+    "collected",
+    "supplied"
+  ],
+  "playSeconds": 900,
+  "daily": {
+    "date": "2026-10-28",
+    "missions": [
+      "wash",
+      "tips",
+      "earn"
+    ],
+    "goals": [
+      30,
+      8,
+      1900
+    ],
+    "progress": [
+      12,
+      8,
+      400
+    ],
+    "claimed": [
+      false,
+      true,
+      false
+    ],
+    "loginDay": 3,
+    "loginDate": "2026-10-28",
+    "carOfDayDate": ""
+  },
+  "boostSeconds": 75,
+  "building": {},
+  "contracts": {
+    "slots": [
+      {
+        "kind": "taxi",
+        "goal": 8,
+        "progress": 3,
+        "endsAt": 1793403600000,
+        "cash": 1300,
+        "gems": 0
+      },
+      {
+        "kind": "",
+        "goal": 0,
+        "progress": 0,
+        "endsAt": 1793400600000,
+        "cash": 0,
+        "gems": 0
+      },
+      {
+        "kind": "snacks",
+        "goal": 12,
+        "progress": 12,
+        "endsAt": 1793403600000,
+        "cash": 0,
+        "gems": 10
+      }
+    ],
+    "doubledDate": "2026-10-28"
+  },
+  "goals": {
+    "done": [],
+    "claimed": []
+  },
+  "counts": {
+    "combo": 14,
+    "contract": 1
+  },
+  "franchiseStars": 1,
+  "currentTown": "willowbrook",
+  "towns": {
+    "roadside": {
+      "unlocked": [
+        "bay1",
+        "hose",
+        "register",
+        "bay2",
+        "soap",
+        "washer",
+        "dryer",
+        "runner",
+        "attendant",
+        "pump1",
+        "mart",
+        "board",
+        "manager"
+      ],
+      "levels": {
+        "bay1.quality": 3,
+        "bay1.speed": 2,
+        "mart.speed": 1
+      },
+      "staff": [],
+      "padPaid": {},
+      "building": {
+        "tunnel": {
+          "endsAt": 1793300000000,
+          "halved": true
+        }
+      },
+      "piles": {
+        "register": 80
+      },
+      "stars": 5,
+      "autoRate": 240,
+      "supplies": {
+        "shelf.soap": 8,
+        "bay1.soap": 12,
+        "dryer.towel": 20
+      },
+      "goals": {
+        "done": [
+          "fuel",
+          "mart"
+        ],
+        "claimed": [
+          "fuel"
+        ]
+      },
+      "plots": {},
+      "deliveries": {
+        "orders": [],
+        "trips": {},
+        "nextId": 1,
+        "refillAt": 0
+      }
+    }
+  },
+  "plots": {
+    "field1.0": 1793400020000,
+    "field1.3": 1793400010000
+  },
+  "deliveries": {
+    "orders": [
+      {
+        "id": 4,
+        "good": "eggs",
+        "qty": 8,
+        "pay": 1540,
+        "buyer": "the village caf\u00e9",
+        "endsAt": 1793400300000,
+        "van": "van",
+        "loaded": 3
+      }
+    ],
+    "trips": {
+      "tanker": {
+        "order": 3,
+        "leftAt": 1793399980000,
+        "backAt": 1793400060000
+      }
+    },
+    "nextId": 5,
+    "refillAt": 1793400025000
+  }
+}

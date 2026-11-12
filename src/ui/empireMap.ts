@@ -4,7 +4,7 @@ import type { GameState } from '../core/gameState';
 import { loadedTown, townIds, type TownDef } from '../core/towns';
 import { currentRank, netWorth, nextRank } from '../systems/career';
 import { formatCash } from '../systems/economy';
-import { JOURNEY, stopStatus } from '../systems/journey';
+import { JOURNEY, previousStop, stopStatus } from '../systems/journey';
 import { openDialog } from './dialog';
 import { t } from './strings';
 
@@ -42,8 +42,8 @@ export function openEmpireMap(deps: {
   list.className = 'empire-towns';
   let dialog: { close: () => void } | null = null;
   for (const stop of JOURNEY) {
-    const truck = town.pads.some((p) => p.effects.travel === stop.id && state.unlocked.includes(p.id));
-    const status = stopStatus(stop, state, (id) => townIds().includes(id), truck);
+    const land = town.pads.some((p) => p.effects.travel === stop.id && state.unlocked.includes(p.id));
+    const status = stopStatus(stop, state, (id) => townIds().includes(id), land);
     const item = document.createElement('li');
     item.className = `empire-town empire-${status}`;
     const icon = document.createElement('span');
@@ -68,7 +68,7 @@ export function openEmpireMap(deps: {
             ? t('mapOpen')
             : status === 'soon'
               ? t('mapSoon')
-              : t('mapLocked', { stars: stop.franchiseStars });
+              : t('mapLocked', { town: previousStop(stop)?.name ?? '' });
     text.append(name, line, statusLine);
     item.append(icon, text);
     if (status === 'owned' || status === 'open') {

@@ -7,7 +7,9 @@ import { PadModel } from '../render/models/padModel';
 import type { Label, WorldLabels } from '../ui/worldLabels';
 import { startBuild } from './construction';
 import { formatCash, padDrain } from './economy';
-import { allGoalsDone } from './townGoals';
+import { allGoalsDone, goalsSummary } from './townGoals';
+import { goalText } from '../ui/goalsBar';
+import { t } from '../ui/strings';
 
 const COIN_SECONDS = 0.07;
 /** GDD minute 10: the big tunnel pad is shown early, locked, as the next big goal (once the dryer exists). */
@@ -31,6 +33,8 @@ interface ActivePad {
 export class PadSystem {
   private current: ActivePad | null = null;
   private preview: { model: PadModel; label: Label } | null = null;
+  /** The land for the next town, next in line but waiting on the town goals: shown locked, with the goals left. */
+  private land: { model: PadModel; label: Label; goals: HTMLElement; shown: string } | null = null;
   private waitTimer = 0;
   private coinTimer = 0;
   private soundTimer = 0;
@@ -100,6 +104,7 @@ export class PadSystem {
 
   update(dt: number, player: Point): void {
     this.updatePreview(dt);
+    this.updateLand(dt);
     if (!this.current) {
       this.waitTimer -= dt;
       // GDD 0:40: the first pad glows only after the first car's cash is collected.
@@ -155,6 +160,47 @@ export class PadSystem {
       this.preview = null;
     }
     this.preview?.model.update(dt, false);
+  }
+
+  /**
+   * Everything else is built (or going up) and the land is next, but not every
+   * town goal is reached: the land shows locked, saying how many goals are
+   * reached and which comes next, so the player knows what's left to do.
+   */
+  private updateLand(dt: number): void {
+    const next = town().pads.find((p) => !this.state.unlocked.includes(p.id) && !this.state.building[p.id] && this.layout.pads[p.id]);
+    const at = next ? this.layout.pads[next.id] : undefined;
+    const want = !this.current && !!next?.afterGoals && !!at && !allGoalsDone(this.state);
+    if (want && !this.land && next && at) {
+      const model = new PadModel(2.3, 0x9aa3ad);
+      model.group.position.set(at.x, 0, at.z);
+      this.scene.add(model.group);
+      const el = document.createElement('div');
+      el.className = 'pad-label pad-locked';
+      const price = document.createElement('span');
+      price.className = 'pad-price';
+      price.textContent = `🔒 ${formatCash(next.cost)}`;
+      const name = document.createElement('span');
+      name.className = 'pad-name';
+      name.textContent = next.name;
+      const goals = document.createElement('span');
+      goals.className = 'pad-goals';
+      el.append(price, name, goals);
+      this.land = { model, label: this.labels.add(el, new Vector3(at.x, 0.2, at.z + 1.6)), goals, shown: '' };
+    } else if (!want && this.land) {
+      this.scene.remove(this.land.model.group);
+      this.land.model.dispose();
+      this.labels.remove(this.land.label);
+      this.land = null;
+    }
+    if (!this.land) return;
+    this.land.model.update(dt, false);
+    const summary = goalsSummary(this.state);
+    const text = t('landLocked', { done: summary.done, total: summary.total, next: summary.next ? goalText(summary.next) : '' });
+    if (text !== this.land.shown) {
+      this.land.shown = text;
+      this.land.goals.textContent = text;
+    }
   }
 
   private showNext(): void {

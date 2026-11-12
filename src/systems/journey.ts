@@ -10,27 +10,30 @@ export interface JourneyStop {
   icon: string;
   /** What the town's businesses are, for the map. */
   teaser: string;
-  /** Franchise stars needed to open it. */
-  franchiseStars: number;
 }
 
 export const JOURNEY = journeyJson as JourneyStop[];
 
 /**
- * here: the hero is in it. owned: he has businesses there. open: he can go
- * there now. soon: he has the stars, but this version of the game doesn't
- * have the town yet. locked: not enough franchise stars yet.
+ * here: the hero is in it. owned: he has businesses there. open: he bought
+ * its land and can go. soon: he bought its land, but this version of the
+ * game doesn't have the town yet. locked: its land isn't bought yet.
  */
 export type StopStatus = 'here' | 'owned' | 'open' | 'soon' | 'locked';
 
 /**
  * Where each town stands for this player; `exists` says which towns this
- * build can load. A town is also open once its truck is built (a player who
- * bought the truck before the town existed, or before claiming every star).
+ * build can load. The only way into a new town is buying its land (the last
+ * pad of the town before it, `landBought`); franchise stars are a score.
  */
-export function stopStatus(stop: JourneyStop, state: GameState, exists: (id: string) => boolean, truckBuilt = false): StopStatus {
+export function stopStatus(stop: JourneyStop, state: GameState, exists: (id: string) => boolean, landBought = false): StopStatus {
   if (stop.id === state.currentTown) return 'here';
   if (state.towns[stop.id]) return 'owned';
-  if (state.franchiseStars < stop.franchiseStars && !truckBuilt) return 'locked';
+  if (!landBought) return 'locked';
   return exists(stop.id) ? 'open' : 'soon';
+}
+
+/** The town before this one on the journey (where its land is bought), if any. */
+export function previousStop(stop: JourneyStop): JourneyStop | undefined {
+  return JOURNEY.find((s) => s.chapter === stop.chapter - 1);
 }

@@ -112,15 +112,16 @@ describe('town goals', () => {
     const state = lotWith('pump1');
     expect(checkGoals(state)).toEqual(['fuel']);
     expect(checkGoals(state)).toEqual([]);
-    state.stars = 5;
+    state.stars = 4.5;
     expect(checkGoals(state)).toEqual(['stars']);
     state.stars = 3;
     expect(state.goals.done).toContain('stars');
   });
 
-  it('claiming pays gems and a franchise star, once', () => {
+  it('a goal earns its franchise star the moment it is reached; claiming pays its gems, once', () => {
     const state = lotWith('pump1');
     checkGoals(state);
+    expect(state.franchiseStars).toBe(ROADSIDE.goals.franchiseStars);
     const gems = ROADSIDE.goals.goals.find((g) => g.id === 'fuel')!.gems;
     expect(claimGoal(state, 'fuel')).toBe(gems);
     expect(state.franchiseStars).toBe(ROADSIDE.goals.franchiseStars);

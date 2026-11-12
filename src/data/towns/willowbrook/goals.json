@@ -19,13 +19,13 @@
     },
     {
       "id": "stars",
-      "stars": 5,
+      "stars": 4.5,
       "gems": 15
     },
     {
       "id": "deliveries",
       "count": "delivery",
-      "goal": 30,
+      "goal": 15,
       "gems": 25
     },
     {

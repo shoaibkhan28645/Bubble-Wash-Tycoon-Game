@@ -199,7 +199,8 @@ describe('old saves', () => {
     expect(state.contracts.slots[0]).toMatchObject({ goal: 8, progress: 3, cash: 1300 });
     expect(state.contracts.doubledDate).toBe('2026-10-28');
     expect(state.goals).toEqual({ done: ['fuel', 'mart'], claimed: ['fuel'] });
-    expect(state).toMatchObject({ counts: { combo: 14, contract: 1 }, franchiseStars: 1 });
+    // Since v12 every goal reached has its star, claimed or not.
+    expect(state).toMatchObject({ counts: { combo: 14, contract: 1 }, franchiseStars: 2 });
   });
 
   it('puts a v7 save into the first town, keeping all its progress', () => {
@@ -249,6 +250,22 @@ describe('old saves', () => {
     expect(state.cash).toBe(v10.cash + 2000 + 2300 + 128 + 96 + 110 + 50);
     expect(state.levels).toEqual({ 'stand.quality': 1 });
     expect(state.towns.roadside!.levels).toEqual({ 'bay1.quality': 3 });
+  });
+
+  it('v12: a star for every goal reached (claimed or not), the land of a town already reached, landmarks done within 20 minutes', () => {
+    const v11 = JSON.parse(fixtures['./fixtures/save-v11.json']!);
+    // In Willowbrook (reached by the map, on stars), its farmland never bought; two farm goals reached, none claimed.
+    v11.franchiseStars = 8;
+    v11.goals = { done: ['henhouse', 'cowbarn'], claimed: [] };
+    v11.building = { windmill: { endsAt: Date.now() + 4 * 3600_000, halved: false } };
+    v11.towns.roadside.unlocked = ['bay1', 'register', 'landmark'];
+    v11.towns.roadside.goals = { done: ['fuel', 'mart', 'contracts', 'stars', 'combos', 'tunnel', 'garage', 'landmark'], claimed: ['fuel', 'mart', 'contracts', 'stars', 'combos', 'tunnel', 'garage', 'landmark'] };
+    const { state } = parseSave(JSON.stringify(v11));
+    expect(state.franchiseStars).toBe(10);
+    expect(state.towns.roadside!.unlocked).toContain('truck');
+    expect(state.building.windmill!.endsAt).toBeLessThanOrEqual(Date.now() + 1200_000);
+    // A town not reached keeps its land unbought.
+    expect(state.unlocked).not.toContain('road');
   });
 
   it('drops broken orders and trips, and never reuses an order id', () => {

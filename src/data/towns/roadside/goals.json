@@ -4,7 +4,7 @@
     { "id": "fuel", "built": "pump1", "gems": 5 },
     { "id": "mart", "built": "mart", "gems": 10 },
     { "id": "contracts", "count": "contract", "goal": 3, "gems": 10 },
-    { "id": "stars", "stars": 5, "gems": 10 },
+    { "id": "stars", "stars": 4.5, "gems": 10 },
     { "id": "combos", "count": "combo", "goal": 40, "gems": 15 },
     { "id": "tunnel", "built": "tunnel", "gems": 15 },
     { "id": "garage", "built": "garage", "gems": 15 },

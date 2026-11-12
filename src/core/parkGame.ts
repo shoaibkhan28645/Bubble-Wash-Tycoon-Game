@@ -555,6 +555,7 @@ export function createParkGame(
         floaters.show(`🛠️ ${t('rideServiced', { runs: PARK.rides.serviceRuns })}`, top, 'star');
         effects.burst('sparkle', new Vector3(top.x, 2.6, top.z), 18, 4, 1);
         count('services');
+        count('upkeep');
         sound.play('upgrade');
       },
       onFixed: (ride, byHero) => {
@@ -562,6 +563,7 @@ export function createParkGame(
         floaters.show(`✅ ${t('fixedRide')}`, top, 'star');
         effects.burst('sparkle', new Vector3(top.x, 2.6, top.z), 22, 4, 1);
         count('fixes');
+        count('upkeep');
         meta.count('fix');
         if (byHero) flag(`fixed:${current.id}`);
         sound.play('mission');

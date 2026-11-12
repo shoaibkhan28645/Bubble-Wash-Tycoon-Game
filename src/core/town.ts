@@ -14,6 +14,7 @@ import { showContracts } from '../ui/contractsPanel';
 import { toast } from '../ui/dialog';
 import { GoalsBar, showGoals } from '../ui/goalsBar';
 import { t } from '../ui/strings';
+import { town as currentTown } from './config';
 import type { WorldLabels } from '../ui/worldLabels';
 
 /** The spot in front of the board that opens it, this far out from the board. */
@@ -100,7 +101,8 @@ export function createTown(deps: {
     }
     if (!openGoals && allGoalsDone(state)) {
       openGoals = true;
-      toast(root, `🌾 ${t('goalsOpen')}`);
+      const land = currentTown().pads.find((p) => p.afterGoals);
+      if (land) toast(root, `🏁 ${t('goalsOpen', { land: land.name })}`);
     }
     if (board) {
       const ready = readyCount(state);

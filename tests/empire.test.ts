@@ -73,11 +73,11 @@ describe('background towns', () => {
     switchTown(state, 'willowbrook');
     state.autoRate = 60;
     const now = 100 * HOUR;
-    const twoHours = empireOfflineEarnings(state, now - 2 * HOUR, now);
-    expect(twoHours.seconds).toBe(2 * 3600);
+    const cap = empireOfflineEarnings(state, now - HOUR / 3, now);
+    expect(cap.seconds).toBe(20 * 60);
     const rate = TUNING.offline.rate;
-    expect(twoHours.cash).toBe(Math.floor(120 * 7200 * rate / 60) + Math.floor(60 * 7200 * rate / 60));
-    // Away for a day: each town stops at its cap (2 h at offline-hours level 0).
-    expect(empireOfflineEarnings(state, now - 24 * HOUR, now)).toEqual(twoHours);
+    expect(cap.cash).toBe(Math.floor(120 * 1200 * rate / 60) + Math.floor(60 * 1200 * rate / 60));
+    // Away for a day: each town stops at its cap (20 minutes at offline-time level 0).
+    expect(empireOfflineEarnings(state, now - 24 * HOUR, now)).toEqual(cap);
   });
 });

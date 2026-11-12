@@ -52,8 +52,8 @@ export interface FarmPacingOptions {
 export const FARM_PACING: FarmPacingOptions = {
   stars: 4,
   heroPerMinute: 16,
-  startCash: 5100,
-  background: 2450,
+  startCash: 2600,
+  background: 2840,
   step: 1,
   maxMinutes: 240,
   efficiency: 0.75,
@@ -71,7 +71,7 @@ const LOADING_SECONDS = 120;
 /** Without a delivery driver, the hero sends a van only so often (he's busy). */
 const HERO_VAN_SHARE = 0.4;
 /** Long builds the player waits out away from the game. */
-const AWAY_AFTER_SECONDS = 15 * 60;
+const AWAY_AFTER_SECONDS = 30 * 60;
 
 export interface FarmPadTiming {
   id: string;
@@ -273,7 +273,7 @@ export function simulateFarmPacing(
       if (wait > AWAY_AFTER_SECONDS) {
         const rules = TUNING.offline;
         const rate = unlocked.has('manager') ? rules.managerRate : rules.rate;
-        cash += (income * rate + background) * Math.min(wait, (rules.capHours[0] ?? 0) * 3600);
+        cash += (income * rate + background) * Math.min(wait, (rules.capMinutes[0] ?? 0) * 60);
         awaySeconds += wait;
         for (const [id] of finishing) unlocked.add(id);
         finishing.clear();

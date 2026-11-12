@@ -40,6 +40,9 @@ export function showWelcomeBack(
   const away = document.createElement('div');
   away.className = 'welcome-away';
   away.textContent = `${t('staffEarned')} · ${formatAway(seconds)}`;
+  const note = document.createElement('div');
+  note.className = 'welcome-note';
+  note.textContent = t('offlineCapNote');
   const collect = document.createElement('button');
   collect.type = 'button';
   collect.className = 'welcome-collect';
@@ -48,7 +51,7 @@ export function showWelcomeBack(
   twice.type = 'button';
   twice.className = 'welcome-collect welcome-double';
   twice.textContent = `📺 ${t('collectDouble')}`;
-  card.append(title, bag, amount, away, twice, collect);
+  card.append(title, bag, amount, away, note, twice, collect);
   overlay.appendChild(card);
   // The overlay swallows taps so the joystick doesn't start underneath.
   overlay.addEventListener('pointerdown', (e) => e.stopPropagation());

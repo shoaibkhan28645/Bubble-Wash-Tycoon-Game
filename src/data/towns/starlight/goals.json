@@ -9,7 +9,7 @@
     },
     {
       "id": "fixes",
-      "count": "fixes",
+      "count": "upkeep",
       "goal": 10,
       "gems": 20
     },
@@ -21,7 +21,7 @@
     },
     {
       "id": "stars",
-      "stars": 5,
+      "stars": 4,
       "gems": 15
     },
     {
