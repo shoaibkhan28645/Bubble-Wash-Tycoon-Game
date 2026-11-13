@@ -87,6 +87,17 @@ describe('solid things in the park', () => {
     }
   });
 
+  it("keep clear of every upgrade pad's whole square, so none is half under a building, a bin, a lamp or a tree", () => {
+    // Every pad built, and the janitor's bins out.
+    const rects = [...allSolids(), ...layout.bins.map((b) => around(b, 0.32))];
+    const half = 0.75;
+    for (const [id, at] of Object.entries(layout.upgradePads)) {
+      const pad = around(at, half);
+      const hit = rects.find((r) => Math.min(pad.maxX, r.maxX) - Math.max(pad.minX, r.minX) > 0 && Math.min(pad.maxZ, r.maxZ) - Math.max(pad.minZ, r.minZ) > 0);
+      expect(hit, `upgrade ${id} at ${at.x}, ${at.z}`).toBeUndefined();
+    }
+  });
+
   it('leave a way from the gate to every ride and stall', () => {
     const nav = new NavGrid(layout.walk, allSolids(), NAV_RADIUS, PAVED);
     const goals = [...Object.entries(layout.rides).map(([id, s]) => ({ id, at: s.enter })), ...Object.entries(layout.counters).filter(([id]) => id !== 'booth').map(([id, c]) => ({ id, at: c.enter.at(-1)! }))];
