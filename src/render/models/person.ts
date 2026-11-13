@@ -110,6 +110,9 @@ const toolGeometries = new Map<Tool, BufferGeometry>();
 const GAITS = CHARACTERS.gaits as Gaits;
 
 /** A person with its model's animations. */
+/** How small a head tucked inside a costume is (next to nothing). */
+const TUCKED = 0.001;
+
 export class PersonAvatar {
   readonly root = new Group();
   /** A foot just landed. */
@@ -139,6 +142,8 @@ export class PersonAvatar {
   seated = false;
   /** Sitting on a ride (a carousel horse, a teacup): hands forward, holding on. */
   riding = false;
+  /** In a costume with its own big head (the park's mascot): the person's head is tucked away inside it. */
+  private tucked: Object3D | null = null;
 
   constructor(character: string, tool: Tool | null = null) {
     const { scene, animations } = asset(`person:${character}`);
@@ -164,6 +169,15 @@ export class PersonAvatar {
     const yes = animations.find((a) => a.name === 'emote-yes');
     if (yes) this.waveAction = this.mixer.clipAction(yes).setLoop(LoopOnce, 1);
     this.play('idle');
+  }
+
+  /**
+   * Wearing a costume head: the person's own head shrinks away to nothing inside it (it poked out through the
+   * costume). Every animation sets the head's size, so it's tucked away again after each frame's pose.
+   */
+  tuckHead(): void {
+    this.tucked = this.model.getObjectByName('head') ?? null;
+    this.tucked?.scale.setScalar(TUCKED);
   }
 
   /** Puts `tool` in the right hand (shown while working, or while `holding`): a visitor's candy floss, then a prize. */
@@ -257,6 +271,7 @@ export class PersonAvatar {
       return;
     }
     this.mixer.update(dt + this.offScreen);
+    this.tucked?.scale.setScalar(TUCKED);
     this.offScreen = 0;
     this.countSteps();
     const lean = this.lean;

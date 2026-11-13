@@ -3,6 +3,12 @@ import { box, mergeParts } from './build';
 
 const SIZE = 2.3;
 const DASHES = 5;
+/**
+ * How high the pad's square sits: above every painted ground in every town (the park's plaza squares
+ * and pavements, its yard's concrete, the farm's tracks), so it's never hidden under one or flickers
+ * against one. The dashes reach down to the ground, so it doesn't look raised.
+ */
+const TOP = 0.1;
 
 const outlineGeometry = (() => {
   const parts = [];
@@ -10,8 +16,8 @@ const outlineGeometry = (() => {
   for (let i = 0; i < DASHES; i++) {
     const offset = -SIZE / 2 + dash / 2 + i * dash * 2;
     for (const side of [-1, 1]) {
-      parts.push({ geometry: box(dash, 0.04, 0.14), color: '#ffffff', x: offset, y: 0.03, z: (side * SIZE) / 2 });
-      parts.push({ geometry: box(0.14, 0.04, dash), color: '#ffffff', x: (side * SIZE) / 2, y: 0.03, z: offset });
+      parts.push({ geometry: box(dash, TOP + 0.02, 0.14), color: '#ffffff', x: offset, y: TOP / 2, z: (side * SIZE) / 2 });
+      parts.push({ geometry: box(0.14, TOP + 0.02, dash), color: '#ffffff', x: (side * SIZE) / 2, y: TOP / 2, z: offset });
     }
   }
   return mergeParts(parts);
@@ -41,9 +47,9 @@ export class PadModel {
     }
     this.base = new Mesh(plane, this.baseMaterial);
     this.base.scale.set(SIZE, 1, SIZE);
-    this.base.position.y = 0.02;
+    this.base.position.y = TOP - 0.01;
     this.fill = new Mesh(plane, this.fillMaterial);
-    this.fill.position.y = 0.025;
+    this.fill.position.y = TOP - 0.005;
     this.base.receiveShadow = this.fill.receiveShadow = true;
     this.group.add(this.base, this.fill, this.outline);
     this.setProgress(0);

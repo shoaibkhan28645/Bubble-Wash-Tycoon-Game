@@ -101,6 +101,44 @@ function clamp(value: number, limit: number): number {
   return Math.max(-limit, Math.min(limit, value));
 }
 
+/**
+ * A building has just gone up round this spot (it was bought standing on its pad, in the middle of it):
+ * moves the circle to the nearest place just outside the building's footprint where nothing solid is,
+ * so nobody's left shut in behind a stall's counter. False if it wasn't inside (or there's nowhere free).
+ */
+export function stepOutOf(p: { x: number; z: number }, radius: number, footprint: Rect, obstacles: readonly Rect[], bounds: Rect): boolean {
+  if (p.x <= footprint.minX || p.x >= footprint.maxX || p.z <= footprint.minZ || p.z >= footprint.maxZ) return false;
+  const gap = radius + 0.1;
+  const free = (x: number, z: number) =>
+    x > bounds.minX + radius &&
+    x < bounds.maxX - radius &&
+    z > bounds.minZ + radius &&
+    z < bounds.maxZ - radius &&
+    obstacles.every((r) => Math.hypot(x - Math.min(r.maxX, Math.max(r.minX, x)), z - Math.min(r.maxZ, Math.max(r.minZ, z))) >= radius);
+  let best: { x: number; z: number } | null = null;
+  let bestD = Infinity;
+  const consider = (x: number, z: number) => {
+    const d = Math.hypot(x - p.x, z - p.z);
+    if (d < bestD && free(x, z)) {
+      best = { x, z };
+      bestD = d;
+    }
+  };
+  // Along each side, a little way out.
+  for (let x = footprint.minX - gap; x <= footprint.maxX + gap; x += 0.25) {
+    consider(x, footprint.minZ - gap);
+    consider(x, footprint.maxZ + gap);
+  }
+  for (let z = footprint.minZ - gap; z <= footprint.maxZ + gap; z += 0.25) {
+    consider(footprint.minX - gap, z);
+    consider(footprint.maxX + gap, z);
+  }
+  if (!best) return false;
+  p.x = (best as { x: number; z: number }).x;
+  p.z = (best as { x: number; z: number }).z;
+  return true;
+}
+
 /** Pushes a circle out of an axis-aligned rectangle. */
 export function pushOut(p: { x: number; z: number }, radius: number, rect: Rect): void {
   const cx = Math.min(rect.maxX, Math.max(rect.minX, p.x));

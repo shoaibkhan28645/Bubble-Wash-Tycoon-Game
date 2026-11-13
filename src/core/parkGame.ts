@@ -58,7 +58,7 @@ import { ParkCrowd, eveningAt, middleOf, type Launch, type ParkAvatar, type Park
 import { ParkSupplies, STALL_SUPPLY, type ParkSupply, type SupplyStall } from '../systems/parkSupplies';
 import { PLUSH, shelf, shelfBonus, winPlush } from '../systems/prizes';
 import { localDate } from '../systems/daily';
-import { Player } from '../systems/player';
+import { Player, stepOutOf } from '../systems/player';
 import { StaffSystem } from '../systems/staff';
 import { unlockedSum } from '../systems/arrivals';
 import { insideRect } from '../systems/stations';
@@ -743,6 +743,19 @@ export function createParkGame(
     const effects = current.pads.find((p) => p.id === id)?.effects;
     if (effects?.ride) addRide(id, effects.ride, animate);
     else showBuilding(id, animate);
+    // Bought standing on its pad, in the middle of where it goes up: the hero steps out of it (a stall's
+    // counter and walls would otherwise shut them in, its side doors too narrow to squeeze through).
+    const at = layout.buildAt[id] ?? layout.pads[id];
+    const boxes = PARK_SOLIDS[id] ?? [];
+    if (animate && at && boxes.length > 0) {
+      const footprint = {
+        minX: Math.min(...boxes.map(([hw, , dx = 0]) => at.x + dx - hw)),
+        maxX: Math.max(...boxes.map(([hw, , dx = 0]) => at.x + dx + hw)),
+        minZ: Math.min(...boxes.map(([, hd, , dz = 0]) => at.z + dz - hd)),
+        maxZ: Math.max(...boxes.map(([, hd, , dz = 0]) => at.z + dz + hd)),
+      };
+      stepOutOf(player.mesh.position, TUNING.player.radius, footprint, [...solids, ...fixedSolids(layout)], layout.walk);
+    }
     if (effects?.counter) {
       crowd.addCounter(id, effects.counter, labels);
       const stall = stalls().find((s) => s.id === id);

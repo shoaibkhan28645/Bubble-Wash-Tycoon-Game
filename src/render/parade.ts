@@ -110,5 +110,7 @@ export function dressAsStarry(avatar: PersonAvatar, costume: Object3D): void {
     suit.scale.set(1.3, 1.35, 1.3);
     avatar.root.add(suit);
   }
+  // The performer's own head is inside the costume's (it showed through the star).
+  avatar.tuckHead();
   avatar.root.traverse((node) => (node.castShadow = false));
 }
