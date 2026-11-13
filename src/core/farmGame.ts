@@ -55,6 +55,8 @@ import { levelFactor, levelStep, nextStars, tipFor } from '../systems/economy';
 import { GuideHand, type GuideStep } from '../systems/guide';
 import { Input } from '../systems/input';
 import { IncomeTracker } from '../systems/offline';
+import { createJobs } from './jobs';
+import { EventChips } from '../ui/eventChips';
 import { PadSystem } from '../systems/pads';
 import { Player } from '../systems/player';
 import { StaffSystem } from '../systems/staff';
@@ -949,6 +951,27 @@ export function createFarmGame(
     save: () => void saves.saveNow(),
     rewarded: (id) => meta.rewarded(id),
   });
+  // Rush jobs: whenever the next purchase is a while off, a short job for the hero (a rush order to the gate).
+  const jobs = createJobs({
+    root,
+    scene: stage.scene,
+    labels,
+    chips: new EventChips(root),
+    state,
+    layout,
+    town: 'farm',
+    pads,
+    hero: { position: () => player.position, mesh: player.mesh, speed: () => player.topSpeed },
+    effects,
+    floaters,
+    sound,
+    makePerson: () => (peopleReady ? new PersonAvatar(CHARACTERS.villagers[1 + (state.counts.jobs ?? 0) % (CHARACTERS.villagers.length - 1)]!, null) : null),
+    allowed: () => peopleReady,
+    blocked: () => false,
+    solids: () => [...solids, ...fixed],
+    onPaid: (amount, at) => meta.onPaid({ amount, tip: 0, automated: false, at, bonus: true }),
+    save: () => void saves.saveNow(),
+  });
   const press = createPress(root, sound, () => meta.screenClosed());
   const empireMap = (): void => openEmpireMap({ root, state, sound, town: current, travel: (id) => travelTo(id) });
   const hero = createHero({ root, state, town: current, sound, press, flag, save: () => saves.saveNow(), onChipTap: empireMap });
@@ -1037,6 +1060,7 @@ export function createFarmGame(
     hero.update(dt);
     press.update(dt);
     town.update(dt, player.position);
+    jobs.update(dt, stage.camera, stage.size.width, stage.size.height, { top: view.topInset, right: SIDE_BAR_PX });
     view.update(dt, player.position);
     blobShadows.update();
     carriedItems.update();
@@ -1078,6 +1102,7 @@ export function createFarmGame(
     player,
     traffic: null,
     staff,
+    jobs,
     welcomeBack: (earned) => meta.welcomeBack(earned),
     get frameMs() {
       return loop.busyMs;
@@ -1101,6 +1126,7 @@ export function createFarmGame(
       for (const cleanup of cleanups) cleanup();
       input.dispose();
       panel.dispose();
+      jobs.dispose();
       // The scene first, while the blob shadows are still in it, so the renderer lets go of everything.
       stage.reset();
       blobShadows.detach();

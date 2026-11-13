@@ -220,6 +220,14 @@ const EN = {
   task_combo: 'Serve {n} combos',
   task_wax: 'Wax {n} cars',
   task_detail: 'Detail {n} cars',
+  // Rush jobs: their names, and what the job chip and floaters say.
+  jobSpill: 'Spilled soap',
+  jobRush: 'Rush order',
+  jobLost: 'Lost child',
+  jobDone: 'Job done!',
+  jobMissed: 'Job missed',
+  jobOvertime: 'Extra time!',
+  jobStreak: 'Streak ×{n}',
 } as const;
 
 export type StringKey = keyof typeof EN;

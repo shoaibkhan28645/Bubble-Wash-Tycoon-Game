@@ -13,9 +13,10 @@ export class EdgePointer {
   private readonly p = new Vector3();
   private shown = '';
 
-  constructor(root: HTMLElement) {
+  /** `kind`: a second arrow of another colour (a rush job's), styled `.edge-pointer.is-<kind>`. */
+  constructor(root: HTMLElement, kind = '') {
     this.el = document.createElement('div');
-    this.el.className = 'edge-pointer';
+    this.el.className = kind ? `edge-pointer is-${kind}` : 'edge-pointer';
     this.el.setAttribute('aria-hidden', 'true');
     const arrow = document.createElement('span');
     arrow.textContent = '➜';

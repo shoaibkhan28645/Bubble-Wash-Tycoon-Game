@@ -1,0 +1,64 @@
+{
+  "tuning": {
+    "firstSeconds": 25,
+    "gapNear": 60,
+    "gapFar": 35,
+    "gapBackoff": 180,
+    "nearSeconds": 30,
+    "farSeconds": 120,
+    "backoffAfter": 3,
+    "paySeconds": 40,
+    "payShareMin": 0.025,
+    "payShareMax": 0.08,
+    "minPay": 50,
+    "streak": [1, 1.15, 1.3, 1.5, 1.75],
+    "detour": 1.35,
+    "wander": 1.15,
+    "buffer": 8,
+    "minSeconds": 25,
+    "maxSeconds": 75,
+    "overtime": 8,
+    "reach": 1.1,
+    "dropRadius": 1.6,
+    "followGap": 1.1,
+    "followSpeed": 1.15,
+    "itemGap": 0.9
+  },
+  "jobs": [
+    {
+      "id": "spill",
+      "town": "carWash",
+      "pattern": "collect",
+      "icon": "🧴",
+      "title": "jobSpill",
+      "needs": ["soap"],
+      "from": "spill",
+      "to": "shelf",
+      "count": 5,
+      "spread": 2.2,
+      "work": 2
+    },
+    {
+      "id": "rush",
+      "town": "farm",
+      "pattern": "deliver",
+      "icon": "📦",
+      "title": "jobRush",
+      "needs": ["barn"],
+      "from": "barnDoor",
+      "to": "gate",
+      "work": 2
+    },
+    {
+      "id": "lost",
+      "town": "park",
+      "pattern": "escort",
+      "icon": "🧒",
+      "title": "jobLost",
+      "needs": [],
+      "from": "lost",
+      "to": "parent",
+      "work": 2
+    }
+  ]
+}

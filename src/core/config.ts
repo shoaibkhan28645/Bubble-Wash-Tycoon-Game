@@ -11,7 +11,9 @@ import upgradesJson from '../data/upgrades.json';
 import dailyJson from '../data/daily.json';
 import adsJson from '../data/ads.json';
 import type { LegPlan, Narrow } from '../systems/farmTraffic';
+import type { JobDef, JobTuning } from '../systems/jobs';
 import contractsJson from '../data/contracts.json';
+import jobsJson from '../data/jobs.json';
 import cropsJson from '../data/crops.json';
 import goodsJson from '../data/goods.json';
 import { ROADSIDE, type TownDef } from './towns';
@@ -242,6 +244,8 @@ export interface TownLayout {
   upgradePads: Record<string, Point>;
   /** Where each staff member stands when idle. */
   staffSpots: Record<string, Point>;
+  /** Rush jobs' places (data/jobs.json names them): where things spill, where a crate waits, where someone's lost… */
+  jobSpots?: Record<string, Point[]>;
   /**
    * The manager's round, in order: a spot by each business (`after` it's built) and the point
    * to look at while making a note there.
@@ -615,6 +619,8 @@ export const DAILY = dailyJson as DailyData;
 /** Rewarded ad rewards (and their gem prices) and interstitial limits. */
 export const ADS = adsJson;
 export const CONTRACTS = contractsJson as ContractsData;
+/** Rush jobs: their tuning, and every kind of job in every town. */
+export const JOBS = jobsJson as { tuning: JobTuning; jobs: JobDef[] };
 /** Every crop a farm can grow, by id. */
 export const CROPS = cropsJson as Record<string, CropDef>;
 /** Everything a farm sells: its crops, then eggs. */

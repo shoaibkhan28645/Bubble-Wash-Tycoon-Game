@@ -52,6 +52,7 @@ import { GuideHand, type GuideStep } from '../systems/guide';
 import { Input } from '../systems/input';
 import { NavGrid } from '../systems/nav';
 import { IncomeTracker } from '../systems/offline';
+import { createJobs } from './jobs';
 import { PadSystem } from '../systems/pads';
 import { Litter, type LitterPiece } from '../systems/litter';
 import { ParkCrowd, eveningAt, middleOf, type Launch, type ParkAvatar, type ParkVisitor, type Ride } from '../systems/park';
@@ -986,6 +987,34 @@ export function createParkGame(
     save: () => void saves.saveNow(),
     rewarded: (id) => meta.rewarded(id),
   });
+  // Rush jobs: whenever the next purchase is a while off, a short job for the hero (a lost child to take back to
+  // the ticket booth). Never while a school trip is on.
+  const jobs = createJobs({
+    root,
+    scene: stage.scene,
+    labels,
+    chips,
+    state,
+    layout,
+    town: 'park',
+    pads,
+    hero: { position: () => player.position, mesh: player.mesh, speed: () => player.topSpeed },
+    effects,
+    floaters,
+    sound,
+    makePerson: (who) => {
+      if (!peopleReady) return null;
+      const n = state.counts.jobs ?? 0;
+      const avatar = new PersonAvatar(CHARACTERS.visitors[(who === 'child' ? n : n + 3) % CHARACTERS.visitors.length]!, who === 'child' ? 'balloon' : null);
+      if (who === 'child') avatar.root.scale.setScalar(CHILD_SCALE);
+      return avatar;
+    },
+    allowed: () => peopleReady,
+    blocked: () => trip !== null,
+    solids: () => [...solids, ...fixedSolids(layout)],
+    onPaid: (amount, at) => meta.onPaid({ amount, tip: 0, automated: false, at, bonus: true }),
+    save: () => void saves.saveNow(),
+  });
   const press = createPress(root, sound, () => meta.screenClosed());
   const empireMap = (): void => openEmpireMap({ root, state, sound, town: current, travel: (id) => travelTo(id) });
   const hero = createHero({ root, state, town: current, sound, press, flag, save: () => saves.saveNow(), onChipTap: empireMap });
@@ -1384,6 +1413,7 @@ export function createParkGame(
     hero.update(dt);
     press.update(dt);
     town.update(dt, player.position);
+    jobs.update(dt, stage.camera, stage.size.width, stage.size.height, { top: view.topInset, right: SIDE_BAR_PX });
     view.update(dt, leverFocus() ?? player.position);
     blobShadows.update();
     carriedItems.update();
@@ -1425,6 +1455,7 @@ export function createParkGame(
     player,
     traffic: null,
     staff,
+    jobs,
     welcomeBack: (earned) => meta.welcomeBack(earned),
     get frameMs() {
       return loop.busyMs;
@@ -1455,6 +1486,7 @@ export function createParkGame(
       for (const cleanup of cleanups) cleanup();
       input.dispose();
       panel.dispose();
+      jobs.dispose();
       // The scene first, while the blob shadows are still in it, so the renderer lets go of everything.
       stage.reset();
       blobShadows.detach();

@@ -25,6 +25,9 @@ import { CashSystem } from '../systems/cash';
 import { Traffic, type Paid, type Work } from '../systems/traffic';
 import { insideRect, type Station } from '../systems/stations';
 import { IncomeTracker } from '../systems/offline';
+import { createJobs } from './jobs';
+import { EventChips } from '../ui/eventChips';
+import { tutorialActive } from '../systems/guide';
 import { Floaters } from '../ui/carBubbles';
 import { Carrier, carriedItems } from '../systems/carry';
 import { Supplies } from '../systems/supplies';
@@ -251,6 +254,28 @@ export function createRoadsideGame(
     rewarded: (id) => meta.rewarded(id),
   });
 
+  // Rush jobs: whenever the next purchase is a while off, a short job for the hero (spilled soap to gather up).
+  const jobs = createJobs({
+    root,
+    scene: stage.scene,
+    labels,
+    chips: new EventChips(root),
+    state,
+    layout,
+    town: 'carWash',
+    pads,
+    hero: { position: () => player.position, mesh: player.mesh, speed: () => player.topSpeed },
+    effects,
+    floaters,
+    sound,
+    makePerson: () => null,
+    allowed: () => !tutorialActive(state),
+    blocked: () => false,
+    solids: () => [...buildings.obstacles(), ...fixed],
+    onPaid: (amount, at) => meta.onPaid({ amount, tip: 0, automated: false, at, bonus: true }),
+    save: () => void saves.saveNow(),
+  });
+
   onboarding = createOnboarding({ root, labels, layout, state, traffic, cash, pads, playerCarry, flag });
 
   // The hero's career and the town's story, both told in the town paper. Closing a card is a break between
@@ -301,6 +326,7 @@ export function createRoadsideGame(
     hero.update(dt);
     press.update(dt);
     town.update(dt, player.position);
+    jobs.update(dt, stage.camera, stage.size.width, stage.size.height, { top: view.topInset, right: SIDE_BAR_PX });
     view.update(dt, player.position);
     blobShadows.update();
     carriedItems.update();
@@ -342,6 +368,7 @@ export function createRoadsideGame(
     player,
     traffic,
     staff,
+    jobs,
     welcomeBack: (earned) => meta.welcomeBack(earned),
     get frameMs() {
       return loop.busyMs;
@@ -366,6 +393,7 @@ export function createRoadsideGame(
       for (const cleanup of cleanups) cleanup();
       input.dispose();
       panel.dispose();
+      jobs.dispose();
       // The scene first, while the blob shadows are still in it, so the renderer lets go of everything.
       stage.reset();
       blobShadows.detach();

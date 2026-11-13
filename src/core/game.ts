@@ -8,6 +8,7 @@ import type { GameState } from './gameState';
 import type { Lifecycle } from './lifecycle';
 import type { SaveManager } from './save';
 import type { SoundManager } from '../audio/sound';
+import type { Jobs } from './jobs';
 import type { Stage } from '../render/stage';
 import type { Player } from '../systems/player';
 import type { Traffic } from '../systems/traffic';
@@ -24,6 +25,8 @@ export interface Game {
   /** The car wash town's cars, stations and staff (the dev console and play-test bot look at them); null elsewhere. */
   readonly traffic: Traffic | null;
   readonly staff: StaffSystem | null;
+  /** The town's rush jobs (the dev console and the play-test bot look at them). */
+  readonly jobs?: Jobs;
   /** Average JavaScript milliseconds per frame, for the debug panel. */
   readonly frameMs: number;
   /** Frames that threw an error, and the last one's message (the debug panel). */

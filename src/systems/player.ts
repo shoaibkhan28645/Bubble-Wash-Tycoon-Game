@@ -44,6 +44,11 @@ export class Player {
     return this.moving;
   }
 
+  /** Walking flat out (m/s), upgrades included. */
+  get topSpeed(): number {
+    return this.tuning.speed * this.speedBonus();
+  }
+
   get position(): Point {
     return { x: this.mesh.position.x, z: this.mesh.position.z };
   }

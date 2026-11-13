@@ -977,3 +977,47 @@ body {
   background: #ffe6f3;
   box-shadow: 0 0 0 2px #ff8fc8 inset, 0 2px 0 rgba(0, 0, 0, 0.12);
 }
+
+/* Rush jobs: the chip under the cash bar (gold, red and pulsing near the end), the arrow to the job (orange),
+   the icon over where to go, and the people's mood bubbles. */
+.event-chip.is-job {
+  background: #fff1c4;
+  box-shadow: 0 0 0 2px #ffb21e inset, 0 2px 0 rgba(0, 0, 0, 0.12);
+  font-weight: 800;
+}
+
+.event-chip.is-job-hurry {
+  background: #ffe1dc;
+  box-shadow: 0 0 0 2px #ff5a4d inset, 0 2px 0 rgba(0, 0, 0, 0.12);
+  font-weight: 800;
+  animation: job-hurry 0.6s ease-in-out infinite;
+}
+
+@keyframes job-hurry {
+  50% {
+    transform: scale(1.06);
+  }
+}
+
+.edge-pointer.is-job {
+  background: #ff9d2e;
+}
+
+.edge-pointer.is-job span {
+  color: #fff;
+}
+
+.job-icon {
+  font-size: 30px;
+  line-height: 1;
+  filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.35));
+}
+
+.job-bubble {
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.95);
+  box-shadow: 0 2px 0 rgba(0, 0, 0, 0.15);
+  font: 800 16px/1.2 system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  white-space: nowrap;
+}

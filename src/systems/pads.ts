@@ -64,6 +64,11 @@ export class PadSystem {
     return this.current?.def.name ?? '';
   }
 
+  /** The price of the pad on show (null: none on show), for rush jobs' pay. */
+  get nextCost(): number | null {
+    return this.current?.def.cost ?? null;
+  }
+
   /** The pad being paid for now, and what's still owed (for the tutorial hand). */
   get next(): { at: Point; owed: number } | null {
     if (!this.current) return null;
