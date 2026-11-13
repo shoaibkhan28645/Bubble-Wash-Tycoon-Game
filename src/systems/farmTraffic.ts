@@ -27,6 +27,11 @@ export interface LegPlan {
 export interface Narrow extends Rect {
   /** Which way it runs. */
   axis: 'x' | 'z';
+  /**
+   * A junction: a vehicle turning onto it or off it (going across it) has it to itself, whichever way
+   * the others go (one turning out of a side track onto the road waits for the road to clear).
+   */
+  across?: boolean;
 }
 
 interface Leg {
@@ -109,6 +114,14 @@ export class Driver {
   home = false;
   /** What it last waited on (to spot two vehicles waiting on each other). */
   waitingOn: Driver | null = null;
+  /**
+   * The vehicle it's been held up by, going nowhere, and for how long: the gridlock clock (inching forward
+   * doesn't reset it; only driving on does, or another vehicle in the way).
+   */
+  stuckOn: Driver | null = null;
+  stuckFor = 0;
+  /** Two that waited on each other too long: this one eases on through past that one (while that one waits for it). */
+  passing: Driver | null = null;
   /** The narrow it's waiting to go onto, and the ways it'll go along it. */
   waitingFor: Narrow | null = null;
   waitWays = 0;
@@ -167,8 +180,12 @@ export class FarmTraffic {
     return driver;
   }
 
-  /** Sends a vehicle along these legs, from the start of the first (already going `speed`, coming on from off the map). */
-  plan(driver: Driver, legs: readonly LegPlan[], speed = 0): void {
+  /**
+   * Sends a vehicle along these legs, from the start of the first (already going `speed`, coming on from off the map).
+   * `claim`: it takes its turn on every narrow on its way now (it has just checked they're clear), so nobody
+   * else drives onto one before it gets there.
+   */
+  plan(driver: Driver, legs: readonly LegPlan[], speed = 0, claim = false): void {
     driver.legs = legs.filter((l) => l.path.length >= 2).map((l) => this.leg(l));
     driver.leg = 0;
     driver.along = 0;
@@ -178,7 +195,15 @@ export class FarmTraffic {
     driver.visible = true;
     driver.home = false;
     driver.waitingFor = null;
+    driver.stuckOn = driver.passing = null;
+    driver.stuckFor = 0;
     this.place(driver);
+    if (claim) {
+      for (const narrow of this.narrows) {
+        const ways = this.waysLeft(driver, narrow);
+        if (ways) driver.claims.set(narrow, ways);
+      }
+    }
     // Already on a narrow: it's its to drive off.
     for (const narrow of this.narrows) if (!driver.claims.has(narrow) && touches(driver.body(), narrow)) driver.claims.set(narrow, this.waysLeft(driver, narrow) || 3);
   }
@@ -195,6 +220,8 @@ export class FarmTraffic {
     driver.facing = facing;
     driver.claims.clear();
     driver.waitingFor = null;
+    driver.stuckOn = driver.passing = null;
+    driver.stuckFor = 0;
     driver.braking = driver.reversing = false;
     driver.signal = 0;
   }
@@ -207,6 +234,8 @@ export class FarmTraffic {
     driver.visible = false;
     driver.claims.clear();
     driver.waitingFor = null;
+    driver.stuckOn = driver.passing = null;
+    driver.stuckFor = 0;
     driver.braking = driver.reversing = false;
   }
 
@@ -217,7 +246,7 @@ export class FarmTraffic {
 
   /**
    * Whether the way's clear to set off on these legs: no narrow on them is taken by a vehicle going
-   * the other way (or turning round on it). A vehicle that can wait where it is (the pickup, being
+   * the other way (or turning round on it), and nobody's waiting to go onto one the other way. A vehicle that can wait where it is (the pickup, being
    * loaded) waits there rather than set off and stand at the end of the narrow.
    */
   clear(driver: Driver, legs: readonly LegPlan[]): boolean {
@@ -226,8 +255,10 @@ export class FarmTraffic {
       const ways = built.reduce((w, l) => w | (l.ways[i] ?? 0), 0);
       if (ways === 0) return true;
       return !this.drivers.some((o) => {
-        const theirs = o === driver || !o.visible ? undefined : o.claims.get(narrow);
-        return theirs !== undefined && (theirs | ways) === 3;
+        if (o === driver || !o.visible) return false;
+        const theirs = o.claims.get(narrow);
+        // Taken the other way, or someone's already waiting to go onto it the other way (they were first).
+        return (theirs !== undefined && (theirs | ways) === 3) || (o.waitingFor === narrow && (o.waitWays | ways) === 3);
       });
     });
   }
@@ -286,6 +317,17 @@ export class FarmTraffic {
     if (step < driver.speed * dt) driver.speed = step / Math.max(dt, 1e-4);
     // Held up: stopped, or barely creeping, for something in the way (not just pulling away).
     driver.held = free < 1 && step < CREEP * dt ? driver.held + dt : 0;
+    // The gridlock clock: held up by the same vehicle (or inching along between), going nowhere.
+    if (driver.waitingOn) {
+      if (driver.waitingOn !== driver.stuckOn) {
+        driver.stuckOn = driver.waitingOn;
+        driver.stuckFor = 0;
+      }
+      if (step < CREEP * dt) driver.stuckFor += dt;
+    } else if (step >= CREEP * dt && !driver.passing) {
+      driver.stuckOn = null;
+      driver.stuckFor = 0;
+    }
     driver.along += step;
     if (driver.along >= leg.length - 1e-3) {
       driver.along = leg.length;
@@ -332,15 +374,21 @@ export class FarmTraffic {
       }
     }
     const mine = driver.body();
+    // Easing through past one that waited on it: until that one's gone, or is on its way (not waiting on it).
+    const passing = driver.passing;
+    if (passing && (!passing.visible || (passing.waitingOn !== driver && passing.speed > CREEP))) driver.passing = null;
     for (const other of this.drivers) {
-      if (other === driver || !other.visible) continue;
+      if (other === driver || !other.visible || other === driver.passing) continue;
       const them = other.body();
       const r = { x: driver.position.x - other.position.x, z: driver.position.z - other.position.z };
       // Coming the other way in the other lane: they just pass.
       if (dot(them.dir, way) * (other.legs[other.leg]?.reverse ? -1 : 1) < -HEAD_ON && Math.abs(r.x * them.dir.z - r.z * them.dir.x) > ONCOMING_SIDE) continue;
       // Long held up by each other: the one with the right of way (on the narrow, or else the first to come) eases through.
       const first = driver.claims.size > other.claims.size || (driver.claims.size === other.claims.size && driver.serial < other.serial);
-      if (driver.held > GRIDLOCK && other.waitingOn === driver && first) continue;
+      if (driver.stuckOn === other && driver.stuckFor > GRIDLOCK && other.waitingOn === driver && first) {
+        driver.passing = other;
+        continue;
+      }
       if (overlap({ ...mine, dir: way, hw: mine.hw - SIDE_SLACK }, them)) {
         // Already overlapping: the one in front drives out of it, the one behind waits.
         if (dot(way, r) < -0.1) {
@@ -383,7 +431,7 @@ export class FarmTraffic {
     // A crossing: the one further from it gives way (unless it's already in the other's way), and
     // never to a vehicle that's held up itself (that one may be waiting for this one).
     for (const other of this.drivers) {
-      if (other === driver || !other.visible || !other.driving || other.wait > 0 || other.held > 0.3) continue;
+      if (other === driver || !other.visible || !other.driving || other.wait > 0 || other.held > 0.3 || other === driver.passing) continue;
       const theirs = this.sweep(other, YIELD_LOOK);
       if (theirs.length === 0 || dot(travelNow(other), way) > SAME_WAY) continue;
       let mineAt = Infinity;
@@ -503,7 +551,11 @@ export class FarmTraffic {
         last = marks[i]!;
         const j = Math.min(path.length - 1, i + 1);
         const h = i === j ? 0 : narrow.axis === 'z' ? path[j]!.z - path[i]!.z : path[j]!.x - path[i]!.x;
-        if (Math.abs(h) > 0.05 * Math.max(1e-6, marks[j]! - marks[i]!)) w |= h > 0 ? 1 : 2;
+        const span = Math.max(1e-6, marks[j]! - marks[i]!);
+        if (Math.abs(h) > 0.05 * span) w |= h > 0 ? 1 : 2;
+        // Turning across a junction: it's this vehicle's alone.
+        const across = i === j ? 0 : narrow.axis === 'z' ? path[j]!.x - path[i]!.x : path[j]!.z - path[i]!.z;
+        if (narrow.across && Math.abs(across) > 0.3 * span) w = 3;
       }
       ways.push(w);
       lastIn.push(last);

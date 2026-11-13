@@ -202,13 +202,13 @@ describe("Willowbrook's vehicles together", () => {
       }
       pickupTimer += DT;
       if (pickupState === 'parked' && pickupTimer > 10 && traffic.clear(pickup, [{ path: m.pickupOut }])) {
-        traffic.plan(pickup, [{ path: m.pickupOut }]);
+        traffic.plan(pickup, [{ path: m.pickupOut }], 0, true);
         pickupState = 'out';
       } else if (pickupState === 'out' && traffic.drive(pickup, DT)) {
         pickupState = 'unloading';
         pickupTimer = 0;
-      } else if (pickupState === 'unloading' && pickupTimer > 2) {
-        traffic.plan(pickup, m.pickupBack);
+      } else if (pickupState === 'unloading' && pickupTimer > 2 && traffic.clear(pickup, m.pickupBack)) {
+        traffic.plan(pickup, m.pickupBack, 0, true);
         pickupState = 'back';
       } else if (pickupState === 'back' && traffic.drive(pickup, DT)) {
         traffic.park(pickup, m.pickupOut[0]!, facing(m.pickupOut));
@@ -296,4 +296,138 @@ describe("Willowbrook's vehicles' ways", () => {
       }
     }
   });
+});
+
+describe("Willowbrook's vehicles never lock up", () => {
+  const load = async () => (await import('../src/data/towns/willowbrook/layout.json')).default as unknown as import('../src/core/config').FarmLayout;
+
+  it('the pickup done at the barn waits there while the feed truck turns off the main track (it used to back up into its way)', async () => {
+    const layout = await load();
+    const m = layout.machines;
+    const traffic = new FarmTraffic(() => [], layout.narrows);
+    const pickup = traffic.add('pickup', 3.85, 1.8);
+    const truck = traffic.add('feedtruck', 5.03, 2.0);
+    // The pickup unloading at the barn doors; the feed truck in at the feed store, about to turn off for the van lane.
+    const end = m.pickupOut[m.pickupOut.length - 1]!;
+    traffic.park(pickup, end, Math.PI / 2, false);
+    traffic.plan(truck, m.feedTruckVisit.slice(1), 0);
+    let longest = 0;
+    let waited = 0;
+    let backing = false;
+    let home = false;
+    for (let t = 0; t < 90 && !home; t += DT) {
+      traffic.tick();
+      if (traffic.drive(truck, DT)) traffic.hide(truck);
+      if (!backing && traffic.clear(pickup, m.pickupBack)) {
+        traffic.plan(pickup, m.pickupBack, 0, true);
+        backing = true;
+      } else if (!backing) waited += DT;
+      else if (traffic.drive(pickup, DT)) home = true;
+      longest = Math.max(longest, truck.held, pickup.held);
+      if (truck.visible) expect(overlapping(truck, pickup), `t=${t.toFixed(1)}`).toBe(false);
+    }
+    // It waited at the barn (the truck had the main track), and then both went on their way.
+    expect(waited).toBeGreaterThan(3);
+    expect(home).toBe(true);
+    expect(truck.visible).toBe(false);
+    expect(longest).toBeLessThan(10);
+  });
+
+  it('two vehicles waiting on each other: the one with the right of way eases on, even if it keeps inching forward', () => {
+    // A straight track; one parked across the far end of the other's way; the parked one is waiting for the
+    // first (as the pickup waited for its turn on the main track).
+    const traffic = new FarmTraffic(() => []);
+    const a = traffic.add('a', 5, 2);
+    const b = traffic.add('b', 4, 1.8);
+    traffic.plan(a, [{ path: P([0, 0], [0, 30]) }]);
+    traffic.park(b, { x: 1.2, z: 14 }, 0, false);
+    let t = 0;
+    for (; t < 40 && a.driving; t += DT) {
+      traffic.tick();
+      b.waitingOn = a;
+      traffic.drive(a, DT);
+    }
+    expect(a.driving, `still stuck after ${t.toFixed(1)}s`).toBe(false);
+    expect(t).toBeLessThan(20);
+  });
+
+  it('keep moving whatever the timing: two farm hours with every vehicle on the go, no lock-ups and no overlaps', async () => {
+    const layout = await load();
+    const m = layout.machines;
+    const facing = (route: Point[]) => Math.atan2(route[1]!.x - route[0]!.x, route[1]!.z - route[0]!.z);
+    let worst = 0;
+    for (const seed of [1, 2, 3, 4]) {
+      let state = seed * 7919;
+      const rnd = () => (state = (state * 16807) % 2147483647) / 2147483647;
+      const traffic = new FarmTraffic(() => [], layout.narrows);
+      const van = traffic.add('van', 4.16, 1.85);
+      const tanker = traffic.add('tanker', 5.73, 1.95);
+      const pickup = traffic.add('pickup', 3.85, 1.8);
+      const truck = traffic.add('feedtruck', 5.03, 2.0);
+      const rounds = [
+        { d: van, spot: layout.vans.van!, state: 'home', at: rnd() * 60 },
+        { d: tanker, spot: layout.vans.tanker!, state: 'home', at: rnd() * 60 },
+      ];
+      for (const r of rounds) traffic.park(r.d, r.spot.route[0]!, facing(r.spot.route));
+      traffic.park(pickup, m.pickupOut[0]!, facing(m.pickupOut));
+      traffic.hide(truck);
+      let pickupState = 'parked';
+      let pickupAt = 3 + rnd() * 20;
+      let truckAt = rnd() * 60;
+      let visiting = false;
+      const all = [van, tanker, pickup, truck];
+      for (let t = 0; t < 1800; t += DT) {
+        traffic.tick();
+        for (const r of rounds) {
+          if (r.state === 'home' && t >= r.at) {
+            traffic.plan(r.d, [{ path: r.spot.route, through: true }]);
+            r.state = 'out';
+          } else if (r.state === 'out' && traffic.drive(r.d, DT)) {
+            traffic.hide(r.d);
+            r.state = 'away';
+            r.at = t + 5 + rnd() * 60;
+          } else if (r.state === 'away' && t >= r.at) {
+            traffic.plan(r.d, [{ path: r.spot.back }], 7);
+            r.state = 'back';
+          } else if (r.state === 'back' && traffic.drive(r.d, DT)) {
+            traffic.park(r.d, r.spot.route[0]!, facing(r.spot.route));
+            r.state = 'home';
+            r.at = t + 3 + rnd() * 40;
+          }
+        }
+        if (!visiting && t >= truckAt) {
+          traffic.plan(truck, m.feedTruckVisit, 7);
+          visiting = true;
+        } else if (visiting && traffic.drive(truck, DT)) {
+          traffic.hide(truck);
+          visiting = false;
+          truckAt = t + 5 + rnd() * 90;
+        }
+        if (pickupState === 'parked' && t >= pickupAt && traffic.clear(pickup, [{ path: m.pickupOut }])) {
+          traffic.plan(pickup, [{ path: m.pickupOut }], 0, true);
+          pickupState = 'out';
+        } else if (pickupState === 'out' && traffic.drive(pickup, DT)) {
+          pickupState = 'unloading';
+          pickupAt = t + 0.5 + rnd() * 12;
+        } else if (pickupState === 'unloading' && t >= pickupAt && traffic.clear(pickup, m.pickupBack)) {
+          traffic.plan(pickup, m.pickupBack, 0, true);
+          pickupState = 'back';
+        } else if (pickupState === 'back' && traffic.drive(pickup, DT)) {
+          traffic.park(pickup, m.pickupOut[0]!, facing(m.pickupOut));
+          pickupState = 'parked';
+          pickupAt = t + 2 + rnd() * 25;
+        }
+        for (const d of all) worst = Math.max(worst, d.held);
+        // (Off the map, two coming back at once may start on top of each other: nobody sees it.)
+        for (let i = 0; i < all.length; i++)
+          for (let j = i + 1; j < all.length; j++) {
+            const [p, q] = [all[i]!, all[j]!];
+            if (!p.visible || !q.visible || p.position.x < -40 || q.position.x < -40) continue;
+            expect(overlapping(p, q), `seed ${seed}: ${p.id} and ${q.id} at ${t.toFixed(1)}s`).toBe(false);
+          }
+      }
+    }
+    // Nobody waits long: at most for others to take their turns on the main track.
+    expect(worst).toBeLessThan(45);
+  }, 120000);
 });

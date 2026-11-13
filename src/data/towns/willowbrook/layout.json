@@ -1443,6 +1443,14 @@
    "minZ": -21.7,
    "maxZ": 23.6,
    "axis": "z"
+  },
+  {
+   "minX": 30.8,
+   "maxX": 37.8,
+   "minZ": -21.8,
+   "maxZ": -18.2,
+   "axis": "x",
+   "across": true
   }
  ]
 }

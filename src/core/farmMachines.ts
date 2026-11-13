@@ -142,7 +142,7 @@ export function createMachines(deps: {
         // Off when it's full (or has a load and nobody's loading it), and the main track's clear.
         const out = [{ path: route }];
         if ((bed.full || (bed.stack.length >= MIN_LOAD && pickup.idle >= wait)) && traffic.clear(pickup.driver, out)) {
-          traffic.plan(pickup.driver, out);
+          traffic.plan(pickup.driver, out, 0, true);
           pickup.phase = 'out';
         }
         break;
@@ -162,9 +162,11 @@ export function createMachines(deps: {
           bed.remove(good);
           barn.store(good, 1);
         }
-        if (bed.stack.length === 0 || !barn.hasRoom) {
-          // Backs out of the barn's track, drives up the main track and backs into its spot.
-          traffic.plan(pickup.driver, spots.pickupBack);
+        // Backs out of the barn's track, drives up the main track and backs into its spot: once the main track's
+        // clear (it waits at the barn doors, out of the way, rather than back up to the main track and stand there
+        // in the way of the feed truck or a van turning off it).
+        if ((bed.stack.length === 0 || !barn.hasRoom) && traffic.clear(pickup.driver, spots.pickupBack)) {
+          traffic.plan(pickup.driver, spots.pickupBack, 0, true);
           pickup.phase = 'back';
         }
         break;
