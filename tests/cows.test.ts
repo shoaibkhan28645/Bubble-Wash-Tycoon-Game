@@ -3,8 +3,8 @@
 import { describe, expect, it } from 'vitest';
 import { COW, Cow, Herd, type CowAct } from '../src/systems/cows';
 
-const RUN = { minX: -7.2, maxX: -0.8, minZ: 10.4, maxZ: 16.8 };
-const TROUGH = { x: -3.6, z: 15.4 };
+const RUN = { minX: -7.2, maxX: -0.1, minZ: 10.4, maxZ: 19.2 };
+const TROUGH = { x: -3.4, z: 15.6 };
 const DT = 1 / 60;
 
 function seeded(seed: number): () => number {
@@ -68,7 +68,7 @@ describe('the cows', () => {
       let touched = 0;
       let headIn = 0;
       for (let t = 0; t < 400; t += DT) {
-        h.update(DT, t % 100 > 60, t % 150 > 100 ? { x: -4, z: 18.2 } : null);
+        h.update(DT, t % 100 > 60, t % 150 > 100 ? { x: -4, z: 20.4 } : null);
         for (const cow of h.cows) {
           expect(cow.x).toBeGreaterThan(RUN.minX + 0.6);
           expect(cow.x).toBeLessThan(RUN.maxX - 0.6);

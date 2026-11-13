@@ -257,6 +257,8 @@ export class Cow {
   private backing = 0;
   private backTurn = 0;
   private backed = false;
+  /** Which side she's going round each thing in her way (the trough, or a cow): -1 or 1. */
+  private readonly sides = new Map<object, number>();
   /** Carrying her head round to one side (-1, 1) because another cow's where it would be; 0: not. */
   private aside = 0;
   /** Whether she's mooed in this moo (the sound comes once her head's up). */
@@ -365,6 +367,7 @@ export class Cow {
     this.pace = pace;
     this.backed = false;
     this.backing = 0;
+    this.sides.clear();
     this.begin('walk', 30);
   }
 
@@ -461,7 +464,7 @@ export class Cow {
             return;
           }
         }
-        this.begin('graze', 6 + this.random() * 7);
+        this.begin('graze', 10 + this.random() * 12);
     }
   }
 
@@ -483,12 +486,24 @@ export class Cow {
     return x > run.minX + 0.3 && x < run.maxX - 0.3 && z > run.minZ + 0.3 && z < run.maxZ - 0.3 && Math.hypot(x - trough.x, z - trough.z) > 1.2;
   }
 
-  /** Somewhere in the pasture to graze: inside the fence, clear of the trough and of the others (well clear if there's room; a body's width if not). */
+  /**
+   * Somewhere in the pasture to graze: inside the fence, clear of the trough and of the others (well clear if
+   * there's room; a body's width if not). Mostly a few steps on from where she is; now and then across the field.
+   */
   private spot(pasture: Pasture): Point | null {
     const { run, trough } = pasture;
+    const nearby = this.random() < 0.75;
     for (const room of [COW.radius * 2 + 0.4, COW.radius * 2 - 0.1]) {
-      for (let i = 0; i < 12; i++) {
-        const at = { x: run.minX + MARGIN + this.random() * (run.maxX - run.minX - MARGIN * 2), z: run.minZ + MARGIN + this.random() * (run.maxZ - run.minZ - MARGIN * 2) };
+      for (let i = 0; i < 14; i++) {
+        let at: Point;
+        if (nearby && i < 10) {
+          const way = this.heading + (this.random() - 0.5) * 2.4;
+          const far = 1.3 + this.random() * 2.2;
+          at = { x: this.x + Math.sin(way) * far, z: this.z + Math.cos(way) * far };
+          if (at.x < run.minX + MARGIN || at.x > run.maxX - MARGIN || at.z < run.minZ + MARGIN || at.z > run.maxZ - MARGIN) continue;
+        } else {
+          at = { x: run.minX + MARGIN + this.random() * (run.maxX - run.minX - MARGIN * 2), z: run.minZ + MARGIN + this.random() * (run.maxZ - run.minZ - MARGIN * 2) };
+        }
         if (Math.hypot(at.x - trough.x, at.z - trough.z) < TROUGH_CLEAR + 0.5) continue;
         if (Math.hypot(at.x - this.x, at.z - this.z) < 1.2) continue;
         if (this.clear(pasture, at, room)) return at;
@@ -657,7 +672,11 @@ export class Cow {
       const az = this.z - oz;
       const d = Math.hypot(ax, az) || 1e-3;
       const near = keep + 0.9;
-      if (d > near) return;
+      const key = cow ?? pasture.trough;
+      if (d > near) {
+        this.sides.delete(key);
+        return;
+      }
       // Walking at it, she slows as she nears it and stops short (of a cow: of her body, however she's standing).
       const closing = -(Math.sin(this.heading) * ax + Math.cos(this.heading) * az) / d;
       if (closing > 0.3) room = Math.min(room, Math.max(0, (d - keep) * 1.5));
@@ -672,14 +691,19 @@ export class Cow {
       if (dist < d - keep * 0.5) return;
       const push = (near - d) / 0.9;
       // Away from it, and round it on the side she's already heading, unless there's no room that side (the fence).
-      let side = ax * tz - az * tx >= 0 ? 1 : -1;
-      const { run } = pasture;
-      const fits = (k: number) => {
-        const px = ox + (ax / d) * 0.3 * keep + (az / d) * k * (keep + 0.5);
-        const pz = oz + (az / d) * 0.3 * keep - (ax / d) * k * (keep + 0.5);
-        return px > run.minX + FENCE && px < run.maxX - FENCE && pz > run.minZ + FENCE && pz < run.maxZ - FENCE;
-      };
-      if (!fits(side) && fits(-side)) side = -side;
+      // Once she's chosen a side she keeps to it until she's past (heading straight at it, she'd dither).
+      let side = this.sides.get(key);
+      if (side === undefined) {
+        side = ax * tz - az * tx >= 0 ? 1 : -1;
+        const { run } = pasture;
+        const fits = (k: number) => {
+          const px = ox + (ax / d) * 0.3 * keep + (az / d) * k * (keep + 0.5);
+          const pz = oz + (az / d) * 0.3 * keep - (ax / d) * k * (keep + 0.5);
+          return px > run.minX + FENCE && px < run.maxX - FENCE && pz > run.minZ + FENCE && pz < run.maxZ - FENCE;
+        };
+        if (!fits(side) && fits(-side)) side = -side;
+        this.sides.set(key, side);
+      }
       x += (ax / d) * push * 1.2 + (az / d) * side * push * 1.4;
       z += (az / d) * push * 1.2 - (ax / d) * side * push * 1.4;
     };
