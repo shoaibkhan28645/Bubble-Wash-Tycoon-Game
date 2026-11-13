@@ -184,7 +184,8 @@ export class Carrier<T extends CarryItem = SupplyType> {
     // An empty marker: the item itself is drawn with all the others of its kind (CarriedItems).
     const marker = new Object3D();
     this.put(marker, this.stack.length - 1);
-    marker.rotation.y = (this.stack.length % 2) * 0.3;
+    // A pile on someone's back is a little higgledy-piggledy; rows (a vehicle's bed) stand square.
+    marker.rotation.y = this.arrange ? 0 : (this.stack.length % 2) * 0.3;
     this.pile.add(marker);
   }
 
@@ -223,6 +224,8 @@ export class Carrier<T extends CarryItem = SupplyType> {
   update(dt: number, moving: boolean): void {
     this.timer = Math.max(0, this.timer - dt);
     this.sway += dt * (moving ? 10 : 2);
-    this.pile.rotation.z = Math.sin(this.sway) * (moving ? 0.06 : 0.015) * Math.min(1, this.stack.length / 4);
+    // (Rows in a vehicle's bed hardly shift: the vehicle itself leans.)
+    const wobble = (moving ? 0.06 : 0.015) * (this.arrange ? 0.25 : 1);
+    this.pile.rotation.z = Math.sin(this.sway) * wobble * Math.min(1, this.stack.length / 4);
   }
 }

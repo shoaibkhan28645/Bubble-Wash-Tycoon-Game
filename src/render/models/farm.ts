@@ -122,6 +122,12 @@ export const FARM_SOLIDS: Record<string, [number, number, number?, number?][]> =
   ],
   // The cow barn's walls (its stalls open to the front, but nobody walks in).
   cowbarn: [[3.5, 2.4]],
+  // The feed store's shed with the hopper in front (corn is tipped in from just in front of it), and the silo behind
+  // (a round tower 0.8 m across the middle: a square just inside it, so the main track's traffic clears it).
+  feedstore: [
+    [1.4, 1.375, 0, 0.075],
+    [0.78, 0.78, 1.9, -1.6],
+  ],
   // The bakery's walls, and the bread table in front.
   bakery: [
     [2.6, 2.1, 0, -0.4],

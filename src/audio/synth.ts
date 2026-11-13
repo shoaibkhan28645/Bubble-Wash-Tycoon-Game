@@ -1,8 +1,10 @@
 // Sound effects made in code where the CC0 packs have nothing that fits:
 // sponge squeaks, water spray, bubble pops, a car horn, a till bell, fuel
-// glugging into a tank, the pump's beep and the hero's footsteps.
+// glugging into a tank, the pump's beep, the hero's footsteps, and the farm's
+// animals: a cow's moo and a hen's clucking (a voice through the shapes of a
+// mouth, as speech is made).
 
-export type SynthSound = 'squeak' | 'spray' | 'pop' | 'honk' | 'bell' | 'glug' | 'beep' | 'step';
+export type SynthSound = 'squeak' | 'spray' | 'pop' | 'honk' | 'bell' | 'glug' | 'beep' | 'step' | 'moo' | 'cluck';
 
 /** Small seeded random generator, so every run sounds the same. */
 function seeded(seed: number): () => number {
@@ -130,6 +132,149 @@ function step(sampleRate: number, variant: number): Float32Array {
   });
 }
 
+/** A band-pass filter (a mouth's resonance): its centre and sharpness can glide as it plays. */
+class Formant {
+  private x1 = 0;
+  private x2 = 0;
+  private y1 = 0;
+  private y2 = 0;
+  private b0 = 0;
+  private a1 = 0;
+  private a2 = 0;
+  private b2 = 0;
+
+  constructor(private readonly sampleRate: number) {}
+
+  tune(freq: number, q: number): void {
+    const w = (2 * Math.PI * freq) / this.sampleRate;
+    const alpha = Math.sin(w) / (2 * q);
+    const a0 = 1 + alpha;
+    this.b0 = alpha / a0;
+    this.b2 = -alpha / a0;
+    this.a1 = (-2 * Math.cos(w)) / a0;
+    this.a2 = (1 - alpha) / a0;
+  }
+
+  next(x: number): number {
+    const y = this.b0 * x + this.b2 * this.x2 - this.a1 * this.y1 - this.a2 * this.y2;
+    this.x2 = this.x1;
+    this.x1 = x;
+    this.y2 = this.y1;
+    this.y1 = y;
+    return y;
+  }
+}
+
+/** Scales a sound so its loudest moment sits at `peak`. */
+function normalise(out: Float32Array, peak: number): Float32Array {
+  let max = 0;
+  for (const v of out) max = Math.max(max, Math.abs(v));
+  if (max > 0) for (let i = 0; i < out.length; i++) out[i] = (out[i]! / max) * peak;
+  return out;
+}
+
+/** Smooth 0 → 1 over 0..1. */
+const ease = (u: number) => (u <= 0 ? 0 : u >= 1 ? 1 : u * u * (3 - 2 * u));
+
+/**
+ * A cow's moo: a low, buzzy voice through the mouth, from a closed "mmm"
+ * opening to "ooo" and closing again, its pitch rising and falling, with a
+ * slow wobble. Each variant a different cow.
+ */
+function moo(sampleRate: number, variant: number): Float32Array {
+  const rand = seeded(41 + variant);
+  const length = 1.15 + variant * 0.17;
+  const base = 96 - variant * 9;
+  const mouth = [new Formant(sampleRate), new Formant(sampleRate), new Formant(sampleRate)];
+  let phase = 0;
+  let soft = 0;
+  return normalise(
+    render(sampleRate, length, (t, i) => {
+      const u = t / length;
+      // Up as it opens its mouth, then down and away.
+      const rise = Math.sin(Math.PI * Math.min(1, u / 0.62)) * 0.38 - ease((u - 0.55) / 0.45) * 0.12;
+      const f0 = base * (1 + rise) * (1 + 0.015 * Math.sin(2 * Math.PI * 5.2 * t));
+      phase = (phase + f0 / sampleRate) % 1;
+      // A buzzy voice (a sawtooth), softened, with a little breath.
+      soft += 0.35 * (phase * 2 - 1 - soft);
+      const voice = soft + (rand() * 2 - 1) * 0.05;
+      const open = ease(u / 0.3) * (1 - 0.6 * ease((u - 0.7) / 0.3));
+      if (i % 32 === 0) {
+        mouth[0]!.tune(240 + 300 * open, 4);
+        mouth[1]!.tune(650 + 350 * open, 6);
+        mouth[2]!.tune(2300, 8);
+      }
+      const shaped = mouth[0]!.next(voice) * 1.0 + mouth[1]!.next(voice) * 0.55 + mouth[2]!.next(voice) * 0.12;
+      const env = ease(t / 0.16) * (1 - ease((u - 0.72) / 0.28));
+      return shaped * env * (0.55 + 0.45 * open);
+    }),
+    0.75,
+  );
+}
+
+/**
+ * A hen's clucking: a few short bright "buk"s, each with a little click and a
+ * pitch that drops, sometimes ending on a long squawk ("b'gawk").
+ */
+function cluck(sampleRate: number, variant: number): Float32Array {
+  const rand = seeded(53 + variant);
+  const patterns: { at: number; bok: boolean }[][] = [
+    [
+      { at: 0, bok: true },
+      { at: 0.15, bok: true },
+      { at: 0.28, bok: true },
+      { at: 0.43, bok: false },
+    ],
+    [
+      { at: 0, bok: true },
+      { at: 0.17, bok: true },
+      { at: 0.31, bok: true },
+    ],
+    [
+      { at: 0, bok: true },
+      { at: 0.13, bok: true },
+      { at: 0.3, bok: false },
+    ],
+  ];
+  const calls = patterns[variant % patterns.length]!;
+  const last = calls[calls.length - 1]!;
+  const length = last.at + (last.bok ? 0.12 : 0.32);
+  const mouth = [new Formant(sampleRate), new Formant(sampleRate)];
+  mouth[0]!.tune(850, 3);
+  mouth[1]!.tune(1900, 5);
+  let phase = 0;
+  const pitch = 1 + variant * 0.06;
+  return normalise(
+    render(sampleRate, length, (t) => {
+      let f0 = 0;
+      let env = 0;
+      let drive = 1.5;
+      let click = 0;
+      for (const call of calls) {
+        const v = t - call.at;
+        if (call.bok) {
+          if (v < 0 || v > 0.1) continue;
+          f0 = (430 - 1300 * v) * pitch;
+          env = Math.min(1, v / 0.004) * Math.exp(-v / 0.028);
+          click = v < 0.006 ? (rand() * 2 - 1) * (1 - v / 0.006) : 0;
+        } else {
+          if (v < 0 || v > 0.3) continue;
+          // The squawk: up, held, and down a little; harsher.
+          f0 = (520 + 340 * ease(v / 0.1) - 160 * ease((v - 0.18) / 0.12)) * pitch;
+          env = Math.min(1, v / 0.012) * (1 - ease((v - 0.22) / 0.08));
+          drive = 3;
+        }
+      }
+      if (env > 0) phase = (phase + f0 / sampleRate) % 1;
+      const voice = env > 0 ? (Math.tanh(drive * Math.sin(2 * Math.PI * phase)) + (phase * 2 - 1) * 0.4) * env : 0;
+      // The click goes through the mouth too (a "k", not a hiss), and the mouth rings on a moment after each call.
+      const input = voice + click * 0.8;
+      return mouth[0]!.next(input) + mouth[1]!.next(input) * 0.7;
+    }),
+    0.7,
+  );
+}
+
 /** Every made-in-code sound, with its variants. */
 export function renderSynth(sampleRate: number): Record<SynthSound, Float32Array[]> {
   return {
@@ -141,5 +286,7 @@ export function renderSynth(sampleRate: number): Record<SynthSound, Float32Array
     glug: [0, 1].map((v) => glug(sampleRate, v)),
     beep: [beep(sampleRate)],
     step: [0, 1, 2, 3].map((v) => step(sampleRate, v)),
+    moo: [0, 1, 2].map((v) => moo(sampleRate, v)),
+    cluck: [0, 1, 2].map((v) => cluck(sampleRate, v)),
   };
 }

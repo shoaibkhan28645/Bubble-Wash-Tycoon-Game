@@ -22,6 +22,8 @@
     "glug": { "synth": "glug", "volume": 0.3, "gap": 0.45 },
     "fueled": { "files": ["drop"], "synth": "beep", "volume": 0.3, "gap": 0.3 },
     "step": { "synth": "step", "volume": 0.22, "gap": 0.06 },
+    "moo": { "synth": "moo", "volume": 0.5, "gap": 1.5 },
+    "cluck": { "synth": "cluck", "volume": 0.42, "gap": 0.7 },
     "cheer": { "files": ["park/cheer-1", "park/cheer-2"], "volume": 0.35, "gap": 1.5, "set": "park" },
     "firework": { "files": ["park/firework-1", "park/firework-2", "park/firework-3", "park/firework-4"], "volume": 0.4, "gap": 0.15, "set": "park" },
     "ooh": { "files": ["park/ooh"], "volume": 0.3, "gap": 8, "set": "park" },

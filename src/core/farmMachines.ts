@@ -99,17 +99,20 @@ export function createMachines(deps: {
     const { length, width } = vehicleSize('fm_pickup');
     const driver = traffic.add('pickup', length, width);
     traffic.park(driver, park, parkFacing);
+    // Crates stand in the bed in two rows of three, two layers, squarely inside its sides and tailgate (the carrier
+    // draws its stack 1 m up and half a metre back, at 1.6 times size: the bed is 1.56 m across inside, 1.79 m long).
+    // They ride on the body, leaning and pitching with it.
+    const pile = new Group();
+    pile.position.set(0, -0.08, -0.35);
+    pile.userData.rides = true;
+    model.add(pile);
     deps.motion.vehicle(model, driver);
     // Where it parks is solid (people walk round to its tailgate), lengthwise along the track.
     const [hl, hw] = [length / 2, width / 2];
     const alongX = Math.abs(Math.sin(parkFacing)) > Math.abs(Math.cos(parkFacing));
     deps.solid({ minX: park.x - (alongX ? hl : hw), maxX: park.x + (alongX ? hl : hw), minZ: park.z - (alongX ? hw : hl), maxZ: park.z + (alongX ? hw : hl) });
-    // Crates stand in the bed in two rows of three, two layers (the carrier draws its stack 1 m up and half a metre back).
-    const pile = new Group();
-    pile.position.set(0, -0.08, -0.35);
-    model.add(pile);
     const bed = new Carrier<GoodId>(pile, () => ({ x: model.position.x, z: model.position.z }), () => bedSize);
-    bed.arrange = (i) => [((i % 2) - 0.5) * 0.55, Math.floor(i / 6) * 0.22, ((Math.floor(i / 2) % 3) - 1) * 0.5];
+    bed.arrange = (i) => [((i % 2) - 0.5) * 0.46, Math.floor(i / 6) * 0.27, ((Math.floor(i / 2) % 3) - 1) * 0.35];
     for (const good of Object.keys(GOODS) as GoodId[]) for (let i = 0; i < (state.supplies[`pickup.${good}`] ?? 0); i++) bed.push(good);
     pickup = { model, driver, bed, phase: 'parked', idle: 0, timer: 0 };
     place();

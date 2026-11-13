@@ -102,6 +102,15 @@ const RETIRED_PADS: Record<string, number> = { tractor: 8250, tractordriver: 170
 const WINDMILL_BASE = 2.1;
 /** The windmill's sails turn this fast (radians a second). */
 const SAILS_TURN = 0.6;
+/**
+ * The animals' voices: near a pen the hens cluck and the cows moo now and then (seconds between calls,
+ * fewer the more animals there are), heard fully within NEAR metres of the pen and fading out over FADE more.
+ */
+const CALLS = { hens: { sound: 'cluck', every: [2.2, 5.5] }, cows: { sound: 'moo', every: [4.5, 9] } } as const;
+const CALL_NEAR = 4;
+const CALL_FADE = 10;
+/** Walking up to a pen, the first call comes this soon. */
+const CALL_FIRST = 0.7;
 
 /** Warm late-afternoon countryside light: a soft sky, golden sun, long views over the hills. */
 const FARM_LOOK: Look = {
@@ -608,6 +617,33 @@ export function createFarmGame(
     );
   };
 
+  // The animals' voices, near their pens.
+  const callIn = new Map<string, number>();
+  const animalCalls = (dt: number): void => {
+    const { x, z } = player.position;
+    for (const [penId, pen] of Object.entries(layout.pens)) {
+      const count = state.unlocked.includes(penId) ? animals(penId) : 0;
+      if (count <= 0) continue;
+      const { run } = pen;
+      const away = Math.hypot(Math.max(run.minX - x, 0, x - run.maxX), Math.max(run.minZ - z, 0, z - run.maxZ));
+      const level = Math.max(0, Math.min(1, 1 - (away - CALL_NEAR) / CALL_FADE));
+      // Out of earshot: the next time the hero comes near, they're heard soon after.
+      if (level < 0.05) {
+        callIn.set(penId, CALL_FIRST);
+        continue;
+      }
+      const left = (callIn.get(penId) ?? CALL_FIRST) - dt;
+      if (left > 0) {
+        callIn.set(penId, left);
+        continue;
+      }
+      const call = CALLS[pen.animal];
+      sound.play(call.sound, level);
+      const [low, high] = call.every;
+      callIn.set(penId, (low + Math.random() * (high - low)) / Math.sqrt(Math.min(count, 6)));
+    }
+  };
+
   const machines = createMachines({
     motion,
     traffic,
@@ -962,6 +998,7 @@ export function createFarmGame(
     if (sails) sails.rotation.z += SAILS_TURN * dt;
     plots.update(dt, now);
     pensView.update(dt);
+    animalCalls(dt);
     showStock();
     showAnimals();
     if (cash.update(player.position)) flag('collected');

@@ -231,3 +231,69 @@ describe("Willowbrook's vehicles together", () => {
     expect(longest).toBeLessThan(40);
   });
 });
+
+describe("Willowbrook's vehicles' ways", () => {
+  it('never drive a body through a building, a pen, the windmill or a solid prop', async () => {
+    const layout = (await import('../src/data/towns/willowbrook/layout.json')).default as unknown as import('../src/core/config').FarmLayout & {
+      town: { model: string; x: number; z: number; solid?: [number, number] }[];
+    };
+    const { FARM_SOLIDS } = await import('../src/render/models/farm');
+    const { routeAt, routeMarks } = await import('../src/systems/vehicles');
+    type Box = { minX: number; maxX: number; minZ: number; maxZ: number; what: string };
+    const boxes: Box[] = [];
+    for (const [id, parts] of Object.entries(FARM_SOLIDS)) {
+      const at = layout.buildAt[id] ?? layout.pads[id];
+      if (!at) continue;
+      for (const [hw, hd, dx = 0, dz = 0] of parts) boxes.push({ minX: at.x + dx - hw, maxX: at.x + dx + hw, minZ: at.z + dz - hd, maxZ: at.z + dz + hd, what: id });
+    }
+    for (const piece of layout.town) if (piece.solid) boxes.push({ minX: piece.x - piece.solid[0], maxX: piece.x + piece.solid[0], minZ: piece.z - piece.solid[1], maxZ: piece.z + piece.solid[1], what: piece.model });
+    for (const [id, pen] of Object.entries(layout.pens)) boxes.push({ ...pen.run, what: `${id} run` });
+    const mill = layout.sites.windmill!;
+    boxes.push({ minX: mill.x - 2.1, maxX: mill.x + 2.1, minZ: mill.z - 2.1, maxZ: mill.z + 2.1, what: 'windmill' });
+    const board = layout.board;
+    boxes.push({ minX: board.x - 1.1, maxX: board.x + 1.1, minZ: board.z - 0.25, maxZ: board.z + 0.25, what: 'orders board' });
+    const m = layout.machines;
+    const ways: { who: string; size: [number, number]; legs: LegPlan[] }[] = [
+      { who: 'van out', size: [4.16, 1.85], legs: [{ path: layout.vans.van!.route }] },
+      { who: 'van back', size: [4.16, 1.85], legs: [{ path: layout.vans.van!.back }] },
+      { who: 'tanker out', size: [5.73, 1.95], legs: [{ path: layout.vans.tanker!.route }] },
+      { who: 'tanker back', size: [5.73, 1.95], legs: [{ path: layout.vans.tanker!.back }] },
+      { who: 'pickup out', size: [3.85, 1.8], legs: [{ path: m.pickupOut }] },
+      { who: 'pickup back', size: [3.85, 1.8], legs: m.pickupBack },
+      { who: 'feed truck', size: [5.03, 2.0], legs: m.feedTruckVisit },
+    ];
+    for (const { who, size, legs } of ways) {
+      const [length, width] = size;
+      for (const leg of legs) {
+        // The way as it's driven: corners rounded off as the traffic does.
+        const path = smoothRoute(leg.path, 2.2);
+        const marks = routeMarks(path);
+        const total = marks[marks.length - 1]!;
+        for (let s = 0; s <= total; s += 0.25) {
+          const at = routeAt(path, marks, s).at;
+          const back = routeAt(path, marks, s - length * 0.3).at;
+          const front = routeAt(path, marks, s + length * 0.3).at;
+          const len = Math.hypot(front.x - back.x, front.z - back.z) || 1;
+          const dir = { x: (front.x - back.x) / len, z: (front.z - back.z) / len };
+          // The body's corners, a few centimetres in.
+          const hl = length / 2 - 0.05;
+          const hw = width / 2 - 0.05;
+          const corners = [
+            [1, 1],
+            [1, -1],
+            [-1, 1],
+            [-1, -1],
+            [1, 0],
+            [-1, 0],
+            [0, 1],
+            [0, -1],
+          ].map(([a, b]) => ({ x: at.x + dir.x * hl * a! + dir.z * hw * b!, z: at.z + dir.z * hl * a! - dir.x * hw * b! }));
+          for (const box of boxes) {
+            const inside = corners.find((c) => c.x > box.minX && c.x < box.maxX && c.z > box.minZ && c.z < box.maxZ);
+            expect(inside, `${who} at (${at.x.toFixed(1)}, ${at.z.toFixed(1)}) runs into the ${box.what}`).toBeUndefined();
+          }
+        }
+      }
+    }
+  });
+});

@@ -149,6 +149,8 @@ export class FarmMotion {
       tilt.rotation.order = 'YXZ';
       model.add(tilt);
       tilt.add(body);
+      // What rides on the body (a load in the bed) leans and pitches with it.
+      for (const child of [...model.children]) if (child.userData.rides) tilt.add(child);
       const spot = TAIL_LAMPS[model.name];
       if (spot && lamps) glow = this.addLamps(tilt, spot);
     }

@@ -27,5 +27,6 @@ when the hero arrives at the park.
 | `park/clank-*` | Chain winch sounds | bart | https://opengameart.org/content/chain-winch-sounds |
 | `park/whoosh` | Air whoosh | pyranostudios | https://opengameart.org/content/air-whoosh |
 
-The other towns' music, sponge squeaks, water spray, bubble pops, horn and
-till bell are made in code (`src/audio/music.ts`, `src/audio/synth.ts`).
+The other towns' music, sponge squeaks, water spray, bubble pops, horn,
+till bell and Willowbrook's mooing cows and clucking hens are made in code
+(`src/audio/music.ts`, `src/audio/synth.ts`).
