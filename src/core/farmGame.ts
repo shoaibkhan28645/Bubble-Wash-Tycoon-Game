@@ -103,10 +103,11 @@ const WINDMILL_BASE = 2.1;
 /** The windmill's sails turn this fast (radians a second). */
 const SAILS_TURN = 0.6;
 /**
- * The animals' voices: near a pen the hens cluck and the cows moo now and then (seconds between calls,
- * fewer the more animals there are), heard fully within NEAR metres of the pen and fading out over FADE more.
+ * The animals' voices: near their run the hens cluck now and then (seconds between calls, fewer the more hens
+ * there are), heard fully within NEAR metres of it and fading out over FADE more. A cow's moo is her own
+ * (she lifts her head for it: systems/cows.ts), as loud as she's near.
  */
-const CALLS = { hens: { sound: 'cluck', every: [2.2, 5.5] }, cows: { sound: 'moo', every: [4.5, 9] } } as const;
+const CALLS = { hens: { sound: 'cluck', every: [2.2, 5.5] } } as const;
 const CALL_NEAR = 4;
 const CALL_FADE = 10;
 /** Walking up to a pen, the first call comes this soon. */
@@ -227,7 +228,12 @@ export function createFarmGame(
     },
   );
   // A cow that stops to moo says so.
-  const pensView = new PensView(livestock, animals, (at) => floaters.show('Moo!', new Vector3(at.x, 2.4, at.z), 'star'));
+  // A cow moos: the word over her head, and her voice (as loud as she's near).
+  const pensView = new PensView(livestock, animals, (at) => {
+    floaters.show('Moo!', new Vector3(at.x, 2.4, at.z), 'star');
+    const away = Math.hypot(at.x - player.position.x, at.z - player.position.z);
+    sound.play('moo', Math.max(0, Math.min(1, 1 - (away - CALL_NEAR - 2) / (CALL_FADE + 4))));
+  });
   stage.scene.add(pensView.group);
   const stock = new StandStock(
     state,
@@ -622,7 +628,7 @@ export function createFarmGame(
   const animalCalls = (dt: number): void => {
     const { x, z } = player.position;
     for (const [penId, pen] of Object.entries(layout.pens)) {
-      const count = state.unlocked.includes(penId) ? animals(penId) : 0;
+      const count = state.unlocked.includes(penId) && pen.animal === 'hens' ? animals(penId) : 0;
       if (count <= 0) continue;
       const { run } = pen;
       const away = Math.hypot(Math.max(run.minX - x, 0, x - run.maxX), Math.max(run.minZ - z, 0, z - run.maxZ));
@@ -637,7 +643,7 @@ export function createFarmGame(
         callIn.set(penId, left);
         continue;
       }
-      const call = CALLS[pen.animal];
+      const call = CALLS.hens;
       sound.play(call.sound, level);
       const [low, high] = call.every;
       callIn.set(penId, (low + Math.random() * (high - low)) / Math.sqrt(Math.min(count, 6)));
@@ -997,7 +1003,7 @@ export function createFarmGame(
     player.scrubbing = serving || crops.harvesting.has(playerCarry) || livestock.packing.has(playerCarry) || bakery.packing.has(playerCarry);
     if (sails) sails.rotation.z += SAILS_TURN * dt;
     plots.update(dt, now);
-    pensView.update(dt);
+    pensView.update(dt, player.position);
     animalCalls(dt);
     showStock();
     showAnimals();

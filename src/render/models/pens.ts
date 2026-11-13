@@ -3,51 +3,45 @@
 // with corn while the animals are fed, and the animals themselves, each
 // with parts that move (art/blender/farm.py): hens that trot about on
 // stepping legs, bobbing their heads, pecking, wagging their tails and now
-// and then flapping (the rooster crows), cows that amble on four legs,
-// lower their heads to graze and chew, and swish their tails; all heading
-// for the trough at feeding time.
+// and then flapping (the rooster crows), all heading for the trough at
+// feeding time; and the cows, whose every move is worked out in
+// systems/cows.ts (walking on planted hooves, grazing, lying down, coming
+// over to see the hero) and put on their models by cowRig.ts.
 import { BoxGeometry, Group, Mesh, type Object3D } from 'three';
 import type { Point, Rect } from '../../core/config';
 import type { AnimalKind, Livestock, Pen } from '../../systems/animals';
+import { Herd, type Cow } from '../../systems/cows';
 import { mergeParts, toyMaterial, type Part } from './build';
+import { CowRig } from './cowRig';
 import { farmModel, farmMover } from './farm';
 
 const CORN = '#ffcf33';
 
-/** How each kind of animal looks and moves. */
-const LOOKS: Record<AnimalKind, {
-  models: string[];
-  table: string;
-  /** Walking speed (m/s), and how long it stops to peck or graze. */
-  speed: number;
-  pause: [number, number];
-  /** How far it lowers its head to eat (radians), and how fast it pecks or chews. */
-  nod: number;
-  nodRate: number;
+/** How each kind of animal's pen looks: its models, its table, how far they keep from the fence, its trough's size and its fence. */
+const LOOKS: Record<AnimalKind, { models: string[]; table: string; margin: number; trough: number; fence: 'picket' | 'rail' }> = {
+  hens: { models: ['fm_hen', 'fm_hen_brown', 'fm_hen', 'fm_rooster'], table: 'fm_eggtable', margin: 0.45, trough: 1, fence: 'picket' },
+  cows: { models: ['fm_cow', 'fm_cow_brown'], table: 'fm_dairy', margin: 1.1, trough: 1.6, fence: 'rail' },
+};
+
+/** How a hen moves (the cows' motion is all in systems/cows.ts). */
+const HEN = {
+  /** Walking speed (m/s), and how long she stops to peck. */
+  speed: 0.7,
+  pause: [0.8, 2.6],
+  /** How far she lowers her head to peck (radians), and how fast she pecks. */
+  nod: 1.05,
+  nodRate: 9,
   /** Metres walked per stride (one swing of each leg). */
-  stride: number;
-  /** How far the legs swing (radians), and a little hop in each step (hens) or none (cows). */
-  swing: number;
-  hop: number;
-  /** How fast it turns to face where it's going (radians a second). */
-  turn: number;
-  /** Kept this far from the fence. */
-  margin: number;
-  trough: number;
-  fence: 'picket' | 'rail';
-}> = {
-  hens: { models: ['fm_hen', 'fm_hen_brown', 'fm_hen', 'fm_rooster'], table: 'fm_eggtable', speed: 0.7, pause: [0.8, 2.6], nod: 1.05, nodRate: 9, stride: 0.22, swing: 0.75, hop: 0.03, turn: 8, margin: 0.45, trough: 1, fence: 'picket' },
-  cows: { models: ['fm_cow', 'fm_cow_brown'], table: 'fm_dairy', speed: 0.5, pause: [3, 7], nod: 0.62, nodRate: 5.5, stride: 0.85, swing: 0.42, hop: 0, turn: 1.4, margin: 1.1, trough: 1.6, fence: 'rail' },
+  stride: 0.22,
+  /** How far the legs swing (radians), and the little hop in each step. */
+  swing: 0.75,
+  hop: 0.03,
+  /** How fast she turns to face where she's going (radians a second). */
+  turn: 8,
 };
 
 /** Seconds a hen's flap lasts; how fast her wings beat. */
 const FLAP = { seconds: 0.7, rate: 32 };
-/** A cow that stops grazes, looks about, or moos (now and then), in these shares. */
-const COW_MOODS: [CowMood, number][] = [['graze', 0.62], ['look', 0.26], ['moo', 0.12]];
-/** A cow moos at most this often (seconds). */
-const MOO_EVERY = 25;
-
-type CowMood = 'graze' | 'look' | 'moo';
 
 /** The angle from `from` to `to`, the short way round. */
 function angleTo(from: number, to: number): number {
@@ -102,19 +96,15 @@ interface Animal {
   name: string;
   at: Point;
   target: Point;
-  /** Seconds left pecking or grazing where it stands. */
+  /** Seconds left pecking where she stands. */
   pause: number;
   phase: number;
   /** How far through its stride (grows with distance walked). */
   stride: number;
-  /** Which way it faces (radians), where its head is now (radians down, and turned), and seconds left flapping or crowing. */
+  /** Which way she faces (radians), where her head is now (radians down), and seconds left flapping or crowing. */
   heading: number;
   head: number;
-  yaw: number;
   flap: number;
-  /** What a cow does while it stands, and when she last mooed. */
-  mood: CowMood;
-  mooed: number;
   parts: { head?: Object3D; tail?: Object3D; wings: Object3D[]; legs: Object3D[] };
 }
 
@@ -122,6 +112,9 @@ interface PenView {
   pen: Pen;
   animals: Animal[];
   fill: Mesh;
+  /** A pasture's cows, and their models. */
+  herd: Herd | null;
+  rigs: CowRig[];
 }
 
 export class PensView {
@@ -133,7 +126,7 @@ export class PensView {
     private readonly livestock: Livestock,
     /** How many animals a pen has now. */
     private readonly count: (penId: string) => number,
-    /** A cow moos: `at` her head. */
+    /** A cow moos: `at` where she stands. */
     private readonly onMoo: (at: Point) => void = () => {},
     private readonly random: () => number = Math.random,
   ) {
@@ -155,22 +148,38 @@ export class PensView {
     for (const model of [table, trough]) model.traverse((node) => (node.castShadow = node.receiveShadow = true));
     const gapZ = Math.min(pen.run.maxZ - 0.8, Math.max(pen.run.minZ + 0.8, houseAt.z - 0.3));
     this.group.add(table, trough, fill, penFence(pen.run, gapZ, look.fence));
-    this.views.push({ pen, animals: [], fill });
+    const herd = pen.animal === 'cows' ? new Herd(pen.run, pen.trough, this.random, (cow: Cow) => this.onMoo({ x: cow.x, z: cow.z })) : null;
+    this.views.push({ pen, animals: [], fill, herd, rigs: [] });
   }
 
-  update(dt: number): void {
+  /** One frame; the cows look up (and come over) when `hero` is by their fence. */
+  update(dt: number, hero: Point | null = null): void {
     this.time += dt;
     const fed = this.livestock.fed;
     for (const view of this.views) {
       this.fill(view);
       view.fill.visible = fed;
       for (const animal of view.animals) this.move(animal, view.pen, fed, dt);
+      if (view.herd) {
+        view.herd.update(dt, fed, hero);
+        view.rigs.forEach((rig, i) => rig.apply(view.herd!.cows[i]!.pose));
+      }
     }
   }
 
   /** Adds animals as the pen's herd or flock grows (its upgrade). */
   private fill(view: PenView): void {
     const look = LOOKS[view.pen.animal];
+    const { herd } = view;
+    while (herd && herd.cows.length < this.count(view.pen.id)) {
+      const name = look.models[herd.cows.length % look.models.length]!;
+      const model = farmMover(name);
+      this.group.add(model);
+      const rig = new CowRig(model, name);
+      rig.apply(herd.add().pose);
+      view.rigs.push(rig);
+    }
+    if (herd) return;
     while (view.animals.length < this.count(view.pen.id)) {
       const name = look.models[view.animals.length % look.models.length]!;
       const model = farmMover(name);
@@ -189,7 +198,7 @@ export class PensView {
         legs: ['leg_l', 'leg_r', 'leg_fl', 'leg_fr', 'leg_bl', 'leg_br'].map(part).filter((p): p is Object3D => !!p),
       };
       parts.head?.rotation.set(0, 0, 0, 'YXZ');
-      view.animals.push({ model, name, at, target: this.spotIn(view.pen.run, look.margin), pause: this.random() * 3, phase: this.random() * 6, stride: 0, heading, head: 0, yaw: 0, flap: 0, mood: 'graze', mooed: -MOO_EVERY, parts });
+      view.animals.push({ model, name, at, target: this.spotIn(view.pen.run, look.margin), pause: this.random() * 3, phase: this.random() * 6, stride: 0, heading, head: 0, flap: 0, parts });
     }
   }
 
@@ -197,11 +206,10 @@ export class PensView {
     return { x: run.minX + margin + this.random() * (run.maxX - run.minX - margin * 2), z: run.minZ + margin + this.random() * (run.maxZ - run.minZ - margin * 2) };
   }
 
-  /** An animal's moment: pecking or grazing where it stands, or on its way to the next spot (often the trough when there's feed). */
+  /** A hen's moment: pecking where she stands, or on her way to the next spot (often the trough when there's feed). */
   private move(animal: Animal, pen: Pen, fed: boolean, dt: number): void {
     const look = LOOKS[pen.animal];
     const { model } = animal;
-    const hen = pen.animal === 'hens';
     const eating = animal.pause > 0;
     if (eating) {
       animal.pause -= dt;
@@ -211,105 +219,50 @@ export class PensView {
         animal.target = toTrough
           ? { x: pen.trough.x + (this.random() - 0.5) * 1.1 * look.trough, z: pen.trough.z + (this.random() < 0.5 ? -reach : reach) * 1.6 }
           : this.spotIn(pen.run, look.margin);
-        // Off again: a hen sometimes flaps as she sets off (and the rooster stops to crow).
-        if (hen && this.random() < 0.25) animal.flap = FLAP.seconds * (animal.name === 'fm_rooster' ? 2.2 : 1);
+        // Off again: she sometimes flaps as she sets off (and the rooster stops to crow).
+        if (this.random() < 0.25) animal.flap = FLAP.seconds * (animal.name === 'fm_rooster' ? 2.2 : 1);
       }
-      this.settle(animal, dt);
+      // Standing: she settles.
+      model.position.y += (0 - model.position.y) * Math.min(1, dt * 6);
     } else {
-      // Turning to face where it's going, and walking on as it comes round (a cow turns slowly).
+      // Turning to face where she's going, and walking on as she comes round.
       const dx = animal.target.x - animal.at.x;
       const dz = animal.target.z - animal.at.z;
       const dist = Math.hypot(dx, dz);
       const off = angleTo(animal.heading, Math.atan2(dx, dz));
-      animal.heading += Math.sign(off) * Math.min(Math.abs(off), look.turn * dt);
-      const step = Math.min(dist, look.speed * dt * Math.max(0.15, Math.cos(Math.min(Math.abs(off), Math.PI / 2))));
-      animal.stride += step / look.stride;
-      if (dist <= look.speed * dt) {
+      animal.heading += Math.sign(off) * Math.min(Math.abs(off), HEN.turn * dt);
+      const step = Math.min(dist, HEN.speed * dt * Math.max(0.15, Math.cos(Math.min(Math.abs(off), Math.PI / 2))));
+      animal.stride += step / HEN.stride;
+      if (dist <= HEN.speed * dt) {
         animal.at = { ...animal.target };
-        animal.pause = look.pause[0] + this.random() * (look.pause[1] - look.pause[0]);
-        animal.mood = hen ? 'graze' : this.cowMood(animal);
-        if (animal.mood === 'moo') {
-          animal.mooed = this.time;
-          const head = animal.parts.head?.getWorldPosition(model.position.clone()) ?? model.position;
-          this.onMoo({ x: head.x, z: head.z });
-        }
+        animal.pause = HEN.pause[0]! + this.random() * (HEN.pause[1]! - HEN.pause[0]!);
       } else {
         animal.at = { x: animal.at.x + (dx / dist) * step, z: animal.at.z + (dz / dist) * step };
       }
-      // A cow's body rises and rolls a little with each step; a hen hops.
-      const bob = Math.abs(Math.sin(animal.stride * Math.PI * 2));
-      model.position.set(animal.at.x, hen ? bob * look.hop : bob * 0.035, animal.at.z);
-      if (!hen) {
-        model.rotation.z = Math.sin(animal.stride * Math.PI * 2) * 0.035;
-        model.rotation.x = Math.sin(animal.stride * Math.PI * 4) * 0.012;
-      }
+      // A little hop in each step.
+      model.position.set(animal.at.x, Math.abs(Math.sin(animal.stride * Math.PI * 2)) * HEN.hop, animal.at.z);
     }
     model.rotation.y = animal.heading;
-    this.pose(animal, look, hen, eating, dt);
-  }
-
-  /** Standing: the body settles level. */
-  private settle(animal: Animal, dt: number): void {
-    const { model } = animal;
-    const k = Math.min(1, dt * 6);
-    model.position.y += (0 - model.position.y) * k;
-    model.rotation.z += (0 - model.rotation.z) * k;
-    model.rotation.x += (0 - model.rotation.x) * k;
-  }
-
-  /** What a cow does when she stops: mostly grazes, sometimes looks about, now and then moos (not too often). */
-  private cowMood(animal: Animal): CowMood {
-    let roll = this.random();
-    for (const [mood, share] of COW_MOODS) {
-      if ((roll -= share) > 0) continue;
-      return mood === 'moo' && this.time - animal.mooed < MOO_EVERY ? 'graze' : mood;
-    }
-    return 'graze';
+    this.pose(animal, eating, dt);
   }
 
   /** Legs, head, tail and wings for this moment. */
-  private pose(animal: Animal, look: (typeof LOOKS)[AnimalKind], hen: boolean, eating: boolean, dt: number): void {
+  private pose(animal: Animal, eating: boolean, dt: number): void {
     const { parts } = animal;
     const t = this.time + animal.phase;
-    // Legs: a stepping stride while walking (a cow's diagonal pairs together), standing square while still.
+    // Legs: a stepping stride while walking, standing square while still.
     const cycle = Math.sin(animal.stride * Math.PI * 2);
     parts.legs.forEach((leg, i) => {
-      const diagonal = parts.legs.length === 4 ? (i === 0 || i === 3 ? 1 : -1) : i === 0 ? 1 : -1;
-      const target = eating ? 0 : cycle * look.swing * diagonal;
+      const target = eating ? 0 : cycle * HEN.swing * (i === 0 ? 1 : -1);
       leg.rotation.x += (target - leg.rotation.x) * Math.min(1, dt * 14);
     });
     const crowing = animal.flap > 0 && animal.name === 'fm_rooster';
-    // The head: pecking or grazing (and chewing) while still; while walking, it bobs with the steps.
-    let head: number;
-    let yaw = 0;
-    if (crowing) head = -0.5;
-    else if (hen) head = eating ? Math.pow(Math.max(0, Math.sin(t * look.nodRate)), 3) * look.nod : Math.sin(animal.stride * Math.PI * 4) * 0.22;
-    else if (!eating) head = Math.sin(animal.stride * Math.PI * 4) * 0.1;
-    else if (animal.mood === 'graze') {
-      // Head down in the grass, chewing, drifting slowly from side to side.
-      head = look.nod + Math.sin(t * look.nodRate) * 0.05;
-      yaw = Math.sin(t * 0.45) * 0.18;
-    } else if (animal.mood === 'look') {
-      // Head up, looking about the field.
-      head = -0.08;
-      yaw = Math.sin(t * 0.7) * 0.65;
-    } else {
-      // Mooing: head up and out, a little shake.
-      head = -0.42 + Math.sin(t * 9) * 0.03;
-      yaw = 0.15;
-    }
-    const ease = Math.min(1, dt * (hen ? 22 : 3.5));
-    animal.head += (head - animal.head) * ease;
-    animal.yaw += (yaw - animal.yaw) * Math.min(1, dt * 2.5);
-    if (parts.head) {
-      parts.head.rotation.x = animal.head;
-      parts.head.rotation.y = animal.yaw;
-    }
-    // The tail: a hen's wags in quick bursts; a cow's swishes slowly, flicking now and then.
-    if (parts.tail) {
-      if (hen) parts.tail.rotation.y = Math.sin(t * 13) * 0.3 * Math.max(0, Math.sin(t * 0.9)) ** 4;
-      else parts.tail.rotation.z = Math.sin(t * 1.6) * 0.28 + Math.sin(t * 7) * 0.16 * Math.max(0, Math.sin(t * 0.37)) ** 6;
-    }
+    // The head: pecking while still; while walking, it bobs with the steps.
+    const head = crowing ? -0.5 : eating ? Math.pow(Math.max(0, Math.sin(t * HEN.nodRate)), 3) * HEN.nod : Math.sin(animal.stride * Math.PI * 4) * 0.22;
+    animal.head += (head - animal.head) * Math.min(1, dt * 22);
+    if (parts.head) parts.head.rotation.x = animal.head;
+    // The tail wags in quick bursts.
+    if (parts.tail) parts.tail.rotation.y = Math.sin(t * 13) * 0.3 * Math.max(0, Math.sin(t * 0.9)) ** 4;
     // Wings: folded, or beating out from her sides while she flaps.
     if (animal.flap > 0) animal.flap = Math.max(0, animal.flap - dt);
     const spread = animal.flap > 0 ? (0.55 + Math.sin(this.time * FLAP.rate) * 0.45) * Math.min(1, animal.flap * 6) : 0;

@@ -57,7 +57,9 @@ def finish(parts, name, x, moving=None, markers=None):
 
     `moving` holds the parts the game moves, {part: (parts, pivot)}: each is
     its own mesh in an empty named <name>_<part> standing at `pivot`, which
-    the game turns (a hen's head, a wheel). `markers` are empty spots the game
+    the game turns (a hen's head, a wheel). {part: (parts, pivot, other)}
+    hangs it from another moving part (a cow's head on her neck, a shin from
+    a knee), listed before it. `markers` are empty spots the game
     reads, {part: point}: where a chimney smokes, say. Points are absolute,
     like the parts'.
     """
@@ -69,8 +71,12 @@ def finish(parts, name, x, moving=None, markers=None):
         obj.parent = base
         obj.location = (0, 0, 0)
         models.append(obj)
-    for part, (pieces, pivot) in (moving or {}).items():
-        holder = empty(f'{name}_{part}', base, (pivot[0] - x, pivot[1], pivot[2]))
+    holders = {}
+    for part, (pieces, pivot, *on) in (moving or {}).items():
+        # A part may hang from another moving part (a head on a neck): `on` names it, listed before.
+        parent, origin = (holders[on[0]]) if on else (base, (x, 0, 0))
+        holder = empty(f'{name}_{part}', parent, (pivot[0] - origin[0], pivot[1] - origin[1], pivot[2] - origin[2]))
+        holders[part] = (holder, pivot)
         obj = kit.join(pieces, f'{name}_{part}_mesh')
         kit.set_origin(obj, pivot)
         obj.parent = holder
@@ -899,8 +905,12 @@ HOOF = '#3b2a1c'
 
 def cow(name, x, coat, patch, bell=False):
     """A cow: a deep body (spotted, or plain with a bell on her collar), an
-    udder, and moving parts the game animates: the head (grazes, chews),
-    four legs (walk) and the tail (swishes). Front is -Y."""
+    udder, and the moving parts the game animates (render/models/cows.ts,
+    which knows where the joints are: keep the two in step): a neck from the
+    shoulders with the head on it (she reaches the grass), a lower jaw (she
+    chews), ears (they flick), eyes (she blinks), four legs each with a knee
+    (she steps, and folds them to lie down) and a tail in two lengths (it
+    swishes). Front is -Y."""
     still = [kit.box((0.84, 1.6, 0.74), (x, 0.05, 1.07), coat, bevel=0.24, segments=3)]
     if patch:
         for (px, py, pz, rx, ry, rz) in ((0.41, 0.35, 1.08, 0.03, 0.33, 0.22), (-0.41, -0.2, 1.04, 0.03, 0.3, 0.24),
@@ -911,36 +921,58 @@ def cow(name, x, coat, patch, bell=False):
     for sx in (-1, 1):
         for sy in (-1, 1):
             still.append(kit.cylinder(0.025, 0.1, (x + sx * 0.07, 0.42 + sy * 0.07, 0.56), PINK, verts=6))
-    # The head on a thick neck: a pink muzzle, nostrils, eyes, ears, horns, a forelock.
-    head = [blob((0.25, 0.3, 0.27), (x, -0.78, 1.22), coat, segments=12)]
-    head.append(kit.box((0.52, 0.56, 0.5), (x, -1.07, 1.32), coat, bevel=0.17, segments=2))
-    head.append(kit.box((0.48, 0.26, 0.3), (x, -1.37, 1.17), PINK, bevel=0.11, segments=2))
-    for sx in (-1, 1):
-        head.append(kit.sphere(0.04, (x + sx * 0.1, -1.5, 1.2), '#c96f7c', segments=6))
-        head.append(kit.sphere(0.05, (x + sx * 0.21, -1.27, 1.44), 'black', segments=8))
-        head.append(kit.sphere(0.016, (x + sx * 0.23, -1.31, 1.47), '#ffffff', segments=4))
-        head.append(kit.box((0.26, 0.09, 0.14), (x + sx * 0.38, -0.98, 1.47), coat, bevel=0.04, rot=(0, sx * 0.35, 0)))
-        head.append(kit.box((0.14, 0.05, 0.08), (x + sx * 0.4, -1.02, 1.47), PINK, bevel=0.02, rot=(0, sx * 0.35, 0)))
-        head.append(kit.cone(0.055, 0.015, 0.2, (x + sx * 0.19, -0.98, 1.62), '#efe6cf', verts=8, rot=(0, sx * 0.55, 0)))
-    head.append(blob((0.14, 0.08, 0.06), (x, -1.15, 1.58), patch or '#9a6236', segments=8))
-    if patch:
-        head.append(blob((0.03, 0.16, 0.13), (x + 0.26, -1.05, 1.34), patch, segments=8))
+    # The neck: thick, from between the shoulders forward and up to the poll (the bell hangs from it).
+    neck = [blob((0.25, 0.4, 0.27), (x, -0.82, 1.25), coat, segments=12, rot=(-0.3, 0, 0))]
     if bell:
-        head.append(kit.torus(0.27, 0.035, (x, -0.8, 1.08), '#8f2f2a', rot=(math.pi / 2 - 0.5, 0, 0), major_segments=16, minor_segments=4))
-        head.append(kit.cone(0.08, 0.04, 0.14, (x, -0.98, 0.84), '#ffd23f', verts=10))
-        head.append(kit.sphere(0.03, (x, -0.98, 0.76), '#c99a1a', segments=6))
-    # The legs, each with a dark hoof; the tail, ending in a tuft.
+        neck.append(kit.torus(0.27, 0.035, (x, -0.86, 1.14), '#8f2f2a', rot=(math.pi / 2 - 0.5, 0, 0), major_segments=16, minor_segments=4))
+        neck.append(kit.cone(0.08, 0.04, 0.14, (x, -1.0, 0.9), '#ffd23f', verts=10))
+        neck.append(kit.sphere(0.03, (x, -1.0, 0.82), '#c99a1a', segments=6))
+    # The head: a pink muzzle (its upper half; the lower is the jaw), nostrils, horns, a forelock.
+    head = [kit.box((0.52, 0.56, 0.5), (x, -1.2, 1.32), coat, bevel=0.17, segments=2)]
+    head.append(kit.box((0.48, 0.26, 0.2), (x, -1.5, 1.225), PINK, bevel=0.09, segments=2))
+    for sx in (-1, 1):
+        head.append(kit.sphere(0.04, (x + sx * 0.1, -1.63, 1.24), '#c96f7c', segments=6))
+        head.append(kit.cone(0.055, 0.015, 0.2, (x + sx * 0.19, -1.11, 1.62), '#efe6cf', verts=8, rot=(0, sx * 0.55, 0)))
+    head.append(blob((0.14, 0.08, 0.06), (x, -1.28, 1.58), patch or '#9a6236', segments=8))
+    if patch:
+        head.append(blob((0.03, 0.16, 0.13), (x + 0.26, -1.18, 1.34), patch, segments=8))
+    jaw = [kit.box((0.44, 0.27, 0.13), (x, -1.48, 1.085), PINK, bevel=0.055, segments=2)]
+    jaw.append(kit.box((0.3, 0.18, 0.03), (x, -1.47, 1.145), '#b3525f', bevel=0.0))
+    eyes = []
+    ears = {}
+    for side, sx in (('l', -1), ('r', 1)):
+        eyes.append(kit.sphere(0.05, (x + sx * 0.21, -1.4, 1.44), 'black', segments=8))
+        eyes.append(kit.sphere(0.016, (x + sx * 0.23, -1.44, 1.47), '#ffffff', segments=4))
+        ear = [kit.box((0.26, 0.09, 0.14), (x + sx * 0.38, -1.11, 1.47), coat, bevel=0.04, rot=(0, sx * 0.35, 0))]
+        ear.append(kit.box((0.14, 0.05, 0.08), (x + sx * 0.4, -1.15, 1.47), PINK, bevel=0.02, rot=(0, sx * 0.35, 0)))
+        ears[f'ear_{side}'] = (ear, (x + sx * 0.25, -1.11, 1.5), 'head')
+    # The legs: a thigh from the hip to the knee and a shin from the knee to a dark hoof.
     legs = {}
     for side, sx, sy in (('leg_fl', -1, -1), ('leg_fr', 1, -1), ('leg_bl', -1, 1), ('leg_br', 1, 1)):
         ly = -0.5 if sy < 0 else 0.55
-        piece = [kit.cylinder(0.105, 0.64, (x + sx * 0.25, ly, 0.42), coat, verts=10)]
+        lx = x + sx * 0.25
+        thigh = [kit.cylinder(0.11, 0.44, (lx, ly, 0.6), coat, verts=10)]
         if patch and sy > 0:
-            piece.append(kit.cylinder(0.108, 0.2, (x + sx * 0.25, ly, 0.55), patch, verts=10))
-        piece.append(kit.cylinder(0.115, 0.13, (x + sx * 0.25, ly, 0.065), HOOF, verts=10))
-        legs[side] = (piece, (x + sx * 0.25, ly, 0.78))
-    tail = [kit.cylinder(0.03, 0.62, (x, 0.9, 1.0), coat, verts=6, rot=(0.12, 0, 0))]
-    tail.append(blob((0.07, 0.07, 0.12), (x, 0.94, 0.66), HOOF if not patch else patch, segments=8))
-    finish(still, name, x, moving={'head': (head, (x, -0.68, 1.2)), 'tail': (tail, (x, 0.86, 1.3)), **legs})
+            thigh.append(kit.cylinder(0.113, 0.16, (lx, ly, 0.6), patch, verts=10))
+        shin = [kit.sphere(0.112, (lx, ly, 0.4), coat, segments=10)]
+        shin.append(kit.cylinder(0.098, 0.3, (lx, ly, 0.27), coat, verts=10))
+        shin.append(kit.cylinder(0.115, 0.13, (lx, ly, 0.065), HOOF, verts=10))
+        legs[side] = (thigh, (lx, ly, 0.78))
+        legs[side.replace('leg', 'shin')] = (shin, (lx, ly, 0.4), side)
+    # The tail: down from the rump, its lower length ending in a tuft.
+    tail = [kit.cylinder(0.032, 0.34, (x, 0.88, 1.14), coat, verts=6, rot=(0.12, 0, 0))]
+    tip = [kit.cylinder(0.028, 0.3, (x, 0.92, 0.84), coat, verts=6, rot=(0.12, 0, 0))]
+    tip.append(blob((0.07, 0.07, 0.12), (x, 0.94, 0.66), HOOF if not patch else patch, segments=8))
+    finish(still, name, x, moving={
+        'neck': (neck, (x, -0.62, 1.16)),
+        'head': (head, (x, -1.04, 1.36), 'neck'),
+        'jaw': (jaw, (x, -1.36, 1.13), 'head'),
+        'eyes': (eyes, (x, -1.41, 1.45), 'head'),
+        **ears,
+        'tail': (tail, (x, 0.86, 1.3)),
+        'tail_tip': (tip, (x, 0.9, 0.98), 'tail'),
+        **legs,
+    })
 
 
 cow('fm_cow', 106.0, '#fbf6ea', '#2f2f35')
