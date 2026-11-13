@@ -11,7 +11,7 @@ import upgradesJson from '../data/upgrades.json';
 import dailyJson from '../data/daily.json';
 import adsJson from '../data/ads.json';
 import type { LegPlan, Narrow } from '../systems/farmTraffic';
-import type { JobDef, JobTuning } from '../systems/jobs';
+import type { JobDef, JobSpot, JobTuning } from '../systems/jobs';
 import contractsJson from '../data/contracts.json';
 import jobsJson from '../data/jobs.json';
 import cropsJson from '../data/crops.json';
@@ -245,7 +245,7 @@ export interface TownLayout {
   /** Where each staff member stands when idle. */
   staffSpots: Record<string, Point>;
   /** Rush jobs' places (data/jobs.json names them): where things spill, where a crate waits, where someone's lost… */
-  jobSpots?: Record<string, Point[]>;
+  jobSpots?: Record<string, JobSpot[]>;
   /**
    * The manager's round, in order: a spot by each business (`after` it's built) and the point
    * to look at while making a note there.
@@ -541,8 +541,10 @@ export interface MissionDef {
   gems: number;
   /** Only offered once this pad is built. */
   requires?: string;
-  /** The kind of town it's done in (the car wash's when not given). */
+  /** The kind of town it's done in (the car wash's when not given)… */
   town?: 'carWash' | 'farm' | 'park';
+  /** …or every kind it can be done in. */
+  towns?: ('carWash' | 'farm' | 'park')[];
 }
 
 /** A Car of the Day: a one-a-day special visitor. */

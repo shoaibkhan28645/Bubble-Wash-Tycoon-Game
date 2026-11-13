@@ -37,6 +37,18 @@ function pull(ride: Ride, seconds: number, hero: boolean, staff = false): { by: 
 }
 
 describe('a ride', () => {
+  it('out for a perfect launch, the hero stepping on waits for a full load, and launching it as the last seat fills is perfect', () => {
+    const ride = carousel();
+    sit(ride, 0);
+    sit(ride, 1);
+    let launched: { by: string; perfect: boolean } | null = null;
+    for (let t = 0; t < 2 && !launched; t += STEP) launched = ride.lever(STEP, true, false, true);
+    expect(launched).toBeNull();
+    for (let i = 2; i < 8; i++) sit(ride, i);
+    launched = ride.lever(STEP, true, false, true);
+    expect(launched).toEqual({ by: 'hero', perfect: true });
+  });
+
   it('waits for a full load when nobody pulls the lever, then goes by itself', () => {
     const ride = carousel();
     for (let i = 0; i < 7; i++) sit(ride, i);

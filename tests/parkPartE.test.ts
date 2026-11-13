@@ -73,16 +73,19 @@ describe("the park's daily missions", () => {
   const park = STARLIGHT.pads.map((p) => p.id);
 
   it('picks only park missions in the park, and only car wash ones at the car wash', () => {
-    const parkIds = DAILY.missions.filter((m) => (m as { town?: string }).town === 'park').map((m) => m.id);
+    const inTown = (m: { town?: string; towns?: string[] }, town: string) => (m.towns ? m.towns.includes(town) : (m.town ?? 'carWash') === town);
+    const parkIds = DAILY.missions.filter((m) => inTown(m, 'park')).map((m) => m.id);
+    const parkOnly = DAILY.missions.filter((m) => inTown(m, 'park') && !inTown(m, 'carWash')).map((m) => m.id);
     for (let d = 1; d <= 20; d++) {
       const date = `2026-11-${String(d).padStart(2, '0')}`;
       const inPark = pickMissions(date, park, 'park').missions;
       expect(inPark.length).toBe(DAILY.missionsPerDay);
       for (const id of inPark) expect(parkIds).toContain(id);
-      for (const id of pickMissions(date, ['bay1', 'mart', 'pump1'], 'carWash').missions) expect(parkIds).not.toContain(id);
+      for (const id of pickMissions(date, ['bay1', 'mart', 'pump1'], 'carWash').missions) expect(parkOnly).not.toContain(id);
     }
-    // A town with no missions of its own has none.
+    // A town with no missions of its own has none (rush jobs only once it has a job that can come: the barn's rush order).
     expect(pickMissions('2026-11-02', ['stand'], 'farm').missions).toEqual([]);
+    expect(pickMissions('2026-11-02', ['stand', 'barn'], 'farm').missions).toEqual(['jobs']);
   });
 
   it('keeps each town its own set of the day: travelling away and back never deals a fresh one', () => {

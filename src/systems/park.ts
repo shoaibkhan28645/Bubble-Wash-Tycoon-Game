@@ -356,9 +356,11 @@ export class Ride {
 
   /**
    * One frame of the lever: `hero` says the hero is standing on it, `staff`
-   * that the operator is. Returns who launched it, if anyone did.
+   * that the operator is; `waitFull` that the hero's out for a perfect launch
+   * here (stepping on then doesn't send a part-full ride off). Returns who
+   * launched it, if anyone did.
    */
-  lever(dt: number, hero: boolean, staff: boolean): { by: LaunchBy; perfect: boolean } | null {
+  lever(dt: number, hero: boolean, staff: boolean, waitFull = false): { by: LaunchBy; perfect: boolean } | null {
     if (hero) this.heroOn += dt;
     else {
       this.heroOn = 0;
@@ -378,7 +380,7 @@ export class Ride {
     this.fullFor = 0;
     if (seated === 0) return null;
     // Stepping onto the lever pulls it once (stand on it and it waits for a full load).
-    if (held && !this.heroPulled) {
+    if (held && !this.heroPulled && !waitFull) {
       this.heroPulled = true;
       return { by: 'hero', perfect: false };
     }
@@ -474,7 +476,7 @@ export interface ParkEvents {
  * Who stands at each ride's lever this frame: the hero, the ride operator,
  * and the mechanic (the hero or the mechanic fixes a broken-down ride).
  */
-export type LeverState = (ride: Ride) => { hero: boolean; staff: boolean; mechanic?: boolean };
+export type LeverState = (ride: Ride) => { hero: boolean; staff: boolean; mechanic?: boolean; waitFull?: boolean };
 
 /** All the park's visitors, its ticket booth and stalls, and its rides. */
 export class ParkCrowd {
@@ -1097,10 +1099,10 @@ export class ParkCrowd {
   }
 
   /** A ride's round: riders step on while it loads, the lever (or a full load) sends it round, then they step off. */
-  private runRide(dt: number, ride: Ride, at: { hero: boolean; staff: boolean; mechanic?: boolean }): void {
+  private runRide(dt: number, ride: Ride, at: ReturnType<LeverState>): void {
     if (ride.repair(dt, at.hero || !!at.mechanic)) this.events.onFixed?.(ride, at.hero);
     else if (ride.service(dt, at.hero || !!at.mechanic)) this.events.onServiced?.(ride, at.hero);
-    const pulled = ride.lever(dt, at.hero, at.staff);
+    const pulled = ride.lever(dt, at.hero, at.staff, at.waitFull);
     if (pulled) this.events.onLaunch(ride, ride.launch(pulled.by, pulled.perfect));
     const running = ride.phase === 'running';
     ride.turn(dt);

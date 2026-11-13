@@ -986,6 +986,20 @@ body {
   font-weight: 800;
 }
 
+.event-chip.is-job-gold {
+  background: linear-gradient(90deg, #fff3b0, #ffd76a, #fff3b0);
+  background-size: 200% 100%;
+  box-shadow: 0 0 0 2px #e6a700 inset, 0 0 10px rgba(255, 200, 40, 0.8);
+  font-weight: 900;
+  animation: job-gold 1.6s linear infinite;
+}
+
+@keyframes job-gold {
+  to {
+    background-position: -200% 0;
+  }
+}
+
 .event-chip.is-job-hurry {
   background: #ffe1dc;
   box-shadow: 0 0 0 2px #ff5a4d inset, 0 2px 0 rgba(0, 0, 0, 0.12);

@@ -112,6 +112,24 @@ export function offer(
   });
 }
 
+/** Someone says something (the mentor's tip): their face and words float in at the top, stay a while and fade, never in the way. */
+export function speech(root: HTMLElement, who: { name: string; icon: string }, text: string, seconds = 7): void {
+  const el = document.createElement('div');
+  el.className = 'speech-tip';
+  el.style.animationDuration = `${seconds}s`;
+  const face = document.createElement('span');
+  face.className = 'speech-face';
+  face.textContent = who.icon;
+  const words = document.createElement('span');
+  words.className = 'speech-words';
+  const name = document.createElement('b');
+  name.textContent = who.name;
+  words.append(name, document.createTextNode(text));
+  el.append(face, words);
+  root.appendChild(el);
+  setTimeout(() => el.remove(), seconds * 1000);
+}
+
 /** A short message that floats in at the top and fades. */
 export function toast(root: HTMLElement, text: string): void {
   const el = document.createElement('div');

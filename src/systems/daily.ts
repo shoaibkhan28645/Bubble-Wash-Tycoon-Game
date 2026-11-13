@@ -1,7 +1,7 @@
 // Daily systems (GDD "Daily engagement"): a 7-day login calendar, three
 // missions a day and the Car of the Day. Everything resets at local midnight;
 // missing days never takes anything away. Pure functions over GameState.
-import { DAILY, type DayCarDef, type MissionDef } from '../core/config';
+import { DAILY, JOBS, type DayCarDef, type MissionDef } from '../core/config';
 import type { GameState } from '../core/gameState';
 
 /** Things that count towards missions. */
@@ -23,7 +23,9 @@ export type MissionKind =
   | 'litter'
   | 'perfectDay'
   | 'prize'
-  | 'parkEarn';
+  | 'parkEarn'
+  // Every town's.
+  | 'jobs';
 
 /** The kind of town missions are done in. */
 export type MissionTown = 'carWash' | 'farm' | 'park';
@@ -59,9 +61,16 @@ export function missionDef(id: string): MissionDef | undefined {
   return DAILY.missions.find((m) => m.id === id);
 }
 
+/** Whether a mission can be done in this kind of town, with this built: its town (or towns), what it needs, and for rush jobs, a job that can come. */
+function canDo(m: MissionDef, unlocked: readonly string[], town: MissionTown): boolean {
+  if (!(m.towns ? m.towns.includes(town) : (m.town ?? 'carWash') === town)) return false;
+  if (m.requires && !unlocked.includes(m.requires)) return false;
+  return m.id !== 'jobs' || JOBS.jobs.some((j) => j.town === town && j.needs.every((p) => unlocked.includes(p)));
+}
+
 /** Today's missions: picked from the date, from those this town can do, sized to its progress. */
 export function pickMissions(date: string, unlocked: readonly string[], town: MissionTown = 'carWash'): { missions: string[]; goals: number[] } {
-  const pool = DAILY.missions.filter((m) => (m.town ?? 'carWash') === town && (!m.requires || unlocked.includes(m.requires)));
+  const pool = DAILY.missions.filter((m) => canDo(m, unlocked, town));
   const rand = seeded(hash(town === 'carWash' ? date : `${town}:${date}`));
   const shuffled = pool
     .map((m) => ({ m, key: rand() }))

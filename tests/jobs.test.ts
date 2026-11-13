@@ -296,3 +296,125 @@ describe('doing rush jobs', () => {
     expect(board.active!.limit).toBe(T.maxSeconds);
   });
 });
+
+const POLISH: JobDef = { id: 'polish', town: 'carWash', pattern: 'work', icon: '✨', title: 'jobPolish', needs: [], from: 'car', hold: 6, reach: 2.2, work: 1 };
+const PERFECT: JobDef = { id: 'perfect', town: 'park', pattern: 'signal', icon: '🎯', title: 'jobPerfect', needs: [], from: 'lever', hold: 12, signal: 'perfect' };
+const HENS: JobDef = { id: 'hens', town: 'farm', pattern: 'collect', icon: '🐔', title: 'jobHens', needs: [], from: 'yard', to: 'coop', count: 4, spread: 3, wander: 0.6, work: 2 };
+
+describe('more kinds of rush job', () => {
+  it('work: standing at it gets it done; stepping away keeps what is done so far', () => {
+    const board = new JobBoard([POLISH], T, seeded(3));
+    const ctx = context({ spots: { car: [{ x: 8, z: 0 }] } });
+    untilOffered(board, ctx);
+    const job = board.active!;
+    expect(board.target(ctx.hero)).toEqual(job.from);
+    // Walk up to it (within reach, not on top of it) and work three seconds.
+    ctx.hero = { x: 6.2, z: 0 };
+    const kinds: string[] = [];
+    for (let t = 0; t < 3; t += DT) for (const e of board.update(DT, ctx)) kinds.push(e.kind);
+    expect(kinds).toEqual(['reached']);
+    expect(job.working).toBe(true);
+    expect(job.progress).toBeCloseTo(0.5, 1);
+    // Away a moment: nothing more done, nothing lost.
+    ctx.hero = { x: 0, z: 0 };
+    board.update(1, ctx);
+    expect(job.working).toBe(false);
+    expect(job.progress).toBeCloseTo(0.5, 1);
+    // Back to finish it.
+    ctx.hero = { x: 6.2, z: 0 };
+    for (let t = 0; t < 3.2 && board.active; t += DT) for (const e of board.update(DT, ctx)) kinds.push(e.kind);
+    expect(kinds).toEqual(['reached', 'done']);
+    expect(board.active).toBeNull();
+    // The time it gave covers walking there and the work.
+    expect(job.limit).toBeGreaterThanOrEqual(8 / ctx.heroSpeed + 6 + 1);
+  });
+
+  it('signal: done when it happens at its own spot, not at another', () => {
+    const board = new JobBoard([PERFECT], T, seeded(4));
+    const ctx = context({ town: 'park', spots: { lever: [{ x: 6, z: 0, id: 'carousel' }] } });
+    untilOffered(board, ctx);
+    const job = board.active!;
+    ctx.hero = { x: 6, z: 0 };
+    const kinds = board.update(DT, ctx).map((e) => e.kind);
+    expect(kinds).toEqual(['reached']);
+    expect(job.progress).toBe(0.5);
+    board.signal('perfect:teacups');
+    expect(board.update(DT, ctx).map((e) => e.kind)).toEqual([]);
+    board.signal('perfect:carousel');
+    expect(board.update(DT, ctx).map((e) => e.kind)).toEqual(['done']);
+    // The time it gave allows for waiting for it.
+    expect(job.limit).toBeGreaterThanOrEqual(6 / ctx.heroSpeed + 12);
+  });
+
+  it("spots that need something built, or aren't ready, are passed over (and no spot ready: no job)", () => {
+    const levers = [
+      { x: 6, z: 0, id: 'carousel', needs: 'carousel' },
+      { x: -6, z: 0, id: 'teacups', needs: 'teacups' },
+    ];
+    const built = (pad: string) => pad === 'teacups' || pad === 'carousel';
+    for (const seed of [1, 2, 3, 4, 5, 6]) {
+      const only = new JobBoard([PERFECT], T, seeded(seed));
+      untilOffered(only, context({ town: 'park', spots: { lever: levers }, built: (pad) => pad === 'teacups' }));
+      expect(only.active!.from.id).toBe('teacups');
+      const ready = new JobBoard([PERFECT], T, seeded(seed));
+      untilOffered(ready, context({ town: 'park', spots: { lever: levers }, built, usable: (_d, s) => s.id === 'carousel' }));
+      expect(ready.active!.from.id).toBe('carousel');
+    }
+    const none = new JobBoard([PERFECT], T, seeded(9));
+    const ctx = context({ town: 'park', spots: { lever: levers }, built, usable: () => false });
+    expect(none.eligible(ctx)).toEqual([]);
+    expect(untilOffered(none, ctx, 200)).toBe(Infinity);
+  });
+
+  it('collect: wandering things amble about within their spread, never into anything, and can still be caught in time', () => {
+    const wall = { minX: 9, maxX: 11, minZ: -1, maxZ: 1 };
+    const free = (p: Point) => p.x < wall.minX - 0.45 || p.x > wall.maxX + 0.45 || p.z < wall.minZ - 0.45 || p.z > wall.maxZ + 0.45;
+    for (const seed of [1, 2, 3, 4, 5]) {
+      const board = new JobBoard([HENS], T, seeded(seed));
+      const ctx = context({ town: 'farm', spots: { yard: [{ x: 10, z: 3 }], coop: [{ x: -4, z: 6 }] }, free });
+      untilOffered(board, ctx);
+      const job = board.active!;
+      const start = job.items.map((p) => ({ ...p }));
+      // Left alone a while: they've moved, but stayed in the yard and out of the wall.
+      for (let t = 0; t < 10; t += DT) {
+        board.update(DT, { ...ctx, hero: { x: -40, z: -40 } });
+        for (const p of job.items) {
+          expect(Math.hypot(p.x - job.from.x, p.z - job.from.z)).toBeLessThanOrEqual(HENS.spread! + 1e-6);
+          expect(free(p)).toBe(true);
+        }
+      }
+      expect(job.items.some((p, i) => Math.hypot(p.x - start[i]!.x, p.z - start[i]!.z) > 1)).toBe(true);
+      // Chasing them down still fits in the time left.
+      const left = job.left;
+      const { kinds, seconds } = doJob(board, ctx);
+      expect(kinds.filter((k) => k === 'picked')).toHaveLength(4);
+      expect(kinds).toContain('done');
+      expect(seconds).toBeLessThan(left);
+    }
+  });
+
+  it('golden: every sixth job done, the next pays three times over, and stays golden until done', () => {
+    const board = new JobBoard([SPILL], T, seeded(5));
+    const ctx = context();
+    const golden: boolean[] = [];
+    for (let i = 0; i < 6; i++) {
+      untilOffered(board, ctx);
+      golden.push(board.active!.golden);
+      if (i < 5) doJob(board, ctx);
+    }
+    expect(golden).toEqual([false, false, false, false, false, true]);
+    const job = board.active!;
+    expect(job.pay).toBe(roundPay(basePay(T, ctx) * job.multiplier * T.goldenPay));
+    // Let it run out: the next one's golden still.
+    while (board.active) board.update(DT, ctx);
+    untilOffered(board, ctx);
+    expect(board.active!.golden).toBe(true);
+    doJob(board, ctx);
+    untilOffered(board, ctx);
+    expect(board.active!.golden).toBe(false);
+    // Counted over every town when the game says how many have been done.
+    const fresh = new JobBoard([SPILL], T, seeded(5));
+    untilOffered(fresh, context({ done: 11 }));
+    expect(fresh.active!.golden).toBe(true);
+  });
+});

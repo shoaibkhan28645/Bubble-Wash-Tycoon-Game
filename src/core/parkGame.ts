@@ -89,6 +89,8 @@ const GUIDE_UNTIL = 'seller';
 const TRAVEL_DELAY_MS = 1500;
 /** Standing this close to a ride's lever spot is standing on it. */
 const LEVER_REACH = 0.6;
+/** A perfect-launch rush job comes for a ride with this share of a load on it or in line. */
+const PERFECT_JOB_LOAD = 0.75;
 /** Near a lever, the camera looks this far (a share of the way) from the hero towards the ride's middle. */
 const LEVER_FOCUS = 0.55;
 const LEVER_FOCUS_REACH = 1.4;
@@ -455,6 +457,8 @@ export function createParkGame(
     const top = overRide(ride, 4.6);
     if (launch.full) floaters.show(`🎉 ${t('fullHouse')}`, top, 'star');
     if (launch.perfect) {
+      // A rush job may be waiting for just this: a perfect launch on this ride, by the hero.
+      if (launch.by === 'hero') jobs.signal(`perfect:${ride.id}`);
       floaters.show(`⭐ ${t('perfectLaunch')} +$${tip}`, new Vector3(top.x, top.y + 0.9, top.z), 'tip');
       effects.burst('sparkle', new Vector3(ride.spot.lever.x, 1.4, ride.spot.lever.z), 18, 4, 0.9);
     }
@@ -899,14 +903,21 @@ export function createParkGame(
     const speed = levelFactor(UPGRADES.kinds.speed, level(`${counter.id}.speed`));
     return { rate: Math.max(byStaff, byPlayer) / speed, byPlayer: byPlayer > 0 && byPlayer >= byStaff };
   };
-  const lever = (ride: Ride) => ({
-    hero: near(player.position, ride.spot.lever, LEVER_REACH),
-    staff:
-      (OPERATOR_ZONES.operator.includes(ride.def.zone) && near(operatorAt(), ride.spot.lever, LEVER_REACH)) ||
-      (OPERATOR_ZONES.boats.includes(ride.def.zone) && near(staffAt('boats'), ride.spot.lever, LEVER_REACH)) ||
-      (OPERATOR_ZONES.crew.includes(ride.def.zone) && near(staffAt('crew'), ride.spot.lever, LEVER_REACH)),
-    mechanic: near(staffAt('mechanic'), ride.spot.lever, LEVER_REACH),
-  });
+  const lever = (ride: Ride) => {
+    const hero = near(player.position, ride.spot.lever, LEVER_REACH);
+    return {
+      hero,
+      // The hero on the lever takes it over: the operator leaves the launching to them.
+      staff:
+        !hero &&
+        ((OPERATOR_ZONES.operator.includes(ride.def.zone) && near(operatorAt(), ride.spot.lever, LEVER_REACH)) ||
+          (OPERATOR_ZONES.boats.includes(ride.def.zone) && near(staffAt('boats'), ride.spot.lever, LEVER_REACH)) ||
+          (OPERATOR_ZONES.crew.includes(ride.def.zone) && near(staffAt('crew'), ride.spot.lever, LEVER_REACH))),
+      mechanic: near(staffAt('mechanic'), ride.spot.lever, LEVER_REACH),
+      // Out for a perfect launch on this ride (a rush job): stepping on waits for a full load.
+      waitFull: hero && jobs.board.active?.def.pattern === 'signal' && jobs.board.active.from.id === ride.id,
+    };
+  };
 
   /** At a ride's lever, the camera eases over to show the whole ride, not just the hero beside it. */
   const leverFocus = (): Point | null => {
@@ -988,7 +999,8 @@ export function createParkGame(
     rewarded: (id) => meta.rewarded(id),
   });
   // Rush jobs: whenever the next purchase is a while off, a short job for the hero (a lost child to take back to
-  // the ticket booth). Never while a school trip is on.
+  // the ticket booth, balloons got away, prizes for the ring toss, a ride's safety check, a perfect launch).
+  // Never while a school trip is on.
   const jobs = createJobs({
     root,
     scene: stage.scene,
@@ -1009,10 +1021,20 @@ export function createParkGame(
       if (who === 'child') avatar.root.scale.setScalar(CHILD_SCALE);
       return avatar;
     },
+    // A perfect launch: on a ride that's working and busy, with most of a load on it or in line (the hero on its
+    // lever holds it for the rest).
+    usable: (def, spot) => {
+      if (def.pattern !== 'signal') return true;
+      const ride = crowd.rides.find((r) => r.id === spot.id);
+      return !!ride && !ride.broken && !ride.paused && ride.seats.filter((v) => v).length + ride.line.length >= Math.ceil(ride.seats.length * PERFECT_JOB_LOAD);
+    },
     allowed: () => peopleReady,
     blocked: () => trip !== null,
     solids: () => [...solids, ...fixedSolids(layout)],
+    mentor: current.story.mentor,
     onPaid: (amount, at) => meta.onPaid({ amount, tip: 0, automated: false, at, bonus: true }),
+    onDone: () => meta.count('jobs'),
+    double: (pay) => meta.doubleJob(pay),
     save: () => void saves.saveNow(),
   });
   const press = createPress(root, sound, () => meta.screenClosed());
@@ -1145,7 +1167,7 @@ export function createParkGame(
     const serving = crowd.update(dt, work, lever);
     // Fixing a broken-down ride at its lever: the hero gets busy with his hands, and sparks fly.
     const fixing = crowd.rides.find((r) => (r.broken || r.servicing) && near(player.position, r.spot.lever, LEVER_REACH));
-    player.scrubbing = serving || !!fixing;
+    player.scrubbing = serving || !!fixing || jobs.working;
     sparkTimer -= dt;
     if (sparkTimer <= 0) {
       sparkTimer = SMOKE_SECONDS;

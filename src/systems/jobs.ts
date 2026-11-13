@@ -6,13 +6,16 @@
 //
 // Pure logic, no drawing: what job is on offer, where its things are, how
 // far along it is, when it runs out, and what it pays. The game draws it
-// (render/jobView.ts) and pays out (core/jobs.ts). Three kinds of job:
-//   collect: things lying about to pick up (and, if it has a `to`, bring there)
+// (render/jobView.ts) and pays out (core/jobs.ts). Five kinds of job:
+//   collect: things lying about (or wandering off) to pick up (and, if it has a `to`, bring there)
 //   deliver: something to fetch from one place and take to another
 //   escort:  someone to find, who then follows the hero to where they're going
+//   work:    somewhere to stand and work a while (polish a car, pump the well)
+//   signal:  somewhere to be when something happens there (a perfect launch on that ride's lever)
+// Every so often a job is golden: it pays several times over.
 import type { Point } from '../core/config';
 
-export type JobPattern = 'collect' | 'deliver' | 'escort';
+export type JobPattern = 'collect' | 'deliver' | 'escort' | 'work' | 'signal';
 export type JobTown = 'carWash' | 'farm' | 'park';
 
 /** A kind of job (src/data/jobs.json). */
@@ -35,6 +38,36 @@ export interface JobDef {
   spread?: number;
   /** Seconds of doing (picking up, handing over) on top of the walking. */
   work?: number;
+  /** Work: seconds of standing at it to get it done. Signal: about how long it takes to come, once there. */
+  hold?: number;
+  /** How near the hero must come (m), if not the usual (a car's bigger than a soap bottle). */
+  reach?: number;
+  /** Collect: the things wander about at this speed (m/s), staying within the spread (hens, balloons). */
+  wander?: number;
+  /** Signal: what the town signals when it happens, said with the spot's id (`perfect` → `perfect:carousel`). */
+  signal?: string;
+  /** What it looks like (render/jobView.ts): the things (the job's id if not given), who's found, who waits at the end. */
+  thing?: string;
+  who?: 'child' | 'adult' | 'calf';
+  waiting?: 'child' | 'adult' | 'none';
+  /** Its thing is solid (a parked car): half its width and half its length (m), along x and z when it faces +z. */
+  solid?: [number, number];
+}
+
+/** A place a job can happen: maybe one thing's (a ride's lever), there only once that's built. */
+export interface JobSpot extends Point {
+  id?: string;
+  needs?: string;
+  /** Which way a thing put here faces (radians about the vertical, from +z). */
+  face?: number;
+}
+
+/** The ground a job's solid thing takes up at its spot (null if it has none). */
+export function jobFootprint(def: JobDef, spot: JobSpot): { minX: number; maxX: number; minZ: number; maxZ: number } | null {
+  if (!def.solid) return null;
+  const turned = Math.abs(Math.sin(spot.face ?? 0)) > 0.7;
+  const [hx, hz] = turned ? [def.solid[1], def.solid[0]] : def.solid;
+  return { minX: spot.x - hx, maxX: spot.x + hx, minZ: spot.z - hz, maxZ: spot.z + hz };
 }
 
 export interface JobTuning {
@@ -77,6 +110,12 @@ export interface JobTuning {
   followSpeed: number;
   /** Scattered things lie at least this far apart. */
   itemGap: number;
+  /** Every this many jobs done, the next is golden, and pays this many times over. */
+  goldenEvery: number;
+  goldenPay: number;
+  /** A golden job done can be doubled (an ad or gems): not in the first `doubleAfter` seconds of play, nor more often than every `doubleGap`. */
+  doubleAfter: number;
+  doubleGap: number;
 }
 
 /** What the game tells the jobs each frame. */
@@ -91,7 +130,11 @@ export interface JobsContext {
   next: { cost: number; owed: number } | null;
   built: (pad: string) => boolean;
   /** The town's job spots, by name. */
-  spots: Readonly<Record<string, readonly Point[]>>;
+  spots: Readonly<Record<string, readonly JobSpot[]>>;
+  /** Whether a job can happen at a spot right now (a perfect launch needs a ride about to fill); any if not given. */
+  usable?: (def: JobDef, spot: JobSpot) => boolean;
+  /** Jobs done ever (every town), for which is golden; the board's own count if not given. */
+  done?: number;
   /** Jobs may be offered at all (the tutorial's over, the people are loaded). */
   allowed: boolean;
   /** A panel is open: everything waits (the countdown too). */
@@ -104,26 +147,37 @@ export interface JobsContext {
   walk?: (from: Point, to: Point) => number;
 }
 
+/** Something lying about to pick up; wandering ones head this way (radians, from +z) and turn when `turn` runs out. */
+export interface JobItem extends Point {
+  heading: number;
+  turn: number;
+}
+
 export interface Job {
   def: JobDef;
-  /** What it pays if done (streak included). */
+  /** What it pays if done (streak and gold included). */
   pay: number;
   /** The streak multiplier in that pay. */
   multiplier: number;
+  /** A golden job: pays `goldenPay` times over. */
+  golden: boolean;
   /** Seconds it was given, and seconds left. */
   limit: number;
   left: number;
   overtime: boolean;
   /** Where it starts and ends. */
-  from: Point;
-  to: Point | null;
+  from: JobSpot;
+  to: JobSpot | null;
   /** Collect: the things still lying about. */
-  items: Point[];
+  items: JobItem[];
   /** Collect: picked up so far. Deliver: 1 once fetched. */
   carried: number;
   /** Escort: where the person is (following once reached). */
   person: Point | null;
   following: boolean;
+  /** Work: seconds worked so far, and whether the hero's at it this moment. */
+  held: number;
+  working: boolean;
   /** The hero has done anything towards it. */
   started: boolean;
   /** How far along (0–1). */
@@ -192,6 +246,10 @@ export class JobBoard {
   private since = 0;
   private offeredAny = false;
   private last = '';
+  /** Jobs done here (for which is golden, when the game doesn't say how many ever). */
+  private doneCount = 0;
+  /** What the town signalled since the last update. */
+  private readonly signals: string[] = [];
   /** The hero's way behind them (for someone following). */
   private readonly trail: Point[] = [];
 
@@ -217,7 +275,15 @@ export class JobBoard {
         return job.carried > 0 ? job.to : job.from;
       case 'escort':
         return job.following ? job.to : job.person;
+      case 'work':
+      case 'signal':
+        return job.from;
     }
+  }
+
+  /** Something happened in town that a job may be waiting for (`perfect:carousel`: a perfect launch there). */
+  signal(key: string): void {
+    if (this.job?.def.pattern === 'signal') this.signals.push(key);
   }
 
   /** Seconds until the next job may be offered (0: as soon as it's worth it), for the given situation. */
@@ -242,7 +308,10 @@ export class JobBoard {
 
   update(dt: number, ctx: JobsContext): JobEvent[] {
     const events: JobEvent[] = [];
-    if (ctx.paused) return events;
+    if (ctx.paused) {
+      if (this.job) this.job.working = false;
+      return events;
+    }
     if (!this.job) {
       if (!ctx.allowed || ctx.blocked) return events;
       this.since += dt;
@@ -253,6 +322,7 @@ export class JobBoard {
     }
     const job = this.job;
     this.work(dt, job, ctx, events);
+    this.signals.length = 0;
     if (!this.job) return events;
     job.left -= dt;
     if (job.left <= 0) {
@@ -272,11 +342,14 @@ export class JobBoard {
   private work(dt: number, job: Job, ctx: JobsContext, events: JobEvent[]): void {
     const { hero } = ctx;
     const t = this.tuning;
+    const reach = job.def.reach ?? t.reach;
+    job.working = false;
     switch (job.def.pattern) {
       case 'collect': {
+        if (job.def.wander) this.roam(dt, job, ctx);
         for (let i = job.items.length - 1; i >= 0; i--) {
           const item = job.items[i]!;
-          if (dist(hero, item) > t.reach) continue;
+          if (dist(hero, item) > reach) continue;
           job.items.splice(i, 1);
           job.carried++;
           job.started = true;
@@ -289,7 +362,7 @@ export class JobBoard {
         return;
       }
       case 'deliver': {
-        if (job.carried === 0 && dist(hero, job.from) <= t.reach) {
+        if (job.carried === 0 && dist(hero, job.from) <= reach) {
           job.carried = 1;
           job.started = true;
           events.push({ kind: 'picked', job, at: job.from });
@@ -303,7 +376,7 @@ export class JobBoard {
       }
       case 'escort': {
         const person = job.person!;
-        if (!job.following && dist(hero, person) <= t.reach + 0.3) {
+        if (!job.following && dist(hero, person) <= reach + 0.3) {
           job.following = true;
           job.started = true;
           this.trail.length = 0;
@@ -320,6 +393,49 @@ export class JobBoard {
         }
         return;
       }
+      case 'work': {
+        // Standing at it works it; stepping away keeps what's done so far.
+        if (dist(hero, job.from) > reach) return;
+        if (!job.started) events.push({ kind: 'reached', job });
+        job.started = true;
+        job.working = true;
+        job.held += dt;
+        const hold = Math.max(0.1, job.def.hold ?? 3);
+        job.progress = Math.min(1, job.held / hold);
+        if (job.held >= hold) this.finish(job, events);
+        return;
+      }
+      case 'signal': {
+        if (dist(hero, job.from) <= reach && !job.started) {
+          job.started = true;
+          job.progress = 0.5;
+          events.push({ kind: 'reached', job });
+        }
+        const key = `${job.def.signal ?? job.def.id}:${job.from.id ?? ''}`;
+        if (this.signals.includes(key)) this.finish(job, events);
+        return;
+      }
+    }
+  }
+
+  /** Wandering things amble about, turning now and then, and back towards the middle at the edge or anything in the way. */
+  private roam(dt: number, job: Job, ctx: JobsContext): void {
+    const speed = job.def.wander ?? 0;
+    const spread = job.def.spread ?? 2;
+    for (const item of job.items) {
+      item.turn -= dt;
+      if (item.turn <= 0) {
+        item.heading += (this.random() - 0.5) * 1.8;
+        item.turn = 1 + this.random() * 2;
+      }
+      const next = { x: item.x + Math.sin(item.heading) * speed * dt, z: item.z + Math.cos(item.heading) * speed * dt };
+      if (dist(next, job.from) > spread || (ctx.free && !ctx.free(next))) {
+        item.heading = Math.atan2(job.from.x - item.x, job.from.z - item.z) + (this.random() - 0.5) * 1.2;
+        item.turn = 1 + this.random() * 2;
+        continue;
+      }
+      item.x = next.x;
+      item.z = next.z;
     }
   }
 
@@ -346,6 +462,8 @@ export class JobBoard {
 
   private finish(job: Job, events: JobEvent[]): void {
     job.progress = 1;
+    job.working = false;
+    this.doneCount++;
     this.end(true);
     events.push({ kind: 'done', job, pay: job.pay });
   }
@@ -364,10 +482,15 @@ export class JobBoard {
     this.trail.length = 0;
   }
 
+  /** A job's spots of a kind that can be used now: what they need built, and (where it starts) ready for it. */
+  private places(def: JobDef, name: string, ctx: Pick<JobsContext, 'built' | 'spots' | 'usable'>): JobSpot[] {
+    return (ctx.spots[name] ?? []).filter((s) => (!s.needs || ctx.built(s.needs)) && (name !== def.from || !ctx.usable || ctx.usable(def, s)));
+  }
+
   /** Jobs that can be done here now: built what they need, and have their spots. */
-  eligible(ctx: Pick<JobsContext, 'town' | 'built' | 'spots'>): JobDef[] {
+  eligible(ctx: Pick<JobsContext, 'town' | 'built' | 'spots' | 'usable'>): JobDef[] {
     return this.defs.filter(
-      (d) => d.town === ctx.town && d.needs.every((p) => ctx.built(p)) && (ctx.spots[d.from]?.length ?? 0) > 0 && (!d.to || (ctx.spots[d.to]?.length ?? 0) > 0),
+      (d) => d.town === ctx.town && d.needs.every((p) => ctx.built(p)) && this.places(d, d.from, ctx).length > 0 && (!d.to || this.places(d, d.to, ctx).length > 0),
     );
   }
 
@@ -392,28 +515,30 @@ export class JobBoard {
     // Where it starts and ends: any pair of the town's spots that can be done in the most time a job gets from
     // where the hero is now (a lost child at the far end of the park, with the hero at the other, can't be);
     // failing that, the quickest.
-    const froms = ctx.spots[def.from]!;
-    const tos = def.to ? ctx.spots[def.to]! : [null];
+    const froms = this.places(def, def.from, ctx);
+    const tos: (JobSpot | null)[] = def.to ? this.places(def, def.to, ctx) : [null];
+    if (froms.length === 0 || tos.length === 0) return null;
     const speed = Math.max(0.5, ctx.heroSpeed);
     const pairs = froms.flatMap((f) => tos.map((to) => ({ f, to })));
     // Metres of walking, the real way round if the town says (else the straight line, allowing for going round).
     const way = (a: Point, b: Point) => (ctx.walk ? ctx.walk(a, b) * t.wander : dist(a, b) * t.detour);
+    const doing = (def.work ?? 0) + (def.hold ?? 0);
     const estimate = ({ f, to }: { f: Point; to: Point | null }) => {
       const scatter = def.pattern === 'collect' ? (def.spread ?? 2) * (def.count ?? 1) * 0.8 * t.detour : 0;
       const route = way(ctx.hero, f) + scatter + (to ? way(f, to) : 0);
-      return route / speed + (def.work ?? 0) + t.buffer;
+      return route / speed + doing + t.buffer;
     };
     const fits = pairs.filter((p) => estimate(p) <= t.maxSeconds * 0.9);
     const chosen = fits.length > 0 ? fits[Math.floor(this.random() * fits.length)]! : pairs.reduce((a, b) => (estimate(a) <= estimate(b) ? a : b));
     const from = { ...chosen.f };
     const to = chosen.to ? { ...chosen.to } : null;
-    const items: Point[] = [];
+    const items: JobItem[] = [];
     if (def.pattern === 'collect') {
       const spread = def.spread ?? 2;
       for (let tries = 0; items.length < (def.count ?? 1) && tries < 200; tries++) {
         const a = this.random() * Math.PI * 2;
         const r = Math.sqrt(this.random()) * spread;
-        const p = { x: from.x + Math.cos(a) * r, z: from.z + Math.sin(a) * r };
+        const p = { x: from.x + Math.cos(a) * r, z: from.z + Math.sin(a) * r, heading: this.random() * Math.PI * 2, turn: this.random() * 2 };
         if (ctx.free && !ctx.free(p)) continue;
         if (items.some((q) => dist(p, q) < t.itemGap)) continue;
         items.push(p);
@@ -433,12 +558,15 @@ export class JobBoard {
       default:
         route = way(ctx.hero, from) + (to ? way(from, to) : 0);
     }
-    const limit = Math.min(t.maxSeconds, Math.max(t.minSeconds, route / speed + (def.work ?? 0) + t.buffer));
+    const limit = Math.min(t.maxSeconds, Math.max(t.minSeconds, route / speed + doing + t.buffer));
     const multiplier = streakMultiplier(t, this.streak);
+    // Every few jobs done, the next one's golden (and stays so until it's done).
+    const golden = t.goldenEvery > 0 && ((ctx.done ?? this.doneCount) + 1) % t.goldenEvery === 0;
     return {
       def,
-      pay: roundPay(basePay(t, ctx) * multiplier),
+      pay: roundPay(basePay(t, ctx) * multiplier * (golden ? t.goldenPay : 1)),
       multiplier,
+      golden,
       limit,
       left: limit,
       overtime: false,
@@ -448,6 +576,8 @@ export class JobBoard {
       carried: 0,
       person: def.pattern === 'escort' ? { ...from } : null,
       following: false,
+      held: 0,
+      working: false,
       started: false,
       progress: 0,
     };

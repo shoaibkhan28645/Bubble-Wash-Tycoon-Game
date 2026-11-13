@@ -2615,6 +2615,35 @@
       { "x": 0.5, "z": 6.0 },
       { "x": -15.0, "z": 25.5 }
     ],
-    "parent": [{ "x": 3.4, "z": -8.2 }]
+    "parent": [{ "x": 3.4, "z": -8.2 }],
+    "balloons": [
+      { "x": 24.5, "z": 13.2 },
+      { "x": -16.9, "z": 14.0 },
+      { "x": 36.5, "z": 21.5 }
+    ],
+    "shedDoor": [{ "x": -7.4, "z": -9.6 }],
+    "ringtoss": [{ "x": 6.9, "z": 8.6 }],
+    "ride": [
+      { "x": -1.9, "z": 4.5, "id": "carousel", "needs": "carousel" },
+      { "x": -14.6, "z": -1.6, "id": "teacups", "needs": "teacups" },
+      { "x": 2.0, "z": 2.0, "id": "bumper", "needs": "bumper" },
+      { "x": 18.8, "z": -6.2, "id": "swings", "needs": "swings" },
+      { "x": 17.8, "z": 3.6, "id": "boats", "needs": "boats" },
+      { "x": -5.0, "z": 19.5, "id": "haunted", "needs": "haunted" },
+      { "x": -4.0, "z": 18.6, "id": "flume", "needs": "flume" },
+      { "x": 17.6, "z": 19.2, "id": "coaster", "needs": "coaster" },
+      { "x": 30.0, "z": -11.5, "id": "wheel", "needs": "wheel" }
+    ],
+    "lever": [
+      { "x": -3.0, "z": 10.3, "id": "carousel", "needs": "carousel" },
+      { "x": -18.0, "z": 5.2, "id": "teacups", "needs": "teacups" },
+      { "x": 12.4, "z": 6.8, "id": "bumper", "needs": "bumper" },
+      { "x": 26.4, "z": -3.6, "id": "swings", "needs": "swings" },
+      { "x": 20.2, "z": 6.4, "id": "boats", "needs": "boats" },
+      { "x": -7.0, "z": 25.2, "id": "haunted", "needs": "haunted" },
+      { "x": -2.6, "z": 16.4, "id": "flume", "needs": "flume" },
+      { "x": 28.8, "z": 16.6, "id": "coaster", "needs": "coaster" },
+      { "x": 35.6, "z": -5.0, "id": "wheel", "needs": "wheel" }
+    ]
   }
 }

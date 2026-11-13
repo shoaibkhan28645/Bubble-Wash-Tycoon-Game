@@ -8,6 +8,7 @@ import type { SoundManager } from '../audio/sound';
 import { hasModel, loadModel, specialCarFile } from '../render/assets';
 import { Ads } from '../systems/ads';
 import { finishGems, formatClock, halveBuild, secondsLeft, soonestBuild } from '../systems/construction';
+import { formatCash } from '../systems/economy';
 import { addProgress, carOfDay, claimable, claimCalendar, claimMission, localDate, rollDay, type MissionKind, type MissionTown } from '../systems/daily';
 import { sideButtonOpen, tutorialActive } from '../systems/guide';
 import type { PadSystem } from '../systems/pads';
@@ -37,6 +38,8 @@ export interface Meta {
   screenClosed(): void;
   /** Plays a rewarded ad for a button the player tapped; true if watched to the end. */
   rewarded(rewardId: string): Promise<boolean>;
+  /** Offers to double a golden rush job's pay (an ad, or gems): true if the player earned it. */
+  doubleJob(pay: number): Promise<boolean>;
 }
 
 export function createMeta(deps: {
@@ -300,5 +303,8 @@ export function createMeta(deps: {
       void ads.betweenScreens();
     },
     rewarded: (rewardId) => ads.rewarded(rewardId),
+    async doubleJob(pay) {
+      return (await earn('double-job', '🌟', t('jobDoubleTitle'), t('jobDoubleBody', { cash: formatCash(pay) }), ADS.jobDouble.gems)) !== null;
+    },
   };
 }

@@ -26,7 +26,8 @@
     { "id": "perfectDay", "goal": 4, "growth": 1.03, "gems": 6, "town": "park" },
     { "id": "litter", "goal": 10, "growth": 1.03, "gems": 5, "town": "park", "requires": "cart" },
     { "id": "fix", "goal": 3, "growth": 1, "gems": 6, "town": "park", "requires": "bumper" },
-    { "id": "prize", "goal": 5, "growth": 1.02, "gems": 5, "town": "park", "requires": "ringtoss" }
+    { "id": "prize", "goal": 5, "growth": 1.02, "gems": 5, "town": "park", "requires": "ringtoss" },
+    { "id": "jobs", "goal": 3, "growth": 1, "gems": 6, "towns": ["carWash", "farm", "park"] }
   ],
   "carOfDay": {
     "afterSeconds": 60,

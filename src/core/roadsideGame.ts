@@ -1,7 +1,7 @@
 import { Loop } from './loop';
 import * as platform from '../platform/youtube';
 import { GameClock } from './clock';
-import { CHARACTERS, TUNING, UPGRADES, fixedSolids, roadLaneAt, type Point, type Rect } from './config';
+import { CARS, CHARACTERS, TUNING, UPGRADES, fixedSolids, roadLaneAt, type Point, type Rect } from './config';
 import type { Game } from './game';
 import { townIds, type RoadsideTown } from './towns';
 
@@ -255,6 +255,18 @@ export function createRoadsideGame(
   });
 
   // Rush jobs: whenever the next purchase is a while off, a short job for the hero (spilled soap to gather up).
+  // The people in rush jobs (a trucker, a lost driver): the shoppers, loaded once there's a Mini-Mart to send them to.
+  let shoppers: 'no' | 'loading' | 'ready' = 'no';
+  const shoppersReady = (): boolean => {
+    if (shoppers === 'no' && state.unlocked.includes('mart')) {
+      shoppers = 'loading';
+      loadPeople(CHARACTERS.shoppers)
+        .then(() => (shoppers = 'ready'))
+        .catch((error) => platform.logWarning(error));
+    }
+    return shoppers === 'ready';
+  };
+  const vip = CARS.find((car) => car.id === 'vip');
   const jobs = createJobs({
     root,
     scene: stage.scene,
@@ -268,11 +280,24 @@ export function createRoadsideGame(
     effects,
     floaters,
     sound,
-    makePerson: () => null,
+    makePerson: () => (shoppersReady() ? new PersonAvatar(CHARACTERS.shoppers[(state.counts.jobs ?? 0) % CHARACTERS.shoppers.length]!, null) : null),
+    // A dusty golden VIP car, parked, that comes clean as the hero polishes it.
+    makeThing: (kind) => {
+      if (kind !== 'vip' || !vip) return null;
+      const car = new CarModel();
+      car.setType(vip);
+      car.setClean(vip.dirt, 0);
+      car.mesh.userData.progress = (share: number) => car.setClean(vip.dirt, share);
+      return car.mesh;
+    },
+    people: shoppersReady,
     allowed: () => !tutorialActive(state),
     blocked: () => false,
     solids: () => [...buildings.obstacles(), ...fixed],
+    mentor: current.story.mentor,
     onPaid: (amount, at) => meta.onPaid({ amount, tip: 0, automated: false, at, bonus: true }),
+    onDone: () => meta.count('jobs'),
+    double: (pay) => meta.doubleJob(pay),
     save: () => void saves.saveNow(),
   });
 
@@ -292,13 +317,14 @@ export function createRoadsideGame(
     clock.advance(dt);
     state.playSeconds += dt;
     carRects = [...pool.active].filter((car) => car.model.mesh.visible && car.state !== 'angry').map((car) => car.footprint);
-    player.update(dt, input.read(), [...buildings.obstacles(), ...fixed, ...carRects], view.walkable);
+    player.update(dt, input.read(), [...buildings.obstacles(), ...fixed, ...carRects, ...jobs.solids()], view.walkable);
     pads.update(dt, player.position);
     upgrades.update(dt, player.position);
     staff.update(dt, traffic.all(), supplies, buildings.obstacles(), (station) => insideRect(player.position, station.zone), traffic.valetCall, carRects);
     supplies.update(dt, [playerCarry, ...staff.carriers()]);
     playerCarry.update(dt, player.isMoving);
-    player.scrubbing = traffic.update(dt, work, supplies);
+    // Washing a car, or working at a rush job (polishing the VIP car).
+    player.scrubbing = traffic.update(dt, work, supplies) || jobs.working;
     street.update(dt);
     hoses.update(traffic.forecourt.pumps);
     washSounds.update(dt, player.scrubbing);

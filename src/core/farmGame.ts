@@ -34,7 +34,7 @@ import { loadPeople } from '../render/assets';
 import { blobShadows } from '../render/models/actors';
 import { skinnedToyMaterial } from '../render/models/build';
 import { warmRigidSkin } from '../render/models/rigid';
-import { CropPlots, FARM_SOLIDS, farmModel, farmPadModel } from '../render/models/farm';
+import { CropPlots, FARM_SOLIDS, farmModel, farmMover, farmPadModel } from '../render/models/farm';
 import { PensView } from '../render/models/pens';
 import { VanFleet } from '../render/models/vans';
 import { FarmTraffic } from '../systems/farmTraffic';
@@ -951,7 +951,9 @@ export function createFarmGame(
     save: () => void saves.saveNow(),
     rewarded: (id) => meta.rewarded(id),
   });
-  // Rush jobs: whenever the next purchase is a while off, a short job for the hero (a rush order to the gate).
+  // Rush jobs: whenever the next purchase is a while off, a short job for the hero (a rush order to the gate,
+  // hens got out, a calf on the loose, the well's pump stuck).
+  let hensMade = 0;
   const jobs = createJobs({
     root,
     scene: stage.scene,
@@ -966,10 +968,21 @@ export function createFarmGame(
     floaters,
     sound,
     makePerson: () => (peopleReady ? new PersonAvatar(CHARACTERS.villagers[1 + (state.counts.jobs ?? 0) % (CHARACTERS.villagers.length - 1)]!, null) : null),
+    // The farm's own hens (brown and white), and a little one of its cows.
+    makeThing: (kind) => {
+      if (kind === 'hen') return farmMover(hensMade++ % 2 === 0 ? 'fm_hen' : 'fm_hen_brown');
+      if (kind !== 'calf') return null;
+      const calf = farmMover('fm_cow');
+      calf.scale.setScalar(0.55);
+      return calf;
+    },
     allowed: () => peopleReady,
     blocked: () => false,
     solids: () => [...solids, ...fixed],
+    mentor: current.story.mentor,
     onPaid: (amount, at) => meta.onPaid({ amount, tip: 0, automated: false, at, bonus: true }),
+    onDone: () => meta.count('jobs'),
+    double: (pay) => meta.doubleJob(pay),
     save: () => void saves.saveNow(),
   });
   const press = createPress(root, sound, () => meta.screenClosed());
@@ -1023,7 +1036,7 @@ export function createFarmGame(
     stock.update(standSpots(), carriers);
     playerCarry.update(dt, player.isMoving);
     const serving = walkups.update(dt, work);
-    player.scrubbing = serving || crops.harvesting.has(playerCarry) || livestock.packing.has(playerCarry) || bakery.packing.has(playerCarry);
+    player.scrubbing = serving || crops.harvesting.has(playerCarry) || livestock.packing.has(playerCarry) || bakery.packing.has(playerCarry) || jobs.working;
     if (sails) sails.rotation.z += SAILS_TURN * dt;
     plots.update(dt, now);
     pensView.update(dt, player.position);

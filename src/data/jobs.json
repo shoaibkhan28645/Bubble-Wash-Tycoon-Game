@@ -22,7 +22,11 @@
     "dropRadius": 1.6,
     "followGap": 1.1,
     "followSpeed": 1.15,
-    "itemGap": 0.9
+    "itemGap": 0.9,
+    "goldenEvery": 6,
+    "goldenPay": 3,
+    "doubleAfter": 300,
+    "doubleGap": 180
   },
   "jobs": [
     {
@@ -59,6 +63,139 @@
       "from": "lost",
       "to": "parent",
       "work": 2
+    },
+    {
+      "id": "snacks",
+      "town": "carWash",
+      "pattern": "deliver",
+      "icon": "🍔",
+      "title": "jobSnacks",
+      "needs": ["mart"],
+      "from": "mart",
+      "to": "trucker",
+      "work": 2,
+      "thing": "snacks",
+      "waiting": "adult"
+    },
+    {
+      "id": "driver",
+      "town": "carWash",
+      "pattern": "escort",
+      "icon": "🗺️",
+      "title": "jobDriver",
+      "needs": ["mart"],
+      "from": "driver",
+      "to": "mart",
+      "work": 2,
+      "who": "adult",
+      "waiting": "none"
+    },
+    {
+      "id": "polish",
+      "town": "carWash",
+      "pattern": "work",
+      "icon": "✨",
+      "title": "jobPolish",
+      "needs": ["bay2"],
+      "from": "vip",
+      "hold": 6,
+      "reach": 2.5,
+      "work": 1,
+      "thing": "vip",
+      "solid": [0.95, 1.9]
+    },
+    {
+      "id": "hens",
+      "town": "farm",
+      "pattern": "collect",
+      "icon": "🐔",
+      "title": "jobHens",
+      "needs": ["henhouse"],
+      "from": "hens",
+      "to": "coop",
+      "count": 4,
+      "spread": 2.8,
+      "wander": 0.55,
+      "work": 2,
+      "thing": "hen"
+    },
+    {
+      "id": "calf",
+      "town": "farm",
+      "pattern": "escort",
+      "icon": "🐮",
+      "title": "jobCalf",
+      "needs": ["cowbarn"],
+      "from": "calf",
+      "to": "pasture",
+      "work": 2,
+      "who": "calf",
+      "waiting": "none"
+    },
+    {
+      "id": "pump",
+      "town": "farm",
+      "pattern": "work",
+      "icon": "💧",
+      "title": "jobPump",
+      "needs": ["well"],
+      "from": "pump",
+      "hold": 5,
+      "reach": 1.3,
+      "work": 1,
+      "thing": "bucket"
+    },
+    {
+      "id": "balloons",
+      "town": "park",
+      "pattern": "collect",
+      "icon": "🎈",
+      "title": "jobBalloons",
+      "needs": [],
+      "from": "balloons",
+      "count": 5,
+      "spread": 2.6,
+      "wander": 0.45,
+      "work": 1,
+      "thing": "balloon"
+    },
+    {
+      "id": "restock",
+      "town": "park",
+      "pattern": "deliver",
+      "icon": "🧸",
+      "title": "jobRestock",
+      "needs": ["shed", "ringtoss"],
+      "from": "shedDoor",
+      "to": "ringtoss",
+      "work": 2,
+      "thing": "prizes",
+      "waiting": "adult"
+    },
+    {
+      "id": "safety",
+      "town": "park",
+      "pattern": "work",
+      "icon": "🔧",
+      "title": "jobSafety",
+      "needs": [],
+      "from": "ride",
+      "hold": 5,
+      "reach": 1.3,
+      "work": 1,
+      "thing": "toolbox"
+    },
+    {
+      "id": "perfect",
+      "town": "park",
+      "pattern": "signal",
+      "icon": "🎯",
+      "title": "jobPerfect",
+      "needs": [],
+      "from": "lever",
+      "hold": 22,
+      "reach": 0.6,
+      "signal": "perfect"
     }
   ]
 }

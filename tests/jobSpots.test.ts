@@ -1,9 +1,12 @@
 // Where rush jobs happen (each town's layout `jobSpots`): every spot, and the
-// ground soap can spill across, is clear of buildings, fences, tracks and
-// queues in the finished town, where the hero can walk; and every job in
-// data/jobs.json has its spots in its town.
+// ground things can spill or wander across, is clear of buildings, fences,
+// tracks and queues in the finished town, and off every pad (stepping on one
+// would buy it or open its panel), where the hero can walk; a parked car's
+// whole footprint is clear too; a perfect launch is at a ride's lever; and
+// every job in data/jobs.json has its spots in its town.
 import { describe, expect, it } from 'vitest';
-import { JOBS, fixedSolids, type Point, type Rect, type TownLayout } from '../src/core/config';
+import { JOBS, TUNING, fixedSolids, type Point, type Rect, type TownLayout } from '../src/core/config';
+import { jobFootprint } from '../src/systems/jobs';
 import { ROADSIDE } from '../src/core/towns';
 import { WILLOWBROOK } from '../src/core/willowbrook';
 import { STARLIGHT } from '../src/core/starlight';
@@ -71,11 +74,20 @@ const TOWNS = [
   },
 ] as const;
 
+/** Every pad and upgrade pad, as far as standing on it reaches; but not the pads of what's built for the job (they're gone). */
+const padRects = (layout: TownLayout, built: readonly string[]): Rect[] => [
+  ...Object.entries(layout.pads)
+    .filter(([id]) => !built.includes(id))
+    .map(([, p]) => around(p, TUNING.pads.radius)),
+  ...Object.values(layout.upgradePads).map((p) => around(p, TUNING.pads.upgradeRadius)),
+];
+
 describe('rush job spots', () => {
   for (const { def, kind, solids } of TOWNS) {
     it(`${def.id}: every job here has its spots, all clear of everything solid and where the hero can walk`, () => {
       const spots = def.layout.jobSpots ?? {};
-      const rects = solids();
+      const solid = solids();
+      const rides: Record<string, { lever: Point }> = 'rides' in def.layout ? def.layout.rides : {};
       const { walk } = def.layout;
       const jobs = JOBS.jobs.filter((j) => j.town === kind);
       expect(jobs.length).toBeGreaterThan(0);
@@ -85,15 +97,33 @@ describe('rush job spots', () => {
           const list = spots[name];
           expect(list?.length, `${job.id}: spots "${name}"`).toBeGreaterThan(0);
           for (const p of list!) {
+            const rects = [...solid, ...padRects(def.layout, [...job.needs, ...(p.needs ? [p.needs] : [])])];
             if (!(p.x > walk.minX + 0.5 && p.x < walk.maxX - 0.5 && p.z > walk.minZ + 0.5 && p.z < walk.maxZ - 0.5)) bad.push(`${name} at ${p.x}, ${p.z}: outside the walk`);
+            // A perfect launch: on a ride's lever (where the hero stands to launch it), its own lever.
+            if (job.pattern === 'signal' && name === job.from) {
+              const lever = rides[p.id ?? '']?.lever;
+              if (!lever || Math.hypot(lever.x - p.x, lever.z - p.z) > 0.05 || p.needs !== p.id) bad.push(`${name} at ${p.x}, ${p.z}: not ${p.id}'s lever`);
+              continue;
+            }
             // Someone (or something) stands here: room round it.
             const hit = rects.find((r) => gap(p, r) < 0.5);
             if (hit) bad.push(`${name} at ${p.x}, ${p.z}: by ${JSON.stringify(hit)}`);
+            // A parked car: all of it clear, with room to walk round.
+            const footprint = name === job.from ? jobFootprint(job, p) : null;
+            if (footprint) {
+              const corners = [
+                { x: footprint.minX, z: footprint.minZ },
+                { x: footprint.maxX, z: footprint.maxZ },
+              ];
+              const blocked = rects.find((r) => !(footprint.maxX + 0.6 < r.minX || footprint.minX - 0.6 > r.maxX || footprint.maxZ + 0.6 < r.minZ || footprint.minZ - 0.6 > r.maxZ));
+              if (blocked) bad.push(`${name} at ${p.x}, ${p.z}: its ${JSON.stringify(corners)} by ${JSON.stringify(blocked)}`);
+            }
           }
         }
         // Things spilled about: the whole spread is mostly clear (the job only lays them on clear ground, and
         // needs room for them all).
         if (job.pattern === 'collect') {
+          const rects = [...solid, ...padRects(def.layout, job.needs)];
           for (const c of spots[job.from]!) {
             let clear = 0;
             let total = 0;
