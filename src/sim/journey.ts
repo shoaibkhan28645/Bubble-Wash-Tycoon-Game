@@ -299,14 +299,15 @@ export function playJourney(maps: JourneyMap[], options: JourneyOptions = ACTIVE
 export const STORED_RATE = { roadside: 0.6, willowbrook: 0.71, starlight: 1 };
 
 /**
- * How a keen player plays each map, measured with the playthrough bot: the share of what's earned that goes on
- * upgrades (more where the helpers leave the hero free to shop), and what the map takes for every dollar its model
- * gives (the rating held at five stars, every order filled).
+ * How a keen player plays each map, measured with the playthrough bot (each map's timeline came within 5 to 20% of
+ * the bot's, pad by pad): the share of what's earned that goes on upgrades (more where the helpers leave the hero
+ * free to shop), and what the map takes for every dollar its model gives (the park's crowd, on the paths, with the
+ * hero at the booth and the levers early on, takes about two thirds of what the park's model gives).
  */
 export const KEEN = {
   roadside: { upgradeSpend: 0.2, income: 1 },
   willowbrook: { upgradeSpend: 0.5, income: 1 },
-  starlight: { upgradeSpend: 0.4, income: 1 },
+  starlight: { upgradeSpend: 0.2, income: 0.65 },
 };
 
 export function gameJourney(roadside: TownDef, willowbrook: TownDef, starlight: ParkTown): JourneyMap[] {
