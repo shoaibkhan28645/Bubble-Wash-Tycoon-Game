@@ -6,16 +6,23 @@ import type { GameState } from './gameState';
 import type { SaveManager } from './save';
 import type { SoundManager } from '../audio/sound';
 import { hasModel, loadModel, specialCarFile } from '../render/assets';
+import type { Particles } from '../render/effects/particles';
+import { HeroPreview } from '../render/heroPreview';
+import type { Stage } from '../render/stage';
 import { Ads } from '../systems/ads';
 import { finishGems, formatClock, halveBuild, secondsLeft, soonestBuild } from '../systems/construction';
 import { formatCash } from '../systems/economy';
 import { addProgress, carOfDay, claimable, claimCalendar, claimMission, localDate, rollDay, type MissionKind, type MissionTown } from '../systems/daily';
 import { sideButtonOpen, tutorialActive } from '../systems/guide';
 import type { PadSystem } from '../systems/pads';
+import type { Player } from '../systems/player';
 import type { Supplies } from '../systems/supplies';
 import type { Paid, Traffic } from '../systems/traffic';
+import { heroLook } from '../systems/wardrobe';
 import { showCalendar, showMissions } from '../ui/dailyPanels';
 import { offer, setUiSound, toast } from '../ui/dialog';
+import type { Hud } from '../ui/hud';
+import { openShop, type BoostView, type ShopTab } from '../ui/shopPanel';
 import { SideBar, type SideAction } from '../ui/sideBar';
 import { t } from '../ui/strings';
 import { showWelcomeBack } from '../ui/welcomeBack';
@@ -40,6 +47,8 @@ export interface Meta {
   rewarded(rewardId: string): Promise<boolean>;
   /** Offers to double a golden rush job's pay (an ad, or gems): true if the player earned it. */
   doubleJob(pay: number): Promise<boolean>;
+  /** Opens the boutique (the hero's looks, and the gem boosts). */
+  openShop(tab?: ShopTab): void;
 }
 
 export function createMeta(deps: {
@@ -60,6 +69,8 @@ export function createMeta(deps: {
   rides?: { broken: () => number; fixAll: () => void };
   /** The park's prize shelf: how many plush toys it has (-1 before there's a ring toss), and opening it. */
   shelf?: { count: () => number; open: () => void };
+  /** The hero, dressed from the boutique; the HUD's gem counter opens it; the stage draws the close-up; the effects make the trail. */
+  hero: { player: Player; hud: Hud; stage: Stage; effects: Particles };
 }): Meta {
   const { root, state, saves, sound, traffic, pads, supplies } = deps;
   const town = deps.town ?? 'carWash';
@@ -93,7 +104,7 @@ export function createMeta(deps: {
     return ok ? 'ad' : null;
   };
 
-  const rewards: Record<Exclude<SideAction, 'calendar' | 'missions' | 'shelf'>, () => Promise<void>> = {
+  const rewards: Record<Exclude<SideAction, 'calendar' | 'missions' | 'shelf' | 'shop'>, () => Promise<void>> = {
     fix: async () => {
       const rides = deps.rides;
       if (!rides || rides.broken() === 0) return;
@@ -154,9 +165,75 @@ export function createMeta(deps: {
     });
   };
 
+  // The hero's looks: put on as the town opens, shown up close in the boutique, a trail left behind.
+  const { player, hud, stage, effects } = deps.hero;
+  player.effects = effects;
+  player.dress(heroLook(state));
+  const preview = new HeroPreview(stage, player.mesh);
+  let shopOpen = false;
+
+  /** The gem boosts this town has, each with why it can't be used right now. */
+  const boosts = (): BoostView[] => {
+    const list: BoostView[] = [];
+    const add = (action: Exclude<SideAction, 'calendar' | 'missions' | 'shelf' | 'shop'>, view: Omit<BoostView, 'use'>): void => {
+      if (available(action)) list.push({ ...view, use: () => void rewards[action]() });
+    };
+    add('speed', { icon: '⚡', title: t('speedTitle'), body: t('speedBody'), gems: ADS.speedBoost.gems, status: state.boostSeconds > 0 ? t('boostOn', { time: formatClock(state.boostSeconds) }) : '' });
+    if (traffic) {
+      const wait = convoyReadyAt - sessionSeconds;
+      add('convoy', { icon: '👑', title: t('convoyTitle'), body: t('convoyBody'), gems: ADS.convoy.gems, status: wait > 0 ? t('boostWait', { time: formatClock(wait) }) : '' });
+    }
+    if (supplies) add('refill', { icon: '🧴', title: t('refillTitle'), body: t('refillBody'), gems: ADS.refill.gems, status: supplies.anyShort() ? '' : t('boostFull') });
+    if (deps.rides) add('fix', { icon: '🔧', title: t('fixTitle'), body: t('fixBody'), gems: ADS.fixRides.gems, status: deps.rides.broken() > 0 ? '' : t('boostNoFix') });
+    const next = soonestBuild(state);
+    const left = next ? secondsLeft(next.build, Date.now()) : 0;
+    add('build', {
+      icon: '🚧',
+      title: next ? t('buildTitle', { name: padById(next.id)?.name ?? next.id }) : t('boostBuild'),
+      body: next ? t(next.build.halved ? 'buildBodyHalved' : 'buildBody', { time: formatClock(left) }) : t('boostBuildBody'),
+      gems: next ? finishGems(left) : 0,
+      noAd: !!next?.build.halved,
+      status: next ? '' : t('boostNoBuild'),
+    });
+    add('finish', { icon: '🏗️', title: t('finishTitle'), body: t('finishBody', { pad: pads.nextName }), gems: ADS.finishPad.gems, status: pads.nearlyAffordable(ADS.finishPad.fraction) ? '' : t('boostNoFinish') });
+    return list;
+  };
+
+  const showShop = (tab?: ShopTab): void => {
+    if (shopOpen || dialogOpen) return;
+    shopOpen = true;
+    openShop(
+      {
+        root,
+        state,
+        dress: (look) => player.dress(look),
+        preview: (element) => {
+          preview.show(element);
+          player.posing = !!element;
+          if (!element) shopOpen = false;
+        },
+        boosts,
+        bought: (item) => {
+          sound.play('reward');
+          effects.burst('confetti', player.mesh.position.clone().setY(2.2), 24, 3.5, 0.6);
+          toast(root, `🛍️ ${t('shopBought', { name: item.name })}`);
+          save();
+        },
+        changed: save,
+        click: () => sound.play('click'),
+      },
+      tab,
+    );
+  };
+  hud.onGems(() => {
+    sound.play('click');
+    showShop();
+  }, () => available('shop'));
+
   const sideBar = new SideBar(root, (action) => {
     sound.play('click');
     if (action === 'calendar') openCalendar();
+    else if (action === 'shop') showShop();
     else if (action === 'missions') {
       showMissions(root, state, (i) => {
         if (claimMission(state, i) > 0) {
@@ -218,6 +295,7 @@ export function createMeta(deps: {
   return {
     update(dt) {
       sessionSeconds += dt;
+      preview.update(dt);
       if (supplies?.anyEmpty()) refillUntil = sessionSeconds + REFILL_LINGER_SECONDS;
       state.boostSeconds = Math.max(0, state.boostSeconds - dt);
       deps.setBoost(state.boostSeconds > 0 ? ADS.speedBoost.multiplier : 1);
@@ -306,5 +384,6 @@ export function createMeta(deps: {
     async doubleJob(pay) {
       return (await earn('double-job', '🌟', t('jobDoubleTitle'), t('jobDoubleBody', { cash: formatCash(pay) }), ADS.jobDouble.gems)) !== null;
     },
+    openShop: showShop,
   };
 }

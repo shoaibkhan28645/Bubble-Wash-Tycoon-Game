@@ -8,6 +8,10 @@ export class Hud {
   private readonly pill: HTMLElement;
   private readonly starText: HTMLElement;
   private readonly gemText: HTMLElement;
+  private readonly gems: HTMLElement;
+  /** Whether a tap on the gem counter opens the boutique (once it's been found). */
+  private gemReady: () => boolean = () => false;
+  private gemTappable = false;
   private lastStars = '';
   private lastGems = -1;
   private shown = 0;
@@ -28,6 +32,7 @@ export class Hud {
     this.starText = document.createElement('span');
     stars.appendChild(this.starText);
     const gems = document.createElement('div');
+    this.gems = gems;
     gems.className = 'stars-pill gems-pill';
     gems.innerHTML = '<span class="gem-icon" aria-hidden="true">💎</span>';
     this.gemText = document.createElement('span');
@@ -38,7 +43,25 @@ export class Hud {
     this.render();
   }
 
+  /** Tapping the gem counter calls `handler` (it opens the boutique) while `ready()` says so. */
+  onGems(handler: () => void, ready: () => boolean): void {
+    const pill = this.gems;
+    pill.setAttribute('role', 'button');
+    pill.addEventListener('pointerdown', (e) => {
+      if (ready()) e.stopPropagation();
+    });
+    pill.addEventListener('click', () => {
+      if (ready()) handler();
+    });
+    this.gemReady = ready;
+  }
+
   update(dt: number, cash: number, stars: number, gems: number): void {
+    const tappable = this.gemReady();
+    if (tappable !== this.gemTappable) {
+      this.gemTappable = tappable;
+      this.gems.classList.toggle('gems-tap', tappable);
+    }
     if (gems !== this.lastGems) {
       this.gemText.textContent = String(gems);
       this.lastGems = gems;

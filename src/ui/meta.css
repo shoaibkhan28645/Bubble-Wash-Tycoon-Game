@@ -841,3 +841,394 @@
     justify-content: flex-start;
   }
 }
+
+/* The Mogul's Boutique: a close-up window on the hero above (portrait) or beside (landscape) the shop. */
+.gems-tap {
+  pointer-events: auto;
+  cursor: pointer;
+}
+
+.gems-tap:active {
+  transform: translateY(1px);
+}
+
+.shop-open > :not(.shop-overlay, .toast, .welcome-overlay) {
+  visibility: hidden;
+}
+
+.shop-overlay {
+  --common: #9aa3ae;
+  --rare: #2f80d1;
+  --epic: #9b51e0;
+  --legendary: #f2a900;
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 10px;
+  padding: calc(env(safe-area-inset-top) + 56px) 12px calc(env(safe-area-inset-bottom) + 12px);
+  box-sizing: border-box;
+  background: linear-gradient(to top, rgba(30, 40, 60, 0.35), rgba(30, 40, 60, 0) 60%);
+  z-index: 8;
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  color: #2d3440;
+  animation: fade-in 200ms ease-out;
+}
+
+.shop-preview {
+  position: relative;
+  flex: none;
+  width: 170px;
+  height: 200px;
+  border: 5px solid #fff;
+  border-radius: 22px;
+  box-shadow: 0 6px 0 rgba(0, 0, 0, 0.12), 0 8px 24px rgba(0, 0, 0, 0.25);
+  box-sizing: border-box;
+  transition: border-color 160ms;
+}
+
+.shop-preview.rarity-rare {
+  border-color: var(--rare);
+}
+
+.shop-preview.rarity-epic {
+  border-color: var(--epic);
+}
+
+.shop-preview.rarity-legendary {
+  border-color: var(--legendary);
+}
+
+.shop-caption {
+  position: absolute;
+  left: 50%;
+  bottom: -14px;
+  transform: translateX(-50%);
+  max-width: 180px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: #fff;
+  box-shadow: 0 2px 0 rgba(0, 0, 0, 0.12);
+  font: 800 13px/1.2 system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.shop-caption:empty {
+  display: none;
+}
+
+.shop-sheet {
+  display: flex;
+  flex-direction: column;
+  width: min(440px, 100%);
+  height: min(430px, 54%);
+  padding: 10px 12px 12px;
+  border-radius: 20px;
+  background: #fff;
+  box-shadow: 0 6px 0 rgba(0, 0, 0, 0.12), 0 10px 30px rgba(0, 0, 0, 0.2);
+  box-sizing: border-box;
+  animation: shop-up 180ms ease-out;
+}
+
+@keyframes shop-up {
+  from {
+    transform: translateY(24px);
+    opacity: 0;
+  }
+}
+
+.shop-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.shop-head h2 {
+  flex: 1;
+  margin: 0;
+  font-size: 18px;
+  font-weight: 900;
+}
+
+.shop-gems {
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: #e8f3fd;
+  color: #2364a8;
+  font-weight: 900;
+  font-size: 15px;
+}
+
+.shop-tabs {
+  display: flex;
+  gap: 6px;
+  margin: 6px 0 8px;
+}
+
+.shop-tab {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  min-height: 48px;
+  padding: 4px 2px;
+  border: 0;
+  border-radius: 12px;
+  background: #eef1f5;
+  color: #6b7280;
+  font: 800 12px/1.1 system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+}
+
+.shop-tab span {
+  font-size: 20px;
+}
+
+.shop-tab-on {
+  background: #2d3440;
+  color: #fff;
+}
+
+.shop-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.shop-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(92px, 1fr));
+  gap: 8px;
+  padding: 2px;
+}
+
+.shop-tile {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  min-height: 96px;
+  padding: 6px 4px;
+  border: 3px solid var(--common);
+  border-radius: 14px;
+  background: #f7f9fb;
+  color: #2d3440;
+  font: 700 12px/1.15 system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+}
+
+.shop-tile.rarity-none {
+  border-color: #dfe3e8;
+}
+
+.shop-tile.rarity-rare {
+  border-color: var(--rare);
+  background: #f1f7fe;
+}
+
+.shop-tile.rarity-epic {
+  border-color: var(--epic);
+  background: #f7f1fd;
+}
+
+.shop-tile.rarity-legendary {
+  border-color: var(--legendary);
+  background: #fff8e6;
+}
+
+.shop-picked {
+  box-shadow: 0 0 0 3px #2d3440;
+  transform: translateY(-1px);
+}
+
+.shop-worn::after {
+  content: '✓';
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #5cc45c;
+  color: #fff;
+  font: 900 13px/22px system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+}
+
+.shop-icon {
+  font-size: 32px;
+  line-height: 40px;
+  height: 40px;
+}
+
+.shop-icon svg {
+  width: 40px;
+  height: 40px;
+}
+
+.shop-name {
+  text-align: center;
+}
+
+.shop-price {
+  color: #2364a8;
+  font-weight: 900;
+}
+
+.shop-price.shop-short {
+  color: #9aa3ae;
+}
+
+.shop-hint {
+  margin: 10px 2px 2px;
+  font-size: 11px;
+  line-height: 1.35;
+  color: #8a919c;
+  text-align: center;
+}
+
+.shop-foot {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding-top: 8px;
+  border-top: 1px solid #eef1f5;
+}
+
+.shop-foot:empty {
+  display: none;
+}
+
+.shop-pick {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.shop-pick strong {
+  font-size: 16px;
+}
+
+.shop-rarity {
+  font-size: 12px;
+  font-weight: 800;
+  color: #8a919c;
+}
+
+.shop-rarity.rarity-common {
+  color: #7c8591;
+}
+
+.shop-rarity.rarity-rare {
+  color: var(--rare);
+}
+
+.shop-rarity.rarity-epic {
+  color: var(--epic);
+}
+
+.shop-rarity.rarity-legendary {
+  color: #c98a00;
+}
+
+.shop-need {
+  font-size: 12px;
+  color: #ff5c6c;
+  font-weight: 700;
+}
+
+.shop-action,
+.shop-use {
+  min-width: 112px;
+  min-height: 48px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 14px;
+  background: #5cc45c;
+  box-shadow: 0 3px 0 #3d9a3d;
+  color: #fff;
+  font: 900 17px/1 system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+}
+
+.shop-action.shop-buy {
+  background: #4aa3f0;
+  box-shadow: 0 3px 0 #2f80d1;
+}
+
+.shop-use {
+  min-width: 96px;
+  font-size: 15px;
+  background: #4aa3f0;
+  box-shadow: 0 3px 0 #2f80d1;
+}
+
+.shop-action:disabled,
+.shop-use:disabled {
+  background: #c9d0d9;
+  box-shadow: 0 3px 0 #aab3bf;
+}
+
+.shop-action:not(:disabled):active,
+.shop-use:not(:disabled):active {
+  transform: translateY(2px);
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.2);
+}
+
+.shop-boost-icon {
+  font-size: 28px;
+  width: 36px;
+  text-align: center;
+}
+
+/* Landscape: the shop down the right, the close-up beside it. */
+@media (orientation: landscape) {
+  .shop-overlay {
+    flex-direction: row;
+    justify-content: center;
+    align-items: center;
+    gap: 24px;
+    padding: calc(env(safe-area-inset-top) + 12px) calc(env(safe-area-inset-right) + 12px) calc(env(safe-area-inset-bottom) + 12px) calc(env(safe-area-inset-left) + 12px);
+    background: linear-gradient(to left, rgba(30, 40, 60, 0.35), rgba(30, 40, 60, 0) 60%);
+  }
+
+  .shop-sheet {
+    width: min(440px, 58%);
+    height: min(480px, 100%);
+  }
+
+  .shop-preview {
+    width: 180px;
+    height: 220px;
+  }
+}
+
+@media (orientation: landscape) and (max-height: 420px) {
+  .shop-preview {
+    width: 150px;
+    height: 185px;
+  }
+
+  .shop-tabs {
+    margin: 4px 0 6px;
+  }
+
+  .shop-tab {
+    flex-direction: row;
+    justify-content: center;
+    gap: 4px;
+    min-height: 40px;
+  }
+}
+
+/* A short portrait screen: a smaller close-up, so the shop keeps its room. */
+@media (orientation: portrait) and (max-height: 700px) {
+  .shop-preview {
+    width: 140px;
+    height: 160px;
+  }
+}

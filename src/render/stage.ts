@@ -92,6 +92,11 @@ export interface Stage {
   setLook(look: Look): void;
   render(): void;
   /**
+   * A second, close-up view drawn over part of the screen each frame (the boutique's look at the hero):
+   * `camera` seen through the box of `element`, an HTML window with a see-through middle. Null stops it.
+   */
+  setPreview(preview: { camera: PerspectiveCamera; element: HTMLElement } | null): void;
+  /**
    * Empties the scene for the next town: everything but the sky lights goes,
    * its GPU copies are freed and resize callbacks are dropped. The renderer
    * (and its compiled shaders) stays for the whole session.
@@ -173,6 +178,30 @@ export function createStage(container: HTMLElement): Stage {
   const listeners: (() => void)[] = [];
   const resolution = new AdaptiveResolution(() => fit());
   let lastFrame = 0;
+  let preview: { camera: PerspectiveCamera; element: HTMLElement } | null = null;
+
+  /** The close-up, in its window's box (CSS pixels; the GL viewport counts up from the bottom). */
+  const renderPreview = (): void => {
+    if (!preview) return;
+    const box = preview.element.getBoundingClientRect();
+    const frame = container.getBoundingClientRect();
+    const width = Math.round(box.width);
+    const height = Math.round(box.height);
+    if (width < 8 || height < 8) return;
+    const x = Math.round(box.left - frame.left);
+    const y = Math.round(frame.bottom - box.bottom);
+    const camera = preview.camera;
+    if (Math.abs(camera.aspect - width / height) > 1e-3) {
+      camera.aspect = width / height;
+      camera.updateProjectionMatrix();
+    }
+    renderer.setScissorTest(true);
+    renderer.setScissor(x, y, width, height);
+    renderer.setViewport(x, y, width, height);
+    renderer.render(scene, camera);
+    renderer.setScissorTest(false);
+    renderer.setViewport(0, 0, size.width, size.height);
+  };
 
   const fit = (): void => {
     size.width = Math.max(1, container.clientWidth);
@@ -236,8 +265,13 @@ export function createStage(container: HTMLElement): Stage {
       if (contextLost) return;
       renderer.render(scene, camera);
       updateOnScreen(camera);
+      renderPreview();
+    },
+    setPreview(next) {
+      preview = next;
     },
     reset() {
+      preview = null;
       listeners.length = 0;
       forgetOnScreen();
       setLook(DEFAULT_LOOK);

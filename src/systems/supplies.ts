@@ -102,6 +102,12 @@ export class Supplies implements SupplyCheck {
     return this.stations().some((s) => s.supply !== null && (this.state.supplies[`${s.id}.${s.supply}`] ?? 0) <= 0);
   }
 
+  /** Some station could take more (the instant delivery would fill something). */
+  anyShort(): boolean {
+    const full = this.maxUses();
+    return this.stations().some((s) => s.supply !== null && (this.state.supplies[`${s.id}.${s.supply}`] ?? 0) < full);
+  }
+
   /** Rewarded ad: every station filled to the top at once. */
   fillAll(): void {
     for (const s of this.stations()) if (s.supply) this.state.supplies[`${s.id}.${s.supply}`] = this.maxUses();

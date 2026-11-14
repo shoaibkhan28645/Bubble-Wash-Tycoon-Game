@@ -979,6 +979,7 @@ export function createParkGame(
     supplies: null,
     setBoost: (m) => (crowd.boost = m),
     town: 'park',
+    hero: { player, hud, stage, effects },
     // The rewarded fix: every broken-down ride runs again at once.
     rides: {
       broken: () => crowd.rides.filter((r) => r.broken).length,

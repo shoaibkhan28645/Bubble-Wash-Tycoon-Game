@@ -1,0 +1,31 @@
+{
+  "hero": { "suit": "#2a3350", "tie": "#c8282f", "shirt": "#f4f6f8" },
+  "outfits": [
+    { "id": "classic", "name": "Classic Navy", "rarity": "common", "gems": 0, "suit": "#2a3350", "tie": "#c8282f" },
+    { "id": "charcoal", "name": "Charcoal", "rarity": "common", "gems": 40, "suit": "#4a4d55", "tie": "#e8b33a" },
+    { "id": "tan", "name": "Summer Tan", "rarity": "common", "gems": 50, "suit": "#c49a62", "tie": "#2f6fb8" },
+    { "id": "royal", "name": "Royal Blue", "rarity": "common", "gems": 60, "suit": "#2c62d6", "tie": "#ffd24a" },
+    { "id": "country", "name": "Country Green", "rarity": "rare", "gems": 120, "suit": "#2f6b45", "tie": "#f0d79a" },
+    { "id": "burgundy", "name": "Burgundy", "rarity": "rare", "gems": 140, "suit": "#7c1f36", "tie": "#f2c14e" },
+    { "id": "violet", "name": "Velvet Violet", "rarity": "rare", "gems": 150, "suit": "#5b2d8c", "tie": "#7ee0c3" },
+    { "id": "tuxedo", "name": "White Tux", "rarity": "epic", "gems": 260, "suit": "#f1eee6", "tie": "#1c1c22" },
+    { "id": "flamingo", "name": "Flamingo", "rarity": "epic", "gems": 280, "suit": "#ec6aa6", "tie": "#2a3350" },
+    { "id": "midas", "name": "Golden Mogul", "rarity": "legendary", "gems": 500, "suit": "#d9a12c", "tie": "#f6d36b", "shirt": "#1f2026" }
+  ],
+  "hats": [
+    { "id": "cap", "name": "Ball Cap", "icon": "🧢", "rarity": "common", "gems": 40 },
+    { "id": "party", "name": "Party Hat", "icon": "🥳", "rarity": "common", "gems": 50 },
+    { "id": "hardhat", "name": "Hard Hat", "icon": "👷", "rarity": "common", "gems": 60 },
+    { "id": "cowboy", "name": "Cowboy Hat", "icon": "🤠", "rarity": "rare", "gems": 120 },
+    { "id": "headphones", "name": "Headphones", "icon": "🎧", "rarity": "rare", "gems": 120 },
+    { "id": "tophat", "name": "Top Hat", "icon": "🎩", "rarity": "rare", "gems": 150 },
+    { "id": "wizard", "name": "Wizard Hat", "icon": "🧙", "rarity": "epic", "gems": 260 },
+    { "id": "crown", "name": "Gold Crown", "icon": "👑", "rarity": "legendary", "gems": 500 }
+  ],
+  "trails": [
+    { "id": "bubbles", "name": "Soap Bubbles", "icon": "🫧", "rarity": "rare", "gems": 150, "particle": "bubble", "every": 0.55, "count": 2, "speed": 1.1 },
+    { "id": "sparkles", "name": "Sparkles", "icon": "✨", "rarity": "epic", "gems": 250, "particle": "sparkle", "every": 0.45, "count": 2, "speed": 1.6 },
+    { "id": "confetti", "name": "Confetti", "icon": "🎊", "rarity": "epic", "gems": 300, "particle": "confetti", "every": 0.4, "count": 3, "speed": 2.2 },
+    { "id": "cash", "name": "Money Trail", "icon": "💸", "rarity": "legendary", "gems": 600, "particle": "bill", "every": 0.7, "count": 1, "speed": 2.4 }
+  ]
+}

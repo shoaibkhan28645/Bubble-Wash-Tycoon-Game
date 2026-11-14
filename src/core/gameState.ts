@@ -74,6 +74,13 @@ export interface DeliveriesState {
   fairDay: string;
 }
 
+/** The hero's looks from the boutique (src/systems/wardrobe.ts): what's been bought, and what's worn in each slot. */
+export interface WardrobeState {
+  owned: string[];
+  /** Item id by slot ('outfit', 'hat', 'trail'); a slot not listed wears the default (no hat, no trail). */
+  equipped: Record<string, string>;
+}
+
 /** The town's goals: reached (they stay reached) and claimed. */
 export interface GoalsState {
   done: string[];
@@ -138,6 +145,8 @@ export interface GameState {
   counts: Record<string, number>;
   /** Earned by town goals; they'll open travel and the franchise perks. */
   franchiseStars: number;
+  /** Outfits, hats and trails bought with gems, and which are worn (in every town). */
+  wardrobe: WardrobeState;
   /** Wall-clock ms of the last save (0 = never saved). Used for offline earnings. */
   savedAt: number;
 }
@@ -167,6 +176,7 @@ export function newGame(): GameState {
     contracts: { slots: [], doubledDate: '' },
     counts: {},
     franchiseStars: 0,
+    wardrobe: { owned: [], equipped: {} },
     savedAt: 0,
   };
 }

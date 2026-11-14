@@ -1,6 +1,6 @@
 // People: Kenney Mini Characters, all on the same small skeleton with the
 // pack's own animations.
-import { AnimationMixer, LoopOnce, Mesh, Group, Vector3, type AnimationAction, type BufferGeometry, type Object3D } from 'three';
+import { AnimationMixer, LoopOnce, Mesh, Group, SkinnedMesh, Vector3, type AnimationAction, type BufferGeometry, type Object3D } from 'three';
 import { clone as cloneSkinned } from 'three/addons/utils/SkeletonUtils.js';
 import { CHARACTERS } from '../../core/config';
 import { asset } from '../assets';
@@ -144,6 +144,8 @@ export class PersonAvatar {
   riding = false;
   /** In a costume with its own big head (the park's mascot): the person's head is tucked away inside it. */
   private tucked: Object3D | null = null;
+  /** Something worn on the head (the hero's hat from the boutique). */
+  private hat: Mesh | null = null;
 
   constructor(character: string, tool: Tool | null = null) {
     const { scene, animations } = asset(`person:${character}`);
@@ -178,6 +180,31 @@ export class PersonAvatar {
   tuckHead(): void {
     this.tucked = this.model.getObjectByName('head') ?? null;
     this.tucked?.scale.setScalar(TUCKED);
+  }
+
+  /** The painted body (head and all, one skinned mesh), for repainting the hero's outfit. */
+  get body(): SkinnedMesh | null {
+    let found: SkinnedMesh | null = null;
+    this.model.traverse((node) => {
+      if (!found && node instanceof SkinnedMesh) found = node;
+    });
+    return found;
+  }
+
+  /** Wears a hat (its model, on the head bone, in the model's own units), or takes it off (null). */
+  wear(geometry: BufferGeometry | null): void {
+    if (!geometry) {
+      if (this.hat) this.hat.visible = false;
+      return;
+    }
+    if (!this.hat) {
+      const head = this.model.getObjectByName('head');
+      if (!head) return;
+      this.hat = new Mesh(geometry, toyMaterial);
+      head.add(this.hat);
+    }
+    this.hat.geometry = geometry;
+    this.hat.visible = true;
   }
 
   /** Puts `tool` in the right hand (shown while working, or while `holding`): a visitor's candy floss, then a prize. */

@@ -22,7 +22,7 @@ export interface SideView {
   available: (action: SideAction) => boolean;
 }
 
-export type SideAction = 'calendar' | 'missions' | 'speed' | 'convoy' | 'refill' | 'finish' | 'build' | 'fix' | 'shelf';
+export type SideAction = 'calendar' | 'shop' | 'missions' | 'speed' | 'convoy' | 'refill' | 'finish' | 'build' | 'fix' | 'shelf';
 
 interface SideButton {
   el: HTMLButtonElement;
@@ -34,7 +34,7 @@ interface SideButton {
 /** A button that has just appeared glows this long. */
 const NEW_GLOW_MS = 4000;
 
-const ICONS: Record<SideAction, string> = { calendar: '🎁', missions: '📋', speed: '⚡', convoy: '👑', refill: '🧴', finish: '🏗️', build: '🚧', fix: '🔧', shelf: '🧸' };
+const ICONS: Record<SideAction, string> = { calendar: '🎁', shop: '🛍️', missions: '📋', speed: '⚡', convoy: '👑', refill: '🧴', finish: '🏗️', build: '🚧', fix: '🔧', shelf: '🧸' };
 
 const clock = (seconds: number) =>
   seconds >= 3600 ? `${Math.floor(seconds / 3600)}h${String(Math.floor((seconds % 3600) / 60)).padStart(2, '0')}` : `${Math.floor(seconds / 60)}:${String(Math.floor(seconds % 60)).padStart(2, '0')}`;
@@ -73,6 +73,7 @@ export class SideBar {
   update(view: SideView): void {
     const open = view.available;
     this.set('calendar', open('calendar'), view.calendar ? '!' : '', view.calendar);
+    this.set('shop', open('shop'), '', false);
     this.set('missions', open('missions'), view.missions ? String(view.missions) : '', view.missions > 0);
     this.set('speed', open('speed'), view.speedLeft > 0 ? clock(view.speedLeft) : '📺', view.speedLeft > 0);
     this.set('convoy', open('convoy'), view.convoyWait > 0 ? clock(view.convoyWait) : '📺', false, view.convoyWait > 0);

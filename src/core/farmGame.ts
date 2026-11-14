@@ -942,7 +942,7 @@ export function createFarmGame(
     const next = pads.next;
     return next && state.cash >= next.owed ? { at: next.at, text: 'guideBuild' } : null;
   };
-  const meta = createMeta({ root, state, saves, sound, traffic: null, pads, supplies: null, setBoost: (m) => (walkups.boost = m), town: 'farm' });
+  const meta = createMeta({ root, state, saves, sound, traffic: null, pads, supplies: null, setBoost: (m) => (walkups.boost = m), town: 'farm', hero: { player, hud, stage, effects } });
   const town = createTown({
     root,
     scene: stage.scene,

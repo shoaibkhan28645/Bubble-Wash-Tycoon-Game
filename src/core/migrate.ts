@@ -1,10 +1,10 @@
-import { newDaily, newGame, newTownState, type Build, type Contract, type ContractsState, type DailyState, type DeliveriesState, type GameState, type GoalsState, type Order, type TownState } from './gameState';
+import { newDaily, newGame, newTownState, type Build, type Contract, type ContractsState, type DailyState, type DeliveriesState, type GameState, type GoalsState, type Order, type TownState, type WardrobeState } from './gameState';
 import { START_TOWN_ID } from './towns';
 import { UPGRADES } from './config';
 import { upgradeCost } from '../systems/economy';
 
 /** Bump when the save shape changes, and add a migration for the old version. */
-export const SAVE_VERSION = 13;
+export const SAVE_VERSION = 14;
 
 /**
  * Upgrades taken out in v11, with what their first level cost then: the
@@ -137,6 +137,8 @@ export const MIGRATIONS: Readonly<Record<number, Migration>> = {
     const cash = typeof save.cash === 'number' && Number.isFinite(save.cash) ? save.cash : 0;
     return { ...here, towns, cash: cash + refund };
   },
+  // v14: the boutique: the hero's wardrobe, nothing bought yet.
+  13: (save) => ({ ...save, wardrobe: { owned: [], equipped: {} } }),
 };
 
 /** The cow barn's "more cows" levels (v13): one cow, then two more. */
@@ -206,6 +208,7 @@ export function serialize(state: GameState): string {
     contracts: state.contracts,
     counts: state.counts,
     franchiseStars: state.franchiseStars,
+    wardrobe: state.wardrobe,
   });
 }
 
@@ -248,6 +251,7 @@ function sanitize(save: SaveObject): GameState {
     contracts: contractsState(save.contracts),
     counts: levelMap(save.counts),
     franchiseStars: Math.floor(nonNegative(save.franchiseStars, fresh.franchiseStars)),
+    wardrobe: wardrobeState(save.wardrobe),
     savedAt: nonNegative(save.savedAt, fresh.savedAt),
   };
 }
@@ -269,6 +273,16 @@ function townState(save: SaveObject): TownState {
     deliveries: deliveriesState(save.deliveries),
     goals: goalsState(save.goals),
   };
+}
+
+/** Bought items and what's worn: ids kept as text (one no longer sold is ignored when worn, not dropped). */
+function wardrobeState(value: unknown): WardrobeState {
+  if (!isObject(value)) return { owned: [], equipped: {} };
+  const equipped: Record<string, string> = {};
+  if (isObject(value.equipped)) {
+    for (const [slot, id] of Object.entries(value.equipped)) if (typeof id === 'string' && id) equipped[slot] = id;
+  }
+  return { owned: stringList(value.owned), equipped };
 }
 
 function goalsState(value: unknown): GoalsState {

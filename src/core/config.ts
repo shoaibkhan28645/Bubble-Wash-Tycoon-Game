@@ -16,6 +16,8 @@ import contractsJson from '../data/contracts.json';
 import jobsJson from '../data/jobs.json';
 import cropsJson from '../data/crops.json';
 import goodsJson from '../data/goods.json';
+import shopJson from '../data/shop.json';
+import type { ShopData } from '../systems/wardrobe';
 import { ROADSIDE, type TownDef } from './towns';
 
 export type Dirt = 'dusty' | 'muddy' | 'swamp';
@@ -621,6 +623,8 @@ export const DAILY = dailyJson as DailyData;
 /** Rewarded ad rewards (and their gem prices) and interstitial limits. */
 export const ADS = adsJson;
 export const CONTRACTS = contractsJson as ContractsData;
+/** The boutique's looks for the hero (all cosmetic) and their gem prices. */
+export const SHOP = shopJson as ShopData;
 /** Rush jobs: their tuning, and every kind of job in every town. */
 export const JOBS = jobsJson as { tuning: JobTuning; jobs: JobDef[] };
 /** Every crop a farm can grow, by id. */

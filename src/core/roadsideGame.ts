@@ -243,7 +243,7 @@ export function createRoadsideGame(
   const pointer = new EdgePointer(root);
   const hoses = new FuelHoses(stage.scene, layout);
   const washSounds = new WashSounds(sound);
-  const meta = createMeta({ root, state, saves, sound, traffic, pads, supplies, setBoost: (m) => (traffic.boost = m) });
+  const meta = createMeta({ root, state, saves, sound, traffic, pads, supplies, setBoost: (m) => (traffic.boost = m), hero: { player, hud, stage, effects } });
   const town = createTown({
     root,
     scene: stage.scene,

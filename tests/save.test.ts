@@ -75,6 +75,7 @@ describe('parseSave', () => {
       goals: { done: [], claimed: [] },
       counts: {},
       franchiseStars: 0,
+      wardrobe: { owned: [], equipped: {} },
       savedAt: 0,
     });
   });
@@ -108,6 +109,7 @@ describe('parseSave', () => {
       'towns',
       'unlocked',
       'version',
+      'wardrobe',
     ]);
   });
 
@@ -299,6 +301,20 @@ describe('old saves', () => {
       { kind: 'taxi', goal: 0, progress: 0, endsAt: 0, cash: 0, gems: 0 },
     ]);
     expect(state.contracts.doubledDate).toBe('');
+  });
+
+  it('v14: an older save gets an empty wardrobe; a v14 one keeps what was bought and worn', () => {
+    expect(parseSave(fixtures['./fixtures/save-v13.json']!).state.wardrobe).toEqual({ owned: [], equipped: {} });
+    expect(parseSave(fixtures['./fixtures/save-v14.json']!).state.wardrobe).toEqual({
+      owned: ['charcoal', 'cap', 'bubbles'],
+      equipped: { outfit: 'charcoal', hat: 'cap', trail: 'bubbles' },
+    });
+  });
+
+  it('repairs a broken wardrobe', () => {
+    const load = (wardrobe: unknown) => parseSave(JSON.stringify({ version: SAVE_VERSION, wardrobe })).state.wardrobe;
+    expect(load('lots')).toEqual({ owned: [], equipped: {} });
+    expect(load({ owned: ['cap', 3, 'cap'], equipped: { hat: 'cap', trail: 7, outfit: '' } })).toEqual({ owned: ['cap'], equipped: { hat: 'cap' } });
   });
 
   it('clamps stars to 1–5', () => {

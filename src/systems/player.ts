@@ -1,8 +1,12 @@
-import type { Group, Scene } from 'three';
+import { Vector3, type Group, type Scene } from 'three';
 import type { Point, Rect, Tuning } from '../core/config';
-import { CHARACTERS } from '../core/config';
+import { CHARACTERS, SHOP } from '../core/config';
+import type { Particles } from '../render/effects/particles';
+import { hatGeometry } from '../render/models/hats';
+import { outfitPainter, type OutfitColours } from '../render/models/outfit';
 import { PersonAvatar } from '../render/models/person';
 import type { MoveInput } from './input';
+import type { Look, TrailDef } from './wardrobe';
 
 const TURN_RATE = 14;
 /** How quickly the hero gets up to speed, and stops (per second): a little weight, still snappy. */
@@ -15,6 +19,12 @@ const MAX_LEAN_FORWARD = 0.12;
 const MAX_LEAN_SIDE = 0.15;
 /** How quickly the measured ground speed follows the real one (per second), so the stride doesn't jitter. */
 const SPEED_SMOOTHING = 12;
+/** A walking trail's puffs start this high (metres), a little behind the hero. */
+const TRAIL_HEIGHT = 0.35;
+const TRAIL_BEHIND = 0.35;
+/** Slower than this (m/s) and the hero leaves no trail (unless posing in the boutique, as if walking this fast). */
+const TRAIL_MIN_SPEED = 0.8;
+const POSING_PACE = 1.4;
 
 /** The character the player steers, with a little momentum on the flat lot. */
 export class Player {
@@ -27,6 +37,16 @@ export class Player {
   private readonly velocity = { x: 0, z: 0 };
   /** Metres a second really covered (after walls and cars), smoothed. */
   private groundSpeed = 0;
+  /** Repaints the suit (made the first time the hero dresses). */
+  private paint: ((outfit: OutfitColours) => void) | null = null;
+  private trail: TrailDef | null = null;
+  /** Metres walked since the trail's last puff. */
+  private trailWalked = 0;
+  private readonly trailAt = new Vector3();
+  /** Where the walking trail's particles go (the town's effects). */
+  effects: Pick<Particles, 'burst'> | null = null;
+  /** Showing off a look (the boutique is open): the trail puffs out even standing still. */
+  posing = false;
 
   constructor(
     scene: Scene,
@@ -51,6 +71,18 @@ export class Player {
 
   get position(): Point {
     return { x: this.mesh.position.x, z: this.mesh.position.z };
+  }
+
+  /** Puts on a look from the boutique: the outfit's colours, the hat (or none) and the walking trail (or none). */
+  dress(look: Look): void {
+    if (!this.paint) {
+      const body = this.avatar.body;
+      this.paint = body ? outfitPainter(body, SHOP.hero) : () => {};
+    }
+    this.paint(look.outfit);
+    this.avatar.wear(look.hat ? hatGeometry(look.hat.id) : null);
+    this.trail = look.trail;
+    this.trailWalked = 0;
   }
 
   /** Called as each foot lands (for the footstep sound). */
@@ -95,10 +127,32 @@ export class Player {
       this.avatar.setLean(forward, side);
     }
     this.moving = strength > 0 || this.groundSpeed > 0.2;
+    this.leaveTrail(dt);
 
     // The hero's walk, jog and sprint, played to match the ground covered.
     this.avatar.update(dt, this.scrubbing, this.groundSpeed);
     this.mesh.rotation.y = this.heading;
+  }
+
+  /** Every so many metres walked, a puff of the trail's particles behind the hero. */
+  private leaveTrail(dt: number): void {
+    const trail = this.trail;
+    if (!trail || !this.effects) return;
+    const posing = this.posing && this.groundSpeed < TRAIL_MIN_SPEED;
+    if (!posing && this.groundSpeed < TRAIL_MIN_SPEED) return;
+    this.trailWalked += posing ? POSING_PACE * dt : this.groundSpeed * dt;
+    if (this.trailWalked < trail.every) return;
+    this.trailWalked = 0;
+    const p = this.mesh.position;
+    if (posing) {
+      // Round the hero's feet, a different side each time.
+      const a = Math.random() * Math.PI * 2;
+      this.trailAt.set(p.x + Math.sin(a) * TRAIL_BEHIND * 1.5, TRAIL_HEIGHT, p.z + Math.cos(a) * TRAIL_BEHIND * 1.5);
+    } else {
+      const speed = Math.hypot(this.velocity.x, this.velocity.z) || 1;
+      this.trailAt.set(p.x - (this.velocity.x / speed) * TRAIL_BEHIND, TRAIL_HEIGHT, p.z - (this.velocity.z / speed) * TRAIL_BEHIND);
+    }
+    this.effects.burst(trail.particle, this.trailAt, trail.count, trail.speed, 0.3);
   }
 }
 
