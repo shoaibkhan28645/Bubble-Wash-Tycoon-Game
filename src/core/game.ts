@@ -10,7 +10,11 @@ import type { SaveManager } from './save';
 import type { SoundManager } from '../audio/sound';
 import type { Jobs } from './jobs';
 import type { Stage } from '../render/stage';
+import type { CashSystem } from '../systems/cash';
+import type { GuideStep } from '../systems/guide';
+import type { PadSystem } from '../systems/pads';
 import type { Player } from '../systems/player';
+import type { UpgradePads } from '../systems/upgrades';
 import type { Traffic } from '../systems/traffic';
 import type { StaffSystem } from '../systems/staff';
 import { town } from './config';
@@ -27,6 +31,8 @@ export interface Game {
   readonly staff: StaffSystem | null;
   /** The town's rush jobs (the dev console and the play-test bot look at them). */
   readonly jobs?: Jobs;
+  /** What else the play-test bot looks at: where the guide's hand points now, the pads, the upgrade pads, the cash. */
+  readonly bot?: BotView;
   /** Average JavaScript milliseconds per frame, for the debug panel. */
   readonly frameMs: number;
   /** Frames that threw an error, and the last one's message (the debug panel). */
@@ -41,6 +47,13 @@ export interface Game {
    * frees the GPU context and removes everything it put on the page.
    */
   dispose(): void;
+}
+
+export interface BotView {
+  readonly hint: GuideStep | null;
+  readonly pads: PadSystem;
+  readonly upgrades: UpgradePads;
+  readonly cash: CashSystem;
 }
 
 /** A later kind of town's code, fetched once (the second time it's already here). */

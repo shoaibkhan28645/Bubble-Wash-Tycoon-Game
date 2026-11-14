@@ -13,9 +13,13 @@ export interface GuideView {
   /** The next unlock pad and how much is still owed on it. */
   pad: { at: Point; owed: number } | null;
   shelf: Point | null;
-  /** The bay lowest on soap, if one is nearly out. */
-  lowBay: Point | null;
-  carryingSoap: boolean;
+  /** The station lowest on its supply (soap, towels, wax), if one is nearly out; and whether the hero's carrying it some. */
+  lowStation: Point | null;
+  carrying: boolean;
+  /** What it's low on is soap (the bays'), not towels or wax. */
+  lowOnSoap: boolean;
+  /** A station where someone's been kept waiting a while with nobody to serve them (a car at the dryer, a shopper at the till). */
+  waiting: { at: Point; kind: string } | null;
   /** The car at the first fuel pump, if it's waiting to be filled up. */
   fuelCar: Point | null;
   /** The first bay's upgrade pad, once there's a second bay and its first upgrade is affordable. */
@@ -60,10 +64,29 @@ export function guideTarget(state: GameState, view: GuideView): GuideStep | null
   const step = (at: Point | null, text: StringKey) => (at ? { at, text } : null);
   if (!has('washed')) return step(view.firstCar, 'guideWash');
   if (!has('collected')) return step(view.pile, 'guideCash');
-  if (!has('supplied') && view.lowBay) return view.carryingSoap ? step(view.lowBay, 'guideSoapBay') : step(view.shelf, 'guideShelf');
+  if (!has('supplied') && view.lowStation) return view.carrying ? step(view.lowStation, 'guideSoapBay') : step(view.shelf, 'guideShelf');
   if (!has('fueled') && view.fuelCar) return step(view.fuelCar, 'guideFuel');
   if (!has('upgraded') && view.upgrade) return step(view.upgrade, 'guideUpgrade');
   if (view.pad && state.cash >= view.pad.owed) return step(view.pad.at, 'guideBuild');
+  return null;
+}
+
+/** What the hand says over a station kept waiting, by its kind. */
+const WAITING_TEXT: Record<string, StringKey> = { bay: 'guideWash', pump: 'guideFuel', counter: 'guideTill' };
+
+/**
+ * After the tutorial, the hand still points at what holds the business up when nobody does it: a
+ * station where someone's been kept waiting with nobody to serve them (a new station works only with
+ * the hero there until its worker's hired, and one car stuck at the dryer holds up every bay behind
+ * it), and a station running out of its supply (until a runner's hired). Both come after the
+ * tutorial's over, untaught.
+ */
+export function helpTarget(state: GameState, view: GuideView): GuideStep | null {
+  if (view.waiting) return { at: view.waiting.at, text: WAITING_TEXT[view.waiting.kind] ?? 'guideWork' };
+  if (!state.unlocked.includes('runner') && view.lowStation) {
+    if (view.carrying) return { at: view.lowStation, text: view.lowOnSoap ? 'guideSoapBay' : 'guideSupplyDrop' };
+    if (view.shelf) return { at: view.shelf, text: view.lowOnSoap ? 'guideShelf' : 'guideSupplyShelf' };
+  }
   return null;
 }
 

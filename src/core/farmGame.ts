@@ -903,6 +903,8 @@ export function createFarmGame(
     if (cows && !state.flags.includes(bottledFlag) && livestock.packs(cows.id) > 0) return { at: dropAt(cows.zone), text: 'guideMilk' };
     return null;
   };
+  /** Where the guide's hand points this frame (the play-test bot follows it). */
+  let hint: GuideStep | null = null;
   const guide = (): GuideStep | null => {
     const vanStep = vanGuide();
     if (vanStep) return vanStep;
@@ -979,6 +981,7 @@ export function createFarmGame(
     allowed: () => peopleReady,
     blocked: () => false,
     solids: () => [...solids, ...fixed],
+    walkable: () => view.walkable,
     mentor: current.story.mentor,
     onPaid: (amount, at) => meta.onPaid({ amount, tip: 0, automated: false, at, bonus: true }),
     onDone: () => meta.count('jobs'),
@@ -1080,6 +1083,7 @@ export function createFarmGame(
     stage.render();
     labels.update(stage.camera, stage.size.width, stage.size.height);
     const step = guide();
+    hint = step;
     hand.point(step);
     const next = pads.next;
     const goal = step?.at ?? (next && state.cash >= next.owed ? next.at : null);
@@ -1116,6 +1120,14 @@ export function createFarmGame(
     traffic: null,
     staff,
     jobs,
+    bot: {
+      get hint() {
+        return hint;
+      },
+      pads,
+      upgrades,
+      cash,
+    },
     welcomeBack: (earned) => meta.welcomeBack(earned),
     get frameMs() {
       return loop.busyMs;

@@ -30,6 +30,9 @@ const EARN_WINDOW = 90;
 const NAV_SECONDS = 20;
 const NAV_RADIUS = 0.45;
 
+/** Jobs keep this far inside where the hero may walk (m). */
+const REACH_MARGIN = 0.6;
+
 /** Seconds after a golden job's done before the offer to double it (the reward's seen first). */
 const DOUBLE_DELAY = 1.2;
 
@@ -92,6 +95,8 @@ export function createJobs(deps: {
   blocked: () => boolean;
   /** Everything solid in the town now (buildings, fences, props): jobs' things lie clear of them, and the hero walks round them. */
   solids: () => readonly Rect[];
+  /** Where the hero may walk now (the lot grows as it's built): jobs happen only inside it. */
+  walkable: () => Rect;
   /** The town's mentor, who tells the hero about jobs the first time one comes. */
   mentor: { name: string; icon: string };
   /** A job paid (missions count it as earnings). */
@@ -123,11 +128,13 @@ export function createJobs(deps: {
     return Math.max(steady, measured);
   };
 
-  // The real way round, for how long a job gets: a walking grid of the town as it is when a job's being chosen
-  // (made again for the next one, as buildings go up meanwhile).
-  let nav: { grid: NavGrid; at: number } | null = null;
+  // The real way round, for how long a job gets: a walking grid of the town as it is when a job's being chosen,
+  // as far as the hero may walk so far (made again for the next one, as buildings go up and the lot grows).
+  let nav: { grid: NavGrid; at: number; area: string } | null = null;
   const path = (from: Point, to: Point): Point[] => {
-    if (!nav || clock - nav.at > NAV_SECONDS) nav = { grid: new NavGrid(layout.walk, deps.solids(), NAV_RADIUS), at: clock };
+    const walkable = deps.walkable();
+    const area = `${walkable.minX},${walkable.maxX},${walkable.minZ},${walkable.maxZ}`;
+    if (!nav || clock - nav.at > NAV_SECONDS || nav.area !== area) nav = { grid: new NavGrid(walkable, deps.solids(), NAV_RADIUS), at: clock, area };
     return nav.grid.findPath(from, to);
   };
   const walk = (from: Point, to: Point): number => {
@@ -168,6 +175,10 @@ export function createJobs(deps: {
       built: (id: string) => state.unlocked.includes(id),
       spots,
       usable,
+      reachable: (p: Point) => {
+        const w = deps.walkable();
+        return p.x > w.minX + REACH_MARGIN && p.x < w.maxX - REACH_MARGIN && p.z > w.minZ + REACH_MARGIN && p.z < w.maxZ - REACH_MARGIN;
+      },
       done: state.counts.jobs ?? 0,
       allowed: deps.allowed(),
       paused: panelOpen(),

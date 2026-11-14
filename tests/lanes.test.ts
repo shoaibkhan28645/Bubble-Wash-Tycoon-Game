@@ -6,7 +6,7 @@ import { ROADSIDE } from '../src/core/towns';
 import { newGame } from '../src/core/gameState';
 import type { Car } from '../src/systems/cars';
 import { jobSeconds } from '../src/systems/economy';
-import { guideTarget, sideButtonOpen, tutorialActive, type GuideView } from '../src/systems/guide';
+import { guideTarget, helpTarget, sideButtonOpen, tutorialActive, type GuideView } from '../src/systems/guide';
 import { t } from '../src/ui/strings';
 import { canUse, nextStop, pickRebalance, type Lane } from '../src/systems/lanes';
 import { bill } from '../src/systems/traffic';
@@ -216,8 +216,10 @@ describe('tutorial hand', () => {
     pile: at(2),
     pad: { at: at(3), owed: 50 },
     shelf: at(4),
-    lowBay: at(5),
-    carryingSoap: false,
+    lowStation: at(5),
+    carrying: false,
+    lowOnSoap: true,
+    waiting: null,
     fuelCar: null,
     upgrade: null,
   };
@@ -230,7 +232,7 @@ describe('tutorial hand', () => {
     expect(where(state, view)).toEqual(at(2));
     state.flags.push('collected');
     expect(where(state, view)).toEqual(at(4));
-    expect(where(state, { ...view, carryingSoap: true })).toEqual(at(5));
+    expect(where(state, { ...view, carrying: true })).toEqual(at(5));
     state.flags.push('supplied');
     state.cash = 10;
     expect(guideTarget(state, view)).toBeNull();
@@ -257,7 +259,7 @@ describe('tutorial hand', () => {
   });
 
   it('says at most eight words at each step', () => {
-    for (const key of ['guideWash', 'guideCash', 'guideShelf', 'guideSoapBay', 'guideFuel', 'guideUpgrade', 'guideBuild'] as const) {
+    for (const key of ['guideWash', 'guideCash', 'guideShelf', 'guideSoapBay', 'guideFuel', 'guideUpgrade', 'guideBuild', 'guideTill', 'guideWork', 'guideSupplyShelf', 'guideSupplyDrop'] as const) {
       expect(t(key).split(' ').length).toBeLessThanOrEqual(8);
     }
   });
@@ -267,6 +269,24 @@ describe('tutorial hand', () => {
     state.unlocked.push('washer');
     expect(tutorialActive(state)).toBe(false);
     expect(guideTarget(state, view)).toBeNull();
+  });
+
+  it('after the tutorial, points at a station where someone is kept waiting, and at supplies running out until a runner is hired', () => {
+    const state = newGame();
+    state.unlocked.push('washer', 'soap', 'mart');
+    // The shelf, then the station that's nearly out (with the words for towels or wax when it's not soap).
+    expect(helpTarget(state, view)).toEqual({ at: at(4), text: 'guideShelf' });
+    expect(helpTarget(state, { ...view, carrying: true })).toEqual({ at: at(5), text: 'guideSoapBay' });
+    expect(helpTarget(state, { ...view, lowOnSoap: false })).toEqual({ at: at(4), text: 'guideSupplyShelf' });
+    // Nothing nearly out: nothing.
+    expect(helpTarget(state, { ...view, lowStation: null })).toBeNull();
+    // Someone kept waiting at a station with nobody to serve them comes first: the till, a pump, the dryer.
+    expect(helpTarget(state, { ...view, waiting: { at: at(8), kind: 'counter' } })).toEqual({ at: at(8), text: 'guideTill' });
+    expect(helpTarget(state, { ...view, waiting: { at: at(8), kind: 'pump' } })).toEqual({ at: at(8), text: 'guideFuel' });
+    expect(helpTarget(state, { ...view, waiting: { at: at(8), kind: 'dryer' } })).toEqual({ at: at(8), text: 'guideWork' });
+    // Once there's a runner, the supplies are theirs.
+    state.unlocked.push('runner');
+    expect(helpTarget(state, view)).toBeNull();
   });
 });
 

@@ -133,6 +133,8 @@ export interface JobsContext {
   spots: Readonly<Record<string, readonly JobSpot[]>>;
   /** Whether a job can happen at a spot right now (a perfect launch needs a ride about to fill); any if not given. */
   usable?: (def: JobDef, spot: JobSpot) => boolean;
+  /** Whether the hero can get to a place now (the lot grows as it's built); anywhere if not given. */
+  reachable?: (p: Point) => boolean;
   /** Jobs done ever (every town), for which is golden; the board's own count if not given. */
   done?: number;
   /** Jobs may be offered at all (the tutorial's over, the people are loaded). */
@@ -429,7 +431,7 @@ export class JobBoard {
         item.turn = 1 + this.random() * 2;
       }
       const next = { x: item.x + Math.sin(item.heading) * speed * dt, z: item.z + Math.cos(item.heading) * speed * dt };
-      if (dist(next, job.from) > spread || (ctx.free && !ctx.free(next))) {
+      if (dist(next, job.from) > spread || (ctx.free && !ctx.free(next)) || (ctx.reachable && !ctx.reachable(next))) {
         item.heading = Math.atan2(job.from.x - item.x, job.from.z - item.z) + (this.random() - 0.5) * 1.2;
         item.turn = 1 + this.random() * 2;
         continue;
@@ -483,12 +485,14 @@ export class JobBoard {
   }
 
   /** A job's spots of a kind that can be used now: what they need built, and (where it starts) ready for it. */
-  private places(def: JobDef, name: string, ctx: Pick<JobsContext, 'built' | 'spots' | 'usable'>): JobSpot[] {
-    return (ctx.spots[name] ?? []).filter((s) => (!s.needs || ctx.built(s.needs)) && (name !== def.from || !ctx.usable || ctx.usable(def, s)));
+  private places(def: JobDef, name: string, ctx: Pick<JobsContext, 'built' | 'spots' | 'usable' | 'reachable'>): JobSpot[] {
+    return (ctx.spots[name] ?? []).filter(
+      (s) => (!s.needs || ctx.built(s.needs)) && (!ctx.reachable || ctx.reachable(s)) && (name !== def.from || !ctx.usable || ctx.usable(def, s)),
+    );
   }
 
   /** Jobs that can be done here now: built what they need, and have their spots. */
-  eligible(ctx: Pick<JobsContext, 'town' | 'built' | 'spots' | 'usable'>): JobDef[] {
+  eligible(ctx: Pick<JobsContext, 'town' | 'built' | 'spots' | 'usable' | 'reachable'>): JobDef[] {
     return this.defs.filter(
       (d) => d.town === ctx.town && d.needs.every((p) => ctx.built(p)) && this.places(d, d.from, ctx).length > 0 && (!d.to || this.places(d, d.to, ctx).length > 0),
     );
@@ -539,7 +543,7 @@ export class JobBoard {
         const a = this.random() * Math.PI * 2;
         const r = Math.sqrt(this.random()) * spread;
         const p = { x: from.x + Math.cos(a) * r, z: from.z + Math.sin(a) * r, heading: this.random() * Math.PI * 2, turn: this.random() * 2 };
-        if (ctx.free && !ctx.free(p)) continue;
+        if ((ctx.free && !ctx.free(p)) || (ctx.reachable && !ctx.reachable(p))) continue;
         if (items.some((q) => dist(p, q) < t.itemGap)) continue;
         items.push(p);
       }

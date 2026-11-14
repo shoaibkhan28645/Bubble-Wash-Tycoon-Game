@@ -393,6 +393,20 @@ describe('more kinds of rush job', () => {
     }
   });
 
+  it("only where the hero can get to now (the lot grows as it's built): spots and things outside are passed over", () => {
+    // The lot so far reaches z = 15: the spot at z = 20 is beyond it, as is the spread round the one at z = 13.5.
+    const reachable = (p: Point) => p.z < 15;
+    for (const seed of [1, 2, 3, 4, 5]) {
+      const board = new JobBoard([SPILL], T, seeded(seed));
+      untilOffered(board, context({ spots: { spill: [{ x: 4, z: 20 }, { x: 4, z: 11 }], shelf: [{ x: -6, z: 8 }] }, reachable }));
+      const job = board.active!;
+      expect(job.from).toEqual({ x: 4, z: 11 });
+      for (const p of job.items) expect(p.z).toBeLessThan(15);
+    }
+    const none = new JobBoard([SPILL], T, seeded(1));
+    expect(none.eligible(context({ spots: { spill: [{ x: 4, z: 20 }], shelf: [{ x: -6, z: 8 }] }, reachable }))).toEqual([]);
+  });
+
   it('golden: every sixth job done, the next pays three times over, and stays golden until done', () => {
     const board = new JobBoard([SPILL], T, seeded(5));
     const ctx = context();

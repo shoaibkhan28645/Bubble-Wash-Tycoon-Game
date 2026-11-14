@@ -27,7 +27,7 @@ import { insideRect, type Station } from '../systems/stations';
 import { IncomeTracker } from '../systems/offline';
 import { createJobs } from './jobs';
 import { EventChips } from '../ui/eventChips';
-import { tutorialActive } from '../systems/guide';
+import { tutorialActive, type GuideStep } from '../systems/guide';
 import { Floaters } from '../ui/carBubbles';
 import { Carrier, carriedItems } from '../systems/carry';
 import { Supplies } from '../systems/supplies';
@@ -294,6 +294,7 @@ export function createRoadsideGame(
     allowed: () => !tutorialActive(state),
     blocked: () => false,
     solids: () => [...buildings.obstacles(), ...fixed],
+    walkable: () => view.walkable,
     mentor: current.story.mentor,
     onPaid: (amount, at) => meta.onPaid({ amount, tip: 0, automated: false, at, bonus: true }),
     onDone: () => meta.count('jobs'),
@@ -301,7 +302,7 @@ export function createRoadsideGame(
     save: () => void saves.saveNow(),
   });
 
-  onboarding = createOnboarding({ root, labels, layout, state, traffic, cash, pads, playerCarry, flag });
+  onboarding = createOnboarding({ root, labels, layout, state, traffic, staffRate: (s) => staff.rateFor(s), cash, pads, playerCarry, flag });
 
   // The hero's career and the town's story, both told in the town paper. Closing a card is a break between
   // screens, so an interstitial may follow.
@@ -313,6 +314,8 @@ export function createRoadsideGame(
   let rateTimer = 0;
   let buildTimer = 0;
   const fixed = fixedSolids(layout);
+  /** Where the guide's hand points this frame (the play-test bot follows it). */
+  let hint: GuideStep | null = null;
   const loop = new Loop((dt) => {
     clock.advance(dt);
     state.playSeconds += dt;
@@ -329,7 +332,8 @@ export function createRoadsideGame(
     hoses.update(traffic.forecourt.pumps);
     washSounds.update(dt, player.scrubbing);
     if (cash.update(player.position)) flag('collected');
-    const guide = onboarding?.update() ?? null;
+    const guide = onboarding?.update(dt) ?? null;
+    hint = guide;
     floaters.update(dt);
     buildTimer -= dt;
     if (buildTimer <= 0) {
@@ -395,6 +399,14 @@ export function createRoadsideGame(
     traffic,
     staff,
     jobs,
+    bot: {
+      get hint() {
+        return hint;
+      },
+      pads,
+      upgrades,
+      cash,
+    },
     welcomeBack: (earned) => meta.welcomeBack(earned),
     get frameMs() {
       return loop.busyMs;
