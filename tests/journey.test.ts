@@ -111,7 +111,7 @@ describe('the whole journey', () => {
   });
 
   // A new map's first purchases come with the old towns paying in about twice what it makes then (the park opens to
-  // the farm's $58K a minute); halfway through, it makes several times as much.
+  // the farm's $56K a minute); halfway through, it makes several times as much.
   it('has each new map earn its own way, not on the old towns\' income', () => {
     for (const leg of legs.slice(1)) {
       expect(leg.ownAtFirst, `${leg.name} at its first purchase`).toBeGreaterThanOrEqual(0.5);

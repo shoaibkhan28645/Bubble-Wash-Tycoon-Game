@@ -294,9 +294,9 @@ export function playJourney(maps: JourneyMap[], options: JourneyOptions = ACTIVE
  * What each town stores as its steady rate (its staff's takings, measured while the hero plays: what it pays in the
  * background once he's moved on), for every dollar its model gives the same buildings and upgrades. Measured with the
  * playthrough bot on leaving each town: the car wash $1.2K a minute against the model's $2K (no tips counted, and
- * the hero had a share of the customers), the farm $38K against $54K.
+ * the hero had a share of the customers), the farm $38K against $38K.
  */
-export const STORED_RATE = { roadside: 0.6, willowbrook: 0.71, starlight: 1 };
+export const STORED_RATE = { roadside: 0.6, willowbrook: 1, starlight: 1 };
 
 /**
  * How a keen player plays each map, measured with the playthrough bot (each map's timeline came within 5 to 20% of

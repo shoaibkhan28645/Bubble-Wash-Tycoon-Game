@@ -32,7 +32,7 @@
   {
     "id": "field2",
     "name": "Corn field",
-    "cost": 3100,
+    "cost": 3200,
     "targetMinute": 3,
     "adds": "Six plots of corn, which sells for more",
     "effects": {
@@ -53,7 +53,7 @@
   {
     "id": "barn",
     "name": "Red barn",
-    "cost": 3400,
+    "cost": 3500,
     "targetMinute": 4.5,
     "buildSeconds": 30,
     "adds": "Stores the harvest: the stand holds 10 more crates, and every sale pays 20% more",
@@ -65,7 +65,7 @@
   {
     "id": "farmhand",
     "name": "Farmhand",
-    "cost": 3500,
+    "cost": 3600,
     "targetMinute": 5.5,
     "adds": "Harvests the fields and stocks the stand",
     "effects": {
@@ -75,7 +75,7 @@
   {
     "id": "eggcollector",
     "name": "Egg collector",
-    "cost": 3700,
+    "cost": 3800,
     "targetMinute": 6.5,
     "adds": "Packs the eggs and takes the cartons to the stand",
     "effects": {
@@ -85,7 +85,7 @@
   {
     "id": "standhand",
     "name": "Stand helper",
-    "cost": 8100,
+    "cost": 6400,
     "targetMinute": 8.5,
     "adds": "Serves at the farm stand and minds the till: cash keeps piling up while you are away",
     "effects": {
@@ -96,7 +96,7 @@
   {
     "id": "cowbarn",
     "name": "Cow barn",
-    "cost": 8400,
+    "cost": 6700,
     "targetMinute": 9.5,
     "buildSeconds": 30,
     "adds": "Three cows give milk; bottle it at the dairy. Milk sells for more than anything else",
@@ -107,7 +107,7 @@
   {
     "id": "gate",
     "name": "Farm gate sign",
-    "cost": 8700,
+    "cost": 7200,
     "targetMinute": 10.5,
     "adds": "+30% villagers stopping by",
     "effects": {
@@ -117,7 +117,7 @@
   {
     "id": "feedstore",
     "name": "Feed store",
-    "cost": 9700,
+    "cost": 7600,
     "targetMinute": 11.5,
     "adds": "Corn tipped in feeds the animals: fed hens lay twice as fast, fed cows give 50% more milk",
     "effects": {
@@ -127,7 +127,7 @@
   {
     "id": "pickup",
     "name": "Farm pickup",
-    "cost": 27000,
+    "cost": 23000,
     "targetMinute": 14,
     "adds": "A pickup parked by the fields: the farmhand loads it right there (no walks to the barn, so half as much again is picked), and it takes full loads to the barn",
     "effects": {
@@ -137,7 +137,7 @@
   {
     "id": "milker",
     "name": "Milker",
-    "cost": 40000,
+    "cost": 32000,
     "targetMinute": 16.5,
     "adds": "Bottles the milk and takes it to the stand or the vans",
     "effects": {
@@ -147,7 +147,7 @@
   {
     "id": "van",
     "name": "Farm van",
-    "cost": 76000,
+    "cost": 55000,
     "targetMinute": 22.5,
     "adds": "Delivery orders open: pick one on the board, load the van with eggs or crates, and it brings back far more than the stand",
     "effects": {
@@ -157,7 +157,7 @@
   {
     "id": "driver",
     "name": "Delivery driver",
-    "cost": 79000,
+    "cost": 57000,
     "targetMinute": 26,
     "adds": "The vans take the best orders by themselves",
     "effects": {
@@ -167,7 +167,7 @@
   {
     "id": "tanker",
     "name": "Milk tanker",
-    "cost": 82000,
+    "cost": 60000,
     "targetMinute": 28.5,
     "adds": "Big milk orders for the village; the rival loses his grip on Willowbrook",
     "effects": {
@@ -177,7 +177,7 @@
   {
     "id": "cashier",
     "name": "Farm cashier",
-    "cost": 86000,
+    "cost": 62000,
     "targetMinute": 30.5,
     "adds": "Walks round the farm collecting the cash from the stand, the market and the delivery yard",
     "effects": {
@@ -187,7 +187,7 @@
   {
     "id": "orchard",
     "name": "Apple orchard",
-    "cost": 89000,
+    "cost": 64000,
     "targetMinute": 34.5,
     "adds": "Six apple trees: slow to ripen, but a crate of apples sells for $400",
     "effects": {
@@ -197,7 +197,7 @@
   {
     "id": "orchardhand",
     "name": "Orchard picker",
-    "cost": 93000,
+    "cost": 67000,
     "targetMinute": 37,
     "adds": "Picks the apples as they ripen and takes them to the barn, for the bakery, the stalls and the vans",
     "effects": {
@@ -207,7 +207,7 @@
   {
     "id": "feedtruck",
     "name": "Feed truck",
-    "cost": 96000,
+    "cost": 70000,
     "targetMinute": 39.5,
     "adds": "Brings feed from town whenever the feed store runs low: the animals are always fed",
     "effects": {
@@ -217,7 +217,7 @@
   {
     "id": "manager",
     "name": "Farm manager",
-    "cost": 140000,
+    "cost": 100000,
     "targetMinute": 45,
     "adds": "Runs the whole farm: full earnings while you are in another town",
     "effects": {
@@ -227,7 +227,7 @@
   {
     "id": "bakery",
     "name": "Mill and bakery",
-    "cost": 220000,
+    "cost": 150000,
     "targetMinute": 50,
     "adds": "Grinds corn from the barn and bakes it: bread, and apple pies when there are apples",
     "effects": {}
@@ -235,7 +235,7 @@
   {
     "id": "baker",
     "name": "Baker",
-    "cost": 240000,
+    "cost": 170000,
     "targetMinute": 55,
     "adds": "Takes the baking from the bread table to the stand, the market and the vans",
     "effects": {
@@ -245,7 +245,7 @@
   {
     "id": "market",
     "name": "Farmers' market",
-    "cost": 420000,
+    "cost": 220000,
     "targetMinute": 64,
     "adds": "Market stalls by the road: weekend crowds (+60% villagers) paying 50% more",
     "effects": {
@@ -256,7 +256,7 @@
   {
     "id": "marketstaff",
     "name": "Market staff",
-    "cost": 490000,
+    "cost": 230000,
     "targetMinute": 70,
     "adds": "Serves at the market stalls",
     "effects": {
@@ -266,7 +266,7 @@
   {
     "id": "windmill",
     "name": "Willowbrook Windmill",
-    "cost": 510000,
+    "cost": 240000,
     "targetMinute": 73,
     "buildSeconds": 1200,
     "adds": "The village's landmark, built on the west paddock: +20% on every sale in Willowbrook",
@@ -277,7 +277,7 @@
   {
     "id": "road",
     "name": "Starlight park land",
-    "cost": 2700000,
+    "cost": 1200000,
     "targetMinute": 93,
     "adds": "Buy the land for Starlight Fun Park and move the hero there; offered once every town goal is done",
     "afterGoals": true,

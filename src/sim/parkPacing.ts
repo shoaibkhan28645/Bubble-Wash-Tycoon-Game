@@ -16,7 +16,7 @@
 // time, and carries supplies until the snack runner does; the operator and
 // the coaster crew launch their rides; the truck tops up the shed. The hero
 // arrives with what the park's land left over, and the other towns keep
-// earning in the background all along (about $58k a minute when the park
+// earning in the background all along (about $56k a minute when the park
 // opens). What the crowd takes here is scaled to what the game's park takes
 // (PARK_EFFICIENCY, measured). Tips for perfect launches, the mascot's
 // photos and the storm are left out; upgrades are counted in
@@ -47,8 +47,8 @@ export interface ParkPacingOptions {
 /** The start cash and the background are the whole journey's (src/sim/journey.ts; tests/journey.test.ts keeps them in step). */
 export const PARK_PACING: ParkPacingOptions = {
   stars: 4,
-  startCash: 410,
-  background: 58000,
+  startCash: 200,
+  background: 55600,
   step: 1,
   maxMinutes: 240,
   warmup: 120,

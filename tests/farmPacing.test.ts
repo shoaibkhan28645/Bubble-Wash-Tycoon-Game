@@ -6,7 +6,7 @@ import { FARM_PACING, farmIncomePerSecond, simulateFarmPacing } from '../src/sim
 // Tests run in Node; the project has no Node types, so just what's used here.
 declare const process: { env: Record<string, string | undefined> };
 
-const report = simulateFarmPacing(WILLOWBROOK, { maxMinutes: 400 });
+const report = simulateFarmPacing(WILLOWBROOK);
 
 describe('farm pacing simulator', () => {
   it('buys every pad of the farm, in order', () => {
@@ -27,12 +27,11 @@ describe('farm pacing simulator', () => {
   });
 
   // The planned minutes are a keen player who buys upgrades and does the rush jobs (tests/journey.test.ts holds every
-  // pad to them). This bot does neither: the farm earns about a third as much by the end (its production upgrades
-  // pay in full), and nothing else comes in, so the land takes it far longer to save for.
-  it('never buying an upgrade nor doing a rush job, gets to the land within three and a half times the planned length', () => {
+  // pad to them). This bot does neither, so the land takes it far longer to save for.
+  it('never buying an upgrade nor doing a rush job, gets to the land within two and a half times the planned length', () => {
     const land = report.pads.at(-1)!;
     expect(land.boughtMinute!).toBeGreaterThan(land.targetMinute);
-    expect(land.boughtMinute!).toBeLessThan(land.targetMinute * 3.5);
+    expect(land.boughtMinute!).toBeLessThan(land.targetMinute * 2.5);
   });
 
   it.runIf(process.env.PACING_REPORT)('prints the report', () => {
