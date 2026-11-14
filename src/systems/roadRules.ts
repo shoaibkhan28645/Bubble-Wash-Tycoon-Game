@@ -7,7 +7,9 @@
 // path, so the two don't end up nose to nose. If cars still lock up waiting
 // on each other (gridlock), the one that came first eases through after a
 // few seconds (two head to head, or a ring of them round a crossing); a
-// parked or queued car and a person are never driven through.
+// parked or queued car is never driven through. Nor is the hero; anyone else
+// on foot who has stood in a car's way for a good while (a helper waiting for
+// that very car to move, say) is eased past, so the lot never locks up.
 import { type Point, type Rect } from '../core/config';
 import { insideRect } from './stations';
 import type { Car } from './cars';
@@ -34,6 +36,8 @@ const SAME_WAY = 0.7;
 const HEAD_ON = 0.9;
 /** Seconds cars stay locked up waiting on each other before the first to come eases through. */
 const GRIDLOCK = 4;
+/** Seconds a car waits for someone on foot (not the hero) before it eases past them. */
+const PERSON_PATIENCE = 12;
 /** The most cars in a ring of gridlock looked for. */
 const RING = 12;
 /** How far ahead (beyond LOOK) a car looks to ease off in time, at most, and how hard it plans to brake (m/s²). */
@@ -61,6 +65,8 @@ export class RoadRules {
   private readonly passing = new Map<RoadCar, RoadCar>();
   /** What each car was last held up by: a person, a car in its way, or giving way (to a lane's traffic, at a crossing). */
   private readonly holds = new Map<RoadCar, 'person' | 'car' | 'way'>();
+  /** Cars easing past someone on foot who wouldn't get out of the way: they carry on until nobody's in front. */
+  private readonly easing = new Set<RoadCar>();
 
   constructor(
     private readonly cars: () => Iterable<RoadCar>,
@@ -68,7 +74,16 @@ export class RoadRules {
     private readonly people: () => Point[],
     /** Which lane of the road a point is in (null: off the road). Cars pulling into a lane give way to the traffic along it. */
     private readonly laneAt: (p: Point) => string | null = () => null,
+    /** Where the hero is (always waited for, however long), if there is one. */
+    private readonly hero: () => Point | null = () => null,
   ) {}
+
+  /** Someone on foot this car may ease past now: anyone but the hero, once it's waited long enough. */
+  private passable(car: RoadCar, person: Point): boolean {
+    if (!this.easing.has(car) && car.heldFor <= PERSON_PATIENCE) return false;
+    const hero = this.hero();
+    return !hero || Math.abs(hero.x - person.x) > 1e-6 || Math.abs(hero.z - person.z) > 1e-6;
+  }
 
   blocked(car: RoadCar): boolean {
     this.holds.delete(car);
@@ -76,14 +91,22 @@ export class RoadRules {
     if (!dir) return false;
     const p = car.position;
     const [width, , length] = car.def.size;
-    // Nobody steps out in front of a car: people always get to cross.
+    // Nobody steps out in front of a car: people always get to cross (but see PERSON_PATIENCE).
+    let easing = false;
     for (const person of this.people()) {
       const { along, side } = relative(p, dir, person);
       if (along > 0 && along < length / 2 + PERSON + PERSON_GAP && side < width / 2 + PERSON_SIDE) {
+        if (this.passable(car, person)) {
+          easing = true;
+          continue;
+        }
+        this.easing.delete(car);
         this.holds.set(car, 'person');
         return true;
       }
     }
+    if (easing) this.easing.add(car);
+    else this.easing.delete(car);
     this.waitingOn.delete(car);
     const passing = this.passing.get(car);
     this.passing.delete(car);
@@ -158,6 +181,7 @@ export class RoadRules {
     let room = Infinity;
     const stop = length / 2 + PERSON + PERSON_GAP;
     for (const person of this.people()) {
+      if (this.easing.has(car) && this.passable(car, person)) continue;
       const { along, side } = relative(p, dir, person);
       // (A hair over, so it always comes on far enough for blocked() to hold it.)
       if (along > 0 && side < width / 2 + PERSON_SIDE && along - stop < look) room = Math.min(room, Math.max(0, along - stop) + 0.02);

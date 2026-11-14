@@ -182,6 +182,22 @@ describe('road rules', () => {
     expect(new RoadRules(() => [me], () => [{ x: -2, z: 0 }]).blocked(me)).toBe(false);
   });
 
+  it('waits for the hero however long, but eases past anyone else who stays in its way a good while', () => {
+    const hero = { x: 2.2, z: 0.3 };
+    const helper = { x: 2.2, z: -0.2 };
+    const me = car(0, 0, { x: 10, z: 0 }, Math.PI / 2, { held: true, heldFor: 20 });
+    // The hero in front: it waits.
+    expect(new RoadRules(() => [me], () => [{ ...hero }], () => null, () => ({ ...hero })).blocked(me)).toBe(true);
+    // A helper who's stood there twenty seconds (waiting for this very car, say): it eases past, and keeps going.
+    const rules = new RoadRules(() => [me], () => [{ ...helper }], () => null, () => ({ x: -5, z: 0 }));
+    expect(rules.blocked(me)).toBe(false);
+    me.heldFor = 0;
+    expect(rules.blocked(me)).toBe(false);
+    // Not long enough yet: it waits.
+    const fresh = car(0, 0, { x: 10, z: 0 }, Math.PI / 2, { held: true, heldFor: 3 });
+    expect(new RoadRules(() => [fresh], () => [{ ...helper }], () => null, () => ({ x: -5, z: 0 })).blocked(fresh)).toBe(true);
+  });
+
   it("where two ways cross, the car that came later waits short of the other's path, which drives on", () => {
     const first = car(0, 0, { x: 20, z: 0 }, Math.PI / 2, { serial: 1 });
     const later = car(4, -3.2, { x: 4, z: 10 }, 0, { serial: 2 });

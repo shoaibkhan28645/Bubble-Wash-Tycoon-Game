@@ -158,6 +158,7 @@ export function createRoadsideGame(
     () => pool.active,
     () => [player.position, ...staff.positions(), ...mart.positions(), ...drivers.positions(), ...street.people()],
     (p) => roadLaneAt(layout, p),
+    () => player.position,
   );
 
   const addBuilt = (id: string, animate: boolean): void => {
