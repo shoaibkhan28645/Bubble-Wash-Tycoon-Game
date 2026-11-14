@@ -87,7 +87,7 @@
   "staff": { "workRate": 0.85, "walkSpeed": 3.5, "workSeconds": 45, "breakSeconds": 8 },
   "offline": { "rate": 0.5, "managerRate": 1, "capMinutes": [20, 40, 60, 80], "minAwaySeconds": 60, "resumeAwaySeconds": 120, "incomeWindowSeconds": 600, "maxRate": { "roadside": 8000, "willowbrook": 120000, "starlight": 10000000 } },
   "park": {
-    "pileCap": 20000,
+    "pileCap": 120000,
     "visitors": { "spawnSeconds": 3.4, "patience": 55, "walkSpeed": 2.3, "ticket": 720, "max": 40, "childChance": 0.3 },
     "wishes": { "count": [2, 4], "cart": 0.6, "ringtoss": 0.45, "burger": 0.55, "rest": 0.3, "restSeconds": [4, 8] },
     "rides": { "launchDelay": 1.6, "leverSeconds": 0.3, "perfectWindow": 1.0, "operatorWait": 6, "fullBonus": 0.2, "perfectTip": 0.15, "boardStagger": 0.35, "unloadStagger": 0.25, "spinUp": 1.6, "spinDown": 1.8, "repairSeconds": 3, "breakAfterRiders": 60, "serviceAt": 0.7, "serviceRuns": 10, "serviceBonus": 0.1 },
