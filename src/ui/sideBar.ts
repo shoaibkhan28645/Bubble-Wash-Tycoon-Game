@@ -16,6 +16,8 @@ export interface SideView {
   fix: boolean;
   /** Plush toys on the prize shelf so far (the park), or -1 for no shelf. */
   shelf: number;
+  /** Something new in the boutique the gems would buy. */
+  shop: boolean;
   /** Seconds left on the building going up soonest (0 = nothing being built). */
   build: number;
   /** Whether the player has got far enough for this button (GDD Onboarding: they appear one by one). */
@@ -73,7 +75,7 @@ export class SideBar {
   update(view: SideView): void {
     const open = view.available;
     this.set('calendar', open('calendar'), view.calendar ? '!' : '', view.calendar);
-    this.set('shop', open('shop'), '', false);
+    this.set('shop', open('shop'), view.shop ? '!' : '', false);
     this.set('missions', open('missions'), view.missions ? String(view.missions) : '', view.missions > 0);
     this.set('speed', open('speed'), view.speedLeft > 0 ? clock(view.speedLeft) : '📺', view.speedLeft > 0);
     this.set('convoy', open('convoy'), view.convoyWait > 0 ? clock(view.convoyWait) : '📺', false, view.convoyWait > 0);

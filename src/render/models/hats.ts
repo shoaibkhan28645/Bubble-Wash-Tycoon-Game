@@ -68,13 +68,67 @@ const HAT_PARTS: Record<string, () => Part[]> = {
   ],
 };
 
+// Earned, not bought: for ranks, for finishing the car wash, and for each completed set.
+const EARNED_HATS: Record<string, () => Part[]> = {
+  fedora: () => [
+    { geometry: cylinder(0.27, 0.022, 20).scale(1, 1, 0.9), color: '#6b5b4b', y: 0.315 },
+    { geometry: rbox(0.3, 0.17, 0.28, 0.07), color: '#6b5b4b', y: 0.4 },
+    { geometry: rbox(0.31, 0.045, 0.29, 0.02), color: '#2d2a26', y: 0.345 },
+    { geometry: box(0.06, 0.03, 0.2), color: '#5a4b3d', y: 0.485 },
+  ],
+  captain: () => [
+    { geometry: rbox(0.36, 0.09, 0.36, 0.03), color: '#1f2a4a', y: 0.33 },
+    { geometry: cylinder(0.225, 0.08, 20), color: '#f6f8fb', y: 0.41 },
+    { geometry: rbox(0.3, 0.022, 0.15, 0.01), color: '#1c1c22', y: 0.3, z: 0.22, rx: 0.15 },
+    { geometry: box(0.3, 0.02, 0.02), color: '#ffc24a', y: 0.36, z: 0.19 },
+    { geometry: sphere(0.035, 8), color: '#ffc24a', y: 0.38, z: 0.2 },
+  ],
+  duckhat: () => [
+    { geometry: sphere(0.16, 14).scale(1.15, 0.8, 1.3), color: '#ffd23a', y: 0.45 },
+    { geometry: sphere(0.105, 12), color: '#ffd23a', y: 0.6, z: 0.1 },
+    { geometry: cone(0.05, 0.12, 8), color: '#ff8a2a', y: 0.585, z: 0.23, rx: Math.PI / 2 },
+    { geometry: sphere(0.02, 6), color: '#1c1c22', x: 0.05, y: 0.63, z: 0.18 },
+    { geometry: sphere(0.02, 6), color: '#1c1c22', x: -0.05, y: 0.63, z: 0.18 },
+    { geometry: cone(0.06, 0.12, 6), color: '#ffd23a', y: 0.5, z: -0.2, rx: -1.1 },
+  ],
+  sponge: () => [
+    { geometry: rbox(0.38, 0.17, 0.38, 0.045), color: '#ffd24a', y: 0.405 },
+    ...[[-0.1, 0.19], [0.08, 0.19], [0, 0.19]].map(([x, z]): Part => ({ geometry: sphere(0.03, 6), color: '#e0a800', x, y: 0.4 + (x === 0 ? 0.04 : -0.03), z })),
+    ...[[0.19, 0.05], [0.19, -0.08], [-0.19, 0]].map(([x, z]): Part => ({ geometry: sphere(0.028, 6), color: '#e0a800', x, y: 0.42, z })),
+    { geometry: sphere(0.06, 10), color: '#e8f8ff', x: 0.08, y: 0.53, z: 0.04 },
+    { geometry: sphere(0.04, 8), color: '#bfe9ff', x: -0.06, y: 0.52, z: -0.05 },
+    { geometry: sphere(0.03, 8), color: '#ffffff', x: 0.0, y: 0.6, z: -0.02 },
+  ],
+  straw: () => [
+    { geometry: cylinder(0.35, 0.024, 22), color: '#e3c25a', y: 0.315 },
+    { geometry: cylinder(0.17, 0.14, 18), color: '#e3c25a', y: 0.39 },
+    { geometry: cylinder(0.172, 0.045, 18), color: '#c8452e', y: 0.345 },
+    { geometry: cylinder(0.15, 0.02, 18), color: '#d4b04a', y: 0.465 },
+  ],
+  ringmaster: () => [
+    { geometry: cylinder(0.26, 0.025, 20), color: '#1f2026', y: 0.335 },
+    { geometry: cylinder(0.17, 0.3, 18), color: '#c8282f', y: 0.49 },
+    { geometry: cylinder(0.173, 0.05, 18), color: '#ffc24a', y: 0.38 },
+    { geometry: cylinder(0.173, 0.02, 18), color: '#ffc24a', y: 0.6 },
+    { geometry: cylinder(0.175, 0.025, 18), color: '#1f2026', y: 0.645 },
+  ],
+  // A gold band round the head with upright leaves either side, open at the front.
+  laurels: () => [
+    { geometry: new TorusGeometry(0.205, 0.022, 6, 24), color: '#e0a82a', y: 0.31, rx: Math.PI / 2 },
+    ...Array.from({ length: 16 }, (_, i): Part => {
+      const a = 0.4 + (i / 15) * (Math.PI * 2 - 0.8);
+      return { geometry: sphere(0.06, 8).scale(0.5, 1.25, 0.28), color: i % 2 ? '#f2c230' : '#ffd85c', x: Math.sin(a) * 0.212, y: 0.37, z: Math.cos(a) * 0.212, ry: a, rz: 0.25 };
+    }),
+  ],
+};
+
 const geometries = new Map<string, BufferGeometry>();
 
 /** A hat's model (built once, then shared); null for an id with no model. */
 export function hatGeometry(id: string): BufferGeometry | null {
   let geometry = geometries.get(id);
   if (!geometry) {
-    const parts = HAT_PARTS[id];
+    const parts = HAT_PARTS[id] ?? EARNED_HATS[id];
     if (!parts) return null;
     geometry = mergeParts(parts());
     geometries.set(id, geometry);
@@ -83,4 +137,4 @@ export function hatGeometry(id: string): BufferGeometry | null {
 }
 
 /** Ids of every hat with a model (tests check each one on sale has one). */
-export const HAT_MODELS = Object.keys(HAT_PARTS);
+export const HAT_MODELS = [...Object.keys(HAT_PARTS), ...Object.keys(EARNED_HATS)];

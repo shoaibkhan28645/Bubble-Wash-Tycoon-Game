@@ -390,7 +390,38 @@ function statue(context: DecorContext): BuiltDecor {
   return { object };
 }
 
+/** A gold cup on a wooden stand with a blue prize rosette: won at the county fair. */
+function trophy(): BuiltDecor {
+  const object = new Group();
+  object.add(mesh([
+    { geometry: rbox(0.9, 0.5, 0.9, 0.06), color: '#a8693a', y: 0.25 },
+    { geometry: rbox(0.96, 0.06, 0.96, 0.02), color: '#7a4a24', y: 0.52 },
+    { geometry: cylinder(0.2, 0.08, 14), color: GOLD_DARK, y: 0.59 },
+    { geometry: cylinder(0.05, 0.22, 10), color: GOLD, y: 0.74 },
+    { geometry: new CylinderGeometry(0.26, 0.12, 0.4, 16), color: GOLD, y: 1.05 },
+    { geometry: cylinder(0.27, 0.04, 16), color: '#f7d25a', y: 1.26 },
+    ...[-1, 1].map((side): Part => ({ geometry: new TorusGeometry(0.1, 0.025, 6, 12, Math.PI), color: GOLD, x: side * 0.26, y: 1.08, rz: side * (Math.PI / 2) })),
+    // The rosette on the stand's front, with its two tails.
+    { geometry: cylinder(0.17, 0.03, 16), color: '#2f6fd1', y: 0.3, z: 0.47, rx: Math.PI / 2 },
+    { geometry: cylinder(0.1, 0.035, 14), color: '#ffffff', y: 0.3, z: 0.49, rx: Math.PI / 2 },
+    { geometry: cylinder(0.05, 0.04, 10), color: '#ffc24a', y: 0.3, z: 0.5, rx: Math.PI / 2 },
+    ...[-1, 1].map((side): Part => ({ geometry: box(0.07, 0.24, 0.01), color: '#2f6fd1', x: side * 0.06, y: 0.12, z: 0.47, rz: side * 0.25 })),
+  ]));
+  const at = new Vector3();
+  let next = 1;
+  return {
+    object,
+    update: (_dt, t, puff) => {
+      if (t < next) return;
+      next = t + 2.2;
+      object.localToWorld(at.set(0, 1.4, 0));
+      puff('sparkle', at, 2, 1, 0.3);
+    },
+  };
+}
+
 const BUILDERS: Record<string, (context: DecorContext) => BuiltDecor> = {
+  trophy,
   bunting,
   tubeman: tubeDancer,
   blower: bubbleBlower,

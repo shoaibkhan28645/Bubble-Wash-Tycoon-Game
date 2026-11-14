@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { newDaily, newGame, newTownState } from '../src/core/gameState';
+import { newDaily, newGame, newWardrobe, newTownState } from '../src/core/gameState';
 import { MIGRATIONS, SAVE_VERSION, migrate, parseSave, serialize, type Migration } from '../src/core/migrate';
 
 // Every save version ever shipped gets a fixture here, and must keep loading.
@@ -75,7 +75,7 @@ describe('parseSave', () => {
       goals: { done: [], claimed: [] },
       counts: {},
       franchiseStars: 0,
-      wardrobe: { owned: [], equipped: {}, hidden: [] },
+      wardrobe: newWardrobe(),
       savedAt: 0,
     });
   });
@@ -304,26 +304,41 @@ describe('old saves', () => {
   });
 
   it('v14: an older save gets an empty wardrobe; a v14 one keeps what was bought and worn', () => {
-    expect(parseSave(fixtures['./fixtures/save-v13.json']!).state.wardrobe).toEqual({ owned: [], equipped: {}, hidden: [] });
+    expect(parseSave(fixtures['./fixtures/save-v13.json']!).state.wardrobe).toEqual(newWardrobe());
     expect(parseSave(fixtures['./fixtures/save-v14.json']!).state.wardrobe).toEqual({
+      ...newWardrobe(),
       owned: ['charcoal', 'cap', 'bubbles'],
       equipped: { outfit: 'charcoal', hat: 'cap', trail: 'bubbles' },
-      hidden: [],
     });
   });
 
   it('v15: keeps the brand colour and the decorations put away', () => {
     expect(parseSave(fixtures['./fixtures/save-v15.json']!).state.wardrobe).toEqual({
+      ...newWardrobe(),
       owned: ['charcoal', 'cap', 'bubbles', 'sunset', 'scarecrow', 'bunting'],
       equipped: { outfit: 'charcoal', hat: 'cap', trail: 'bubbles', brand: 'sunset' },
       hidden: ['bunting'],
     });
   });
 
+  it("v16: keeps the title, today's featured things, the ads watched and when the shop was last opened", () => {
+    expect(parseSave(fixtures['./fixtures/save-v16.json']!).state.wardrobe).toMatchObject({
+      title: 'carwash',
+      featured: { date: '2026-11-14', ids: ['tophat', 'fountain', 'mint'], sale: 'fountain' },
+      ad: { date: '2026-11-14', count: 2 },
+      seen: '2026-11-14',
+    });
+  });
+
   it('repairs a broken wardrobe', () => {
     const load = (wardrobe: unknown) => parseSave(JSON.stringify({ version: SAVE_VERSION, wardrobe })).state.wardrobe;
-    expect(load('lots')).toEqual({ owned: [], equipped: {}, hidden: [] });
-    expect(load({ owned: ['cap', 3, 'cap'], equipped: { hat: 'cap', trail: 7, outfit: '' }, hidden: 'x' })).toEqual({ owned: ['cap'], equipped: { hat: 'cap' }, hidden: [] });
+    expect(load('lots')).toEqual(newWardrobe());
+    expect(load({ owned: ['cap', 3, 'cap'], equipped: { hat: 'cap', trail: 7, outfit: '' }, hidden: 'x', title: 4, featured: { date: 'soon', ids: ['a', 1] }, ad: { count: -2 } })).toEqual({
+      ...newWardrobe(),
+      owned: ['cap'],
+      equipped: { hat: 'cap' },
+      featured: { date: '', ids: ['a'], sale: '' },
+    });
   });
 
   it('clamps stars to 1–5', () => {

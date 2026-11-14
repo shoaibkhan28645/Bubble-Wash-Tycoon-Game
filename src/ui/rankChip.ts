@@ -36,13 +36,15 @@ export class RankChip {
     (root.querySelector('.hud') ?? root).appendChild(this.el);
   }
 
-  update(rank: RankDef, next: { rank: RankDef; progress: number } | null, worth: number): void {
+  /** `title`: an earned title (a completed set's), shown in place of the rank's name. */
+  update(rank: RankDef, next: { rank: RankDef; progress: number } | null, worth: number, title: string | null = null): void {
     const percent = next ? Math.floor(next.progress * 100) : 100;
-    const key = `${rank.id}|${percent}|${next?.rank.id ?? ''}`;
+    const key = `${rank.id}|${percent}|${next?.rank.id ?? ''}|${title ?? ''}`;
     if (key === this.shown) return;
     this.shown = key;
     this.icon.textContent = rank.icon;
-    this.name.textContent = rank.name;
+    this.name.textContent = title ?? rank.name;
+    this.el.classList.toggle('rank-titled', !!title);
     this.fill.style.width = `${percent}%`;
     this.el.setAttribute(
       'aria-label',

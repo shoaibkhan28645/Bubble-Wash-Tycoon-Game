@@ -1,10 +1,10 @@
-import { newDaily, newGame, newTownState, type Build, type Contract, type ContractsState, type DailyState, type DeliveriesState, type GameState, type GoalsState, type Order, type TownState, type WardrobeState } from './gameState';
+import { newDaily, newGame, newTownState, newWardrobe, type Build, type Contract, type ContractsState, type DailyState, type DeliveriesState, type GameState, type GoalsState, type Order, type TownState, type WardrobeState } from './gameState';
 import { START_TOWN_ID } from './towns';
 import { UPGRADES } from './config';
 import { upgradeCost } from '../systems/economy';
 
 /** Bump when the save shape changes, and add a migration for the old version. */
-export const SAVE_VERSION = 15;
+export const SAVE_VERSION = 16;
 
 /**
  * Upgrades taken out in v11, with what their first level cost then: the
@@ -141,6 +141,8 @@ export const MIGRATIONS: Readonly<Record<number, Migration>> = {
   13: (save) => ({ ...save, wardrobe: { owned: [], equipped: {} } }),
   // v15: the boutique's brand colours and decorations: decorations put away (none yet).
   14: (save) => ({ ...save, wardrobe: { ...(isObject(save.wardrobe) ? save.wardrobe : {}), hidden: [] } }),
+  // v16: the boutique's titles, daily featured things, ads for gems, and the shop last opened.
+  15: (save) => ({ ...save, wardrobe: { ...(isObject(save.wardrobe) ? save.wardrobe : {}), title: '', featured: { date: '', ids: [], sale: '' }, ad: { date: '', count: 0 }, seen: '' } }),
 };
 
 /** The cow barn's "more cows" levels (v13): one cow, then two more. */
@@ -279,12 +281,24 @@ function townState(save: SaveObject): TownState {
 
 /** Bought items and what's worn: ids kept as text (one no longer sold is ignored when worn, not dropped). */
 function wardrobeState(value: unknown): WardrobeState {
-  if (!isObject(value)) return { owned: [], equipped: {}, hidden: [] };
+  const fresh = newWardrobe();
+  if (!isObject(value)) return fresh;
   const equipped: Record<string, string> = {};
   if (isObject(value.equipped)) {
     for (const [slot, id] of Object.entries(value.equipped)) if (typeof id === 'string' && id) equipped[slot] = id;
   }
-  return { owned: stringList(value.owned), equipped, hidden: stringList(value.hidden) };
+  const date = (v: unknown) => (typeof v === 'string' && DATE.test(v) ? v : '');
+  const featured = isObject(value.featured) ? value.featured : {};
+  const ad = isObject(value.ad) ? value.ad : {};
+  return {
+    owned: stringList(value.owned),
+    equipped,
+    hidden: stringList(value.hidden),
+    title: typeof value.title === 'string' ? value.title : '',
+    featured: { date: date(featured.date), ids: stringList(featured.ids), sale: typeof featured.sale === 'string' ? featured.sale : '' },
+    ad: { date: date(ad.date), count: Math.floor(nonNegative(ad.count, 0)) },
+    seen: date(value.seen),
+  };
 }
 
 function goalsState(value: unknown): GoalsState {

@@ -7,6 +7,7 @@ import { formatCash } from '../systems/economy';
 import { JOURNEY, previousStop, stopStatus } from '../systems/journey';
 import { openDialog } from './dialog';
 import { t } from './strings';
+import { shownTitle } from '../systems/wardrobe';
 
 /**
  * The empire map: the hero's rank and net worth, then every town on the
@@ -30,9 +31,12 @@ export function openEmpireMap(deps: {
   content.className = 'empire-map';
   const summary = document.createElement('div');
   summary.className = 'empire-summary';
+  // An earned title (a completed set's) goes after the rank's name.
+  const title = shownTitle(state);
+  const rankName = title ? `${rank.name} · ${title}` : rank.name;
   summary.textContent = next
-    ? t('mapSummaryNext', { icon: rank.icon, rank: rank.name, worth: formatCash(worth), next: next.rank.name, at: formatCash(next.rank.netWorth) })
-    : t('mapSummary', { icon: rank.icon, rank: rank.name, worth: formatCash(worth) });
+    ? t('mapSummaryNext', { icon: rank.icon, rank: rankName, worth: formatCash(worth), next: next.rank.name, at: formatCash(next.rank.netWorth) })
+    : t('mapSummary', { icon: rank.icon, rank: rankName, worth: formatCash(worth) });
   const stars = document.createElement('div');
   stars.className = 'empire-stars';
   stars.textContent = t('mapStars', { stars: state.franchiseStars });

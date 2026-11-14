@@ -12,6 +12,7 @@ export class Hud {
   /** Whether a tap on the gem counter opens the boutique (once it's been found). */
   private gemReady: () => boolean = () => false;
   private gemTappable = false;
+  private dot = false;
   private lastStars = '';
   private lastGems = -1;
   private shown = 0;
@@ -54,6 +55,13 @@ export class Hud {
       if (ready()) handler();
     });
     this.gemReady = ready;
+  }
+
+  /** A red dot on the gem counter (something new in the boutique). */
+  setDot(on: boolean): void {
+    if (on === this.dot) return;
+    this.dot = on;
+    this.gems.classList.toggle('gems-dot', on);
   }
 
   update(dt: number, cash: number, stars: number, gems: number): void {

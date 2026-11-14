@@ -22,10 +22,11 @@ import type { PadSystem } from '../systems/pads';
 import type { Player } from '../systems/player';
 import type { Supplies } from '../systems/supplies';
 import type { Paid, Traffic } from '../systems/traffic';
-import { brandColours, lookWith, owns, shopItem, townDecor, type Slot } from '../systems/wardrobe';
+import { brandColours, claimAdGems, claimGift, collectEarned, featuredAffordable, lookWith, owns, rollFeatured, shopItem, shownTitle, townDecor, type Slot } from '../systems/wardrobe';
 import { showCalendar, showMissions } from '../ui/dailyPanels';
 import { offer, setUiSound, toast } from '../ui/dialog';
 import type { Hud } from '../ui/hud';
+import type { WorldLabels } from '../ui/worldLabels';
 import { openShop, type BoostView, type ShopTab } from '../ui/shopPanel';
 import { SideBar, type SideAction } from '../ui/sideBar';
 import { t } from '../ui/strings';
@@ -33,6 +34,10 @@ import { showWelcomeBack } from '../ui/welcomeBack';
 
 /** Check the date this often, so missions roll over at local midnight. */
 const DATE_CHECK_SECONDS = 20;
+/** How high over the hero's feet their title tag floats (metres: above the tallest hat). */
+const TITLE_HEIGHT = 3.1;
+/** Earned things (a rank, a finished town, a prize ribbon) are looked for this often. */
+const EARN_CHECK_SECONDS = 2;
 /** The refill offer stays up this long after a station runs dry, so it doesn't vanish under a finger. */
 const REFILL_LINGER_SECONDS = 4;
 
@@ -77,7 +82,7 @@ export function createMeta(deps: {
    * The boutique's things: the hero (dressed from it), the HUD (its gem counter opens it), the stage (it
    * draws the close-up), the effects (the trail) and the town's decorations.
    */
-  hero: { player: Player; hud: Hud; stage: Stage; effects: Particles; decor: TownDecor };
+  hero: { player: Player; hud: Hud; stage: Stage; effects: Particles; decor: TownDecor; labels: WorldLabels };
 }): Meta {
   const { root, state, saves, sound, traffic, pads, supplies } = deps;
   const town = deps.town ?? 'carWash';
@@ -165,8 +170,15 @@ export function createMeta(deps: {
 
   const openCalendar = (): void => {
     showCalendar(root, state, today, () => {
+      // The 7th day's chest also brings the weekly gift from the boutique.
+      const chest = !!DAILY.calendar[state.daily.loginDay % DAILY.calendar.length]?.chest;
       if (claimCalendar(state, today) > 0) {
         sound.play('reward');
+        const gift = chest ? claimGift(state) : null;
+        if (gift) {
+          toast(root, `🎁 ${t('giftClaimed', { name: gift.name })}`);
+          showLooks(null, null);
+        }
         save();
       }
     });
@@ -174,7 +186,13 @@ export function createMeta(deps: {
 
   // The boutique's looks: the hero's outfit, hat and trail, the brand colour on the staff and the farm's
   // vehicles, and this town's decorations; put on as the town opens, and tried on in the shop.
-  const { player, hud, stage, effects, decor } = deps.hero;
+  const { player, hud, stage, effects, decor, labels } = deps.hero;
+  // The earned title (a completed set's), on a little tag over the hero's head.
+  const titleTag = document.createElement('div');
+  titleTag.className = 'hero-title';
+  const titleAt = new Vector3();
+  const titleLabel = labels.add(titleTag, titleAt);
+  let titleShown: string | null | undefined;
   player.effects = effects;
   const preview = new HeroPreview(stage, player.mesh);
 
@@ -236,6 +254,19 @@ export function createMeta(deps: {
     preview.focus(slot === 'brand' ? staffModel() : slot === 'decor' && id ? decorView(id) : null);
   };
   showLooks(null, null);
+  rollFeatured(state, today);
+
+  /** Things earned since the last look (a town finished, a rank, a ribbon, a whole set): handed over with a cheer. */
+  let earnTimer = 0;
+  const checkEarned = (): void => {
+    const { items, sets } = collectEarned(state);
+    if (items.length === 0) return;
+    for (const item of items) if (!sets.some((set) => set.reward === item.id)) toast(root, `🏅 ${t('earnedItem', { name: item.name })}`);
+    for (const set of sets) toast(root, `📖 ${t('setDone', { set: set.name, title: set.title })}`);
+    sound.play('reward');
+    if (!shopOpen) showLooks(null, null);
+    save();
+  };
   let shopOpen = false;
 
   /** The gem boosts this town has, each with why it can't be used right now. */
@@ -268,6 +299,9 @@ export function createMeta(deps: {
   const showShop = (tab?: ShopTab): void => {
     if (shopOpen || dialogOpen) return;
     shopOpen = true;
+    rollFeatured(state, today);
+    // Opened today: the gem counter's dot is for something new.
+    state.wardrobe.seen = today;
     openShop(
       {
         root,
@@ -281,13 +315,35 @@ export function createMeta(deps: {
         },
         boosts,
         bought: (item) => {
+          checkEarned();
           sound.play('reward');
           effects.burst('confetti', player.mesh.position.clone().setY(2.2), 24, 3.5, 0.6);
           toast(root, `🛍️ ${t('shopBought', { name: item.name })}`);
           save();
         },
-        changed: save,
+        changed: () => {
+          save();
+          // Something bought may complete a set.
+          checkEarned();
+        },
         click: () => sound.play('click'),
+        today,
+        calendarDay: state.daily.loginDay,
+        watchForGems: async () => {
+          if (ads.busy) return false;
+          const ok = await ads.rewarded('gems');
+          if (!ok) {
+            toast(root, t('adFailed'));
+            return false;
+          }
+          const gems = claimAdGems(state, today);
+          if (gems > 0) {
+            sound.play('reward');
+            toast(root, `💎 ${t('adGems', { gems })}`);
+            save();
+          }
+          return gems > 0;
+        },
       },
       tab,
     );
@@ -374,9 +430,25 @@ export function createMeta(deps: {
         if (now !== today) {
           today = now;
           rollDay(state, today, town);
+          rollFeatured(state, today);
         }
       }
       updateDayCar();
+      const title = shownTitle(state);
+      if (title !== titleShown) {
+        titleShown = title;
+        titleTag.textContent = title ? `🏅 ${title}` : '';
+        titleLabel.visible = !!title;
+      }
+      if (title) titleAt.set(player.mesh.position.x, TITLE_HEIGHT, player.mesh.position.z);
+      earnTimer -= dt;
+      if (earnTimer <= 0) {
+        earnTimer = EARN_CHECK_SECONDS;
+        checkEarned();
+      }
+      // The gem counter's dot: something featured today the gems would buy, and the shop not opened since.
+      const fresh = available('shop') && state.wardrobe.seen !== today && featuredAffordable(state, today);
+      hud.setDot(fresh);
       // Today's calendar reward pops up as a session opens (once the welcome-back
       // screen is closed), never in the middle of play; the 🎁 button pulses instead.
       const waiting = claimable(state, today);
@@ -393,6 +465,7 @@ export function createMeta(deps: {
         finish: pads.nearlyAffordable(ADS.finishPad.fraction),
         fix: (deps.rides?.broken() ?? 0) > 0,
         shelf: deps.shelf?.count() ?? -1,
+        shop: fresh,
         available,
         build: (() => {
           const next = soonestBuild(state);

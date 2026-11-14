@@ -81,6 +81,18 @@ export interface WardrobeState {
   equipped: Record<string, string>;
   /** Decorations bought but put away for now (bought ones are up otherwise). */
   hidden: string[];
+  /** The earned title shown on the rank chip, by its set's id ('' for none). */
+  title: string;
+  /** Today's featured things (by local date), and which is today's deal. */
+  featured: { date: string; ids: string[]; sale: string };
+  /** Rewarded ads watched for gems on a local date. */
+  ad: { date: string; count: number };
+  /** The local date the shop was last opened (the gem counter's dot is for something new). */
+  seen: string;
+}
+
+export function newWardrobe(): WardrobeState {
+  return { owned: [], equipped: {}, hidden: [], title: '', featured: { date: '', ids: [], sale: '' }, ad: { date: '', count: 0 }, seen: '' };
 }
 
 /** The town's goals: reached (they stay reached) and claimed. */
@@ -178,7 +190,7 @@ export function newGame(): GameState {
     contracts: { slots: [], doubledDate: '' },
     counts: {},
     franchiseStars: 0,
-    wardrobe: { owned: [], equipped: {}, hidden: [] },
+    wardrobe: newWardrobe(),
     savedAt: 0,
   };
 }

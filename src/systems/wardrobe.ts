@@ -1,19 +1,47 @@
 // The Mogul's Boutique: looks for the hero, the business's brand colour and decorations for the towns,
 // bought with gems. Purely cosmetic: nothing here changes how fast anyone works or what anything pays.
-// Prices are fixed and shown up front; there is nothing random.
-import { SHOP } from '../core/config';
+// Prices are fixed and shown up front; there is nothing random. Some things can't be bought, only
+// earned (finishing a town, a rank, a prize ribbon, a whole set); three things a day are featured, one
+// of them cheaper; and a short ad pays a few gems, a few times a day.
+import { ADS, RANKS, SHOP } from '../core/config';
 import type { GameState } from '../core/gameState';
 import type { ParticleKind } from '../render/effects/particles';
+import { bestNetWorth } from './career';
 
 export type Slot = 'outfit' | 'hat' | 'trail' | 'brand' | 'decor';
 export type Rarity = 'common' | 'rare' | 'epic' | 'legendary';
+
+/**
+ * How something that can't be bought is earned: a story flag (a town finished, with the town it's in),
+ * a lifetime count reaching `at` (prize ribbons), a rank, or every item of a set.
+ */
+export interface EarnRule {
+  flag?: string;
+  town?: string;
+  count?: string;
+  at?: number;
+  rank?: string;
+  set?: string;
+}
 
 interface ItemBase {
   id: string;
   name: string;
   rarity: Rarity;
-  /** Price in gems; 0 is free and always owned (the hero's own navy suit). */
+  /** Price in gems; 0 is free and always owned (the hero's own navy suit), unless it's earned. */
   gems: number;
+  /** Earned, not bought (its gems are 0). */
+  earn?: EarnRule;
+}
+
+/** A collection: owning every item in it earns its reward (an item no one can buy) and a title for the rank chip. */
+export interface SetDef {
+  id: string;
+  name: string;
+  icon: string;
+  title: string;
+  items: string[];
+  reward: string;
 }
 
 /** A suit in new colours: the jacket and trousers, the tie and (when given) the shirt. */
@@ -70,6 +98,9 @@ export interface ShopData {
   trails: TrailDef[];
   brands: BrandDef[];
   decor: DecorDef[];
+  sets: SetDef[];
+  /** Things featured each day, and how much cheaper one of them is (a fraction). */
+  featured: { count: number; discount: number };
 }
 
 export type ShopItem =
@@ -109,7 +140,12 @@ export interface Look {
 
 export function owns(state: GameState, id: string): boolean {
   const item = ITEMS.get(id);
-  return !!item && (item.gems === 0 || state.wardrobe.owned.includes(id));
+  return !!item && ((item.gems === 0 && !item.earn) || state.wardrobe.owned.includes(id));
+}
+
+/** Something to buy (not a free default, and not earned instead). */
+export function forSale(item: ShopItem): boolean {
+  return item.gems > 0 && !item.earn;
 }
 
 /** Worn now: an item that's owned and still on sale (anything else saved there is ignored). */
@@ -143,18 +179,34 @@ export function lookWith(state: GameState, tryOn: { slot: Slot; id: string | nul
   };
 }
 
-export type BuyResult = 'bought' | 'owned' | 'short' | 'unknown';
+export type BuyResult = 'bought' | 'owned' | 'short' | 'earned' | 'unknown';
 
-/** Pays the item's gems and puts it on (a decoration goes up in its town). Nothing changes unless it's 'bought'. */
-export function buy(state: GameState, id: string): BuyResult {
+/** What an item costs today: its price, or less if it's today's featured deal. */
+export function priceOf(state: GameState, id: string, today: string): number {
+  const item = ITEMS.get(id);
+  if (!item) return 0;
+  const { featured } = state.wardrobe;
+  if (featured.date !== today || featured.sale !== id) return item.gems;
+  return Math.max(1, Math.round(item.gems * (1 - SHOP.featured.discount)));
+}
+
+/** Pays the item's gems (today's price) and puts it on (a decoration goes up in its town). Nothing changes unless it's 'bought'. */
+export function buy(state: GameState, id: string, today = ''): BuyResult {
   const item = ITEMS.get(id);
   if (!item) return 'unknown';
   if (owns(state, id)) return 'owned';
-  if (state.gems < item.gems) return 'short';
-  state.gems -= item.gems;
-  state.wardrobe.owned.push(id);
-  equip(state, id);
+  if (item.earn) return 'earned';
+  const price = priceOf(state, id, today);
+  if (state.gems < price) return 'short';
+  state.gems -= price;
+  give(state, id);
   return 'bought';
+}
+
+/** Adds an item to the wardrobe and puts it on (just bought). */
+function give(state: GameState, id: string): void {
+  if (!state.wardrobe.owned.includes(id)) state.wardrobe.owned.push(id);
+  equip(state, id);
 }
 
 /** Puts on an owned item (a decoration: shows it again); false if it isn't owned. */
@@ -198,8 +250,138 @@ export function unequip(state: GameState, slot: Exclude<Slot, 'outfit'>): void {
   delete state.wardrobe.equipped[slot];
 }
 
-/** Items bought so far, and how many there are to buy. */
+/** The collection book: items owned so far (bought or earned) out of all there are to have. */
 export function collection(state: GameState): { owned: number; total: number } {
-  const forSale = [...ITEMS.values()].filter((item) => item.gems > 0);
-  return { owned: forSale.filter((item) => state.wardrobe.owned.includes(item.id)).length, total: forSale.length };
+  const all = [...ITEMS.values()].filter((item) => item.gems > 0 || item.earn);
+  return { owned: all.filter((item) => state.wardrobe.owned.includes(item.id)).length, total: all.length };
+}
+
+/** A small stable hash (a date always picks the same featured things). */
+function hash(text: string): number {
+  let h = 2166136261;
+  for (let i = 0; i < text.length; i++) h = Math.imul(h ^ text.charCodeAt(i), 16777619);
+  return h >>> 0;
+}
+
+/**
+ * Picks today's featured things, once a day: a few not owned yet (shuffled by the date, so the same all
+ * day), and the dearest of them is today's deal. Buying one doesn't change the picks.
+ */
+export function rollFeatured(state: GameState, today: string): void {
+  if (state.wardrobe.featured.date === today) return;
+  const pool = [...ITEMS.values()].filter((item) => forSale(item) && !owns(state, item.id));
+  const picks = pool
+    .map((item) => ({ item, key: hash(`${today}:${item.id}`) }))
+    .sort((a, b) => a.key - b.key)
+    .slice(0, SHOP.featured.count)
+    .map((p) => p.item);
+  const deal = picks.reduce<ShopItem | null>((best, item) => (!best || item.gems > best.gems ? item : best), null);
+  state.wardrobe.featured = { date: today, ids: picks.map((item) => item.id), sale: deal?.id ?? '' };
+}
+
+/** Today's featured things (empty until rolled for today). */
+export function featuredToday(state: GameState, today: string): ShopItem[] {
+  const { featured } = state.wardrobe;
+  if (featured.date !== today) return [];
+  return featured.ids.map((id) => ITEMS.get(id)).filter((item): item is ShopItem => !!item);
+}
+
+/** A featured thing not owned yet that the gems would pay for today (the gem counter's dot). */
+export function featuredAffordable(state: GameState, today: string): boolean {
+  return featuredToday(state, today).some((item) => !owns(state, item.id) && priceOf(state, item.id, today) <= state.gems);
+}
+
+export const SETS = SHOP.sets;
+
+/** How much of a set is owned, and whether all of it is. */
+export function setProgress(state: GameState, set: SetDef): { owned: number; total: number; done: boolean } {
+  const owned = set.items.filter((id) => owns(state, id)).length;
+  return { owned, total: set.items.length, done: owned === set.items.length };
+}
+
+/** Whether an earned item's rule is met (whether or not it's been handed over yet). */
+export function earnMet(state: GameState, rule: EarnRule): boolean {
+  if (rule.flag) return state.flags.includes(rule.flag);
+  if (rule.count) return (state.counts[rule.count] ?? 0) >= (rule.at ?? 1);
+  if (rule.rank) {
+    const rank = RANKS.find((r) => r.id === rule.rank);
+    return !!rank && bestNetWorth(state) >= rank.netWorth;
+  }
+  if (rule.set) {
+    const set = SETS.find((s) => s.id === rule.set);
+    return !!set && setProgress(state, set).done;
+  }
+  return false;
+}
+
+/**
+ * Hands over everything newly earned (a set's reward also brings its title, worn straight away if there
+ * isn't one yet). Returns what was earned, and the sets just completed.
+ */
+export function collectEarned(state: GameState): { items: ShopItem[]; sets: SetDef[] } {
+  const items: ShopItem[] = [];
+  const sets: SetDef[] = [];
+  // Twice: a set's reward is earned once its last item is, which may itself have just been earned.
+  for (let pass = 0; pass < 2; pass++) {
+    for (const item of ITEMS.values()) {
+      if (!item.earn || owns(state, item.id) || !earnMet(state, item.earn)) continue;
+      state.wardrobe.owned.push(item.id);
+      // A decoration goes up; anything worn waits to be put on in the shop.
+      if (item.slot === 'decor') equip(state, item.id);
+      items.push(item);
+      const set = item.earn.set ? SETS.find((s) => s.id === item.earn!.set) : undefined;
+      if (set) {
+        sets.push(set);
+        if (!state.wardrobe.title) state.wardrobe.title = set.id;
+      }
+    }
+  }
+  return { items, sets };
+}
+
+/** The titles earned so far (each finished set's). */
+export function titles(state: GameState): SetDef[] {
+  return SETS.filter((set) => owns(state, set.reward));
+}
+
+/** The title shown on the rank chip, if one is chosen (and earned). */
+export function shownTitle(state: GameState): string | null {
+  const set = titles(state).find((s) => s.id === state.wardrobe.title);
+  return set?.title ?? null;
+}
+
+/** Wears an earned title (by its set's id), or none (''). */
+export function chooseTitle(state: GameState, setId: string): boolean {
+  if (setId && !titles(state).some((s) => s.id === setId)) return false;
+  state.wardrobe.title = setId;
+  return true;
+}
+
+/** Rewarded ads for gems still allowed today. */
+export function adGemsLeft(state: GameState, today: string): number {
+  const used = state.wardrobe.ad.date === today ? state.wardrobe.ad.count : 0;
+  return Math.max(0, ADS.gemAd.perDay - used);
+}
+
+/** An ad was watched for gems: pays them (none once today's are used up). */
+export function claimAdGems(state: GameState, today: string): number {
+  if (adGemsLeft(state, today) <= 0) return 0;
+  const ad = state.wardrobe.ad;
+  state.wardrobe.ad = { date: today, count: (ad.date === today ? ad.count : 0) + 1 };
+  state.gems += ADS.gemAd.gems;
+  return ADS.gemAd.gems;
+}
+
+/** Next week's gift (the calendar's 7th day): the cheapest thing not owned yet, in shop order; null when everything's owned. */
+export function nextGift(state: GameState): ShopItem | null {
+  return [...ITEMS.values()].filter((item) => forSale(item) && !owns(state, item.id)).reduce<ShopItem | null>((best, item) => (!best || item.gems < best.gems ? item : best), null);
+}
+
+/** Hands over the weekly gift (a decoration goes up; anything worn waits to be put on); returns it, or null if there's nothing left to give. */
+export function claimGift(state: GameState): ShopItem | null {
+  const gift = nextGift(state);
+  if (!gift) return null;
+  state.wardrobe.owned.push(gift.id);
+  if (gift.slot === 'decor') equip(state, gift.id);
+  return gift;
 }

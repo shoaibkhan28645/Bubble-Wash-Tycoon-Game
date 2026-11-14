@@ -1264,3 +1264,157 @@
 .shop-tab {
   font-size: 11px;
 }
+
+/* Phase 3: the shop's tabs in two rows of four; Today's picks, the sets and the collection book. */
+.shop-tabs {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 4px;
+}
+
+.shop-tab {
+  flex-direction: row;
+  justify-content: center;
+  gap: 4px;
+  min-height: 38px;
+  font-size: 12px;
+}
+
+.shop-tab span {
+  font-size: 17px;
+}
+
+.shop-heading-side {
+  float: right;
+  font-weight: 700;
+  color: #9aa3ae;
+}
+
+.shop-featured {
+  position: absolute;
+  top: -8px;
+  left: -6px;
+  padding: 2px 6px;
+  border-radius: 999px;
+  background: #ff5c6c;
+  color: #fff;
+  font: 900 11px/14px system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+}
+
+.shop-price s {
+  color: #9aa3ae;
+  font-weight: 700;
+}
+
+.shop-locked {
+  opacity: 0.7;
+}
+
+.shop-slot {
+  font-size: 10px;
+  font-weight: 800;
+  color: #9aa3ae;
+  text-transform: uppercase;
+}
+
+.shop-featured-grid {
+  grid-template-columns: repeat(3, 1fr);
+  margin-bottom: 6px;
+}
+
+.shop-card {
+  padding: 8px 2px;
+}
+
+.shop-book {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 2px 2px 8px;
+  font-weight: 900;
+  font-size: 14px;
+}
+
+.shop-titles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+
+.shop-title-chip {
+  min-height: 36px;
+  padding: 0 12px;
+  border: 2px solid #dfe3e8;
+  border-radius: 999px;
+  background: #fff;
+  color: #4b5563;
+  font: 800 13px/1 system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+}
+
+.shop-title-on {
+  border-color: #2d3440;
+  background: #2d3440;
+  color: #fff;
+}
+
+.shop-set-grid {
+  grid-template-columns: repeat(5, 1fr);
+  gap: 6px;
+}
+
+.shop-mini {
+  min-height: 76px;
+  padding: 4px 2px;
+  font-size: 10px;
+}
+
+.shop-mini .shop-icon {
+  font-size: 24px;
+  line-height: 30px;
+  height: 30px;
+}
+
+.shop-mini .shop-icon svg {
+  width: 30px;
+  height: 30px;
+}
+
+.shop-reward {
+  border-style: dashed;
+}
+
+.gems-dot {
+  position: relative;
+}
+
+.gems-dot::after {
+  content: '';
+  position: absolute;
+  top: -2px;
+  right: -2px;
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  background: #ff5c6c;
+  box-shadow: 0 0 0 2px #fff;
+}
+
+.rank-titled .rank-name {
+  color: #b7791f;
+}
+
+/* An earned title over the hero's head. */
+.hero-title {
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(45, 52, 64, 0.72);
+  color: #ffd85c;
+  font: 800 11px/1.3 system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.hero-title:empty {
+  display: none;
+}

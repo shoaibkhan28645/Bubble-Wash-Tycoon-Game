@@ -5,6 +5,7 @@ import * as platform from '../platform/youtube';
 import type { SoundManager } from '../audio/sound';
 import { bestNetWorth, currentRank, netWorth, nextRank, rankFlag, recordNetWorth, uncelebratedRanks } from '../systems/career';
 import { formatCash } from '../systems/economy';
+import { shownTitle } from '../systems/wardrobe';
 import { RankChip } from '../ui/rankChip';
 import { t } from '../ui/strings';
 import type { GameState } from './gameState';
@@ -58,7 +59,7 @@ export function createHero(deps: {
       sound.play('vip');
       scoreTimer = 0;
     }
-    chip.update(currentRank(state), nextRank(state), worth);
+    chip.update(currentRank(state), nextRank(state), worth, shownTitle(state));
   };
 
   check();
