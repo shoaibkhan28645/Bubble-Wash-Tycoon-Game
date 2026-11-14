@@ -936,10 +936,13 @@ export function createParkGame(
   const pointer = new EdgePointer(root);
   // A pointing hand for a newcomer: sell the tickets, launch the carousel, collect the cash, then build.
   const hand = new GuideHand(labels);
-  /** The first breakdown and the first empty stall: shown how to deal with them, the first time. */
+  /**
+   * A breakdown, every time until there's a mechanic (a broken ride's line all go home cross, and only the hero
+   * can fix it); the first empty stall, the first time.
+   */
   const helpStep = (): GuideStep | null => {
     const broken = crowd.rides.find((r) => r.broken);
-    if (broken && !state.unlocked.includes('mechanic') && !state.flags.includes(`fixed:${current.id}`)) return { at: broken.spot.lever, text: 'guideFix' };
+    if (broken && !state.unlocked.includes('mechanic')) return { at: broken.spot.lever, text: 'guideFix' };
     if (!supplies.open || state.unlocked.includes('snackrunner') || state.flags.includes(`stocked:${current.id}`)) return null;
     const list = stalls();
     const stall = supplies.stallFor(list, heroCarry);
