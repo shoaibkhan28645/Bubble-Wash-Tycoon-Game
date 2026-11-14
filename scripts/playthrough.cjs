@@ -6,7 +6,8 @@
 // next pad's price), collects cash, claims goals, missions and contracts, and says "not now" to ads and gems.
 //
 // Needs the dev server (npx vite --port 5190) and Playwright with Chromium.
-// node scripts/playthrough.cjs <outDir> [maxGameMinutes]   env: START=<checkpoint.json> to begin from a saved game,
+// node scripts/playthrough.cjs <outDir> [maxGameMinutes]   env: START=<checkpoint.json> to begin from a saved game
+//   (ARRIVED=<seconds of play> to time that town from when it was arrived in),
 //                                                     RELOAD=1 to reload the page once in each town (saves).
 const fs = require('fs');
 const path = require('path');
@@ -83,7 +84,9 @@ function brain() {
     // Cash lying in a pile, if it's worth going for now (a good share of the next pad, or enough to buy it).
     const pile = view?.cash.fullestPile();
     const inPile = pile ? (s.piles[pile.id] ?? 0) : 0;
-    if (pile && inPile > 0 && ok('pile:' + pile.id) && (inPile >= 0.2 * (nextCost ?? Math.max(1000, s.cash)) || (next && s.cash + inPile >= next.owed))) return { at: pile.at, why: 'cash' };
+    // (A pile only holds so much before a cashier's hired: one half full is worth fetching too.)
+    const cap = view?.cash.unlimited?.() ? Infinity : (view?.cash.tuning?.pileCap ?? Infinity);
+    if (pile && inPile > 0 && ok('pile:' + pile.id) && (inPile >= 0.5 * cap || inPile >= 0.2 * (nextCost ?? Math.max(1000, s.cash)) || (next && s.cash + inPile >= next.owed))) return { at: pile.at, why: 'cash' };
     // The car wash: a car waiting at a station nobody works (wash it, fill it up…): stand beside it.
     if (g.traffic && g.staff) {
       let best = null;
@@ -114,6 +117,8 @@ function brain() {
     if (pile && inPile > 0 && ok('pile:' + pile.id) && next) return { at: pile.at, why: 'cash' };
     // Nothing else: wait on the next pad (it fills as the cash comes in).
     if (next && ok('pad')) return { at: next.at, why: 'wait on pad:' + pads.nextName };
+    // Nothing at all: off any upgrade pad (its open panel would hold the rush jobs), back where the town starts.
+    if (layout?.playerStart) return { at: layout.playerStart, why: 'idle' };
     return null;
   };
 
@@ -182,7 +187,28 @@ function brain() {
     const slow = !job && plan.way.length <= 1 && d < 1 ? Math.max(0.35, d) : 1;
     if (bot.last && dist(hero, bot.last) < 0.5 * dt) bot.stuck += dt;
     else bot.stuck = Math.max(0, bot.stuck - dt);
-    if (bot.stuck > 0.6 && bot.side === 0) bot.side = 1.0;
+    // Wedged somewhere tight (side-stepping hasn't got it closer): off in a random direction a moment.
+    if (bot.escape > 0) {
+      bot.escape -= dt;
+      bot.last = { ...hero };
+      return { x: Math.sin(bot.escapeDir), z: Math.cos(bot.escapeDir) };
+    }
+    if (bot.stuck > 0.6 && bot.side === 0) {
+      bot.side = 1.0;
+      bot.sides = (bot.sides ?? 0) + 1;
+      const d = dist(hero, choice.at);
+      if (bot.sideFrom === undefined || d < bot.sideFrom - 1) {
+        bot.sides = 1;
+        bot.sideFrom = d;
+      }
+      if (bot.sides >= 3) {
+        bot.sides = 0;
+        bot.sideFrom = undefined;
+        bot.escape = 1.5;
+        bot.escapeDir = Math.random() * Math.PI * 2;
+        bot.events.push({ at: s.playSeconds, escape: choice.why, hero: { ...hero } });
+      }
+    }
     if (bot.side > 0) {
       bot.side -= dt;
       const sx = -dz;
@@ -375,7 +401,7 @@ function tapUI() {
   log('start', { town: s.town, play: s.play, unlocked: s.unlocked.length });
   await shot('start');
   let town = s.town;
-  let arrived = s.play;
+  let arrived = process.env.ARRIVED !== undefined ? Number(process.env.ARRIVED) : s.play;
   let known = new Set(s.unlocked);
   let lastBuy = s.play;
   let lastStatus = s.play;
