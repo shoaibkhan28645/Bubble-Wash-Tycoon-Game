@@ -4,7 +4,7 @@
   "refill": { "gems": 5 },
   "fixRides": { "gems": 8 },
   "jobDouble": { "gems": 8 },
-  "gemAd": { "gems": 10, "perDay": 3 },
+  "gemAd": { "gems": 5, "perDay": 3 },
   "finishPad": { "fraction": 0.8, "gems": 10 },
   "offline": { "multiplier": 2 },
   "interstitial": { "minGapSeconds": 180, "newPlayerSeconds": 300, "sessionGraceSeconds": 60 }
