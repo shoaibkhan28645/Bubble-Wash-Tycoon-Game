@@ -5,7 +5,7 @@
 // buys each pad once it can, buys upgrades as the pacing model's bot does (the cheapest, at most a quarter of the
 // next pad's price), collects cash, claims goals, missions and contracts, and says "not now" to ads and gems.
 //
-// Needs the dev server (npx vite --port 5190) and Playwright with Chromium.
+// Needs the dev server (npx vite --port 5190, or PORT=<port>) and Playwright with Chromium.
 // node scripts/playthrough.cjs <outDir> [maxGameMinutes]   env: START=<checkpoint.json> to begin from a saved game
 //   (ARRIVED=<seconds of play> to time that town from when it was arrived in),
 //                                                     RELOAD=1 to reload the page once in each town (saves).
@@ -13,7 +13,7 @@ const fs = require('fs');
 const path = require('path');
 const { chromium } = require('playwright');
 
-const ROOT = '/home/user/Bubble-Wash-Tycoon-Game/src/data/towns/';
+const ROOT = process.env.ROOT || path.join(__dirname, '../src/data/towns/');
 const STEP_MS = 50;
 const CHUNK_MS = 1000;
 const out = process.argv[2];
@@ -26,12 +26,9 @@ const log = (...a) => {
   logFile.write(line + '\n');
 };
 
-// When the pacing model (tests/journey.test.ts) has each pad bought, in minutes after arriving in its town.
-const MODEL = {
-  roadside: { bay1: 0, register: 0.4, bay2: 3.3, pump1: 5.2, washer: 10.8, attendant: 14.3, soap: 18.5, mart: 21.2, dryer: 23.1, runner: 24.3, clerk: 25.2, dryerStaff: 27.3, pump2: 28.8, wax: 31.6, board: 32.6, vending: 33.4, sign: 34.5, tunnel: 35.8, cashier: 37.4, valet: 39.3, manager: 41.8, garage: 45.6, landmark: 50.6, truck: 70.6 },
-  willowbrook: { stand: 0, field1: 0, well: 0, field2: 2.8, henhouse: 3.7, barn: 4.4, farmhand: 5.7, eggcollector: 6.6, standhand: 8.4, cowbarn: 9.7, gate: 10.4, feedstore: 11.6, pickup: 14.1, milker: 16.4, van: 22.3, driver: 25.9, tanker: 28.3, cashier: 30.7, orchard: 34.7, orchardhand: 37, feedtruck: 39.4, manager: 45.1, bakery: 50, baker: 55.2, market: 64.2, marketstaff: 69.8, windmill: 73.1, road: 93.1 },
-  starlight: { booth: 0, carousel: 0, cart: 3.3, benches: 6.4, bumper: 9.3, seller: 12, shed: 14.3, operator: 17.2, ringtoss: 20.2, mechanic: 23.1, teacups: 25.8, burger: 28.5, vendor: 31, snackrunner: 33.4, sign: 35.9, janitor: 39.1, swings: 42.6, busstop: 46.5, boats: 49.7, haunted: 53, mascot: 56.2, cashier: 58.9, flume: 62.5, giftshop: 65.3, manager: 68.1, fireworks: 71.1, coaster: 74.9, crew: 78.1, wheel: 81.4, highway: 101.4 },
-};
+// When the design plans each pad bought (pads.json `targetMinute`), in minutes after arriving in its town.
+const MODEL = {};
+for (const town of ['roadside', 'willowbrook', 'starlight']) MODEL[town] = Object.fromEntries(JSON.parse(fs.readFileSync(`${ROOT}${town}/pads.json`, 'utf8')).map((p) => [p.id, p.targetMinute]));
 const NAMES = {};
 for (const town of Object.keys(MODEL)) for (const p of JSON.parse(fs.readFileSync(`${ROOT}${town}/pads.json`, 'utf8'))) NAMES[`${town}:${p.id}`] = p.name;
 
@@ -63,7 +60,8 @@ function brain() {
     const now = s.playSeconds;
     const hero = g.player.position;
     const view = g.bot;
-    const layout = bot.cfg ? bot.cfg.town().layout : null;
+    // (The running game's own layout: an import of the config here can be a stale copy after the dev server reloads a module.)
+    const layout = view?.upgrades?.layout ?? (bot.cfg ? bot.cfg.town().layout : null);
     const ok = (key) => !(bot.avoid[key] > now);
     const pads = view?.pads;
     const next = pads?.next;
@@ -98,6 +96,15 @@ function brain() {
         const off = Math.min(1.25, half - 0.3);
         const spots = st.side ? [st.side] : [{ x: st.at.x - off, z: st.at.z }, { x: st.at.x + off, z: st.at.z }];
         for (const at of spots) if (!best || dist(hero, at) < dist(hero, best.at)) best = { at, id: st.id };
+      }
+      if (best) return { at: best.at, why: 'station:' + best.id };
+    }
+    // The farm: a villager waiting at a counter nobody serves (and something on it to sell): behind the counter.
+    if (view?.counters && g.staff) {
+      let best = null;
+      for (const c of view.counters) {
+        if (!c.front || c.outOfStock || g.staff.rateFor(c) > 0 || !ok('station:' + c.id)) continue;
+        if (!best || dist(hero, c.at) < dist(hero, best.at)) best = { at: c.at, id: c.id };
       }
       if (best) return { at: best.at, why: 'station:' + best.id };
     }
@@ -173,6 +180,39 @@ function brain() {
     plan.at -= dt;
     if (plan.at <= 0 || !plan.to || dist(plan.to, target) > 0.3) {
       plan.way = g.jobs ? g.jobs.path(hero, target) : [target];
+      // The spot itself is off the planner's grid (a gap behind a counter just the hero's width): walk up to it from
+      // whichever side is open, then straight in, as a player would.
+      const end = plan.way.at(-1);
+      if (g.jobs && end && dist(end, target) > 0.8) {
+        let best = null;
+        // (Where the town says what's solid: only a side the hero can walk straight in from.)
+        const solids = g.bot?.solids?.();
+        const R = 0.43;
+        const blocked = (q) => solids.some((o) => Math.hypot(q.x - Math.max(o.minX, Math.min(o.maxX, q.x)), q.z - Math.max(o.minZ, Math.min(o.maxZ, q.z))) < R);
+        const straight = (a, b) => {
+          const n = Math.ceil(dist(a, b) / 0.1);
+          for (let i = 0; i <= n; i++) if (blocked({ x: a.x + ((b.x - a.x) * i) / n, z: a.z + ((b.z - a.z) * i) / n })) return false;
+          return true;
+        };
+        for (const r of [1.2, 1.8, 2.5]) {
+          for (let k = 0; k < 8; k++) {
+            const c = { x: target.x + r * Math.cos((k * Math.PI) / 4), z: target.z + r * Math.sin((k * Math.PI) / 4) };
+            if (solids && !straight(c, target)) continue;
+            const way = g.jobs.path(hero, c);
+            const last = way.at(-1);
+            if (!last || dist(last, c) > 0.3) continue;
+            let length = 0;
+            let at = hero;
+            for (const w of way) {
+              length += dist(at, w);
+              at = w;
+            }
+            if (!best || length < best.length) best = { way, length };
+          }
+          if (best) break;
+        }
+        if (best) plan.way = [...best.way, target];
+      }
       plan.to = { ...target };
       plan.at = 0.6;
     }
@@ -353,7 +393,7 @@ function tapUI() {
     }, save);
   }
   await p.addInitScript(brain);
-  await p.goto('http://localhost:5190/', { waitUntil: 'load' });
+  await p.goto(`http://localhost:${process.env.PORT || 5190}/`, { waitUntil: 'load' });
 
   const loaded = async (what) => {
     for (let i = 0; i < 1200; i++) {
@@ -437,6 +477,8 @@ function tapUI() {
     // Arrived somewhere new.
     if (s.town !== town) {
       log(`ARRIVED in ${s.town} after ${((s.play - arrived) / 60).toFixed(1)} min in ${town}`);
+      // The old towns' stored steady rates (what they pay in the background: all of it with a manager, half without).
+      log('  rates', await p.evaluate(() => Object.fromEntries(Object.entries(window.mogul.state.towns).map(([id, t]) => [id, { autoRate: Math.round(t.autoRate), manager: t.unlocked.includes('manager'), building: Object.keys(t.building) }]))));
       fs.writeFileSync(path.join(out, `save-${s.town}.json`), await p.evaluate(() => localStorage.getItem('bubble-wash-dev-save')));
       town = s.town;
       arrived = s.play;
@@ -492,7 +534,12 @@ function tapUI() {
               id: x.id,
               kind: x.kind,
               car: x.customer?.state ?? null,
+              vip: x.customer?.vip ?? undefined,
+              needs: x.customer ? `${x.customer.served.join('+')}/${x.customer.needs.join('+')}` : undefined,
+              progress: x.customer ? Math.round(x.customer.progress * 100) / 100 : undefined,
+              carAt: x.customer ? { x: Math.round(x.customer.position.x * 10) / 10, z: Math.round(x.customer.position.z * 10) / 10 } : undefined,
               queue: x.queue?.length ?? 0,
+              queued: (x.queue ?? []).map((c) => `${c.state}${c.vip ? '*' : ''}@${Math.round(c.position.x)},${Math.round(c.position.z)}`),
               staff: Math.round(g.staff.rateFor(x) * 100) / 100,
               supply: x.supply ? st.supplies[`${x.id}.${x.supply}`] ?? 0 : null,
               serving: x.kind === 'counter' ? x.serving : undefined,
