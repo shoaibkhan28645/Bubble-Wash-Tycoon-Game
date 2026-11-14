@@ -47,7 +47,7 @@ export interface ParkPacingOptions {
 /** The start cash and the background are the whole journey's (src/sim/journey.ts; tests/journey.test.ts keeps them in step). */
 export const PARK_PACING: ParkPacingOptions = {
   stars: 4,
-  startCash: 980,
+  startCash: 410,
   background: 58000,
   step: 1,
   maxMinutes: 240,

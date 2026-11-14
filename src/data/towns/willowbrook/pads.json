@@ -32,7 +32,7 @@
   {
     "id": "field2",
     "name": "Corn field",
-    "cost": 3200,
+    "cost": 3100,
     "targetMinute": 3,
     "adds": "Six plots of corn, which sells for more",
     "effects": {
@@ -53,7 +53,7 @@
   {
     "id": "barn",
     "name": "Red barn",
-    "cost": 3500,
+    "cost": 3400,
     "targetMinute": 4.5,
     "buildSeconds": 30,
     "adds": "Stores the harvest: the stand holds 10 more crates, and every sale pays 20% more",
@@ -65,7 +65,7 @@
   {
     "id": "farmhand",
     "name": "Farmhand",
-    "cost": 3600,
+    "cost": 3500,
     "targetMinute": 5.5,
     "adds": "Harvests the fields and stocks the stand",
     "effects": {
@@ -75,7 +75,7 @@
   {
     "id": "eggcollector",
     "name": "Egg collector",
-    "cost": 3800,
+    "cost": 3700,
     "targetMinute": 6.5,
     "adds": "Packs the eggs and takes the cartons to the stand",
     "effects": {
@@ -117,7 +117,7 @@
   {
     "id": "feedstore",
     "name": "Feed store",
-    "cost": 9800,
+    "cost": 9700,
     "targetMinute": 11.5,
     "adds": "Corn tipped in feeds the animals: fed hens lay twice as fast, fed cows give 50% more milk",
     "effects": {
@@ -127,7 +127,7 @@
   {
     "id": "pickup",
     "name": "Farm pickup",
-    "cost": 26000,
+    "cost": 27000,
     "targetMinute": 14,
     "adds": "A pickup parked by the fields: the farmhand loads it right there (no walks to the barn, so half as much again is picked), and it takes full loads to the barn",
     "effects": {
@@ -137,7 +137,7 @@
   {
     "id": "milker",
     "name": "Milker",
-    "cost": 39000,
+    "cost": 40000,
     "targetMinute": 16.5,
     "adds": "Bottles the milk and takes it to the stand or the vans",
     "effects": {
@@ -177,7 +177,7 @@
   {
     "id": "cashier",
     "name": "Farm cashier",
-    "cost": 85000,
+    "cost": 86000,
     "targetMinute": 30.5,
     "adds": "Walks round the farm collecting the cash from the stand, the market and the delivery yard",
     "effects": {
@@ -187,7 +187,7 @@
   {
     "id": "orchard",
     "name": "Apple orchard",
-    "cost": 88000,
+    "cost": 89000,
     "targetMinute": 34.5,
     "adds": "Six apple trees: slow to ripen, but a crate of apples sells for $400",
     "effects": {
@@ -197,7 +197,7 @@
   {
     "id": "orchardhand",
     "name": "Orchard picker",
-    "cost": 92000,
+    "cost": 93000,
     "targetMinute": 37,
     "adds": "Picks the apples as they ripen and takes them to the barn, for the bakery, the stalls and the vans",
     "effects": {
@@ -245,7 +245,7 @@
   {
     "id": "market",
     "name": "Farmers' market",
-    "cost": 430000,
+    "cost": 420000,
     "targetMinute": 64,
     "adds": "Market stalls by the road: weekend crowds (+60% villagers) paying 50% more",
     "effects": {
@@ -256,7 +256,7 @@
   {
     "id": "marketstaff",
     "name": "Market staff",
-    "cost": 520000,
+    "cost": 490000,
     "targetMinute": 70,
     "adds": "Serves at the market stalls",
     "effects": {
@@ -266,7 +266,7 @@
   {
     "id": "windmill",
     "name": "Willowbrook Windmill",
-    "cost": 540000,
+    "cost": 510000,
     "targetMinute": 73,
     "buildSeconds": 1200,
     "adds": "The village's landmark, built on the west paddock: +20% on every sale in Willowbrook",
@@ -277,7 +277,7 @@
   {
     "id": "road",
     "name": "Starlight park land",
-    "cost": 2900000,
+    "cost": 2700000,
     "targetMinute": 93,
     "adds": "Buy the land for Starlight Fun Park and move the hero there; offered once every town goal is done",
     "afterGoals": true,

@@ -22,7 +22,7 @@
   {
     "id": "cart",
     "name": "Candy floss cart",
-    "cost": 240000,
+    "cost": 260000,
     "targetMinute": 3.5,
     "adds": "Sweets for the visitors (+10% visitors); stand behind the cart to serve",
     "effects": {
@@ -33,7 +33,7 @@
   {
     "id": "benches",
     "name": "Benches",
-    "cost": 260000,
+    "cost": 270000,
     "targetMinute": 7,
     "adds": "Somewhere to sit: visitors wait 30% longer in line",
     "effects": {
@@ -43,7 +43,7 @@
   {
     "id": "bumper",
     "name": "Bumper cars",
-    "cost": 270000,
+    "cost": 280000,
     "targetMinute": 10,
     "adds": "The Midway's first ride: six cars to drive and bump, launched from its lever",
     "effects": {
@@ -54,7 +54,7 @@
   {
     "id": "seller",
     "name": "Ticket seller",
-    "cost": 280000,
+    "cost": 290000,
     "targetMinute": 13,
     "adds": "Sells tickets at the booth for you, and candy floss when the booth is quiet",
     "effects": {
@@ -64,7 +64,7 @@
   {
     "id": "shed",
     "name": "Supply shed",
-    "cost": 290000,
+    "cost": 300000,
     "targetMinute": 15.5,
     "adds": "The delivery truck drops sugar, buns and prizes here; carry them to the stalls. Every sale pays 10% more",
     "effects": {
@@ -75,7 +75,7 @@
   {
     "id": "operator",
     "name": "Ride operator",
-    "cost": 380000,
+    "cost": 390000,
     "targetMinute": 18.5,
     "adds": "Launches the rides in Kiddie Corner and the Midway: when one is full, or when its first rider has waited a while",
     "effects": {
@@ -85,7 +85,7 @@
   {
     "id": "ringtoss",
     "name": "Ring-toss booth",
-    "cost": 460000,
+    "cost": 480000,
     "targetMinute": 22,
     "adds": "A throw for a plush prize; it needs prizes from the shed",
     "effects": {
@@ -96,7 +96,7 @@
   {
     "id": "mechanic",
     "name": "Mechanic",
-    "cost": 480000,
+    "cost": 500000,
     "targetMinute": 25,
     "adds": "Fixes rides that break down, and services worn ones before they do (stand at a lever to do either yourself)",
     "effects": {
@@ -106,7 +106,7 @@
   {
     "id": "teacups",
     "name": "Teacups",
-    "cost": 500000,
+    "cost": 520000,
     "targetMinute": 28,
     "adds": "Kiddie Corner's second ride: four big cups that spin (+15% visitors)",
     "effects": {
@@ -117,7 +117,7 @@
   {
     "id": "burger",
     "name": "Burger stand",
-    "cost": 530000,
+    "cost": 540000,
     "targetMinute": 31,
     "adds": "Burgers for hungry visitors; it needs buns from the shed",
     "effects": {
@@ -128,7 +128,7 @@
   {
     "id": "vendor",
     "name": "Midway vendor",
-    "cost": 550000,
+    "cost": 560000,
     "targetMinute": 33.5,
     "adds": "Serves at the ring-toss booth and the burger stand",
     "effects": {
@@ -138,7 +138,7 @@
   {
     "id": "snackrunner",
     "name": "Snack runner",
-    "cost": 580000,
+    "cost": 590000,
     "targetMinute": 36.5,
     "adds": "Carries sugar, buns and prizes from the shed to the stalls",
     "effects": {
@@ -148,7 +148,7 @@
   {
     "id": "sign",
     "name": "Park sign and lights",
-    "cost": 600000,
+    "cost": 610000,
     "targetMinute": 39,
     "adds": "A big lit sign (+30% visitors), and lights all round the park: the evenings begin",
     "effects": {
@@ -159,7 +159,7 @@
   {
     "id": "janitor",
     "name": "Janitor and bins",
-    "cost": 810000,
+    "cost": 830000,
     "targetMinute": 42.5,
     "adds": "Bins along the paths mean less litter, and the janitor sweeps up the rest",
     "effects": {
@@ -275,7 +275,7 @@
   {
     "id": "coaster",
     "name": "Starlight Comet",
-    "cost": 4900000,
+    "cost": 5000000,
     "targetMinute": 82.5,
     "adds": "The roller coaster, all the way round the park: the biggest ticket of all (+20% visitors)",
     "effects": {
@@ -286,7 +286,7 @@
   {
     "id": "crew",
     "name": "Coaster crew",
-    "cost": 5100000,
+    "cost": 5200000,
     "targetMinute": 86,
     "adds": "Launches the Thrill Zone's rides: the Starlight Comet, the log flume and the haunted house",
     "effects": {
@@ -296,7 +296,7 @@
   {
     "id": "wheel",
     "name": "Starlight Wheel",
-    "cost": 5900000,
+    "cost": 6000000,
     "targetMinute": 90,
     "buildSeconds": 1200,
     "adds": "The park's landmark, lit like a star at night: sixteen seats in eight open gondolas, and +20% on every ticket, ride and sale",
@@ -308,7 +308,7 @@
   {
     "id": "highway",
     "name": "Downtown Bay City land",
-    "cost": 42000000,
+    "cost": 44000000,
     "targetMinute": 110,
     "adds": "Buy the land for your next business in Downtown Bay City; offered once every town goal is done",
     "afterGoals": true,
