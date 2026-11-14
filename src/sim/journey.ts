@@ -301,13 +301,14 @@ export const STORED_RATE = { roadside: 0.6, willowbrook: 1, starlight: 1 };
 /**
  * How a keen player plays each map, measured with the playthrough bot (each map's timeline came within 5 to 20% of
  * the bot's, pad by pad): the share of what's earned that goes on upgrades (more where the helpers leave the hero
- * free to shop), and what the map takes for every dollar its model gives (the park's crowd, on the paths, with the
- * hero at the booth and the levers early on, takes about two thirds of what the park's model gives).
+ * free to shop), and what the map takes for every dollar its model gives. The park's crowd, on the paths, with the
+ * hero at the booth and the levers and running for the cash piles, takes about two thirds of what the park's model
+ * gives; once the cashier minds the money and the late rides and their upgrades are in, about 1.3 times.
  */
 export const KEEN = {
   roadside: { upgradeSpend: 0.2, income: 1 },
   willowbrook: { upgradeSpend: 0.5, income: 1 },
-  starlight: { upgradeSpend: 0.2, income: 0.65 },
+  starlight: { upgradeSpend: 0.2, income: 0.65, lateIncome: 1.3, lateFrom: 'cashier' },
 };
 
 export function gameJourney(roadside: TownDef, willowbrook: TownDef, starlight: ParkTown): JourneyMap[] {
@@ -335,7 +336,7 @@ export function gameJourney(roadside: TownDef, willowbrook: TownDef, starlight: 
     {
       name: starlight.id,
       town: starlight,
-      income: (u, _t, levels) => parkIncome(stage(u), levels) * KEEN.starlight.income,
+      income: (u, _t, levels) => parkIncome(stage(u), levels) * (u.has(KEEN.starlight.lateFrom) ? KEEN.starlight.lateIncome : KEEN.starlight.income),
       steady: (u, levels) => parkIncome(stage(u), levels) * STORED_RATE.starlight,
       tutorial: 'seller',
       upgradesInTutorial: true,

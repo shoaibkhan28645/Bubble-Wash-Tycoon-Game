@@ -234,7 +234,7 @@
   {
     "id": "flume",
     "name": "Log flume",
-    "cost": 2100000,
+    "cost": 2400000,
     "targetMinute": 68.5,
     "adds": "The Thrill Zone's splash ride: logs float round, up the lift and down into the pool (+15% visitors)",
     "effects": {
@@ -245,7 +245,7 @@
   {
     "id": "giftshop",
     "name": "Gift shop",
-    "cost": 2200000,
+    "cost": 2500000,
     "targetMinute": 71.5,
     "adds": "Souvenirs on the way out, and the prize shelf; it sells the prizes the truck brings",
     "effects": {
@@ -255,7 +255,7 @@
   {
     "id": "manager",
     "name": "Park manager",
-    "cost": 2800000,
+    "cost": 3200000,
     "targetMinute": 74.5,
     "adds": "Runs the whole park: full earnings while you are in another town",
     "effects": {
@@ -265,7 +265,7 @@
   {
     "id": "fireworks",
     "name": "Fireworks barge",
-    "cost": 3600000,
+    "cost": 4100000,
     "targetMinute": 78,
     "adds": "Fireworks over the lake every evening: half as many visitors again at night, and night rides pay 25% more",
     "effects": {
@@ -275,7 +275,7 @@
   {
     "id": "coaster",
     "name": "Starlight Comet",
-    "cost": 5000000,
+    "cost": 5800000,
     "targetMinute": 82.5,
     "adds": "The roller coaster, all the way round the park: the biggest ticket of all (+20% visitors)",
     "effects": {
@@ -286,7 +286,7 @@
   {
     "id": "crew",
     "name": "Coaster crew",
-    "cost": 5400000,
+    "cost": 6200000,
     "targetMinute": 86,
     "adds": "Launches the Thrill Zone's rides: the Starlight Comet, the log flume and the haunted house",
     "effects": {
@@ -296,7 +296,7 @@
   {
     "id": "wheel",
     "name": "Starlight Wheel",
-    "cost": 6200000,
+    "cost": 7100000,
     "targetMinute": 90,
     "buildSeconds": 1200,
     "adds": "The park's landmark, lit like a star at night: sixteen seats in eight open gondolas, and +20% on every ticket, ride and sale",
@@ -308,7 +308,7 @@
   {
     "id": "highway",
     "name": "Downtown Bay City land",
-    "cost": 51000000,
+    "cost": 150000000,
     "targetMinute": 110,
     "adds": "Buy the land for your next business in Downtown Bay City; offered once every town goal is done",
     "afterGoals": true,
