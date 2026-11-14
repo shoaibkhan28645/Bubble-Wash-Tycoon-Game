@@ -17,7 +17,7 @@ interface TownBase {
   /** Everything that can be built here, in unlock order. */
   pads: PadDef[];
   goals: GoalsData;
-  /** The town's story: its paper, mentor, rival and beats. */
+  /** The town's story: its mentor, rival and beats. */
   story: StoryData;
   /** The town's own building models (id → path under public/), loaded on arrival and dropped on leaving. */
   models: Record<string, string>;

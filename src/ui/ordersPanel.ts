@@ -7,6 +7,7 @@ import type { Order } from '../core/gameState';
 import { formatClock } from '../systems/construction';
 import { formatCash } from '../systems/economy';
 import { openDialog } from './dialog';
+import { setRich } from './icons';
 import { t, type StringKey } from './strings';
 
 export interface OrdersView {
@@ -60,7 +61,7 @@ function card(order: Order, view: OrdersView, onSend: (van: string) => void): HT
   const time = document.createElement('div');
   time.className = 'contract-time';
   time.dataset.order = String(order.id);
-  time.textContent = timeText(order, view);
+  setRich(time, timeText(order, view));
   const bar = document.createElement('div');
   bar.className = 'mission-bar contract-bar';
   const fill = document.createElement('div');
@@ -72,7 +73,7 @@ function card(order: Order, view: OrdersView, onSend: (van: string) => void): HT
   count.textContent = `${order.loaded} / ${order.qty}`;
   const reward = document.createElement('div');
   reward.className = 'contract-reward';
-  reward.textContent = `💵 ${formatCash(order.pay)}${order.gems ? `  💎 ${order.gems}` : ''}`;
+  setRich(reward, `💵 ${formatCash(order.pay).replace('$', '')}${order.gems ? `  💎 ${order.gems}` : ''}`);
   const foot = document.createElement('div');
   foot.className = 'contract-foot';
   const buttons = document.createElement('div');
@@ -105,7 +106,7 @@ export function showOrders(root: HTMLElement, view: () => OrdersView, onSend: (o
     if (key === shown) {
       for (const el of list.querySelectorAll<HTMLElement>('[data-order]')) {
         const order = now.orders.find((o) => String(o.id) === el.dataset.order);
-        if (order) el.textContent = timeText(order, now);
+        if (order) setRich(el, timeText(order, now));
       }
       return;
     }
@@ -119,7 +120,7 @@ export function showOrders(root: HTMLElement, view: () => OrdersView, onSend: (o
     for (let i = now.orders.length; i < now.slots; i++) {
       const empty = document.createElement('div');
       empty.className = 'contract-card contract-empty';
-      empty.textContent = `📭 ${t('orderNew', { time: formatClock(Math.max(0, now.refillAt - now.now) / 1000) })}`;
+      empty.textContent = t('orderNew', { time: formatClock(Math.max(0, now.refillAt - now.now) / 1000) });
       cards.push(empty);
     }
     list.replaceChildren(...cards);

@@ -1,5 +1,5 @@
 // Runs the town's story while playing: checks for due beats, sends each to
-// the paper, and applies their effects (the rival's lost customers, a rush).
+// celebration cards, and applies their effects (the rival's lost customers, a rush).
 import { beatFlag, catchUpFlags, dueBeats, newsFor, storyArrivalFactor } from '../systems/story';
 import type { Dirt } from './config';
 import type { GameState } from './gameState';

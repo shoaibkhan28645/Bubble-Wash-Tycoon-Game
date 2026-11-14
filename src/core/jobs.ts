@@ -156,7 +156,7 @@ export function createJobs(deps: {
     ...Object.values(layout.upgradePads).map((p) => square(p, TUNING.pads.upgradeRadius)),
   ];
 
-  /** A panel's open (an upgrade pad's, a dialog, the paper): everything waits. */
+  /** A panel's open (an upgrade pad's, a dialog, a celebration): everything waits. */
   const panelOpen = (): boolean => root.querySelector('.welcome-overlay, .upgrade-panel:not([hidden])') !== null;
 
   const usable = (def: JobDef, spot: JobSpot): boolean => (!hasPeople(def) || (deps.people?.() ?? true)) && (deps.usable?.(def, spot) ?? true);

@@ -77,7 +77,7 @@ export function rankFlag(rank: RankDef): string {
   return `rank:${rank.id}`;
 }
 
-/** Ranks reached but not yet celebrated, lowest first (each gets its own newspaper card). */
+/** Ranks reached but not yet celebrated, lowest first (each gets its own celebration card). */
 export function uncelebratedRanks(state: GameState): RankDef[] {
   const best = bestNetWorth(state);
   return RANKS.filter((r) => r.netWorth > 0 && best >= r.netWorth && !state.flags.includes(rankFlag(r)));

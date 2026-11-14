@@ -6,6 +6,7 @@ import { contractDef, contractDone } from '../systems/contracts';
 import { formatClock } from '../systems/construction';
 import { formatCash } from '../systems/economy';
 import { openDialog } from './dialog';
+import { icon as drawn, setRich } from './icons';
 import { t, type StringKey } from './strings';
 
 export interface BoardView {
@@ -21,7 +22,7 @@ export function taskText(task: string, goal: number): string {
   return t(`task_${task}` as StringKey, { n: goal });
 }
 
-const rewardText = (c: Contract, times = 1): string => (c.gems > 0 ? `💎 ${c.gems * times}` : `💵 ${formatCash(c.cash * times)}`);
+const rewardText = (c: Contract, times = 1): string => (c.gems > 0 ? `💎 ${c.gems * times}` : `💵 ${formatCash(c.cash * times).replace('$', '')}`);
 
 function card(c: Contract, view: BoardView, onClaim: (double: boolean) => void): HTMLElement {
   const el = document.createElement('div');
@@ -29,7 +30,7 @@ function card(c: Contract, view: BoardView, onClaim: (double: boolean) => void):
   const def = contractDef(c.kind);
   if (!def) {
     el.classList.add('contract-empty');
-    el.textContent = c.endsAt > view.now ? `📭 ${t('contractNew', { time: formatClock((c.endsAt - view.now) / 1000) })}` : `📭 ${t('contractNone')}`;
+    el.textContent = c.endsAt > view.now ? t('contractNew', { time: formatClock((c.endsAt - view.now) / 1000) }) : t('contractNone');
     return el;
   }
   const done = contractDone(c);
@@ -47,7 +48,12 @@ function card(c: Contract, view: BoardView, onClaim: (double: boolean) => void):
   head.append(client, task);
   const time = document.createElement('div');
   time.className = 'contract-time';
-  time.textContent = done ? '✅' : `⏱ ${t('contractLeft', { time: formatClock(Math.max(0, c.endsAt - view.now) / 1000) })}`;
+  if (done) {
+    time.classList.add('contract-done');
+    time.innerHTML = drawn('check', 14);
+  } else {
+    setRich(time, `⏱ ${t('contractLeft', { time: formatClock(Math.max(0, c.endsAt - view.now) / 1000) })}`);
+  }
   const bar = document.createElement('div');
   bar.className = 'mission-bar contract-bar';
   const fill = document.createElement('div');
@@ -59,7 +65,7 @@ function card(c: Contract, view: BoardView, onClaim: (double: boolean) => void):
   count.textContent = `${Math.floor(c.progress)} / ${c.goal}`;
   const reward = document.createElement('div');
   reward.className = 'contract-reward';
-  reward.textContent = rewardText(c);
+  setRich(reward, rewardText(c));
   const foot = document.createElement('div');
   foot.className = 'contract-foot';
   const buttons = document.createElement('div');
@@ -75,7 +81,7 @@ function card(c: Contract, view: BoardView, onClaim: (double: boolean) => void):
     const double = document.createElement('button');
     double.type = 'button';
     double.className = 'mission-claim contract-double';
-    double.textContent = `📺 ${rewardText(c, 2)}`;
+    setRich(double, `📺 ${rewardText(c, 2)}`);
     double.addEventListener('click', () => {
       double.disabled = true;
       onClaim(true);

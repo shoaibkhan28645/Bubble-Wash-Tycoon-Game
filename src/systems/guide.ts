@@ -3,6 +3,7 @@ import { TUNING, type Point } from '../core/config';
 import type { GameState } from '../core/gameState';
 import { t, type StringKey } from '../ui/strings';
 import type { Label, WorldLabels } from '../ui/worldLabels';
+import { icon } from '../ui/icons';
 
 /** What the guide can see this frame. */
 export interface GuideView {
@@ -103,7 +104,7 @@ export class GuideHand {
   constructor(private readonly labels: WorldLabels) {
     const hand = document.createElement('div');
     hand.className = 'guide-hand';
-    hand.textContent = '👇';
+    hand.innerHTML = icon('down', 44);
     hand.setAttribute('aria-hidden', 'true');
     this.hand = labels.add(hand, this.at);
     const words = document.createElement('div');

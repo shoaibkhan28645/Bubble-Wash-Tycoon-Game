@@ -1,4 +1,5 @@
 import { formatCash } from '../systems/economy';
+import { icon, setRich } from './icons';
 import { t } from './strings';
 
 /** "1 h 20 min", "45 min", "2 min". */
@@ -33,7 +34,7 @@ export function showWelcomeBack(
   title.textContent = t('welcomeBack');
   const bag = document.createElement('div');
   bag.className = 'welcome-bag';
-  bag.textContent = '💰';
+  bag.innerHTML = icon('moneybag', 76);
   const amount = document.createElement('div');
   amount.className = 'welcome-amount';
   amount.textContent = formatCash(cash);
@@ -50,7 +51,7 @@ export function showWelcomeBack(
   const twice = document.createElement('button');
   twice.type = 'button';
   twice.className = 'welcome-collect welcome-double';
-  twice.textContent = `📺 ${t('collectDouble')}`;
+  setRich(twice, `📺 ${t('collectDouble')}`);
   card.append(title, bag, amount, away, note, twice, collect);
   overlay.appendChild(card);
   // The overlay swallows taps so the joystick doesn't start underneath.

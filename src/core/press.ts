@@ -1,21 +1,21 @@
-// The town paper: newspaper cards wait their turn and only open when no
-// other card or dialog is up, one at a time. Closing one is a natural break
+// The town's big moments (a story beat, a new rank): celebration cards wait their turn and only open
+// when no other card or dialog is up, one at a time. Closing one is a natural break
 // between screens, so an interstitial ad may follow (Playables rules).
 import type { SoundManager } from '../audio/sound';
-import { showNewspaper, type NewsItem } from '../ui/newspaper';
+import { showCelebration, type Announcement } from '../ui/celebration';
 
 /** Wait this long after a card closes before the next one opens. */
 const GAP_SECONDS = 1.5;
 
 export interface Press {
-  publish(item: NewsItem): void;
+  publish(item: Announcement): void;
   update(dt: number): void;
   /** A card is open or waiting. */
   readonly busy: boolean;
 }
 
 export function createPress(root: HTMLElement, sound: SoundManager, onClosed: () => void): Press {
-  const waiting: NewsItem[] = [];
+  const waiting: Announcement[] = [];
   let open = false;
   let gap = 0;
   return {
@@ -30,7 +30,7 @@ export function createPress(root: HTMLElement, sound: SoundManager, onClosed: ()
       const item = waiting.shift()!;
       open = true;
       sound.play('open');
-      showNewspaper(root, item, () => {
+      showCelebration(root, item, () => {
         open = false;
         gap = GAP_SECONDS;
         sound.play('click');

@@ -1,3 +1,4 @@
+import { icon } from './icons';
 import { formatCash } from '../systems/economy';
 
 export interface UpgradeRow {
@@ -38,7 +39,7 @@ export class UpgradePanel {
     close.type = 'button';
     close.className = 'upgrade-close';
     close.setAttribute('aria-label', 'Close');
-    close.textContent = '✕';
+    close.innerHTML = icon('close', 18);
     close.addEventListener('click', () => this.close());
     header.append(this.title, close);
     this.list = document.createElement('div');
@@ -108,7 +109,8 @@ export class UpgradePanel {
         buy.dataset.key = row.key;
         const maxed = row.level >= row.max;
         buy.disabled = maxed || cash < row.cost;
-        buy.textContent = maxed ? 'MAX' : `⬆ ${formatCash(row.cost)}`;
+        if (maxed) buy.textContent = 'MAX';
+        else buy.innerHTML = `${icon('coin', 22)}${formatCash(row.cost).replace('$', '')}`;
         item.append(text, buy);
         return item;
       }),

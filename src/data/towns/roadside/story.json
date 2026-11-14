@@ -1,68 +1,108 @@
 {
-  "paper": "The Roadside Gazette",
-  "mentor": { "name": "Mabel", "icon": "👵" },
-  "rival": { "name": "Rex Goldsby", "icon": "😎", "business": "Sparkle Express" },
+  "mentor": {
+    "name": "Mabel",
+    "icon": "👵"
+  },
+  "rival": {
+    "name": "Rex Goldsby",
+    "icon": "😎",
+    "business": "Sparkle Express"
+  },
   "beats": [
     {
       "id": "arrival",
-      "when": { "flag": "collected" },
+      "when": {
+        "flag": "collected"
+      },
+      "shout": "You did it!",
       "icon": "🧽",
-      "headline": "Old highway car wash opens again",
-      "body": "The dusty wash on the highway has a new owner: one bucket, one bay and big plans. Its first customer drove off sparkling.",
+      "headline": "Your first sparkling car!",
+      "body": "One bucket, one bay and big plans. This dusty old car wash is yours now, so let’s make it shine.",
       "speaker": "mentor",
       "words": "This lot was my first business, forty years ago. Wash every car like it's your own and the town will keep coming back."
     },
     {
       "id": "firstHire",
-      "when": { "built": "washer" },
+      "when": {
+        "built": "washer"
+      },
+      "shout": "New helper!",
       "icon": "👷",
-      "headline": "Roadside wash hires its first worker",
-      "body": "The highway wash now has a crew. Locals say the queue moves twice as fast.",
+      "headline": "You’ve got a crew!",
+      "body": "Your first worker is scrubbing away, and the queue moves twice as fast.",
       "speaker": "mentor",
       "words": "Now you're an owner, not just a washer. Let your crew scrub; you keep the cash moving."
     },
     {
       "id": "rival",
-      "when": { "built": "board" },
+      "when": {
+        "built": "board"
+      },
+      "shout": "Uh-oh!",
       "icon": "😎",
-      "headline": "Sparkle Express opens across town",
-      "body": "Chain owner Rex Goldsby has opened a shiny wash on the other side of town, and some drivers are heading his way. A faster way to wash big batches of cars could win them back.",
+      "headline": "Rex Goldsby wants your customers",
+      "body": "His shiny Sparkle Express just opened across town, and some drivers are heading his way. Wash cars in big batches and you’ll win them back.",
       "speaker": "rival",
       "words": "One bucket against my chain? Enjoy your quiet afternoons.",
-      "effect": { "rival": { "arrivalFactor": 0.75, "until": "tunnel" } }
+      "effect": {
+        "rival": {
+          "arrivalFactor": 0.75,
+          "until": "tunnel"
+        }
+      }
     },
     {
       "id": "rivalBeaten",
-      "when": { "built": "tunnel", "beat": "rival" },
+      "when": {
+        "built": "tunnel",
+        "beat": "rival"
+      },
+      "shout": "You win!",
       "icon": "🏆",
-      "headline": "Sparkle Express closes its doors",
-      "body": "With a brush tunnel washing three cars at once, the roadside wash has won its customers back. Rex Goldsby's chain has pulled out of town.",
+      "headline": "Sparkle Express is gone!",
+      "body": "Your brush tunnel washes three cars at once, and the customers came running back. Rex has packed up and left town.",
       "speaker": "mentor",
       "words": "Better service beats a bigger sign, every time. He'll turn up again somewhere, mark my words."
     },
     {
       "id": "storm",
-      "when": { "built": "cashier" },
+      "when": {
+        "built": "cashier"
+      },
+      "shout": "Heads up!",
       "icon": "🌪️",
-      "headline": "Dust storm hits the highway",
-      "body": "A dust storm is rolling down the highway. For the next three minutes every car is filthy, and drivers will pay double for a wash.",
+      "headline": "A dust storm is coming!",
+      "body": "For the next three minutes every car is filthy, and drivers pay double for a wash. Go, go, go!",
       "speaker": "mentor",
       "words": "Storms are good for business, if you're ready for them. Keep every bay busy!",
-      "effect": { "rush": { "seconds": 180, "dirt": "muddy", "payMultiplier": 2 } }
+      "effect": {
+        "rush": {
+          "seconds": 180,
+          "dirt": "muddy",
+          "payMultiplier": 2
+        }
+      }
     },
     {
       "id": "stormOver",
-      "when": { "beat": "storm", "rushOver": true },
+      "when": {
+        "beat": "storm",
+        "rushOver": true
+      },
+      "shout": "Phew!",
       "icon": "🌤️",
-      "headline": "Storm clears, roadside wash shines",
-      "body": "The dust has settled. While the highway was a mess, the roadside wash kept every car moving."
+      "headline": "The storm has passed",
+      "body": "The dust has settled, and you kept every car moving. Nice work!"
     },
     {
       "id": "landmark",
-      "when": { "built": "landmark" },
+      "when": {
+        "built": "landmark"
+      },
+      "shout": "Ta-da!",
       "icon": "🦆",
-      "headline": "Town unveils the Duck Fountain",
-      "body": "The town's new landmark stands by the roadside wash, paid for by its owner. Every bill in town now comes with a smile, and the owner has been seen looking at farmland out at Willowbrook.",
+      "headline": "The Duck Fountain is here!",
+      "body": "The whole town loves it, and every bill now comes with a smile. Next stop: some farmland out at Willowbrook?",
       "speaker": "mentor",
       "words": "You've outgrown this lot. My brother Joe is selling his farmland out at Willowbrook. It won't come cheap, so save up, then go and see him."
     }

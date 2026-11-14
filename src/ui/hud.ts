@@ -1,6 +1,5 @@
 import { formatCash } from '../systems/economy';
-
-const COIN_SVG = `<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10" fill="#ffd85c" stroke="#e0a800" stroke-width="2"/><text x="12" y="16.5" text-anchor="middle" font-size="12" font-weight="700" fill="#b07a00">$</text></svg>`;
+import { icon } from './icons';
 
 /** Cash counter at the top. Counts up smoothly and bumps when cash arrives. */
 export class Hud {
@@ -23,19 +22,19 @@ export class Hud {
     hud.className = 'hud';
     this.pill = document.createElement('div');
     this.pill.className = 'cash-pill';
-    this.pill.innerHTML = COIN_SVG;
+    this.pill.innerHTML = icon('coin', 36);
     this.amount = document.createElement('span');
     this.amount.className = 'cash-amount';
     this.pill.appendChild(this.amount);
     const stars = document.createElement('div');
     stars.className = 'stars-pill';
-    stars.innerHTML = '<span class="star-icon" aria-hidden="true">★</span>';
+    stars.innerHTML = icon('star', 24);
     this.starText = document.createElement('span');
     stars.appendChild(this.starText);
     const gems = document.createElement('div');
     this.gems = gems;
     gems.className = 'stars-pill gems-pill';
-    gems.innerHTML = '<span class="gem-icon" aria-hidden="true">💎</span>';
+    gems.innerHTML = icon('gem', 24);
     this.gemText = document.createElement('span');
     gems.appendChild(this.gemText);
     hud.append(this.pill, stars, gems);

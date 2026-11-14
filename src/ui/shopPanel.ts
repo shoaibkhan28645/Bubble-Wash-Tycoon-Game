@@ -1,7 +1,8 @@
-// The Mogul's Boutique: the hero's outfits, hats and trails, the business's brand colour and the towns'
+// The Bubble Boutique: the hero's outfits, hats and trails, the business's brand colour and the towns'
 // decorations (bought with gems, just for looks), today's featured things, the sets and the things only
-// earned, and the gem boosts gathered in one place. A window above the shop shows what's picked up close
-// (the hero, a staff member, a decoration in its spot) before it's bought.
+// earned, and the gem boosts gathered in one place. It fills the screen: a window at the top (beside, on
+// a wide screen) shows what's picked up close (the hero, a staff member, a decoration in its spot) before
+// it's bought, and each hat and decoration's tile shows its own model.
 import { ADS, RANKS, SHOP } from '../core/config';
 import type { GameState } from '../core/gameState';
 import { JOURNEY } from '../systems/journey';
@@ -28,6 +29,7 @@ import {
   type ShopItem,
   type Slot,
 } from '../systems/wardrobe';
+import { icon as drawn, iconFor, rich, setRich, type IconName } from './icons';
 import { t, type StringKey } from './strings';
 
 export type ShopTab = Slot | 'today' | 'sets' | 'boosts';
@@ -70,17 +72,19 @@ export interface ShopDeps {
   watchForGems: () => Promise<boolean>;
   /** Days of the daily calendar claimed this round (0–6): the 7th brings the weekly gift. */
   calendarDay: number;
+  /** A picture of a hat's or a decoration's model (an image address), if it can be drawn. */
+  picture: (item: ShopItem) => string | null;
 }
 
-const TABS: { id: ShopTab; icon: string; label: StringKey }[] = [
-  { id: 'today', icon: '⭐', label: 'shopToday' },
-  { id: 'outfit', icon: '👔', label: 'shopOutfits' },
-  { id: 'hat', icon: '🎩', label: 'shopHats' },
-  { id: 'trail', icon: '✨', label: 'shopTrails' },
-  { id: 'brand', icon: '🎨', label: 'shopBrand' },
-  { id: 'decor', icon: '🌷', label: 'shopDecor' },
-  { id: 'sets', icon: '📖', label: 'shopSets' },
-  { id: 'boosts', icon: '⚡', label: 'shopBoosts' },
+const TABS: { id: ShopTab; icon: IconName; label: StringKey }[] = [
+  { id: 'today', icon: 'star', label: 'shopToday' },
+  { id: 'outfit', icon: 'shirt', label: 'shopOutfits' },
+  { id: 'hat', icon: 'hat', label: 'shopHats' },
+  { id: 'trail', icon: 'sparkle', label: 'shopTrails' },
+  { id: 'brand', icon: 'palette', label: 'shopBrand' },
+  { id: 'decor', icon: 'flower', label: 'shopDecor' },
+  { id: 'sets', icon: 'book', label: 'shopSets' },
+  { id: 'boosts', icon: 'bolt', label: 'shopBoosts' },
 ];
 
 /** How something only earned is earned, in words. */
@@ -123,11 +127,17 @@ function poloIcon(item: ShopItem): string {
   return `<svg viewBox="0 0 40 40" aria-hidden="true"><path d="M13 6l-9 6 4 7 4-2v19h16V17l4 2 4-7-9-6q-3 4-7 4t-7-4z" fill="${main}" stroke="rgba(0,0,0,.25)" stroke-width="1"/><path d="M13 6q3 4 7 4t7-4l-3-1q-4 3-8 0z" fill="#f6f8fb"/><rect x="12" y="29" width="16" height="4" fill="${stripe}"/><circle cx="24" cy="16" r="2" fill="#f6f8fb"/></svg>`;
 }
 
-/** An item's picture: a suit or polo drawn in its colours, or its emoji. */
-function iconOf(item: ShopItem | null): { html?: string; text?: string } {
-  if (item?.slot === 'outfit') return { html: suitIcon(item) };
-  if (item?.slot === 'brand') return { html: poloIcon(item) };
-  return { text: item && 'icon' in item ? item.icon : '🚫' };
+/** "Nothing": a ring with a line through it, for the tile that takes a hat or a trail off. */
+const NONE_ICON = `<svg viewBox="0 0 40 40" aria-hidden="true"><circle cx="20" cy="20" r="12" fill="none" stroke="#9fb3bd" stroke-width="4"/><path d="M11.5 28.5l17-17" stroke="#9fb3bd" stroke-width="4" stroke-linecap="round"/></svg>`;
+
+/** An item's picture: its model drawn for the tile, a suit or polo drawn in its colours, or its emoji. */
+function iconOf(item: ShopItem | null, picture: (item: ShopItem) => string | null): { html?: string; text?: string } {
+  if (!item) return { html: NONE_ICON };
+  if (item.slot === 'outfit') return { html: suitIcon(item) };
+  if (item.slot === 'brand') return { html: poloIcon(item) };
+  const url = item.slot === 'hat' || item.slot === 'decor' ? picture(item) : null;
+  if (url) return { html: `<img src="${url}" alt="" draggable="false">` };
+  return { text: 'icon' in item ? item.icon : '' };
 }
 
 /** Opens the boutique on a tab. Returns how to close it. */
@@ -139,26 +149,26 @@ export function openShop(deps: ShopDeps, firstTab: ShopTab = 'today'): { close: 
   overlay.setAttribute('aria-label', t('shopTitle'));
   overlay.addEventListener('pointerdown', (e) => e.stopPropagation());
 
+  // The close-up shows through this window: everything round it is the shop's own page.
   const window_ = document.createElement('div');
   window_.className = 'shop-preview';
   const caption = document.createElement('div');
   caption.className = 'shop-caption';
   window_.appendChild(caption);
 
-  const sheet = document.createElement('div');
-  sheet.className = 'shop-sheet';
   const head = document.createElement('div');
   head.className = 'shop-head';
-  const title = document.createElement('h2');
-  title.textContent = `🛍️ ${t('shopTitle')}`;
-  const gems = document.createElement('span');
-  gems.className = 'shop-gems';
   const closeButton = document.createElement('button');
   closeButton.type = 'button';
-  closeButton.className = 'upgrade-close';
-  closeButton.textContent = '✕';
-  closeButton.setAttribute('aria-label', 'close');
-  head.append(title, gems, closeButton);
+  closeButton.className = 'menu-close shop-close';
+  closeButton.innerHTML = drawn('close', 22);
+  closeButton.setAttribute('aria-label', 'Close');
+  const title = document.createElement('h2');
+  title.className = 'menu-title';
+  title.textContent = t('shopTitle');
+  const gems = document.createElement('span');
+  gems.className = 'shop-gems';
+  head.append(closeButton, title, gems);
 
   const tabs = document.createElement('div');
   tabs.className = 'shop-tabs';
@@ -167,7 +177,7 @@ export function openShop(deps: ShopDeps, firstTab: ShopTab = 'today'): { close: 
     const b = document.createElement('button');
     b.type = 'button';
     b.className = 'shop-tab';
-    b.innerHTML = `<span aria-hidden="true">${tab.icon}</span>`;
+    b.innerHTML = drawn(tab.icon, 24);
     b.append(t(tab.label));
     b.addEventListener('click', () => {
       deps.click();
@@ -181,15 +191,14 @@ export function openShop(deps: ShopDeps, firstTab: ShopTab = 'today'): { close: 
   body.className = 'shop-body';
   const foot = document.createElement('div');
   foot.className = 'shop-foot';
-  sheet.append(head, tabs, body, foot);
-  overlay.append(window_, sheet);
+  overlay.append(window_, head, tabs, body, foot);
 
   let tab: ShopTab = firstTab;
   /** The item picked on this tab (null: the slot's "none"). */
   let picked: string | null = null;
 
   const refreshGems = (): void => {
-    gems.textContent = `💎 ${state.gems}`;
+    gems.innerHTML = `${drawn('gem', 24)}${state.gems}`;
   };
 
   /** Shows the picked item (bought or not) and points the close-up at it. */
@@ -241,7 +250,7 @@ export function openShop(deps: ShopDeps, firstTab: ShopTab = 'today'): { close: 
   const tileFace = (item: ShopItem | null, slot: Slot, worn: boolean): HTMLElement[] => {
     const icon = document.createElement('span');
     icon.className = 'shop-icon';
-    const face = iconOf(item);
+    const face = iconOf(item, deps.picture);
     if (face.html) icon.innerHTML = face.html;
     else icon.textContent = face.text ?? '';
     const name = document.createElement('span');
@@ -249,20 +258,24 @@ export function openShop(deps: ShopDeps, firstTab: ShopTab = 'today'): { close: 
     name.textContent = item ? item.name : t(slot === 'hat' ? 'shopNoHat' : 'shopNoTrail');
     const price = document.createElement('span');
     price.className = 'shop-price';
-    if (!item || owns(state, item.id)) price.textContent = worn ? '✓' : item?.gems === 0 && !item.earn ? t('shopFree') : slot === 'decor' ? t('shopPutAwayShort') : '';
-    else if (item.earn) {
-      price.textContent = '🔒';
+    if (!item || owns(state, item.id)) {
+      // Owned: a tag saying it's on (worn, in use, up), or that it's the player's.
+      price.classList.add(worn ? 'shop-on' : 'shop-owned');
+      price.textContent = worn ? t(slot === 'decor' ? 'shopUp' : slot === 'brand' ? 'shopUsing' : 'shopOn') : item && item.gems === 0 && !item.earn ? t('shopFree') : item ? t('shopOwned') : '';
+    } else if (item.earn) {
+      price.innerHTML = drawn('lock', 18);
       price.classList.add('shop-locked');
     } else {
       const cost = priceOf(state, item.id, deps.today);
-      price.innerHTML = cost < item.gems ? `<s>${item.gems}</s> 💎 ${cost}` : `💎 ${cost}`;
+      price.innerHTML = `${cost < item.gems ? `<s>${item.gems}</s>` : ''}${drawn('gem', 16)}${cost}`;
       if (state.gems < cost) price.classList.add('shop-short');
     }
     const parts: HTMLElement[] = [icon, name, price];
     if (item && !owns(state, item.id) && state.wardrobe.featured.date === deps.today && state.wardrobe.featured.ids.includes(item.id)) {
       const star = document.createElement('span');
       star.className = 'shop-featured';
-      star.textContent = state.wardrobe.featured.sale === item.id ? `−${Math.round(SHOP.featured.discount * 100)}%` : '⭐';
+      if (state.wardrobe.featured.sale === item.id) star.textContent = `−${Math.round(SHOP.featured.discount * 100)}%`;
+      else star.innerHTML = drawn('star', 16);
       parts.push(star);
     }
     return parts;
@@ -288,7 +301,7 @@ export function openShop(deps: ShopDeps, firstTab: ShopTab = 'today'): { close: 
       for (const town of towns) {
         const header = document.createElement('div');
         header.className = 'shop-town';
-        header.textContent = `${JOURNEY.find((stop) => stop.id === town)?.icon ?? ''} ${townName(town)}`;
+        header.textContent = townName(town);
         blocks.push(header);
         const g = grid();
         for (const item of shopItems('decor')) if (item.slot === 'decor' && item.town === town) g.appendChild(tile(item, slot));
@@ -300,12 +313,11 @@ export function openShop(deps: ShopDeps, firstTab: ShopTab = 'today'): { close: 
     }
     const hint = document.createElement('p');
     hint.className = 'shop-hint';
-    hint.textContent = `${t(HINTS[slot] ?? 'shopHint')} ${t('shopEarn')}`;
+    setRich(hint, `${t(HINTS[slot] ?? 'shopHint')} ${t('shopEarn')}`);
     body.replaceChildren(...blocks, hint);
 
     const item = picked ? shopItems(slot).find((i) => i.id === picked) : null;
-    const label = document.createElement('div');
-    label.className = 'shop-pick';
+    // On the close-up: what's picked, and how rare it is.
     const name = document.createElement('strong');
     const rarity = document.createElement('span');
     if (item) {
@@ -318,15 +330,13 @@ export function openShop(deps: ShopDeps, firstTab: ShopTab = 'today'): { close: 
       rarity.className = 'shop-rarity';
       rarity.textContent = t('shopCollection', { owned, total });
     }
-    label.append(name, rarity);
+    caption.replaceChildren(name, rarity);
+    window_.className = `shop-preview rarity-${item?.rarity ?? 'none'}`;
+
+    // Under the tiles: a line of anything to know, and the one big button.
+    const notes: string[] = [];
     // A decoration for another town goes up there, not here.
-    const elsewhere = item?.slot === 'decor' && item.town !== deps.town ? t('shopElsewhere', { town: townName(item.town) }) : '';
-    if (elsewhere) {
-      const where = document.createElement('span');
-      where.className = 'shop-where';
-      where.textContent = elsewhere;
-      label.appendChild(where);
-    }
+    if (item?.slot === 'decor' && item.town !== deps.town) notes.push(t('shopElsewhere', { town: townName(item.town) }));
     const action = document.createElement('button');
     action.type = 'button';
     action.className = 'shop-action';
@@ -342,24 +352,16 @@ export function openShop(deps: ShopDeps, firstTab: ShopTab = 'today'): { close: 
         render();
       });
     } else if (item?.earn && !owns(state, item.id)) {
-      const how = document.createElement('span');
-      how.className = 'shop-where';
-      how.textContent = earnText(item.earn);
-      label.appendChild(how);
-      action.textContent = `🔒 ${t('shopEarned')}`;
+      notes.push(earnText(item.earn));
+      setRich(action, `🔒 ${t('shopEarned')}`);
       action.disabled = true;
     } else if (item && !owns(state, item.id)) {
       const cost = priceOf(state, item.id, deps.today);
       const short = cost - state.gems;
-      action.textContent = `💎 ${cost}`;
+      setRich(action, t('shopGet', { gems: cost }));
       action.classList.add('shop-buy');
       action.disabled = short > 0;
-      if (short > 0) {
-        const need = document.createElement('span');
-        need.className = 'shop-need';
-        need.textContent = t('shopNeed', { gems: short });
-        label.appendChild(need);
-      }
+      if (short > 0) notes.push(t('shopNeed', { gems: short }));
       action.addEventListener('click', () => {
         if (buy(state, item.id, deps.today) !== 'bought') return;
         deps.bought(item);
@@ -369,18 +371,27 @@ export function openShop(deps: ShopDeps, firstTab: ShopTab = 'today'): { close: 
       });
     } else {
       action.textContent = t(slot === 'brand' ? 'shopInUse' : 'shopWearing');
+      action.classList.add('shop-done');
       action.disabled = true;
     }
-    foot.replaceChildren(label, action);
-    caption.textContent = elsewhere || (item ? item.name : '');
-    window_.className = `shop-preview rarity-${item?.rarity ?? 'none'}`;
+    const parts: HTMLElement[] = [];
+    if (notes.length) {
+      const note = document.createElement('div');
+      note.className = 'shop-note';
+      setRich(note, notes.join(' · '));
+      parts.push(note);
+    }
+    // "No hat" needs no button: tapping its tile already took the hat off.
+    foot.replaceChildren(...parts, ...(item ? [action] : []));
   };
 
   /** A small heading over part of a tab. */
   const heading = (text: string, side = ''): HTMLElement => {
     const h = document.createElement('div');
     h.className = 'shop-town';
-    h.textContent = text;
+    const words = document.createElement('span');
+    setRich(words, text);
+    h.appendChild(words);
     if (side) {
       const s = document.createElement('span');
       s.className = 'shop-heading-side';
@@ -396,7 +407,9 @@ export function openShop(deps: ShopDeps, firstTab: ShopTab = 'today'): { close: 
     row.className = 'upgrade-row shop-card';
     const i = document.createElement('span');
     i.className = 'shop-boost-icon';
-    i.textContent = icon;
+    const art = icon.startsWith('<') ? icon : iconFor(icon, 30);
+    if (art) i.innerHTML = art;
+    else i.textContent = icon;
     const words = document.createElement('div');
     words.className = 'upgrade-text';
     const strong = document.createElement('strong');
@@ -438,7 +451,7 @@ export function openShop(deps: ShopDeps, firstTab: ShopTab = 'today'): { close: 
     const watch = document.createElement('button');
     watch.type = 'button';
     watch.className = 'shop-use';
-    watch.textContent = `📺 +${ADS.gemAd.gems} 💎`;
+    setRich(watch, `📺 +${ADS.gemAd.gems} 💎`);
     watch.disabled = left <= 0;
     watch.addEventListener('click', async () => {
       deps.click();
@@ -452,12 +465,10 @@ export function openShop(deps: ShopDeps, firstTab: ShopTab = 'today'): { close: 
     if (gift) blocks.push(card('🎁', t('shopGiftTitle'), t('shopGiftBody', { name: gift.name, day: deps.calendarDay + 1 })));
     const hint = document.createElement('p');
     hint.className = 'shop-hint';
-    hint.textContent = t('shopEarn');
+    setRich(hint, t('shopEarn'));
     blocks.push(hint);
     body.replaceChildren(...blocks);
     foot.replaceChildren();
-    caption.textContent = '';
-    window_.className = 'shop-preview rarity-none';
   };
 
   /** The collection book: everything owned so far, the sets and their titles, and the things only earned. */
@@ -466,7 +477,7 @@ export function openShop(deps: ShopDeps, firstTab: ShopTab = 'today'): { close: 
     const book = document.createElement('div');
     book.className = 'shop-book';
     book.innerHTML = `<span class="shop-book-count"></span><span class="mission-bar"><span class="mission-fill" style="width:${Math.round((owned / total) * 100)}%"></span></span>`;
-    book.querySelector('.shop-book-count')!.textContent = `📖 ${t('shopCollection', { owned, total })}`;
+    book.querySelector('.shop-book-count')!.innerHTML = rich(`📖 ${t('shopCollection', { owned, total })}`);
     const blocks: HTMLElement[] = [book];
     // Titles to wear on the rank chip.
     const earned = titles(state);
@@ -480,7 +491,7 @@ export function openShop(deps: ShopDeps, firstTab: ShopTab = 'today'): { close: 
         b.className = 'shop-title-chip';
         const id = set?.id ?? '';
         b.classList.toggle('shop-title-on', state.wardrobe.title === id);
-        b.textContent = set ? `${set.icon} ${set.title}` : t('shopNoTitle');
+        setRich(b, set ? `${set.icon} ${set.title}` : t('shopNoTitle'));
         b.addEventListener('click', () => {
           deps.click();
           if (chooseTitle(state, id)) deps.changed();
@@ -517,22 +528,20 @@ export function openShop(deps: ShopDeps, firstTab: ShopTab = 'today'): { close: 
     for (const item of [...shopItems('hat'), ...shopItems('trail'), ...shopItems('decor')]) {
       if (!item.earn || item.earn.set) continue;
       const got = owns(state, item.id);
-      const face = iconOf(item);
+      const face = iconOf(item, deps.picture);
       const b = document.createElement('button');
       b.type = 'button';
       b.className = 'shop-use';
-      b.textContent = got ? '✓' : '🔒';
+      b.innerHTML = got ? drawn('check', 20) : drawn('lock', 22);
       b.disabled = !got;
       b.addEventListener('click', () => {
         deps.click();
         jump(item);
       });
-      blocks.push(card(face.text ?? '', item.name, earnText(item.earn), b));
+      blocks.push(card(face.html ?? face.text ?? '', item.name, earnText(item.earn), b));
     }
     body.replaceChildren(...blocks);
     foot.replaceChildren();
-    caption.textContent = '';
-    window_.className = 'shop-preview rarity-none';
   };
 
   const renderBoosts = (): void => {
@@ -543,7 +552,9 @@ export function openShop(deps: ShopDeps, firstTab: ShopTab = 'today'): { close: 
       row.className = 'upgrade-row';
       const icon = document.createElement('span');
       icon.className = 'shop-boost-icon';
-      icon.textContent = boost.icon;
+      const art = iconFor(boost.icon, 30);
+      if (art) icon.innerHTML = art;
+      else icon.textContent = boost.icon;
       const text = document.createElement('div');
       text.className = 'upgrade-text';
       const name = document.createElement('strong');
@@ -556,7 +567,7 @@ export function openShop(deps: ShopDeps, firstTab: ShopTab = 'today'): { close: 
       use.type = 'button';
       use.className = 'shop-use';
       // Nothing to price yet (nothing being built): just the ad's sign.
-      use.textContent = boost.gems <= 0 ? '📺' : boost.noAd ? `💎 ${boost.gems}` : `📺 / 💎 ${boost.gems}`;
+      setRich(use, boost.gems <= 0 ? '📺' : boost.noAd ? `💎 ${boost.gems}` : `📺 / 💎 ${boost.gems}`);
       use.disabled = !!boost.status;
       use.addEventListener('click', () => {
         deps.click();
@@ -568,17 +579,16 @@ export function openShop(deps: ShopDeps, firstTab: ShopTab = 'today'): { close: 
     }
     const note = document.createElement('p');
     note.className = 'shop-hint';
-    note.textContent = `${t('boostsNote')} ${t('shopEarn')}`;
+    setRich(note, `${t('boostsNote')} ${t('shopEarn')}`);
     body.replaceChildren(list, note);
     foot.replaceChildren();
-    caption.textContent = '';
-    window_.className = 'shop-preview rarity-none';
   };
 
   const render = (): void => {
     refreshGems();
     for (const [id, b] of tabButtons) b.classList.toggle('shop-tab-on', id === tab);
-    sheet.classList.toggle('shop-boosts-on', tab === 'boosts');
+    // Today, the sets and the boosts are lists: they take the whole page, with no close-up.
+    overlay.classList.toggle('shop-flat', tab === 'boosts' || tab === 'today' || tab === 'sets');
     if (tab === 'boosts') renderBoosts();
     else if (tab === 'today') renderToday();
     else if (tab === 'sets') renderSets();
@@ -616,10 +626,6 @@ export function openShop(deps: ShopDeps, firstTab: ShopTab = 'today'): { close: 
   closeButton.addEventListener('click', () => {
     deps.click();
     close();
-  });
-  // A tap on the town around the shop closes it.
-  overlay.addEventListener('click', (e) => {
-    if (e.target === overlay) close();
   });
   window.addEventListener('keydown', onKey);
 

@@ -1,3 +1,5 @@
+import { icon, setRich, type IconName } from './icons';
+
 /** What the side buttons show this frame. */
 export interface SideView {
   /** Calendar reward waiting. */
@@ -36,7 +38,9 @@ interface SideButton {
 /** A button that has just appeared glows this long. */
 const NEW_GLOW_MS = 4000;
 
-const ICONS: Record<SideAction, string> = { calendar: '🎁', shop: '🛍️', missions: '📋', speed: '⚡', convoy: '👑', refill: '🧴', finish: '🏗️', build: '🚧', fix: '🔧', shelf: '🧸' };
+const ICONS: Record<SideAction, IconName> = { calendar: 'gift', shop: 'bag', missions: 'clipboard', speed: 'bolt', convoy: 'crown', refill: 'bottle', finish: 'crane', build: 'cone', fix: 'wrench', shelf: 'teddy' };
+/** What each button is, for screen readers. */
+const NAMES: Record<SideAction, string> = { calendar: 'Daily gift', shop: 'Boutique', missions: 'Missions', speed: 'Speed boost', convoy: 'VIP convoy', refill: 'Instant delivery', finish: 'Finish it now', build: 'Building', fix: 'Fix every ride', shelf: 'Prize shelf' };
 
 const clock = (seconds: number) =>
   seconds >= 3600 ? `${Math.floor(seconds / 3600)}h${String(Math.floor((seconds % 3600) / 60)).padStart(2, '0')}` : `${Math.floor(seconds / 60)}:${String(Math.floor(seconds % 60)).padStart(2, '0')}`;
@@ -60,8 +64,8 @@ export class SideBar {
       const el = document.createElement('button');
       el.type = 'button';
       el.className = `side-button side-${action}`;
-      el.textContent = ICONS[action];
-      el.setAttribute('aria-label', action);
+      el.innerHTML = icon(ICONS[action], 34);
+      el.setAttribute('aria-label', NAMES[action]);
       const badge = document.createElement('span');
       badge.className = 'side-badge';
       el.appendChild(badge);
@@ -100,7 +104,7 @@ export class SideBar {
       setTimeout(() => b.el.classList.remove('side-new'), NEW_GLOW_MS);
     }
     b.visible = visible;
-    b.badge.textContent = badge;
+    setRich(b.badge, badge);
     b.badge.hidden = !badge;
     b.el.classList.toggle('side-hot', hot);
     b.el.classList.toggle('side-dim', dim);

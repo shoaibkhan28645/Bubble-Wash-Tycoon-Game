@@ -1,3 +1,4 @@
+import { icon, iconFor, setRich } from './icons';
 import { t } from './strings';
 
 /** Button clicks and dialogs opening make a sound; the game sets who plays it. */
@@ -26,34 +27,22 @@ export interface DialogOptions {
 }
 
 /**
- * A modal card in the game's style. Taps on it never reach the joystick;
- * Escape closes it. Buttons are disabled while their action runs (an ad).
+ * A modal in the game's style. With no `content` it's a pop-up card (an offer, a confirmation); with
+ * content (a calendar, a list of missions, the map) it's a menu that fills the screen, with its title
+ * and a close button along the top. Taps on it never reach the joystick; Escape closes it. Buttons are
+ * disabled while their action runs (an ad).
  */
 export function openDialog(root: HTMLElement, options: DialogOptions): { close: () => void } {
+  const page = !!options.content;
   const overlay = document.createElement('div');
-  overlay.className = 'welcome-overlay';
+  overlay.className = page ? 'welcome-overlay menu-overlay' : 'welcome-overlay';
   overlay.setAttribute('role', 'dialog');
   overlay.setAttribute('aria-label', options.title);
-  const card = document.createElement('div');
-  card.className = 'welcome-card';
-  const icon = document.createElement('div');
-  icon.className = 'dialog-icon';
-  icon.textContent = options.icon;
   const title = document.createElement('h2');
   title.textContent = options.title;
-  card.append(icon, title);
-  if (options.body) {
-    const body = document.createElement('p');
-    body.className = 'end-body';
-    body.textContent = options.body;
-    card.appendChild(body);
-  }
-  if (options.content) card.appendChild(options.content);
   const row = document.createElement('div');
   row.className = 'dialog-buttons';
-  card.appendChild(row);
-  overlay.appendChild(card);
-  overlay.addEventListener('pointerdown', (e) => e.stopPropagation());
+  const drawn = iconFor(options.icon, page ? 30 : 52);
 
   let closed = false;
   const close = (): void => {
@@ -67,22 +56,75 @@ export function openDialog(root: HTMLElement, options: DialogOptions): { close: 
     if (e.key === 'Escape') close();
   };
 
-  const buttons = options.buttons.map((spec) => {
+  if (page) {
+    // A menu: [✕] [icon Title] along the top, the content on a sheet that scrolls, its buttons under it.
+    const head = document.createElement('div');
+    head.className = 'menu-head';
+    const x = document.createElement('button');
+    x.type = 'button';
+    x.className = 'menu-close';
+    x.setAttribute('aria-label', 'Close');
+    x.innerHTML = icon('close', 22);
+    x.addEventListener('click', () => {
+      uiSound('click');
+      close();
+    });
+    title.className = 'menu-title';
+    if (drawn) title.insertAdjacentHTML('afterbegin', drawn);
+    head.append(x, title);
+    const body = document.createElement('div');
+    body.className = 'menu-body';
+    const sheet = document.createElement('div');
+    sheet.className = 'menu-sheet';
+    if (options.body) {
+      const note = document.createElement('p');
+      note.className = 'menu-note';
+      note.textContent = options.body;
+      sheet.appendChild(note);
+    }
+    sheet.appendChild(options.content!);
+    body.appendChild(sheet);
+    overlay.append(head, body, row);
+  } else {
+    const card = document.createElement('div');
+    card.className = 'welcome-card';
+    const badge = document.createElement('div');
+    badge.className = 'dialog-icon';
+    if (drawn) badge.innerHTML = drawn;
+    else badge.textContent = options.icon;
+    card.append(badge, title);
+    if (options.body) {
+      const body = document.createElement('p');
+      body.className = 'end-body';
+      body.textContent = options.body;
+      card.appendChild(body);
+    }
+    card.appendChild(row);
+    overlay.appendChild(card);
+  }
+  overlay.addEventListener('pointerdown', (e) => e.stopPropagation());
+
+  const buttons: HTMLButtonElement[] = [];
+  options.buttons.forEach((spec) => {
+    // A menu's ✕ does what its quiet "close" button did.
+    if (page && spec.kind === 'plain') return;
     const button = document.createElement('button');
     button.type = 'button';
     button.className = `dialog-button dialog-${spec.kind ?? 'primary'}`;
-    button.textContent = spec.label;
+    setRich(button, spec.label);
     button.disabled = !!spec.disabled;
     button.addEventListener('click', async () => {
       uiSound('click');
+      const was = buttons.map((b) => b.disabled);
       for (const b of buttons) b.disabled = true;
       const keepOpen = (await spec.onTap()) === false;
       if (!keepOpen) close();
-      else buttons.forEach((b, i) => (b.disabled = !!options.buttons[i]!.disabled));
+      else buttons.forEach((b, i) => (b.disabled = was[i]!));
     });
     row.appendChild(button);
-    return button;
+    buttons.push(button);
   });
+  if (buttons.length === 0) row.remove();
   window.addEventListener('keydown', onKey);
   root.appendChild(overlay);
   uiSound('open');
@@ -134,7 +176,7 @@ export function speech(root: HTMLElement, who: { name: string; icon: string }, t
 export function toast(root: HTMLElement, text: string): void {
   const el = document.createElement('div');
   el.className = 'toast';
-  el.textContent = text;
+  setRich(el, text);
   root.appendChild(el);
   setTimeout(() => el.remove(), 2600);
 }

@@ -10,6 +10,7 @@ import { hasModel, loadModel, specialCarFile } from '../render/assets';
 import type { Particles } from '../render/effects/particles';
 import { setBrand } from '../render/brand';
 import { HeroPreview, type PreviewTarget } from '../render/heroPreview';
+import { thumbnailsFor } from '../render/thumbnails';
 import { PersonAvatar } from '../render/models/person';
 import type { Stage } from '../render/stage';
 import type { TownDecor } from '../render/townDecor';
@@ -195,6 +196,7 @@ export function createMeta(deps: {
   let titleShown: string | null | undefined;
   player.effects = effects;
   const preview = new HeroPreview(stage, player.mesh);
+  const thumbnails = thumbnailsFor(stage.renderer);
 
   /** The nearest staff member to the hero (the brand's close-up), if there's one. */
   const nearestStaff = (): PreviewTarget | null => {
@@ -327,6 +329,7 @@ export function createMeta(deps: {
           checkEarned();
         },
         click: () => sound.play('click'),
+        picture: (item) => (item.slot === 'hat' ? thumbnails.of({ hat: item.id }) : item.slot === 'decor' ? thumbnails.of({ decor: item.id, ...(item.to ? { to: item.to } : {}) }) : null),
         today,
         calendarDay: state.daily.loginDay,
         watchForGems: async () => {

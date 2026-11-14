@@ -1,5 +1,5 @@
 // The hero's career while playing: net worth checked every second, a
-// newspaper card and a fanfare for each new rank, the rank chip in the HUD,
+// celebration card and a fanfare for each new rank, the rank chip in the HUD,
 // and the best net worth sent to YouTube as the game's score.
 import * as platform from '../platform/youtube';
 import type { SoundManager } from '../audio/sound';
@@ -51,10 +51,11 @@ export function createHero(deps: {
       // A player who was already past several ranks (an old save) gets one card, for the highest.
       for (const rank of fresh) flag(rankFlag(rank));
       press.publish({
-        paper: town.story.paper,
+        shout: t('rankShout'),
         icon: top.icon,
-        headline: t('rankHeadline', { rank: top.name }),
-        body: t('rankBody', { worth: formatCash(top.netWorth), perk: top.perk ?? '' }).trim(),
+        headline: t('rankHeadline', { rank: `${/^[aeiou]/i.test(top.name) ? 'an' : 'a'} ${top.name}` }),
+        body: t('rankBody', { worth: formatCash(top.netWorth) }),
+        ...(top.perk ? { perk: t('rankPerk', { perk: top.perk }) } : {}),
       });
       sound.play('vip');
       scoreTimer = 0;

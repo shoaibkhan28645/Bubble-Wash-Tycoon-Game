@@ -9,7 +9,35 @@ import { startBuild } from './construction';
 import { formatCash, padDrain } from './economy';
 import { allGoalsDone, goalsSummary } from './townGoals';
 import { goalText } from '../ui/goalsBar';
+import { icon } from '../ui/icons';
 import { t } from '../ui/strings';
+
+/** A price as it reads beside a coin: "450", "2.4K" (the coin says it's money). */
+const coins = (amount: number): string => formatCash(Math.ceil(amount)).replace('$', '');
+
+/**
+ * The card under a pad: what it builds, what's left to pay beside a coin (or a padlock, for one that
+ * isn't on sale yet), and a few words: how to buy it, or what it's waiting for.
+ */
+function padCard(name: string, cost: number, kind: 'open' | 'locked', hint: string): { el: HTMLElement; hint: HTMLElement } {
+  const el = document.createElement('div');
+  el.className = kind === 'locked' ? 'pad-label pad-locked' : 'pad-label';
+  const title = document.createElement('span');
+  title.className = 'pad-name';
+  title.textContent = name;
+  const price = document.createElement('span');
+  price.className = 'pad-price';
+  price.innerHTML = icon(kind === 'locked' ? 'lock' : 'coin', 22);
+  const amount = document.createElement('span');
+  amount.className = 'pad-amount';
+  amount.textContent = coins(cost);
+  price.appendChild(amount);
+  const words = document.createElement('span');
+  words.className = 'pad-hint';
+  words.textContent = hint;
+  el.append(title, price, words);
+  return { el, hint: words };
+}
 
 const COIN_SECONDS = 0.07;
 /** GDD minute 10: the big tunnel pad is shown early, locked, as the next big goal (once the dryer exists). */
@@ -148,15 +176,7 @@ export class PadSystem {
       const model = new PadModel(2.3, 0x9aa3ad);
       model.group.position.set(at.x, 0, at.z);
       this.scene.add(model.group);
-      const el = document.createElement('div');
-      el.className = 'pad-label pad-locked';
-      const price = document.createElement('span');
-      price.className = 'pad-price';
-      price.textContent = `🔒 ${formatCash(def.cost)}`;
-      const name = document.createElement('span');
-      name.className = 'pad-name';
-      name.textContent = def.name;
-      el.append(price, name);
+      const { el } = padCard(def.name, def.cost, 'locked', t('locked'));
       this.preview = { model, label: this.labels.add(el, new Vector3(at.x, 0.2, at.z + 1.6)) };
     } else if (!want && this.preview) {
       this.scene.remove(this.preview.model.group);
@@ -180,17 +200,7 @@ export class PadSystem {
       const model = new PadModel(2.3, 0x9aa3ad);
       model.group.position.set(at.x, 0, at.z);
       this.scene.add(model.group);
-      const el = document.createElement('div');
-      el.className = 'pad-label pad-locked';
-      const price = document.createElement('span');
-      price.className = 'pad-price';
-      price.textContent = `🔒 ${formatCash(next.cost)}`;
-      const name = document.createElement('span');
-      name.className = 'pad-name';
-      name.textContent = next.name;
-      const goals = document.createElement('span');
-      goals.className = 'pad-goals';
-      el.append(price, name, goals);
+      const { el, hint: goals } = padCard(next.name, next.cost, 'locked', '');
       this.land = { model, label: this.labels.add(el, new Vector3(at.x, 0.2, at.z + 1.6)), goals, shown: '' };
     } else if (!want && this.land) {
       this.scene.remove(this.land.model.group);
@@ -220,14 +230,7 @@ export class PadSystem {
     const model = new PadModel();
     model.group.position.set(at.x, 0, at.z);
     this.scene.add(model.group);
-    const price = document.createElement('div');
-    price.className = 'pad-label';
-    const amount = document.createElement('span');
-    amount.className = 'pad-price';
-    const name = document.createElement('span');
-    name.className = 'pad-name';
-    name.textContent = def.name;
-    price.append(amount, name);
+    const { el: price } = padCard(def.name, def.cost, 'open', t('padHop'));
     const label = this.labels.add(price, new Vector3(at.x, 0.2, at.z + 1.6));
     this.current = { def, at, model, label, price };
     this.refresh();
@@ -238,7 +241,7 @@ export class PadSystem {
     if (!pad) return;
     const paid = this.state.padPaid[pad.def.id] ?? 0;
     pad.model.setProgress(paid / pad.def.cost);
-    pad.price.querySelector('.pad-price')!.textContent = formatCash(Math.ceil(pad.def.cost - paid));
+    pad.price.querySelector('.pad-amount')!.textContent = coins(pad.def.cost - paid);
   }
 
   private feedback(dt: number, player: Point, at: Point): void {

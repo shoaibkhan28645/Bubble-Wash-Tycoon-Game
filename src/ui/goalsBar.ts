@@ -4,6 +4,7 @@ import { padById, town, type GoalDef } from '../core/config';
 import type { GameState } from '../core/gameState';
 import { goalProgress } from '../systems/townGoals';
 import { openDialog } from './dialog';
+import { icon } from './icons';
 import { hasString, t } from './strings';
 
 /** "Open the Mini-Mart", "Serve 40 combos"… (a goal with no words of its own: "Build" and its pad's name). */
@@ -34,7 +35,7 @@ export class GoalsBar {
     this.el = document.createElement('button');
     this.el.type = 'button';
     this.el.className = 'goals-bar';
-    this.el.innerHTML = '<span class="goals-flag" aria-hidden="true">🏁</span><span class="goals-count"></span><span class="goals-text"></span><span class="goals-track"><span class="goals-fill"></span></span>';
+    this.el.innerHTML = `<span class="goals-flag">${icon('flag', 22)}</span><span class="goals-text"></span><span class="goals-count"></span><span class="goals-track"><span class="goals-fill"></span></span>`;
     this.count = this.el.querySelector('.goals-count')!;
     this.text = this.el.querySelector('.goals-text')!;
     this.fill = this.el.querySelector('.goals-fill')!;
@@ -49,7 +50,7 @@ export class GoalsBar {
     this.shown = key;
     this.el.hidden = !view.visible;
     this.count.textContent = t('goalsBar', { done: view.done, total: view.total });
-    this.text.textContent = view.ready > 0 ? t('goalsClaim') : view.next ? goalText(view.next) : t('goalsAll');
+    this.text.textContent = view.ready > 0 ? t('goalsClaim') : view.next ? t('goalsNext', { goal: goalText(view.next) }) : t('goalsAll');
     this.fill.style.width = `${(view.done / view.total) * 100}%`;
     this.el.classList.toggle('goals-hot', view.ready > 0);
   }

@@ -1,15 +1,17 @@
 // A town's story (strategy doc, section 4): beats that open as the player
-// gets on, each told on a newspaper card, some with an effect on play — a
+// gets on, each told on a celebration card, some with an effect on play — a
 // rival who takes customers until the player answers, or a rush of dirty
 // cars. Every town's story is data (src/data/towns/<town>/story.json).
 import type { Dirt } from '../core/config';
 import type { GameState } from '../core/gameState';
-import type { NewsItem } from '../ui/newspaper';
+import type { Announcement } from '../ui/celebration';
 
 export interface StoryBeat {
   id: string;
   /** All of these must hold: a flag set, a pad built, another beat told, the rush over. */
   when: { flag?: string; built?: string; beat?: string; rushOver?: boolean };
+  /** A word or two shouted over the card: "Ta-da!", "Uh-oh!". */
+  shout: string;
   icon: string;
   headline: string;
   body: string;
@@ -25,8 +27,6 @@ export interface StoryBeat {
 }
 
 export interface StoryData {
-  /** The town paper's name. */
-  paper: string;
   mentor: { name: string; icon: string };
   rival: { name: string; icon: string; business: string };
   beats: StoryBeat[];
@@ -88,11 +88,11 @@ export function storyArrivalFactor(town: string, story: StoryData, state: GameSt
   return factor;
 }
 
-/** A beat as its newspaper card. */
-export function newsFor(story: StoryData, beat: StoryBeat): NewsItem {
+/** A beat as its celebration card. */
+export function newsFor(story: StoryData, beat: StoryBeat): Announcement {
   const who = beat.speaker === 'rival' ? story.rival : beat.speaker === 'mentor' ? story.mentor : null;
   return {
-    paper: story.paper,
+    shout: beat.shout,
     icon: beat.icon,
     headline: beat.headline,
     body: beat.body,

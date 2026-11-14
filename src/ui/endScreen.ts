@@ -1,3 +1,4 @@
+import { icon } from './icons';
 import { t } from './strings';
 
 /**
@@ -13,7 +14,7 @@ export function showEndScreen(root: HTMLElement, onClose: () => void, text: { ti
   card.className = 'welcome-card end-card';
   const trophy = document.createElement('div');
   trophy.className = 'welcome-bag';
-  trophy.textContent = '🏆';
+  trophy.innerHTML = icon('trophy', 76);
   const title = document.createElement('h2');
   title.textContent = text.title;
   const body = document.createElement('p');

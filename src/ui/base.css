@@ -1,10 +1,92 @@
+/* Bubble Pop: the game's look. Chunky white bubbles with a dark teal outline and a solid drop, candy
+   colours from the car wash (aqua, bubblegum pink, sunshine), a round display face for names and
+   numbers and a soft bold one for everything else. Both fonts are bundled (public/fonts has their licences). */
+@font-face {
+  font-family: 'Lilita One';
+  src: url('./fonts/lilita-one.woff2') format('woff2');
+  font-weight: 400;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: Nunito;
+  src: url('./fonts/nunito-800.woff2') format('woff2');
+  font-weight: 800;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: Nunito;
+  src: url('./fonts/nunito-900.woff2') format('woff2');
+  font-weight: 900;
+  font-display: swap;
+}
+
+:root {
+  --ink: #0e5f73;
+  --navy: #17324d;
+  --soft: #3d5a6c;
+  --aqua: #22c3c9;
+  --aqua-deep: #14959b;
+  --pink: #ff5fa8;
+  --pink-deep: #c93a80;
+  --sun: #ffd24a;
+  --sun-deep: #c98a00;
+  --mint: #7ee0c3;
+  --sky: #c9f5f6;
+  --grey: #c9d6dc;
+  --font-display: 'Lilita One', Nunito, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font-body: Nunito, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  /* A bubble's outline and the solid drop under it. */
+  --rim: 3px solid var(--ink);
+  --drop: 0 4px 0 var(--ink);
+}
+
+/* Drawn icons (ui/icons.ts): blocks by default, or sized to the words they sit in. */
+.ic {
+  display: block;
+  flex: none;
+}
+
+.ic-inline {
+  display: inline-block;
+  width: 1.25em;
+  height: 1.25em;
+  vertical-align: -0.24em;
+}
+
+/* The game's button: a candy-coloured bubble that presses down into its drop. */
+.bubble-button {
+  min-height: 52px;
+  padding: 0 18px;
+  border: var(--rim);
+  border-radius: 20px;
+  background: var(--aqua);
+  box-shadow: var(--drop);
+  color: #fff;
+  font: 400 22px/1 var(--font-display);
+  cursor: pointer;
+}
+
+.bubble-button:not(:disabled):active {
+  transform: translateY(3px);
+  box-shadow: 0 1px 0 var(--ink);
+}
+
+.bubble-button:disabled {
+  background: var(--grey);
+  color: #f4f8fa;
+}
+
 html,
 body {
   margin: 0;
   height: 100%;
   overflow: hidden;
   background: #bfe9ff;
-  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  font-family: var(--font-body);
+  font-weight: 800;
+  color: var(--navy);
   -webkit-text-size-adjust: 100%;
 }
 
@@ -58,7 +140,7 @@ body {
   border-radius: 6px;
   background: #ffd85c;
   color: #222;
-  font: 600 13px system-ui, sans-serif;
+  font: 600 13px var(--font-body);
 }
 
 /* Loading screen: in index.html so it shows on the first paint. */
@@ -70,7 +152,12 @@ body {
   align-items: center;
   justify-content: center;
   gap: 20px;
-  background: linear-gradient(#cfe8ff, #fff4d6);
+  background-color: var(--sky);
+  background-image:
+  radial-gradient(circle at 10% 22%, transparent 54px, rgba(255, 255, 255, 0.75) 55px 59px, transparent 60px),
+  radial-gradient(circle at 88% 34%, transparent 36px, rgba(255, 255, 255, 0.75) 37px 41px, transparent 42px),
+  radial-gradient(circle at 78% 82%, transparent 60px, rgba(255, 255, 255, 0.75) 61px 65px, transparent 66px),
+  radial-gradient(circle at 16% 76%, transparent 22px, rgba(255, 255, 255, 0.75) 23px 27px, transparent 28px);
   transition: opacity 250ms ease-out;
   z-index: 10;
 }
@@ -86,24 +173,33 @@ body {
 
 .loading-title {
   margin: 0;
-  font: 900 30px/1.1 system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
-  color: #1d3a6e;
+  font: 400 44px/1 var(--font-display);
+  color: #fff;
   text-align: center;
   text-shadow:
-    0 3px 0 #fff,
-    0 0 6px #fff;
+  -3px -3px 0 var(--ink),
+  3px -3px 0 var(--ink),
+  -3px 3px 0 var(--ink),
+  3px 3px 0 var(--ink),
+  0 7px 0 var(--ink);
+  transform: rotate(-3deg);
 }
 
 .loading-title span {
-  color: #e09a00;
+  display: block;
+  font-size: 60px;
+  color: var(--sun);
 }
 
 .loading-tagline {
-  margin: -12px 0 0;
-  font: 700 15px/1.2 system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
-  color: #4a5f80;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
+  margin: 0;
+  padding: 5px 14px 6px;
+  border: var(--rim);
+  border-radius: 999px;
+  background: #fff;
+  box-shadow: 0 3px 0 var(--ink);
+  font: 900 15px/1.2 var(--font-body);
+  color: var(--navy);
 }
 
 /* Three gold coins bobbing while the game loads. */
@@ -113,11 +209,13 @@ body {
 }
 
 .loading-coins span {
-  width: 22px;
-  height: 22px;
+  width: 24px;
+  height: 24px;
   border-radius: 50%;
-  border: 2px solid #c98a00;
-  background: radial-gradient(circle at 35% 30%, #fff6c8 0 16%, #ffd23f 22% 100%);
+  border: 3px solid var(--ink);
+  background: var(--sun);
+  box-shadow: inset 0 -4px 0 rgba(201, 138, 0, 0.5);
+  box-sizing: border-box;
   animation: loading-bob 900ms ease-in-out infinite;
 }
 
@@ -130,18 +228,21 @@ body {
 }
 
 .loading-bar {
-  width: min(60vw, 240px);
-  height: 10px;
-  border-radius: 5px;
-  background: rgba(255, 255, 255, 0.7);
+  width: min(64vw, 260px);
+  height: 20px;
+  border: var(--rim);
+  border-radius: 999px;
+  background: #fff;
+  box-shadow: 0 3px 0 var(--ink);
+  box-sizing: border-box;
   overflow: hidden;
 }
 
 .loading-fill {
   width: 0;
   height: 100%;
-  border-radius: 5px;
-  background: #ffc21a;
+  border-radius: 999px;
+  background: var(--pink);
   transition: width 200ms ease-out;
 }
 
@@ -165,25 +266,31 @@ body {
   justify-content: center;
   align-items: center;
   gap: 8px;
+  padding: 0 8px 0 14px;
   pointer-events: none;
   z-index: 4;
 }
 
 .cash-pill {
+  position: relative;
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 4px 16px 4px 6px;
+  height: 40px;
+  padding: 0 14px 0 36px;
+  border: var(--rim);
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.92);
-  box-shadow: 0 2px 0 rgba(0, 0, 0, 0.12);
-  font: 800 22px/1 system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
-  color: #2d3440;
+  background: #fff;
+  box-shadow: var(--drop);
+  box-sizing: border-box;
+  font: 400 22px/1 var(--font-display);
+  color: var(--navy);
 }
 
 .cash-pill svg {
-  width: 30px;
-  height: 30px;
+  position: absolute;
+  left: -8px;
+  top: 50%;
+  translate: 0 -50%;
 }
 
 .cash-pill.bump {
@@ -249,23 +356,53 @@ body {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 2px;
-  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  gap: 4px;
+  margin-top: 14px;
+  padding: 7px 12px 8px;
+  border: var(--rim);
+  border-radius: 20px;
+  background: #fff;
+  box-shadow: var(--drop);
   white-space: nowrap;
 }
 
 .pad-price {
-  padding: 3px 10px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  height: 28px;
+  padding: 0 12px 0 2px;
+  border: 2px solid var(--sun-deep);
   border-radius: 999px;
-  background: #2d3440;
-  color: #ffd85c;
-  font: 800 18px/1.1 system-ui, sans-serif;
+  background: var(--sun);
+  color: #6b4300;
+  font: 400 18px/1 var(--font-display);
 }
 
 .pad-name {
-  color: #2d3440;
-  font: 600 11px/1.1 system-ui, sans-serif;
-  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.8);
+  color: var(--navy);
+  font: 400 17px/1.1 var(--font-display);
+}
+
+/* The card's pointer up to its pad. */
+.pad-label::before {
+  content: '';
+  position: absolute;
+  top: -15px;
+  left: 50%;
+  translate: -50% 0;
+  border: 11px solid transparent;
+  border-top: 0;
+  border-bottom: 13px solid var(--ink);
+}
+
+.pad-hint {
+  color: var(--soft);
+  font: 900 12px/1.1 var(--font-body);
+}
+
+.pad-hint:empty {
+  display: none;
 }
 
 .wash-ring {
@@ -299,17 +436,15 @@ body {
   display: flex;
   align-items: center;
   gap: 4px;
-  padding: 6px 12px;
+  height: 40px;
+  padding: 0 12px 0 6px;
+  border: var(--rim);
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.92);
-  box-shadow: 0 2px 0 rgba(0, 0, 0, 0.12);
-  font: 800 18px/1 system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
-  color: #2d3440;
-}
-
-.star-icon {
-  color: #ffb800;
-  font-size: 20px;
+  background: #fff;
+  box-shadow: var(--drop);
+  box-sizing: border-box;
+  font: 400 19px/1 var(--font-display);
+  color: var(--navy);
 }
 
 /* Customer mood over waiting cars */
@@ -319,9 +454,10 @@ body {
   align-items: center;
   gap: 2px;
   padding: 3px 5px 4px;
-  border-radius: 10px;
-  background: rgba(255, 255, 255, 0.92);
-  box-shadow: 0 2px 0 rgba(0, 0, 0, 0.15);
+  border: 2px solid var(--ink);
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 2px 0 var(--ink);
 }
 
 .car-face {
@@ -369,17 +505,20 @@ body {
 
 /* Floating "+$15", "+$3 tip" */
 .floater {
-  font: 900 20px/1 system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
-  color: #3fae5a;
+  font: 400 23px/1 var(--font-display);
+  color: var(--sun);
   text-shadow:
-    0 2px 0 #fff,
-    0 0 4px #fff;
+  -2px -2px 0 var(--ink),
+  2px -2px 0 var(--ink),
+  -2px 2px 0 var(--ink),
+  2px 2px 0 var(--ink),
+  0 4px 0 var(--ink);
   white-space: nowrap;
 }
 
 .floater-tip {
-  color: #e0a800;
-  font-size: 16px;
+  color: #fff;
+  font-size: 18px;
 }
 
 .floater-star {
@@ -387,8 +526,8 @@ body {
 }
 
 .floater-combo {
-  color: #ff5fa8;
-  font-size: 17px;
+  color: #ff9fcc;
+  font-size: 19px;
   letter-spacing: 0.5px;
 }
 
@@ -418,7 +557,7 @@ body {
   right: -3px;
   bottom: -3px;
   color: #3fae5a;
-  font: 900 11px/1 system-ui, sans-serif;
+  font: 900 11px/1 var(--font-body);
   text-shadow: 0 0 2px #fff, 0 0 2px #fff;
 }
 
@@ -465,35 +604,39 @@ body {
   display: grid;
   place-items: center;
   color: #fff;
-  font: 900 20px/1 system-ui, sans-serif;
+  font: 900 20px/1 var(--font-body);
 }
 
 .shelf-stock {
-  padding: 3px 8px;
+  padding: 3px 9px;
+  border: 2px solid var(--ink);
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.92);
-  box-shadow: 0 2px 0 rgba(0, 0, 0, 0.12);
-  font: 800 13px/1.2 system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
-  color: #2d3440;
+  background: #fff;
+  box-shadow: 0 2px 0 var(--ink);
+  font: 400 14px/1.2 var(--font-display);
+  color: var(--navy);
   white-space: nowrap;
 }
 
 .coffee-bubble {
   padding: 2px 6px;
+  border: 2px solid var(--ink);
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.92);
-  box-shadow: 0 2px 0 rgba(0, 0, 0, 0.12);
+  background: #fff;
+  box-shadow: 0 2px 0 var(--ink);
   font-size: 18px;
   line-height: 1.2;
 }
 
 /* Upgrade pads and their pop-up */
 .upgrade-icon {
-  padding: 2px 8px;
+  padding: 2px 9px;
+  border: 2px solid var(--ink);
   border-radius: 999px;
-  background: #2f7fd0;
+  background: var(--aqua);
+  box-shadow: 0 2px 0 var(--ink);
   color: #fff;
-  font: 800 13px/1.3 system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  font: 400 14px/1.3 var(--font-display);
   white-space: nowrap;
 }
 
@@ -502,15 +645,15 @@ body {
   left: 50%;
   bottom: calc(env(safe-area-inset-bottom) + 12px);
   transform: translateX(-50%);
-  width: min(420px, calc(100% - 24px));
-  max-height: 55%;
+  width: min(430px, calc(100% - 20px));
+  max-height: 58%;
   overflow-y: auto;
   padding: 12px 14px 14px;
-  border-radius: 18px;
+  border: 4px solid var(--ink);
+  border-radius: 28px;
   background: #fff;
-  box-shadow: 0 6px 0 rgba(0, 0, 0, 0.12), 0 10px 30px rgba(0, 0, 0, 0.2);
-  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
-  color: #2d3440;
+  box-shadow: 0 6px 0 var(--ink);
+  color: var(--navy);
   z-index: 6;
   animation: panel-up 160ms ease-out;
 }
@@ -535,27 +678,30 @@ body {
 
 .upgrade-header h2 {
   margin: 0;
-  font-size: 18px;
-  font-weight: 800;
+  font: 400 21px/1.1 var(--font-display);
 }
 
 .upgrade-close {
-  width: 48px;
-  height: 48px;
-  margin: -8px -8px -8px 0;
-  border: 0;
+  width: 44px;
+  height: 44px;
+  margin: -4px -4px -4px 0;
+  display: grid;
+  place-items: center;
+  border: var(--rim);
   border-radius: 50%;
-  background: transparent;
-  font-size: 20px;
-  color: #6b7280;
+  background: #fff;
+  box-shadow: 0 3px 0 var(--ink);
+  box-sizing: border-box;
+  font: 400 20px/1 var(--font-display);
+  color: var(--ink);
 }
 
 .upgrade-row {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 8px 0;
-  border-top: 1px solid #eef1f5;
+  padding: 9px 0;
+  border-top: 2px solid #e3f1f3;
 }
 
 .upgrade-text {
@@ -567,49 +713,53 @@ body {
 }
 
 .upgrade-text strong {
-  font-size: 15px;
+  font: 400 16px/1.15 var(--font-display);
 }
 
 .upgrade-text span {
-  font-size: 12px;
-  color: #6b7280;
+  font-size: 13px;
+  color: var(--soft);
 }
 
 .upgrade-text .upgrade-level {
-  color: #2f7fd0;
-  font-weight: 700;
+  color: var(--aqua-deep);
+  font-weight: 900;
 }
 
 .upgrade-row button {
-  min-width: 96px;
+  min-width: 98px;
   min-height: 48px;
   padding: 0 12px;
-  border: 0;
-  border-radius: 12px;
-  background: #5cc45c;
-  box-shadow: 0 3px 0 #3d9a3d;
+  border: var(--rim);
+  border-radius: 18px;
+  background: var(--aqua);
+  box-shadow: var(--drop);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
   color: #fff;
-  font: 800 16px/1 system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  font: 400 18px/1 var(--font-display);
 }
 
 .upgrade-row button:disabled {
-  background: #c9d0d9;
-  box-shadow: 0 3px 0 #aab3bf;
+  background: var(--grey);
+  color: #f4f8fa;
 }
 
 .upgrade-row button:not(:disabled):active {
-  transform: translateY(2px);
-  box-shadow: 0 1px 0 #3d9a3d;
+  transform: translateY(3px);
+  box-shadow: 0 1px 0 var(--ink);
 }
 
-/* Welcome-back screen */
+/* Pop-up cards (welcome back, offers, the end of a town): a white bubble over a teal veil */
 .welcome-overlay {
   position: absolute;
   inset: 0;
   display: grid;
   place-items: center;
   padding: 16px;
-  background: rgba(30, 40, 60, 0.45);
+  background: rgba(14, 95, 115, 0.6);
   z-index: 8;
   animation: fade-in 200ms ease-out;
 }
@@ -624,14 +774,14 @@ body {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 6px;
-  width: min(340px, 100%);
-  padding: 20px 18px 18px;
-  border-radius: 24px;
+  gap: 8px;
+  width: min(350px, 100%);
+  padding: 22px 20px 22px;
+  border: 4px solid var(--ink);
+  border-radius: 32px;
   background: #fff;
-  box-shadow: 0 8px 0 rgba(0, 0, 0, 0.12);
-  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
-  color: #2d3440;
+  box-shadow: 0 8px 0 var(--ink);
+  color: var(--navy);
   text-align: center;
   animation: pop-in 260ms cubic-bezier(0.3, 1.6, 0.6, 1);
 }
@@ -644,13 +794,12 @@ body {
 
 .welcome-card h2 {
   margin: 0;
-  font-size: 22px;
-  font-weight: 900;
+  font: 400 26px/1.15 var(--font-display);
 }
 
 .welcome-bag {
-  font-size: 72px;
-  line-height: 1.1;
+  display: grid;
+  place-items: center;
   animation: bag-bob 1.2s ease-in-out infinite;
 }
 
@@ -661,65 +810,82 @@ body {
 }
 
 .welcome-amount {
-  font-size: 36px;
-  font-weight: 900;
-  color: #3fae5a;
+  font: 400 42px/1.1 var(--font-display);
+  color: var(--sun);
+  text-shadow:
+  -2px -2px 0 var(--ink),
+  2px -2px 0 var(--ink),
+  -2px 2px 0 var(--ink),
+  2px 2px 0 var(--ink),
+  0 5px 0 var(--ink);
 }
 
 .welcome-away {
-  font-size: 13px;
-  color: #6b7280;
+  font-size: 14px;
+  color: var(--soft);
 }
 
 .welcome-note {
   max-width: 280px;
-  font-size: 11px;
+  font-size: 12px;
   line-height: 1.3;
-  color: #8a919c;
+  color: var(--soft);
+  opacity: 0.8;
 }
 
 .welcome-collect {
-  min-width: 180px;
-  min-height: 52px;
-  margin-top: 8px;
-  border: 0;
-  border-radius: 16px;
-  background: #5cc45c;
-  box-shadow: 0 4px 0 #3d9a3d;
+  min-width: 190px;
+  min-height: 58px;
+  margin-top: 10px;
+  padding: 0 20px;
+  border: 4px solid var(--ink);
+  border-radius: 22px;
+  background: var(--aqua);
+  box-shadow: 0 6px 0 var(--ink);
   color: #fff;
-  font: 900 20px/1 system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  font: 400 25px/1 var(--font-display);
 }
 
 .welcome-collect:active {
-  transform: translateY(2px);
-  box-shadow: 0 2px 0 #3d9a3d;
+  transform: translateY(4px);
+  box-shadow: 0 2px 0 var(--ink);
 }
 
 /* End of content */
 .end-body {
   margin: 0 0 4px;
-  font-size: 15px;
-  line-height: 1.4;
-  color: #4b5563;
+  font: 800 16px/1.35 var(--font-body);
+  color: var(--soft);
 }
 
-/* The tutorial's pointing hand */
+/* The tutorial's bouncing arrow, and its words in a bubble */
 /* Above the hand, which is centred on the same point. */
 .guide-words {
-  margin-top: -46px;
-  padding: 4px 10px;
-  border-radius: 12px;
-  background: rgba(45, 52, 64, 0.88);
-  color: #fff;
-  font: 800 14px/1.2 system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  margin-top: -62px;
+  padding: 6px 13px 7px;
+  border: var(--rim);
+  border-radius: 18px;
+  background: #fff;
+  box-shadow: var(--drop);
+  color: var(--navy);
+  font: 400 17px/1.15 var(--font-display);
   text-align: center;
   white-space: nowrap;
 }
 
+.guide-words::after {
+  content: '';
+  position: absolute;
+  bottom: -14px;
+  left: 50%;
+  translate: -50% 0;
+  border: 10px solid transparent;
+  border-bottom: 0;
+  border-top: 12px solid var(--ink);
+}
+
 .guide-hand {
-  font-size: 40px;
-  line-height: 1;
-  filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.3));
+  filter: drop-shadow(0 3px 0 var(--ink));
   animation: hand-bob 0.7s ease-in-out infinite;
 }
 
@@ -731,32 +897,29 @@ body {
 
 /* Locked "next big goal" pad */
 .pad-label.pad-locked .pad-price {
-  background: #6b7280;
-  color: #fff;
+  border-color: #9fb3bd;
+  background: #dfe8ec;
+  color: var(--soft);
 }
 
-/* The land, waiting on the town goals: what's left to do */
-.pad-goals {
-  margin-top: 1px;
-  padding: 2px 8px;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.92);
-  color: #1f5fbf;
-  font: 700 11px/1.2 system-ui, sans-serif;
+.pad-label.pad-locked {
+  background: #f1f6f8;
 }
 
 /* Golden VIP mood bubble */
 .car-bubble[data-vip] {
-  background: #fff4c2;
-  box-shadow: 0 0 0 2px #ffc94d, 0 2px 0 rgba(0, 0, 0, 0.15);
+  background: #fff3c4;
+  border-color: var(--sun-deep);
+  box-shadow: 0 2px 0 var(--sun-deep);
 }
 
 /* A park visitor's wishes, over their head (the Visitor of the Day's in gold) */
 .wish-bubble {
   padding: 2px 6px;
-  border-radius: 10px;
-  background: rgba(255, 255, 255, 0.92);
-  box-shadow: 0 2px 0 rgba(0, 0, 0, 0.15);
+  border: 2px solid var(--ink);
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 2px 0 var(--ink);
   font-size: 14px;
   line-height: 1.2;
   white-space: nowrap;
@@ -764,8 +927,9 @@ body {
 }
 
 .wish-bubble.is-vip {
-  background: #fff4c2;
-  box-shadow: 0 0 0 2px #ffc94d, 0 2px 0 rgba(0, 0, 0, 0.15);
+  background: #fff3c4;
+  border-color: var(--sun-deep);
+  box-shadow: 0 2px 0 var(--sun-deep);
   font-size: 15px;
 }
 
@@ -779,11 +943,12 @@ body {
 /* Countdown over a building site */
 .site-label {
   padding: 3px 10px;
+  border: 2px solid var(--ink);
   border-radius: 999px;
-  background: #ffd24a;
-  box-shadow: 0 2px 0 rgba(0, 0, 0, 0.18);
-  color: #2d3440;
-  font: 800 15px/1.2 system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  background: var(--sun);
+  box-shadow: 0 2px 0 var(--ink);
+  color: var(--navy);
+  font: 400 16px/1.2 var(--font-display);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
@@ -797,9 +962,11 @@ body {
   height: 46px;
   display: grid;
   place-items: center;
+  border: var(--rim);
   border-radius: 50%;
-  background: #ffd24a;
-  box-shadow: 0 2px 0 rgba(0, 0, 0, 0.2);
+  background: var(--sun);
+  box-shadow: 0 3px 0 var(--ink);
+  box-sizing: border-box;
   pointer-events: none;
   z-index: 3;
 }
@@ -809,8 +976,8 @@ body {
 }
 
 .edge-pointer span {
-  color: #2d3440;
-  font: 900 24px/1 system-ui, sans-serif;
+  color: var(--navy);
+  font: 400 24px/1 var(--font-display);
   animation: edge-nudge 0.8s ease-in-out infinite;
 }
 
@@ -823,9 +990,10 @@ body {
 /* The farm stand asking for crops. */
 /* A ride's sign: how full it is; full and waiting for its lever, it glows gold and pulses. */
 .shelf-stock.ride-sign.is-full {
-  background: #ffd24a;
+  border-color: var(--sun-deep);
+  background: var(--sun);
   color: #5a3a00;
-  box-shadow: 0 2px 0 rgba(150, 100, 0, 0.35), 0 0 0 3px rgba(255, 210, 74, 0.45);
+  box-shadow: 0 2px 0 var(--sun-deep), 0 0 0 4px rgba(255, 210, 74, 0.45);
   animation: ride-full 0.5s ease-in-out infinite alternate;
 }
 
@@ -839,15 +1007,16 @@ body {
 }
 
 .shelf-stock.is-empty {
+  border-color: #c9521f;
   background: #fff1d6;
   color: #b4521f;
-  box-shadow: 0 2px 0 rgba(180, 82, 31, 0.25);
+  box-shadow: 0 2px 0 #c9521f;
 }
 
 /* Buyer of the Day and the county fair stand out on the orders board. */
 .contract-card.order-special {
-  background: #fff6d6;
-  box-shadow: inset 0 0 0 2px #ffcf4d;
+  background: #fff3c4;
+  border-color: var(--sun-deep);
 }
 
 /* A flash of lightning in the park's storm. */
@@ -919,30 +1088,32 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  height: 48px;
-  border-radius: 12px;
-  background: #eef0f4;
-  color: #9aa3b2;
-  font-size: 22px;
-  font-weight: 700;
+  height: 56px;
+  border: 2px dashed #b9cfd6;
+  border-radius: 16px;
+  background: #f1f8fa;
+  color: #9fb3bd;
+  font: 400 22px/1 var(--font-display);
 }
 
 .shelf-tile.is-found {
-  background: #fff0f7;
+  border: 2px solid var(--ink);
+  background: #ffe6f3;
   color: inherit;
-  font-size: 28px;
-  box-shadow: 0 0 0 2px #ffb3d9 inset;
+  font-size: 30px;
+  box-shadow: 0 2px 0 var(--ink);
 }
 
 .shelf-tile.is-golden.is-found {
-  background: #fff4c2;
-  box-shadow: 0 0 0 2px #ffc94d inset;
+  border-color: var(--sun-deep);
+  background: #fff3c4;
+  box-shadow: 0 2px 0 var(--sun-deep);
 }
 
 /* Status chips under the top bar: a spotless park, a school trip, a festival */
 .event-chips {
   position: absolute;
-  top: calc(env(safe-area-inset-top) + 56px);
+  top: calc(env(safe-area-inset-top) + 62px);
   left: 0;
   right: 0;
   display: flex;
@@ -954,43 +1125,39 @@ body {
 }
 
 .event-chip {
-  padding: 4px 10px;
+  padding: 4px 11px;
+  border: 2px solid var(--ink);
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.92);
-  box-shadow: 0 2px 0 rgba(0, 0, 0, 0.12);
-  font: 700 13px/1.2 system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
-  color: #2d3440;
+  background: #fff;
+  box-shadow: 0 2px 0 var(--ink);
+  font: 400 14px/1.2 var(--font-display);
+  color: var(--navy);
   white-space: nowrap;
 }
 
 .event-chip.is-good {
-  background: #e7fbef;
-  box-shadow: 0 0 0 2px #7ee0a3 inset, 0 2px 0 rgba(0, 0, 0, 0.12);
+  background: #d9f8e6;
 }
 
 .event-chip.is-trip {
-  background: #fff4c2;
-  box-shadow: 0 0 0 2px #ffc94d inset, 0 2px 0 rgba(0, 0, 0, 0.12);
+  background: #fff3c4;
 }
 
 .event-chip.is-party {
-  background: #ffe6f3;
-  box-shadow: 0 0 0 2px #ff8fc8 inset, 0 2px 0 rgba(0, 0, 0, 0.12);
+  background: #ffe0f0;
 }
 
 /* Rush jobs: the chip under the cash bar (gold, red and pulsing near the end), the arrow to the job (orange),
    the icon over where to go, and the people's mood bubbles. */
 .event-chip.is-job {
-  background: #fff1c4;
-  box-shadow: 0 0 0 2px #ffb21e inset, 0 2px 0 rgba(0, 0, 0, 0.12);
-  font-weight: 800;
+  background: var(--sun);
 }
 
 .event-chip.is-job-gold {
-  background: linear-gradient(90deg, #fff3b0, #ffd76a, #fff3b0);
+  background: linear-gradient(90deg, #fff3b0, #ffd24a, #fff3b0);
   background-size: 200% 100%;
-  box-shadow: 0 0 0 2px #e6a700 inset, 0 0 10px rgba(255, 200, 40, 0.8);
-  font-weight: 900;
+  border-color: var(--sun-deep);
+  box-shadow: 0 2px 0 var(--sun-deep), 0 0 10px rgba(255, 200, 40, 0.8);
   animation: job-gold 1.6s linear infinite;
 }
 
@@ -1001,9 +1168,9 @@ body {
 }
 
 .event-chip.is-job-hurry {
-  background: #ffe1dc;
-  box-shadow: 0 0 0 2px #ff5a4d inset, 0 2px 0 rgba(0, 0, 0, 0.12);
-  font-weight: 800;
+  background: #ffd9d4;
+  border-color: #d8362b;
+  box-shadow: 0 2px 0 #d8362b;
   animation: job-hurry 0.6s ease-in-out infinite;
 }
 
@@ -1014,7 +1181,7 @@ body {
 }
 
 .edge-pointer.is-job {
-  background: #ff9d2e;
+  background: #ff8a3d;
 }
 
 .edge-pointer.is-job span {
@@ -1029,9 +1196,10 @@ body {
 
 .job-bubble {
   padding: 2px 7px;
+  border: 2px solid var(--ink);
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.95);
-  box-shadow: 0 2px 0 rgba(0, 0, 0, 0.15);
-  font: 800 16px/1.2 system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  background: #fff;
+  box-shadow: 0 2px 0 var(--ink);
+  font: 400 16px/1.2 var(--font-display);
   white-space: nowrap;
 }

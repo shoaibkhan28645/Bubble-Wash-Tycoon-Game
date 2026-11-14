@@ -1,5 +1,4 @@
 {
-  "paper": "The Willowbrook Herald",
   "mentor": {
     "name": "Farmer Joe",
     "icon": "👨‍🌾"
@@ -15,9 +14,10 @@
       "when": {
         "built": "field1"
       },
+      "shout": "Howdy!",
       "icon": "🚜",
-      "headline": "Car wash owner buys Joe's farm",
-      "body": "The owner of the roadside car wash has bought old Joe's farm outside Willowbrook. The vegetables are ripe, the stand is open and the village is already queueing.",
+      "headline": "Welcome to your farm!",
+      "body": "Old Joe’s farm is yours now. The vegetables are ripe, the stand is open and the village is already queueing.",
       "speaker": "mentor",
       "words": "Pick what's ripe, fill the stand, and never keep a neighbour waiting. Everyone here knows everyone."
     },
@@ -26,9 +26,10 @@
       "when": {
         "built": "field2"
       },
+      "shout": "Yum!",
       "icon": "🌽",
-      "headline": "Sweet corn returns to Willowbrook",
-      "body": "For the first time in years there's corn growing on Joe's old farm. Villagers say it's the sweetest they've tasted.",
+      "headline": "Sweet corn is growing!",
+      "body": "The village says it’s the sweetest they’ve ever tasted. Corn takes longer to grow, but it sells for more.",
       "speaker": "mentor",
       "words": "Corn takes its time, but folk pay more for it. Keep both fields busy."
     },
@@ -37,9 +38,10 @@
       "when": {
         "built": "henhouse"
       },
+      "shout": "Cluck cluck!",
       "icon": "🐔",
-      "headline": "Fresh eggs on Joe's old farm",
-      "body": "Four hens have moved into a bright red hen house on the farm, and the first cartons of eggs are already on the stand. Villagers are stopping by just for them.",
+      "headline": "The hens have moved in!",
+      "body": "Four hens, one bright red hen house, and fresh eggs for the stand. People are stopping by just for them.",
       "speaker": "mentor",
       "words": "Collect them while they're warm and pack them six to a carton. Happy hens, happy customers."
     },
@@ -48,9 +50,10 @@
       "when": {
         "built": "standhand"
       },
+      "shout": "New helper!",
       "icon": "👩‍🌾",
-      "headline": "Farm stand hires a helper",
-      "body": "There's now a friendly face behind the farm stand all day, so the owner can spend more time in the fields.",
+      "headline": "Someone’s minding the stand!",
+      "body": "A friendly face now serves the customers all day, so you can get out into the fields.",
       "speaker": "mentor",
       "words": "Now you're farming like an owner. Let your helper sell; you keep the crates coming."
     },
@@ -59,9 +62,10 @@
       "when": {
         "built": "farmhand"
       },
+      "shout": "New helper!",
       "icon": "🧑‍🌾",
-      "headline": "A farmhand joins the crew",
-      "body": "The farm's new hand picks the fields and carries the crates to the stand. The village has never seen the place so busy.",
+      "headline": "A farmhand joins the crew!",
+      "body": "They pick the fields and carry the crates to the stand. The farm has never been so busy.",
       "speaker": "mentor",
       "words": "Good help is worth every penny. The farm runs itself while you plan what's next."
     },
@@ -70,9 +74,10 @@
       "when": {
         "built": "barn"
       },
+      "shout": "Brand new!",
       "icon": "🏚️",
-      "headline": "A new red barn on Joe's farm",
-      "body": "The farm's big red barn is open, storing crates by the dozen. Shoppers say the produce has never been fresher.",
+      "headline": "The big red barn is up!",
+      "body": "There’s room for crates by the dozen, and your produce has never been fresher.",
       "speaker": "mentor",
       "words": "I always dreamed of a barn like that. You did it proper."
     },
@@ -81,9 +86,10 @@
       "when": {
         "built": "feedstore"
       },
+      "shout": "Munch munch!",
       "icon": "🌽",
-      "headline": "Willowbrook animals go corn-fed",
-      "body": "The farm's new feed store turns its own corn into feed. Corn-fed hens lay twice as fast, the cows give more milk, and the stand can hardly keep up.",
+      "headline": "The feed store is open!",
+      "body": "Your own corn becomes animal feed. Well-fed hens lay twice as fast, and the cows give more milk.",
       "speaker": "mentor",
       "words": "Every crate of corn in that hopper comes back as eggs and milk. Keep it topped up and the animals will do the rest."
     },
@@ -92,9 +98,10 @@
       "when": {
         "built": "gate"
       },
+      "shout": "Looking good!",
       "icon": "🌻",
-      "headline": "Willowbrook Farm puts up its sign",
-      "body": "A painted sign now hangs over the farm gate, and folk from the next valley are driving over for the eggs, the milk and the produce.",
+      "headline": "Your farm has a sign!",
+      "body": "It hangs over the gate, and people from the next valley are driving over for your eggs, milk and veg.",
       "speaker": "mentor",
       "words": "A good sign brings folk from miles around. Now feed those animals proper and they'll give you twice as much."
     },
@@ -103,9 +110,10 @@
       "when": {
         "built": "cowbarn"
       },
+      "shout": "Moo!",
       "icon": "🐄",
-      "headline": "Cows come home to Willowbrook",
-      "body": "A cow has moved into a brand-new cow barn on the farm (with room for two more), and fresh milk is on sale in the village for the first time in years.",
+      "headline": "A cow has moved in!",
+      "body": "She has a brand-new cow barn (with room for two more), and there’s fresh milk to sell.",
       "speaker": "mentor",
       "words": "Milk them gently and bottle it cold. Nothing sells like fresh milk."
     },
@@ -114,9 +122,10 @@
       "when": {
         "built": "van"
       },
+      "shout": "Uh-oh!",
       "icon": "😎",
-      "headline": "Goldsby Agri moves into the valley",
-      "body": "Rex Goldsby, the chain owner beaten in the car wash war, is back. His company Goldsby Agri is buying up farms and selling cheap to the village, and fewer shoppers are stopping at the farm stand.",
+      "headline": "Rex Goldsby is back!",
+      "body": "His Goldsby Agri is selling cheap to the village, and fewer shoppers are stopping at your stand. A milk tanker of your own should see him off.",
       "speaker": "rival",
       "words": "Deliveries? Cute. My trucks are bigger.",
       "effect": {
@@ -132,9 +141,10 @@
         "built": "tanker",
         "beat": "rival"
       },
+      "shout": "You win!",
       "icon": "🏆",
-      "headline": "Goldsby Agri pulls out of Willowbrook",
-      "body": "With its own milk tanker on the road, the farm now delivers fresher milk than anyone. Goldsby Agri has sold its farms and left the valley. Talk is of an orchard next.",
+      "headline": "Goldsby Agri has left the valley!",
+      "body": "Your milk tanker delivers fresher milk than anyone’s. Rex has sold his farms and gone. How about an orchard next?",
       "speaker": "mentor",
       "words": "Better service beats a bigger truck. Now, a few apple trees down by the lane would do nicely..."
     },
@@ -143,9 +153,10 @@
       "when": {
         "built": "feedtruck"
       },
+      "shout": "Heads up!",
       "icon": "☀️",
-      "headline": "Heatwave dries out the valley",
-      "body": "The hottest week in years has dried up gardens all over Willowbrook. For the next three minutes villagers will pay double for anything fresh.",
+      "headline": "A heatwave has hit!",
+      "body": "Gardens all over the village have dried up. For the next three minutes people pay double for anything fresh.",
       "speaker": "mentor",
       "words": "When the gardens dry up, folk come to us. Keep that stand full!",
       "effect": {
@@ -162,18 +173,20 @@
         "beat": "drought",
         "rushOver": true
       },
+      "shout": "Phew!",
       "icon": "🌧️",
-      "headline": "Rain at last for Willowbrook",
-      "body": "The heatwave has broken and the fields are green again. While the valley was parched, Joe's old farm kept everyone fed, and the next harvest is already coming in."
+      "headline": "Rain at last!",
+      "body": "The fields are green again, and you kept everyone fed while the valley was parched."
     },
     {
       "id": "orchard",
       "when": {
         "built": "orchard"
       },
+      "shout": "Brand new!",
       "icon": "🍎",
-      "headline": "Apple trees planted on Joe's farm",
-      "body": "Six apple trees now stand in a row down by the farm lane. Once their blossom sets they fruit again and again, and the village is already asking about apple pies.",
+      "headline": "Six apple trees are planted!",
+      "body": "Once they blossom they fruit again and again. The village is already asking about apple pies.",
       "speaker": "mentor",
       "words": "Trees are patient business. Plant them, wait, and they pay you every year after."
     },
@@ -182,9 +195,10 @@
       "when": {
         "built": "bakery"
       },
+      "shout": "Mmm!",
       "icon": "🍞",
-      "headline": "Willowbrook has a bakery again",
-      "body": "The farm's new mill and bakery turns its own corn into warm bread, and its apples into pies. Bread sells for twice what the corn did.",
+      "headline": "The bakery is open!",
+      "body": "Your corn becomes warm bread and your apples become pies. Bread sells for twice what the corn did.",
       "speaker": "mentor",
       "words": "Corn is cheap, bread is not. Every step you add to a crate is money in your pocket."
     },
@@ -193,9 +207,10 @@
       "when": {
         "built": "market"
       },
+      "shout": "Roll up!",
       "icon": "🎪",
-      "headline": "Farmers' market draws weekend crowds",
-      "body": "Striped stalls by the road, fresh food and music: the farm's new market brings shoppers from all over the valley, and they pay top prices.",
+      "headline": "The farmers’ market is open!",
+      "body": "Striped stalls, fresh food and music by the road. Shoppers come from all over the valley, and they pay top prices.",
       "speaker": "mentor",
       "words": "People come for the food and stay for the fun. Keep those stalls full!"
     },
@@ -204,9 +219,10 @@
       "when": {
         "built": "windmill"
       },
+      "shout": "Ta-da!",
       "icon": "🌬️",
-      "headline": "A windmill turns over Willowbrook again",
-      "body": "Thirty years after the last one came down, a new windmill stands on the farm's west paddock, its sails turning. The village fair was held under it, and every shop in the valley is busier for it. Talk is turning to the old Starlight fairground across town, closed these twenty years.",
+      "headline": "The windmill is turning!",
+      "body": "The village held its fair under the sails, and every shop in the valley is busier for it. Now, what about that old Starlight fairground across town?",
       "speaker": "mentor",
       "words": "You've made this valley proud. Mabel rode the carousel at the old Starlight fairground as a girl. It's been closed twenty years. The land's for sale, if you can raise the money."
     }

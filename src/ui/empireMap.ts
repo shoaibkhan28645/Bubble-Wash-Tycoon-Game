@@ -6,6 +6,7 @@ import { currentRank, netWorth, nextRank } from '../systems/career';
 import { formatCash } from '../systems/economy';
 import { JOURNEY, previousStop, stopStatus } from '../systems/journey';
 import { openDialog } from './dialog';
+import { icon, setRich } from './icons';
 import { t } from './strings';
 import { shownTitle } from '../systems/wardrobe';
 
@@ -39,7 +40,7 @@ export function openEmpireMap(deps: {
     : t('mapSummary', { icon: rank.icon, rank: rankName, worth: formatCash(worth) });
   const stars = document.createElement('div');
   stars.className = 'empire-stars';
-  stars.textContent = t('mapStars', { stars: state.franchiseStars });
+  setRich(stars, t('mapStars', { stars: state.franchiseStars }));
   content.append(summary, stars);
 
   const list = document.createElement('ol');
@@ -50,9 +51,10 @@ export function openEmpireMap(deps: {
     const status = stopStatus(stop, state, (id) => townIds().includes(id), land);
     const item = document.createElement('li');
     item.className = `empire-town empire-${status}`;
-    const icon = document.createElement('span');
-    icon.className = 'empire-icon';
-    icon.textContent = status === 'locked' ? '🔒' : stop.icon;
+    const badge = document.createElement('span');
+    badge.className = 'empire-icon';
+    if (status === 'locked') badge.innerHTML = icon('lock', 26);
+    else badge.textContent = stop.icon;
     const text = document.createElement('div');
     text.className = 'empire-text';
     const name = document.createElement('strong');
@@ -74,7 +76,7 @@ export function openEmpireMap(deps: {
               ? t('mapSoon')
               : t('mapLocked', { town: previousStop(stop)?.name ?? '' });
     text.append(name, line, statusLine);
-    item.append(icon, text);
+    item.append(badge, text);
     if (status === 'owned' || status === 'open') {
       const go = document.createElement('button');
       go.type = 'button';

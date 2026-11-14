@@ -308,7 +308,7 @@ export function createRoadsideGame(
 
   onboarding = createOnboarding({ root, labels, layout, state, traffic, staffRate: (s) => staff.rateFor(s), cash, pads, playerCarry, flag });
 
-  // The hero's career and the town's story, both told in the town paper. Closing a card is a break between
+  // The hero's career and the town's story, both told on celebration cards. Closing a card is a break between
   // screens, so an interstitial may follow.
   const press = createPress(root, sound, () => meta.screenClosed());
   const empireMap = (): void => openEmpireMap({ root, state, sound, town: current, travel: (id) => travelTo(id) });

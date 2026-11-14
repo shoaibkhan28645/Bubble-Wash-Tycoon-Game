@@ -39,7 +39,7 @@ describe('the roadside story', () => {
     expect(ids(dueBeats(TOWN, story, state, false))).toContain('rival');
     state.flags.push(...told('rival'));
     expect(storyArrivalFactor(TOWN, story, state)).toBe(0.75);
-    // Building the tunnel wins the customers back, and the paper says so.
+    // Building the tunnel wins the customers back, and a card says so.
     state.unlocked.push('tunnel');
     expect(storyArrivalFactor(TOWN, story, state)).toBe(1);
     expect(ids(dueBeats(TOWN, story, state, false))).toContain('rivalBeaten');
@@ -78,7 +78,7 @@ describe('the roadside story', () => {
 
   it('puts the speaker under the story', () => {
     const arrival = story.beats.find((b) => b.id === 'arrival')!;
-    expect(newsFor(story, arrival)).toMatchObject({ paper: story.paper, headline: arrival.headline, quote: { who: story.mentor.name } });
+    expect(newsFor(story, arrival)).toMatchObject({ shout: arrival.shout, headline: arrival.headline, quote: { who: story.mentor.name } });
     const over = story.beats.find((b) => b.id === 'stormOver')!;
     expect(newsFor(story, over).quote).toBeUndefined();
   });

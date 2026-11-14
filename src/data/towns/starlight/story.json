@@ -1,5 +1,4 @@
 {
-  "paper": "The Starlight Gazette",
   "mentor": {
     "name": "Mabel",
     "icon": "👵"
@@ -15,9 +14,10 @@
       "when": {
         "built": "carousel"
       },
+      "shout": "Welcome!",
       "icon": "🎠",
-      "headline": "Mogul buys the old Starlight fairground",
-      "body": "The owner of the roadside car wash and Willowbrook's farm has bought the Starlight fairground, closed these twenty years. The ticket booth is open again and the old carousel has had a fresh coat of paint.",
+      "headline": "The fairground is yours!",
+      "body": "Starlight has been closed for twenty years. The ticket booth is open again and the carousel has a fresh coat of paint.",
       "speaker": "mentor",
       "words": "I rode that carousel when I was six. Sell the tickets, fill the horses, and make it spin again."
     },
@@ -26,9 +26,10 @@
       "when": {
         "flag": "fullhouse:starlight"
       },
+      "shout": "Full house!",
       "icon": "🎉",
-      "headline": "Carousel turns again after 20 years",
-      "body": "Every horse was taken when the Starlight carousel went round today, to cheers from the crowd. A full ride pays every seat, and a little more besides.",
+      "headline": "Every horse is taken!",
+      "body": "The carousel went round to cheers from the crowd. A full ride pays for every seat, and a little extra.",
       "speaker": "mentor",
       "words": "Full house! Let it fill when there's a crowd. When it's quiet, pull the lever and keep the line moving."
     },
@@ -37,9 +38,10 @@
       "when": {
         "built": "cart"
       },
+      "shout": "Yum!",
       "icon": "🍭",
-      "headline": "Candy floss is back at Starlight",
-      "body": "A pink candy floss cart has opened by the carousel, and it's already the most popular spot in the park after the horses.",
+      "headline": "Candy floss is back!",
+      "body": "The pink cart by the carousel is already the most popular spot in the park after the horses.",
       "speaker": "mentor",
       "words": "Children won't leave a fair without something sweet. Keep that cart busy."
     },
@@ -48,9 +50,10 @@
       "when": {
         "built": "bumper"
       },
+      "shout": "Crash! Bang!",
       "icon": "🚗",
-      "headline": "Bumper cars crash into Starlight",
-      "body": "Six bright bumper cars have opened on the Midway, and the queue for them is already round the corner. Riders say the bumping is the best part.",
+      "headline": "The bumper cars are open!",
+      "body": "Six bright cars on the Midway, and the queue is already round the corner.",
       "speaker": "mentor",
       "words": "The Midway's open! Launch the cars when they're full, and listen for the crashes."
     },
@@ -59,9 +62,10 @@
       "when": {
         "built": "shed"
       },
+      "shout": "Beep beep!",
       "icon": "📦",
-      "headline": "Supply truck rolls into Starlight",
-      "body": "A delivery truck now brings sugar, buns and prizes to the park's new supply shed. Stall holders say they'll never run short again, as long as someone carries the boxes over.",
+      "headline": "The supply truck is here!",
+      "body": "It brings sugar, buns and prizes to your new shed. Carry the boxes to the stalls and they’ll never run short.",
       "speaker": "mentor",
       "words": "Pick up the boxes at the shed's door and take them behind the stalls. An empty stall sells nothing."
     },
@@ -70,9 +74,10 @@
       "when": {
         "built": "operator"
       },
+      "shout": "New helper!",
       "icon": "🎟️",
-      "headline": "Starlight hires its first ride operator",
-      "body": "The fairground has a ride operator again. The carousel now runs itself: full loads go at once, and nobody waits too long for a partial one.",
+      "headline": "You’ve hired a ride operator!",
+      "body": "The carousel runs itself now: full loads go at once, and nobody waits too long.",
       "speaker": "mentor",
       "words": "That's the park finding its feet: the rides run themselves now. Keep an eye on them, mind. That machinery is old."
     },
@@ -81,9 +86,10 @@
       "when": {
         "flag": "broke:starlight"
       },
+      "shout": "Uh-oh!",
       "icon": "🔧",
-      "headline": "Old ride gives up, mogul grabs a wrench",
-      "body": "One of Starlight's rides ground to a halt today with a bang and a puff of smoke, to gasps from the queue. The owner was seen rolling up his sleeves.",
+      "headline": "A ride has broken down!",
+      "body": "It stopped with a bang and a puff of smoke. Roll up your sleeves and fix it at the lever.",
       "speaker": "mentor",
       "words": "These old rides wear out. Stand at the lever with a spanner and it'll run again. A mechanic would save you the trouble."
     },
@@ -92,9 +98,10 @@
       "when": {
         "built": "teacups"
       },
+      "shout": "Wheee!",
       "icon": "☕",
-      "headline": "Teacups spin again at Starlight",
-      "body": "Four giant teacups are spinning in Kiddie Corner, and the children can't get enough of them. Families are coming from all over town.",
+      "headline": "The teacups are spinning!",
+      "body": "Four giant teacups in Kiddie Corner, and the children can’t get enough of them.",
       "speaker": "mentor",
       "words": "Two rides in Kiddie Corner now. One operator can run them both if they're quick on their feet."
     },
@@ -103,9 +110,10 @@
       "when": {
         "built": "janitor"
       },
+      "shout": "Squeaky clean!",
       "icon": "🧹",
-      "headline": "Starlight's paths spotless again",
-      "body": "Bright new bins line the paths at Starlight Fun Park, and a janitor sweeps up after the crowds. Visitors say it's the cleanest fair they've been to.",
+      "headline": "The park is spotless!",
+      "body": "New bins line the paths and a janitor sweeps up after the crowds. A tidy park keeps everyone smiling.",
       "speaker": "mentor",
       "words": "A tidy park keeps folk smiling. Now, those lights by the gate haven't been switched on in twenty years..."
     },
@@ -114,9 +122,10 @@
       "when": {
         "built": "sign"
       },
+      "shout": "Ooooh!",
       "icon": "🌆",
-      "headline": "Starlight lights up the night",
-      "body": "For the first time in twenty years, the lights are on at Starlight after dark. Crowds stayed past sunset to see the rides glow.",
+      "headline": "The lights are on!",
+      "body": "For the first time in twenty years Starlight glows after dark, and the crowds are staying past sunset.",
       "speaker": "mentor",
       "words": "There it is, just like I remember. The park's at its best in the evening."
     },
@@ -125,9 +134,10 @@
       "when": {
         "built": "swings"
       },
+      "shout": "Wheee!",
       "icon": "🎡",
-      "headline": "Sky swings fly over Starlight Lake",
-      "body": "Twelve chairs swing out over the water on Starlight's new sky swings. Lakeside is open, and the views are the talk of the town.",
+      "headline": "The sky swings are flying!",
+      "body": "Twelve chairs swing out over the water. Lakeside is open, and everyone’s talking about the view.",
       "speaker": "mentor",
       "words": "Lakeside's open. A ride that size needs its line kept moving."
     },
@@ -136,9 +146,10 @@
       "when": {
         "built": "busstop"
       },
+      "shout": "Uh-oh!",
       "icon": "😎",
-      "headline": "Goldsby opens MegaLand across the lake",
-      "body": "Rex Goldsby, whose car wash and farm the mogul beat, has opened MegaLand on the far side of the lake, with a giant slide and free parking. Starlight's crowds are thinner already.",
+      "headline": "Rex has opened MegaLand!",
+      "body": "It’s just across the lake, with a giant slide and free parking, and your crowds are thinner already.",
       "speaker": "rival",
       "words": "A fun park? Cute. MegaLand has the biggest slide in the state. Enjoy your teacups.",
       "effect": {
@@ -153,9 +164,10 @@
       "when": {
         "built": "boats"
       },
+      "shout": "Quack?",
       "icon": "🦢",
-      "headline": "Swan boats glide on Starlight Lake",
-      "body": "Four swan boats are paddling round Starlight Lake. Couples are queueing for them, especially in the evenings.",
+      "headline": "The swan boats are out!",
+      "body": "Four swans paddle round the lake. Couples are queueing for them, most of all in the evenings.",
       "speaker": "mentor",
       "words": "The buses help with MegaLand. Fill those boats when a bus comes in."
     },
@@ -164,9 +176,10 @@
       "when": {
         "built": "haunted"
       },
+      "shout": "Heads up!",
       "icon": "⛈️",
-      "headline": "Thunderstorm over the park",
-      "body": "A storm rolled in over Starlight just as the new haunted house opened. The outdoor rides closed, and visitors crowded into the haunted house and the stalls.",
+      "headline": "A thunderstorm is here!",
+      "body": "The outdoor rides are closed until it passes. Everyone is piling into the haunted house and the stalls, where everything pays double.",
       "speaker": "mentor",
       "words": "Rides outside stop in a storm, but the haunted house runs in any weather. Everything indoors pays double till it passes."
     },
@@ -175,9 +188,10 @@
       "when": {
         "built": "mascot"
       },
+      "shout": "Say hello!",
       "icon": "⭐",
-      "headline": "Meet Starry, the park's new mascot",
-      "body": "A big smiling star has been seen waving at the queues in Starlight Fun Park. Children are lining up for photos.",
+      "headline": "Meet Starry, your mascot!",
+      "body": "A big smiling star is waving at the queues, and children are lining up for photos.",
       "speaker": "mentor",
       "words": "Send Starry to the longest line. Folk don't mind a wait with a star to wave at."
     },
@@ -186,9 +200,10 @@
       "when": {
         "built": "cashier"
       },
+      "shout": "New helper!",
       "icon": "💰",
-      "headline": "Starlight hires a cashier",
-      "body": "The park now has someone to collect the takings from the rides and stalls. The owner has his hands free for bigger plans.",
+      "headline": "You’ve hired a cashier!",
+      "body": "Someone else collects the takings from the rides and stalls now. Your hands are free for bigger plans.",
       "speaker": "mentor",
       "words": "The big rides next: a log flume, a roller coaster to beat MegaLand, and fireworks over the lake."
     },
@@ -197,9 +212,10 @@
       "when": {
         "built": "flume"
       },
+      "shout": "Splash!",
       "icon": "💦",
-      "headline": "Splash! Log flume opens at Starlight",
-      "body": "Hollowed logs float round the Thrill Zone's new flume, up the lift and down into the splash pool. Riders come off soaked and go straight back to the end of the line.",
+      "headline": "The log flume is open!",
+      "body": "Logs float up the lift and down into the splash pool. Riders come off soaked and go straight back to the queue.",
       "speaker": "mentor",
       "words": "Mind you don't stand too near the pool. The Thrill Zone's open!"
     },
@@ -208,9 +224,10 @@
       "when": {
         "built": "giftshop"
       },
+      "shout": "Brand new!",
       "icon": "🎁",
-      "headline": "Gift shop opens by the gate",
-      "body": "Starlight's new gift shop sells balloons, hats and plush toys to visitors on their way home, and shows off the park's prize shelf of plush toys won at ring toss.",
+      "headline": "The gift shop is open!",
+      "body": "Balloons, hats and plush toys for the way home, plus a shelf to show off the prizes you win at ring toss.",
       "speaker": "mentor",
       "words": "Everyone wants something to take home. And look at that prize shelf: win the whole set!"
     },
@@ -219,9 +236,10 @@
       "when": {
         "built": "fireworks"
       },
+      "shout": "Boom!",
       "icon": "🎆",
-      "headline": "First fireworks over Starlight Lake",
-      "body": "Rockets burst over the water as the sun went down at Starlight tonight. Crowds now stay late for the show, and the rides are busier than ever after dark.",
+      "headline": "Fireworks over the lake!",
+      "body": "Rockets light up the sky at sunset. Crowds stay late for the show, and the rides are busier after dark.",
       "speaker": "mentor",
       "words": "Fireworks every evening! Folk come for the show and ride till the end. Night rides pay more."
     },
@@ -230,9 +248,10 @@
       "when": {
         "built": "coaster"
       },
+      "shout": "You win!",
       "icon": "🎢",
-      "headline": "MegaLand closes; the crowds come home",
-      "body": "The Starlight Comet, a pink roller coaster with a loop and a drop over the lake, opened today, and MegaLand across the water has closed its gates. Its crowds came straight over the bridge.",
+      "headline": "MegaLand has closed!",
+      "body": "The Starlight Comet, with its loop and its drop over the lake, is open. Rex’s crowds came straight over the bridge.",
       "speaker": "rival",
       "words": "A loop-the-loop. Fine. You win this one. I hear Bay City's looking for someone with ideas...",
       "effect": {
@@ -248,9 +267,10 @@
       "when": {
         "built": "wheel"
       },
+      "shout": "Ta-da!",
       "icon": "🎡",
-      "headline": "The Starlight Wheel shines over the town",
-      "body": "The giant Starlight Wheel turned for the first time tonight, lit from rim to hub like a star. It can be seen from all over town, and every ticket at the park is worth more for it.",
+      "headline": "The Starlight Wheel is shining!",
+      "body": "Lit up like a star, you can see it from all over town, and every ticket in the park is worth more for it.",
       "speaker": "mentor",
       "words": "The city's been asking about you. Downtown is next. There's land for sale there, if you can raise the money."
     }

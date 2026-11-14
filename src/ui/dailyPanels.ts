@@ -4,6 +4,7 @@ import type { GameState } from '../core/gameState';
 import { calendarReady, missionReady, type MissionKind } from '../systems/daily';
 import { formatCash } from '../systems/economy';
 import { openDialog } from './dialog';
+import { icon, setRich } from './icons';
 import { t, type StringKey } from './strings';
 
 /** Seven day tiles: claimed ones ticked, today's highlighted, day 7 a chest. */
@@ -19,7 +20,7 @@ export function showCalendar(root: HTMLElement, state: GameState, today: string,
     if (i < current || (i === current && !ready)) tile.classList.add('calendar-done');
     if (i === current && ready) tile.classList.add('calendar-today');
     if (reward.chest) tile.classList.add('calendar-chest');
-    tile.innerHTML = `<span class="calendar-day"></span><span class="calendar-icon">${reward.chest ? '🎁' : '💎'}</span><span class="calendar-gems">${reward.gems}</span>`;
+    tile.innerHTML = `<span class="calendar-day"></span><span class="calendar-icon">${icon(reward.chest ? 'gift' : 'gem', 30)}</span><span class="calendar-gems">${reward.gems}</span>`;
     tile.querySelector('.calendar-day')!.textContent = t('day', { n: i + 1 });
     grid.appendChild(tile);
   });
@@ -66,14 +67,14 @@ export function showMissions(root: HTMLElement, state: GameState, onClaim: (inde
     action.className = 'mission-claim';
     const gems = DAILY.missions.find((m) => m.id === id)?.gems ?? 0;
     if (d.claimed[i]) {
-      action.textContent = '✓';
+      action.innerHTML = icon('check', 20);
       action.disabled = true;
     } else {
-      action.textContent = `💎 ${gems}`;
+      setRich(action, `💎 ${gems}`);
       action.disabled = !missionReady(state, i);
       action.addEventListener('click', () => {
         onClaim(i);
-        action.textContent = '✓';
+        action.innerHTML = icon('check', 20);
         action.disabled = true;
       });
     }
