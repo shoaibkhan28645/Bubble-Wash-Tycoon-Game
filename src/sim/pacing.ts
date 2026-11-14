@@ -100,6 +100,12 @@ export function simulatePacing(
 
 /** What staff earn in the game for every dollar this model gives them (measured; see incomePerSecond). */
 export const STAFF_EFFICIENCY = 0.75;
+/**
+ * With three kinds of station or more waiting on the hero at once (a bay, the till and the dryer, before their
+ * staff), cars queue, the rating sinks and fewer come: the playthrough bot took about a third of this model's money
+ * then (it came back as soon as the clerk was hired).
+ */
+export const HERO_OVERLOAD = 0.35;
 
 /** A build that would keep the player waiting longer than this is waited out away from the game. */
 const AWAY_AFTER_SECONDS = 30 * 60;
@@ -208,7 +214,8 @@ export function incomePerSecond(pads: readonly PadDef[], unlocked: ReadonlySet<s
   const front = [true, pumps > 0, selling];
   const staffed = [staff.has('washer') || built('tunnel'), staff.has('attendant'), staff.has('clerk')].filter((s, i) => s && front[i]).length;
   const staffedShare = staffed / front.filter(Boolean).length;
-  return perSecond * (1 - (1 - STAFF_EFFICIENCY) * staffedShare);
+  const overload = opts.playerEffort > 0 && unstaffed >= 3 ? HERO_OVERLOAD : 1;
+  return perSecond * (1 - (1 - STAFF_EFFICIENCY) * staffedShare) * overload;
 }
 
 function vipMultiplier(): number {
