@@ -1040,7 +1040,8 @@ export function createParkGame(
       const ride = crowd.rides.find((r) => r.id === spot.id);
       return !!ride && !ride.broken && !ride.paused && ride.seats.filter((v) => v).length + ride.line.length >= Math.ceil(ride.seats.length * PERFECT_JOB_LOAD);
     },
-    allowed: () => peopleReady,
+    // Not while the hero's the only one at the counter (the tutorial, till the ticket seller's hired): a job then leaves the line to give up.
+    allowed: () => peopleReady && state.unlocked.includes(GUIDE_UNTIL),
     blocked: () => trip !== null,
     solids: () => [...solids, ...fixedSolids(layout)],
     walkable: () => view.walkable,

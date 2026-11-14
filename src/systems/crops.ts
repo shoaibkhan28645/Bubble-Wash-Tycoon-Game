@@ -127,8 +127,11 @@ export interface StandSpot {
   zone: Rect;
 }
 
-/** How far round a stand's serving zone a carrier can hand over crates. */
-const DROP_REACH = 0.8;
+/**
+ * How far round a stand's serving zone a carrier can hand over crates: from the gap behind the counter, and from
+ * just in front of the counter or behind the back shelf too (where someone walking straight at it is stopped).
+ */
+const DROP_REACH = 1.2;
 
 /**
  * The crates and cartons at each stand, kept in the town's supplies ("stand.veg", "stand.eggs").

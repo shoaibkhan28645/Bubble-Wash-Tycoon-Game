@@ -1,28 +1,35 @@
 // The whole journey, map after map: the car wash town from $0, its land for
 // the farm, Willowbrook, its land for the park, Starlight Fun Park. Each map
-// is played by a bot that buys the next pad the moment it can, with what
-// really comes with it: the money left after buying the land, and the towns
-// already built earning in the background all the while (their staff's
-// takings, at their managers' full rate). The landmark builds in 20 minutes
-// and the bot plays on meanwhile, saving for the land (a build longer than
-// half an hour would be waited out away from the game, earning offline).
+// is played by a bot that plays as a keen player does (and as the
+// playthrough bot that drives the real game did, whose timings this was
+// checked against): it buys the next pad the moment it can, with what really
+// comes with it: the money left after buying the land, and the towns already
+// built earning in the background all the while (what each stored as its
+// staff's takings, at its manager's full rate). A town's goals count once
+// their buildings are paid for, so the landmark builds in its 20 minutes while
+// the bot saves for the land (a build longer than half an hour would be
+// waited out away from the game, earning offline).
 //
-// The bot buys upgrades too, as a player does: whenever the cheapest one on
-// offer costs no more than a quarter of the next pad, it buys it. Each map's
-// income model counts what the upgrades do (the car wash's has been checked
-// against the game itself, stage by stage, with and without them). Played
-// with `upgrades: false`, it's a player who never buys one.
+// It does the rush jobs as they come (from the end of the town's tutorial,
+// as the game deals them out, paying what the game pays), and it buys
+// upgrades: the cheapest on offer, if it costs no more than a quarter of the
+// next pad, keeping what it spends on them to a fifth of what it's earned
+// (a new player on the first map follows the tutorial pad to pad first). It
+// buys every kind; each map's income model counts what the ones it knows do.
+// Played with `jobs: false` or `upgrades: false`, it's a player who never
+// does a job or never buys an upgrade.
 //
 // It answers what each map's own model can't: how long each map really
 // takes, how much money arrives with you, how much of it the land takes,
 // and how the map's own income compares with what the old towns pay in.
 // Contracts, ads and tips for perfect launches are left out.
-import { TUNING, UPGRADES, type PadDef } from '../core/config';
+import { JOBS, TUNING, UPGRADES, type PadDef } from '../core/config';
 import type { ParkTown, TownDef } from '../core/towns';
 import { upgradeCost, upgradeScale } from '../systems/economy';
-import { FARM_PACING, farmIncomePerSecond, farmUpgradeCounts } from './farmPacing';
-import { DEFAULT_PACING, incomePerSecond, washUpgradeCounts, type Levels } from './pacing';
-import { PARK_PACING, parkIncome, parkStage, parkUpgradeCounts, type ParkStage } from './parkPacing';
+import { basePay, secondsToNext, streakMultiplier } from '../systems/jobs';
+import { FARM_PACING, farmIncomePerSecond } from './farmPacing';
+import { DEFAULT_PACING, incomePerSecond, type Levels } from './pacing';
+import { PARK_PACING, parkIncome, parkStage, type ParkStage } from './parkPacing';
 
 /** One map on the way: its pads and goals, and what it earns a second with what's built and the upgrade levels bought. */
 export interface JourneyMap {
@@ -32,14 +39,23 @@ export interface JourneyMap {
   income: (unlocked: ReadonlySet<string>, playSeconds: number, levels: Levels) => number;
   /** What its staff take a second, without the one-offs: what it earns in the background once the hero has moved on. */
   steady: (unlocked: ReadonlySet<string>, levels: Levels) => number;
-  /** The upgrades its model counts: the only ones the bot buys (it wouldn't see what the others do). */
-  counts: (key: string) => boolean;
+  /** The pad that ends the town's tutorial (its first helper at the counter): rush jobs come only after it. */
+  tutorial: string;
+  /** Upgrades bought during the tutorial too (not on the first map: a player new to the game follows it pad to pad). */
+  upgradesInTutorial: boolean;
 }
 
 export interface JourneyOptions {
   /** The bot buys upgrades (a quarter of the next pad's price at most, cheapest first). */
   upgrades: boolean;
+  /** The bot does the rush jobs as they come (all of them, as a keen player does). */
+  jobs: boolean;
 }
+
+export const ACTIVE: JourneyOptions = { upgrades: true, jobs: true };
+
+/** Seconds a rush job takes the hero, on average (the playthrough bot's: jobs every minute or so with 35 s between). */
+export const JOB_SECONDS = 30;
 
 /** How one map went. */
 export interface JourneyLeg {
@@ -65,6 +81,9 @@ export interface JourneyLeg {
   /** Spent on upgrades, and the levels bought. */
   upgradeSpend: number;
   upgradeLevels: number;
+  /** Rush jobs done, and what they paid. */
+  jobs: number;
+  jobPay: number;
   /** Minute each pad was bought. */
   boughtAt: Record<string, number>;
   /** The upgrade levels at the end. */
@@ -74,6 +93,8 @@ export interface JourneyLeg {
 const AWAY_AFTER_SECONDS = 30 * 60;
 /** The bot buys an upgrade once it costs no more than this share of the next pad. */
 export const UPGRADE_SHARE = 0.25;
+/** …and keeps what it spends on them to this share of what it's earned in the town (the playthrough bot's: it saves for the next pad first). */
+export const UPGRADE_SPEND = 0.2;
 /** The staff room's upgrade pad comes with the register, every other pad with its own station. */
 const PAD_AFTER: Record<string, string> = { staffRoom: 'register' };
 
@@ -101,7 +122,7 @@ export function upgradePrice(key: string, level: number, townId: string): number
 }
 
 /** Plays one map: from `startCash`, with the old towns paying `background` a second. */
-export function playLeg(map: JourneyMap, startCash: number, background: number, options: JourneyOptions = { upgrades: true }): JourneyLeg {
+export function playLeg(map: JourneyMap, startCash: number, background: number, options: JourneyOptions = ACTIVE): JourneyLeg {
   const { pads } = map.town;
   const goals = map.town.goals.goals.flatMap((g) => (g.built ? [g.built] : []));
   const unlocked = new Set<string>();
@@ -119,32 +140,35 @@ export function playLeg(map: JourneyMap, startCash: number, background: number, 
   let upgradeLevels = 0;
   let offer: string[] = [];
   let offerFor = -1;
+  // Rush jobs, as the game deals them out (src/systems/jobs.ts): a gap, then a job (unless the next purchase is
+  // nearly affordable), done in JOB_SECONDS, paying for the streak kept up, every few a golden one.
+  const T = JOBS.tuning;
+  let jobs = 0;
+  let jobPaid = 0;
+  let since = 0;
+  let job: { left: number; pay: number } | null = null;
   /** The cheapest upgrade on offer now, if it's within the bot's budget for the next pad. */
+  let earned = 0;
   const buyUpgrades = () => {
-    if (!options.upgrades) return;
+    if (!options.upgrades || (!map.upgradesInTutorial && !unlocked.has(map.tutorial))) return;
     if (offerFor !== unlocked.size) {
-      offer = upgradesOnOffer(map.town, unlocked).filter(map.counts);
+      offer = upgradesOnOffer(map.town, unlocked);
       offerFor = unlocked.size;
     }
-    // Saving for the land, a player keeps to the upgrades they were buying before it (a quarter of the landmark's price).
-    const target = next();
-    const budgetFor = target?.afterGoals ? [...pads].reverse().find((p) => !p.afterGoals) : target;
-    const limit = UPGRADE_SHARE * (budgetFor?.cost ?? 0);
-    for (;;) {
-      let best = '';
-      let price = Infinity;
-      for (const key of offer) {
-        const level = levels[key] ?? 0;
-        if (level >= maxLevel(key)) continue;
-        const cost = upgradePrice(key, level, map.town.id);
-        if (cost < price) [best, price] = [key, cost];
-      }
-      if (!best || price > limit || price > cash) return;
-      cash -= price;
-      levels[best] = (levels[best] ?? 0) + 1;
-      upgradeSpend += price;
-      upgradeLevels++;
+    const limit = UPGRADE_SHARE * (next()?.cost ?? 0);
+    let best = '';
+    let price = Infinity;
+    for (const key of offer) {
+      const level = levels[key] ?? 0;
+      if (level >= maxLevel(key)) continue;
+      const cost = upgradePrice(key, level, map.town.id);
+      if (cost < price) [best, price] = [key, cost];
     }
+    if (!best || price > limit || price > cash || upgradeSpend + price > UPGRADE_SPEND * earned) return;
+    cash -= price;
+    levels[best] = (levels[best] ?? 0) + 1;
+    upgradeSpend += price;
+    upgradeLevels++;
   };
   let t = 0;
   for (; t < 600 * 60; t++) {
@@ -154,7 +178,7 @@ export function playLeg(map: JourneyMap, startCash: number, background: number, 
       finishing.delete(id);
     }
     for (let pad = next(); pad && cash >= pad.cost; pad = next()) {
-      if (pad.afterGoals && !goals.every((g) => unlocked.has(g))) break;
+      if (pad.afterGoals && !goals.every((g) => unlocked.has(g) || finishing.has(g))) break;
       if (pad.afterGoals && cashAtLand === 0) cashAtLand = cash;
       cash -= pad.cost;
       bought.set(pad.id, t);
@@ -181,8 +205,26 @@ export function playLeg(map: JourneyMap, startCash: number, background: number, 
         continue;
       }
     }
-    if (after?.afterGoals && goals.every((g) => unlocked.has(g)) && cashAtLand === 0) cashAtLand = cash;
+    if (after?.afterGoals && goals.every((g) => unlocked.has(g) || finishing.has(g)) && cashAtLand === 0) cashAtLand = cash;
     cash += earn + background;
+    earned += earn + background;
+    if (options.jobs && unlocked.has(map.tutorial)) {
+      const ctx = { incomePerMinute: (earn + background) * 60, next: after ? { cost: after.cost, owed: Math.max(0, after.cost - cash) } : null };
+      if (job) {
+        job.left -= 1;
+        if (job.left <= 0) {
+          cash += job.pay;
+          earned += job.pay;
+          jobPaid += job.pay;
+          jobs++;
+          job = null;
+          since = 0;
+        }
+      } else if (++since >= (jobs === 0 ? T.firstSeconds : secondsToNext(ctx) > T.farSeconds ? T.gapFar : T.gapNear) && secondsToNext(ctx) >= T.nearSeconds) {
+        const golden = (jobs + 1) % T.goldenEvery === 0;
+        job = { left: JOB_SECONDS, pay: basePay(T, ctx) * streakMultiplier(T, jobs) * (golden ? T.goldenPay : 1) };
+      }
+    }
   }
   const land = pads.at(-1)!.cost;
   const boughtAt: Record<string, number> = {};
@@ -203,13 +245,15 @@ export function playLeg(map: JourneyMap, startCash: number, background: number, 
     left: Math.round(cash),
     upgradeSpend: Math.round(upgradeSpend),
     upgradeLevels,
+    jobs,
+    jobPay: Math.round(jobPaid),
     boughtAt,
     levels,
   };
 }
 
 /** Plays the maps in order, each starting with what the last left and the old towns' income behind it. */
-export function playJourney(maps: JourneyMap[], options: JourneyOptions = { upgrades: true }): JourneyLeg[] {
+export function playJourney(maps: JourneyMap[], options: JourneyOptions = ACTIVE): JourneyLeg[] {
   const legs: JourneyLeg[] = [];
   let cash = 0;
   let background = 0;
@@ -240,15 +284,17 @@ export function gameJourney(roadside: TownDef, willowbrook: TownDef, starlight: 
       town: roadside,
       income: wash,
       steady: (u, levels) => incomePerSecond(roadside.pads, u, { ...DEFAULT_PACING, playerEffort: 0 }, 0, levels),
-      counts: washUpgradeCounts,
+      tutorial: 'washer',
+      upgradesInTutorial: false,
     },
-    { name: willowbrook.id, town: willowbrook, income: (u, _t, levels) => farm(u, levels), steady: farm, counts: farmUpgradeCounts },
+    { name: willowbrook.id, town: willowbrook, income: (u, _t, levels) => farm(u, levels), steady: farm, tutorial: 'standhand', upgradesInTutorial: true },
     {
       name: starlight.id,
       town: starlight,
       income: (u, _t, levels) => parkIncome(stage(u), levels),
       steady: (u, levels) => parkIncome(stage(u), levels),
-      counts: parkUpgradeCounts,
+      tutorial: 'seller',
+      upgradesInTutorial: true,
     },
   ];
 }

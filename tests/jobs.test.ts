@@ -75,12 +75,14 @@ function doJob(board: JobBoard, ctx: JobsContext): { kinds: string[]; seconds: n
 
 describe('rush job pay', () => {
   it('is some seconds of income, held between shares of the next purchase, rounded to two figures', () => {
-    // 40 s of $600 a minute: $400, within 2.5%–8% of $10,000 ($250–$800).
-    expect(basePay(T, { incomePerMinute: 600, next: { cost: 10000, owed: 1 } })).toBeCloseTo(400);
-    // A town's first prices next to the old towns' big income: no more than 8% of the price.
-    expect(basePay(T, { incomePerMinute: 600000, next: { cost: 10000, owed: 1 } })).toBeCloseTo(800);
-    // Hardly any income yet: at least 2.5% of the price.
-    expect(basePay(T, { incomePerMinute: 6, next: { cost: 10000, owed: 1 } })).toBeCloseTo(250);
+    // Some seconds of $600 a minute (25 s: $250), held between shares of $10,000 (2.5%–5%: $250–$500).
+    const own = (T.paySeconds * 600) / 60;
+    expect(basePay(T, { incomePerMinute: 600, next: { cost: 10000, owed: 1 } })).toBeCloseTo(Math.min(T.payShareMax * 10000, Math.max(T.payShareMin * 10000, own)));
+    expect(basePay(T, { incomePerMinute: 960, next: { cost: 10000, owed: 1 } })).toBeCloseTo((T.paySeconds * 960) / 60);
+    // A town's first prices next to the old towns' big income: no more than its top share of the price.
+    expect(basePay(T, { incomePerMinute: 600000, next: { cost: 10000, owed: 1 } })).toBeCloseTo(T.payShareMax * 10000);
+    // Hardly any income yet: at least its least share of the price.
+    expect(basePay(T, { incomePerMinute: 6, next: { cost: 10000, owed: 1 } })).toBeCloseTo(T.payShareMin * 10000);
     // Nothing left to buy: the income's share, or the least a job pays.
     expect(basePay(T, { incomePerMinute: 0, next: null })).toBe(T.minPay);
     expect(roundPay(1534)).toBe(1500);
@@ -256,7 +258,7 @@ describe('doing rush jobs', () => {
       pays.push(board.active!.multiplier);
       doJob(board, ctx);
     }
-    expect(pays).toEqual([1, 1.15, 1.3, 1.5, 1.75, 1.75]);
+    expect(pays).toEqual([...T.streak, T.streak.at(-1)].slice(0, 6));
     untilOffered(board, ctx);
     board.cancel();
     expect(board.streak).toBe(6);

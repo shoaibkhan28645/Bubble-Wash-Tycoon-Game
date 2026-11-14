@@ -92,13 +92,6 @@ export interface FarmFlows {
   perSecond: number;
 }
 
-/** The farm upgrades this model counts: everything that makes, moves or sells more (not the stand's crates or the offline hours). */
-export function farmUpgradeCounts(key: string): boolean {
-  const [target, kind] = key.split('.') as [string, string];
-  if (kind === 'staffSpeed' || kind === 'staffCarry') return ['farmhand', 'orchardhand', 'eggcollector', 'milker', 'baker'].includes(target);
-  return ['quality', 'speed', 'grow', 'flock', 'herd', 'oven', 'trip'].includes(kind) || key === 'player.carry';
-}
-
 /** Cash per second the farm makes with what's built (and the upgrade levels bought). */
 export function farmIncomePerSecond(pads: readonly PadDef[], unlocked: ReadonlySet<string>, opts: FarmPacingOptions = FARM_PACING, levels: Levels = {}): number {
   return farmFlows(pads, unlocked, opts, levels).perSecond * opts.efficiency;

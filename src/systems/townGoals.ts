@@ -8,9 +8,12 @@ import type { GameState } from '../core/gameState';
 /** The goals of the town being played. */
 const goals = (): GoalDef[] => town().goals.goals;
 
-/** How far along a goal is: built goals are 0 or 1. */
+/**
+ * How far along a goal is: built goals are 0 or 1, and done once it's paid for (a long build, the landmark's,
+ * goes up while the player saves for the land, not with nothing left to buy).
+ */
 export function goalProgress(state: GameState, goal: GoalDef): { value: number; target: number } {
-  if (goal.built) return { value: state.unlocked.includes(goal.built) ? 1 : 0, target: 1 };
+  if (goal.built) return { value: state.unlocked.includes(goal.built) || !!state.building[goal.built] ? 1 : 0, target: 1 };
   if (goal.count) return { value: Math.min(goal.goal ?? 1, state.counts[goal.count] ?? 0), target: goal.goal ?? 1 };
   return { value: Math.min(goal.stars ?? 5, state.stars), target: goal.stars ?? 5 };
 }

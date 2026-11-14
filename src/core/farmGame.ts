@@ -978,7 +978,8 @@ export function createFarmGame(
       calf.scale.setScalar(0.55);
       return calf;
     },
-    allowed: () => peopleReady,
+    // Not while the hero's the only one at the counter (the tutorial, till the stand helper's hired): a job then leaves the line to give up.
+    allowed: () => peopleReady && state.unlocked.includes(GUIDE_UNTIL),
     blocked: () => false,
     solids: () => [...solids, ...fixed],
     walkable: () => view.walkable,
@@ -1127,6 +1128,10 @@ export function createFarmGame(
       pads,
       upgrades,
       cash,
+      get counters() {
+        return walkups.counters;
+      },
+      solids: () => [...solids, ...fixed],
     },
     welcomeBack: (earned) => meta.welcomeBack(earned),
     get frameMs() {

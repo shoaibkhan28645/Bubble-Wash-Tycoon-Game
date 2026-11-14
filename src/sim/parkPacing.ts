@@ -214,12 +214,6 @@ export function parkStage(town: ParkTown, built: ReadonlySet<string>, opts: Park
   return { perSecond: perMinute / 60, units, cash, visitors: Math.round(crowded / opts.measure), gaveUp: Math.round((gaveUp / minutes) * 10) / 10 };
 }
 
-/** The park upgrades this model counts: the rides' ticket prices and the stalls' quality. */
-export function parkUpgradeCounts(key: string): boolean {
-  const kind = key.split('.')[1];
-  return kind === 'price' || kind === 'quality';
-}
-
 /**
  * What a stage of the park earns a second with the upgrade levels bought: each
  * ride's ticket price and each stall's quality on what it took (at most twice

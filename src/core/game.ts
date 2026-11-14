@@ -17,7 +17,7 @@ import type { Player } from '../systems/player';
 import type { UpgradePads } from '../systems/upgrades';
 import type { Traffic } from '../systems/traffic';
 import type { StaffSystem } from '../systems/staff';
-import { town } from './config';
+import { town, type Rect } from './config';
 import { createRoadsideGame } from './roadsideGame';
 
 export interface Game {
@@ -54,6 +54,10 @@ export interface BotView {
   readonly pads: PadSystem;
   readonly upgrades: UpgradePads;
   readonly cash: CashSystem;
+  /** The farm's counters (the stand, the market), whose waiting villagers the hero serves until there's staff (the farm only). */
+  readonly counters?: readonly unknown[];
+  /** What's solid now (the farm only: the bot checks its way into the gap behind a counter). */
+  readonly solids?: () => readonly Rect[];
   /** The park's visitors, rides and windows, and who's giving up where (the park only). */
   readonly crowd?: unknown;
   readonly gaveUp?: Record<string, number>;

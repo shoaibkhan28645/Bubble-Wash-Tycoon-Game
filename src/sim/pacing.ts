@@ -62,7 +62,7 @@ export function simulatePacing(
     // The bot buys the next pad the moment it can (like pads.ts, the next one not built or being built).
     for (;;) {
       const next = town.pads.find((p) => !unlocked.has(p.id) && !finishing.has(p.id) && !bought.has(p.id));
-      if (!next || cash < next.cost || (next.afterGoals && !goalsDone(town, unlocked))) break;
+      if (!next || cash < next.cost || (next.afterGoals && !goalsDone(town, unlocked, finishing))) break;
       cash -= next.cost;
       bought.set(next.id, t);
       if (next.buildSeconds) finishing.set(next.id, t + next.buildSeconds);
@@ -104,22 +104,13 @@ export const STAFF_EFFICIENCY = 0.75;
 /** A build that would keep the player waiting longer than this is waited out away from the game. */
 const AWAY_AFTER_SECONDS = 30 * 60;
 
-/** The bot counts the town's goals done once every pad they name is built (counts and stars come with play). */
-function goalsDone(town: TownDef, unlocked: Set<string>): boolean {
-  return town.goals.goals.every((goal) => !goal.built || unlocked.has(goal.built));
+/** The bot counts the town's goals done once every pad they name is paid for (counts and stars come with play). */
+function goalsDone(town: TownDef, unlocked: Set<string>, finishing: ReadonlyMap<string, number>): boolean {
+  return town.goals.goals.every((goal) => !goal.built || unlocked.has(goal.built) || finishing.has(goal.built));
 }
 
 /** Upgrade levels bought, by key ("bay1.quality"). */
 export type Levels = Readonly<Record<string, number>>;
-
-/** The car wash upgrades this model counts: the wash's quality, the stations' and the front-line staff's speed, the hero's scrubbing. */
-export function washUpgradeCounts(key: string): boolean {
-  const [target, kind] = key.split('.') as [string, string];
-  if (kind === 'quality') return true;
-  if (kind === 'speed') return ['bay1', 'bay2', 'tunnel', 'pump1', 'pump2', 'mart'].includes(target);
-  if (kind === 'staffSpeed') return ['washer', 'attendant', 'clerk'].includes(target);
-  return key === 'player.scrub';
-}
 
 /**
  * Cash per second the town makes with what's built (and the upgrade levels
@@ -155,8 +146,11 @@ export function incomePerSecond(pads: readonly PadDef[], unlocked: ReadonlySet<s
   const shift = TUNING.staff.workSeconds / (TUNING.staff.workSeconds + TUNING.staff.breakSeconds);
   const staffRate = TUNING.staff.workRate * shift;
   const rate = (role: string) => staffRate * quick(role);
+  // One washer works one bay: the hero washes at the other (as a player does all game).
+  const bays = stations('bay');
+  const washers = staff.has('washer') ? 1 : 0;
   const unstaffed = [
-    !staff.has('washer'),
+    bays > washers,
     pumps > 0 && !staff.has('attendant'),
     selling && !staff.has('clerk'),
     (built('dryer') || built('wax')) && !staff.has('dryer'),
@@ -169,10 +163,9 @@ export function incomePerSecond(pads: readonly PadDef[], unlocked: ReadonlySet<s
   const pumpIds = pads.filter((p) => built(p.id) && p.effects.pump).map((p) => p.id);
   const bayTime = mean(bayIds, (id) => time(`${id}.speed`));
   const dirtSeconds = mean(cars.filter((c) => c.dirt !== 'swamp'), (c) => washSeconds(c.dirt, bayStages, TUNING.wash)) * (bayIds.length ? bayTime : 1);
-  const bays = stations('bay');
   // The hero scrubs faster with the scrub upgrade (a washer's speed is their own).
   const scrub = 1 / levelFactor(UPGRADES.kinds.scrub, level('player.scrub'));
-  const bayWorkers = Math.min(bays, (staff.has('washer') ? rate('washer') : 0) + (staff.has('washer') ? 0 : player * scrub));
+  const bayWorkers = Math.min(bays, washers * rate('washer') + (bays > washers ? player * scrub : 0));
   const tunnel = built('tunnel') ? (stationDef('tunnel').capacity ?? 1) / ((stationDef('tunnel').seconds ?? 1) * time('tunnel.speed')) : 0;
   const bayWash = dirtSeconds > 0 ? bayWorkers / dirtSeconds : 0;
   const capacity: Record<Need, number> = {

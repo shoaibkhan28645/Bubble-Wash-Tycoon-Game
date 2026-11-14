@@ -15,8 +15,9 @@ declare const process: { env: Record<string, string | undefined> };
 const maps = [ROADSIDE, WILLOWBROOK, STARLIGHT] as const;
 const journey = gameJourney(ROADSIDE, WILLOWBROOK, STARLIGHT);
 const legs = playJourney(journey);
-/** A player who never buys an upgrade. */
-const plain = playJourney(journey, { upgrades: false });
+/** A player who never buys an upgrade, and one who never does a rush job. */
+const plain = playJourney(journey, { upgrades: false, jobs: true });
+const noJobs = playJourney(journey, { upgrades: true, jobs: false });
 
 describe('the whole journey', () => {
   it.runIf(process.env.PACING_REPORT)('prints the report', () => {
@@ -36,12 +37,16 @@ describe('the whole journey', () => {
         left: l.left,
         'upgrade levels': l.upgradeLevels,
         'on upgrades': l.upgradeSpend,
+        jobs: l.jobs,
+        'from jobs': l.jobPay,
       })),
     );
     console.log('Buying upgrades:');
     table(legs);
     console.log('Never buying one:');
     table(plain);
+    console.log('Never doing a rush job:');
+    table(noJobs);
     for (const l of legs) console.log(l.name, JSON.stringify(l.boughtAt));
   });
 
@@ -69,6 +74,13 @@ describe('the whole journey', () => {
     });
   });
 
+  it('keeps a player who never does a rush job going: each map at most half as long again', () => {
+    noJobs.forEach((leg, i) => {
+      expect(leg.boughtAt[maps[i]!.pads.at(-1)!.id], leg.name).toBeDefined();
+      expect(leg.minutes / legs[i]!.minutes, leg.name).toBeLessThanOrEqual(1.5);
+    });
+  });
+
   it('has the land take nearly all the money a map ends with', () => {
     for (const leg of legs.slice(0, -1)) expect(leg.land / leg.cashAtLand, leg.name).toBeGreaterThanOrEqual(0.85);
   });
@@ -79,9 +91,11 @@ describe('the whole journey', () => {
 
   it("matches the farm's and the park's own simulators: what the hero arrives with, and the old towns' income", () => {
     const near = (a: number, b: number) => Math.abs(a / b - 1);
-    expect(near(FARM_PACING.startCash, legs[1]!.arrivedWith)).toBeLessThan(0.1);
+    // What's left after the land is small next to the new map's prices: near enough is within a few percent of its first purchase.
+    const first = (i: number) => maps[i]!.pads.find((p) => p.cost > 0)!.cost;
+    expect(Math.abs(FARM_PACING.startCash - legs[1]!.arrivedWith)).toBeLessThan(0.05 * first(1));
     expect(near(FARM_PACING.background, legs[1]!.background)).toBeLessThan(0.1);
-    expect(near(PARK_PACING.startCash, legs[2]!.arrivedWith)).toBeLessThan(0.1);
+    expect(Math.abs(PARK_PACING.startCash - legs[2]!.arrivedWith)).toBeLessThan(0.05 * first(2));
     expect(near(PARK_PACING.background, legs[2]!.background)).toBeLessThan(0.1);
   });
 
