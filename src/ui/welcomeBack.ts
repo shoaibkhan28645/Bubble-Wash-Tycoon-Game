@@ -1,4 +1,4 @@
-import { formatCash } from '../systems/economy';
+import { money } from '../systems/economy';
 import { icon, setRich } from './icons';
 import { t } from './strings';
 
@@ -34,10 +34,10 @@ export function showWelcomeBack(
   title.textContent = t('welcomeBack');
   const bag = document.createElement('div');
   bag.className = 'welcome-bag';
-  bag.innerHTML = icon('moneybag', 76);
+  bag.innerHTML = icon('cashpile', 80);
   const amount = document.createElement('div');
   amount.className = 'welcome-amount';
-  amount.textContent = formatCash(cash);
+  setRich(amount, money(cash));
   const away = document.createElement('div');
   away.className = 'welcome-away';
   away.textContent = `${t('staffEarned')} · ${formatAway(seconds)}`;
@@ -68,7 +68,7 @@ export function showWelcomeBack(
   collect.addEventListener('click', close);
   twice.addEventListener('click', async () => {
     twice.disabled = collect.disabled = true;
-    if (await double()) amount.textContent = formatCash(cash * 2);
+    if (await double()) setRich(amount, money(cash * 2));
     close();
   });
   window.addEventListener('keydown', onKey);

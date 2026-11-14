@@ -47,7 +47,7 @@ import { perk } from '../systems/career';
 import { CashSystem } from '../systems/cash';
 import { Carrier, carriedItems } from '../systems/carry';
 import { formatClock, takeFinished } from '../systems/construction';
-import { levelFactor, levelStep, nextStars, tipFor } from '../systems/economy';
+import { levelFactor, levelStep, money, nextStars, tipFor } from '../systems/economy';
 import { GuideHand, type GuideStep } from '../systems/guide';
 import { Input } from '../systems/input';
 import { NavGrid } from '../systems/nav';
@@ -431,8 +431,8 @@ export function createParkGame(
     cash.add(counter.id, pay + tip);
     visitor.spent += pay + tip;
     const at = layout.piles[counter.id] ?? counter.at;
-    floaters.show(`+$${pay} ${ticket ? '🎟️' : (goods?.icon ?? '')}${mess > 0 ? ' 🗑️' : ''}`, new Vector3(at.x, 1.2, at.z), 'cash');
-    if (tip > 0) floaters.show(`+$${tip} tip`, new Vector3(at.x + 0.6, 1.9, at.z), 'tip');
+    floaters.show(`+${money(pay)} ${ticket ? '🎟️' : (goods?.icon ?? '')}${mess > 0 ? ' 🗑️' : ''}`, new Vector3(at.x, 1.2, at.z), 'cash');
+    if (tip > 0) floaters.show(`+${money(tip)} tip`, new Vector3(at.x + 0.6, 1.9, at.z), 'tip');
     state.stars = nextStars(state.stars, tip > 0 ? 'happy' : 'okay', TUNING.stars);
     if (visitor.manual) flag(soldFlag);
     sound.play('ching');
@@ -459,13 +459,13 @@ export function createParkGame(
     for (const rider of ride.seats) if (rider) rider.spent += Math.round(seat * (1 - mess) * (launch.full ? 1 + rules.fullBonus : 1));
     if (trip) trip.rides += ride.seats.filter((v) => v?.trip && v.step === 'seated').length;
     const at = layout.piles[ride.id] ?? ride.spot.lever;
-    floaters.show(`+$${pay} ${ride.def.icon}${mess > 0 ? ' 🗑️' : ''}`, new Vector3(at.x, 1.2, at.z), 'cash');
+    floaters.show(`+${money(pay)} ${ride.def.icon}${mess > 0 ? ' 🗑️' : ''}`, new Vector3(at.x, 1.2, at.z), 'cash');
     const top = overRide(ride, 4.6);
     if (launch.full) floaters.show(`🎉 ${t('fullHouse')}`, top, 'star');
     if (launch.perfect) {
       // A rush job may be waiting for just this: a perfect launch on this ride, by the hero.
       if (launch.by === 'hero') jobs.signal(`perfect:${ride.id}`);
-      floaters.show(`⭐ ${t('perfectLaunch')} +$${tip}`, new Vector3(top.x, top.y + 0.9, top.z), 'tip');
+      floaters.show(`⭐ ${t('perfectLaunch')} +${money(tip)}`, new Vector3(top.x, top.y + 0.9, top.z), 'tip');
       effects.burst('sparkle', new Vector3(ride.spot.lever.x, 1.4, ride.spot.lever.z), 18, 4, 0.9);
     }
     effects.burst('sparkle', new Vector3(ride.spot.at.x, 3.8, ride.spot.at.z), launch.full ? 26 : 10, 5, 1.2);
@@ -537,7 +537,7 @@ export function createParkGame(
         if (visitor.vip) {
           const bonus = Math.round(visitor.spent * (PARK.vip.pay - 1));
           cash.add('booth', bonus);
-          floaters.show(`⭐ ${t('vipPaid')} +$${bonus.toLocaleString('en-US')}`, new Vector3(visitor.at.x, 3.2, visitor.at.z), 'tip');
+          floaters.show(`⭐ ${t('vipPaid')} +${money(bonus)}`, new Vector3(visitor.at.x, 3.2, visitor.at.z), 'tip');
           effects.burst('confetti', new Vector3(visitor.at.x, 2, visitor.at.z), 40, 5, 1);
           count('vipDays');
           sound.play('reward');
@@ -546,7 +546,7 @@ export function createParkGame(
           // Anyone else with a perfect day tips on their way out: half as much again as they spent.
           const tip = Math.round(visitor.spent * PARK.perfectDay.tip);
           cash.add('booth', tip);
-          floaters.show(`❤️ ${t('perfectDayTip')} +$${tip.toLocaleString('en-US')}`, new Vector3(visitor.at.x, 2.9, visitor.at.z), 'tip');
+          floaters.show(`❤️ ${t('perfectDayTip')} +${money(tip)}`, new Vector3(visitor.at.x, 2.9, visitor.at.z), 'tip');
           onPaid({ amount: tip, tip, automated: true, at: visitor.at });
         }
         state.stars = nextStars(state.stars, 'happy', TUNING.stars);
@@ -1358,7 +1358,7 @@ export function createParkGame(
         const reward = Math.max(PARK.school.minCash, Math.round(state.autoRate * PARK.school.minutesOfIncome));
         cash.add('booth', reward);
         state.gems += PARK.school.gems;
-        floaters.show(`🎒 ${t('tripDone')} +$${reward.toLocaleString('en-US')} +${PARK.school.gems}💎`, new Vector3(player.position.x, 3, player.position.z), 'tip');
+        floaters.show(`🎒 ${t('tripDone')} +${money(reward)} +${PARK.school.gems}💎`, new Vector3(player.position.x, 3, player.position.z), 'tip');
         effects.burst('confetti', new Vector3(player.position.x, 2.2, player.position.z), 40, 5, 1);
         sound.play('reward');
         count('trips');

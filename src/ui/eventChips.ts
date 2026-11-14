@@ -1,6 +1,7 @@
 // Small status chips under the top bar for what's going on in the park right
 // now: a spotless park's bonus, a school trip's countdown, a festival
 // weekend. The page is only touched when a chip's words change.
+import { setRich } from './icons';
 
 export class EventChips {
   private readonly row: HTMLElement;
@@ -25,13 +26,13 @@ export class EventChips {
     if (chip) {
       if (chip.text !== text) {
         chip.text = text;
-        chip.el.textContent = text;
+        setRich(chip.el, text);
       }
       return;
     }
     const el = document.createElement('div');
     el.className = kind ? `event-chip is-${kind}` : 'event-chip';
-    el.textContent = text;
+    setRich(el, text);
     this.row.appendChild(el);
     this.chips.set(id, { el, text });
   }

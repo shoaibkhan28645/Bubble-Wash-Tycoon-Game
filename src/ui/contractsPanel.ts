@@ -4,7 +4,7 @@
 import type { Contract } from '../core/gameState';
 import { contractDef, contractDone } from '../systems/contracts';
 import { formatClock } from '../systems/construction';
-import { formatCash } from '../systems/economy';
+import { money } from '../systems/economy';
 import { openDialog } from './dialog';
 import { icon as drawn, setRich } from './icons';
 import { t, type StringKey } from './strings';
@@ -22,7 +22,7 @@ export function taskText(task: string, goal: number): string {
   return t(`task_${task}` as StringKey, { n: goal });
 }
 
-const rewardText = (c: Contract, times = 1): string => (c.gems > 0 ? `💎 ${c.gems * times}` : `💵 ${formatCash(c.cash * times).replace('$', '')}`);
+const rewardText = (c: Contract, times = 1): string => (c.gems > 0 ? `💎 ${c.gems * times}` : money(c.cash * times));
 
 function card(c: Contract, view: BoardView, onClaim: (double: boolean) => void): HTMLElement {
   const el = document.createElement('div');

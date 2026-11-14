@@ -10,6 +10,7 @@ import {
   IcosahedronGeometry,
   Vector3,
 } from 'three';
+import { noteGeometry } from '../models/money';
 
 export type ParticleKind = 'sparkle' | 'bubble' | 'bill' | 'water' | 'confetti' | 'smoke';
 
@@ -45,7 +46,7 @@ export class Particles {
   constructor(scene: Scene) {
     this.addKind(scene, 'sparkle', new OctahedronGeometry(0.14), new MeshBasicMaterial({ color: 0xfff6b0 }));
     this.addKind(scene, 'bubble', new IcosahedronGeometry(0.16, 0), new MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.85 }));
-    this.addKind(scene, 'bill', new BoxGeometry(0.42, 0.06, 0.24), new MeshBasicMaterial({ color: 0x5cc45c }));
+    this.addKind(scene, 'bill', noteGeometry(), new MeshBasicMaterial({ vertexColors: true }));
     this.addKind(scene, 'water', new OctahedronGeometry(0.07), new MeshBasicMaterial({ color: 0x8fd3ff, transparent: true, opacity: 0.85 }));
     this.addKind(scene, 'confetti', new BoxGeometry(0.16, 0.02, 0.1), new MeshBasicMaterial({ color: 0xffffff }));
     this.addKind(scene, 'smoke', new IcosahedronGeometry(0.17, 1), new MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.6, depthWrite: false }));

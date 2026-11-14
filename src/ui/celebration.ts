@@ -1,4 +1,4 @@
-import { iconFor } from './icons';
+import { iconFor, setRich } from './icons';
 import { t } from './strings';
 
 /** One big moment told to the player: a story beat or a new rank. */
@@ -63,13 +63,13 @@ export function showCelebration(root: HTMLElement, item: Announcement, onClose: 
   headline.textContent = item.headline;
   const body = document.createElement('p');
   body.className = 'end-body';
-  body.textContent = item.body;
+  setRich(body, item.body);
   card.append(badge, shout, headline, body);
 
   if (item.perk) {
     const perk = document.createElement('div');
     perk.className = 'party-perk';
-    perk.textContent = item.perk;
+    setRich(perk, item.perk);
     card.appendChild(perk);
   }
   if (item.quote) {

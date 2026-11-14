@@ -19,7 +19,7 @@ import { stepOutOf } from '../systems/player';
 import type { Floaters } from '../ui/carBubbles';
 import { speech } from '../ui/dialog';
 import type { EventChips } from '../ui/eventChips';
-import { formatCash } from '../systems/economy';
+import { money } from '../systems/economy';
 import { t } from '../ui/strings';
 import type { WorldLabels } from '../ui/worldLabels';
 
@@ -221,7 +221,7 @@ export function createJobs(deps: {
       state.cash += pay;
       // Not earnings: job pay never counts towards how far off the next purchase is.
       lastCash += pay;
-      floaters.show(`🌟 ${t('jobDoubled')} +${formatCash(pay)}`, at(3.2), 'tip');
+      floaters.show(`🌟 ${t('jobDoubled')} +${money(pay)}`, at(3.2), 'tip');
       effects.burst('confetti', at(2.2), 44, 5, 1);
       sound.play('reward');
       deps.onPaid(pay, hero.position());
@@ -264,7 +264,7 @@ export function createJobs(deps: {
             state.counts.jobs = (state.counts.jobs ?? 0) + 1;
             state.counts.jobStreak = Math.max(state.counts.jobStreak ?? 0, board.streak);
             const streak = board.streak > 1 ? `  🔥${t('jobStreak', { n: e.job.multiplier })}` : '';
-            floaters.show(`${e.job.golden ? '🌟' : '⚡'} ${t('jobDone')} +${formatCash(e.pay)}${streak}`, at(3.2), 'tip');
+            floaters.show(`${e.job.golden ? '🌟' : '⚡'} ${t('jobDone')} +${money(e.pay)}${streak}`, at(3.2), 'tip');
             effects.burst('confetti', at(2.2), e.job.golden ? 60 : 36, 5, 1);
             sound.play('reward');
             deps.onPaid(e.pay, hero.position());

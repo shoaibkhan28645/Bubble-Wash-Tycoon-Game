@@ -51,7 +51,7 @@ import { Deliveries, VANS } from '../systems/deliveries';
 import { BarnStore } from '../systems/barn';
 import { Bakery } from '../systems/bakery';
 import { createMachines } from './farmMachines';
-import { levelFactor, levelStep, nextStars, tipFor } from '../systems/economy';
+import { levelFactor, levelStep, money, nextStars, tipFor } from '../systems/economy';
 import { GuideHand, type GuideStep } from '../systems/guide';
 import { Input } from '../systems/input';
 import { IncomeTracker } from '../systems/offline';
@@ -294,7 +294,7 @@ export function createFarmGame(
     const pay = Math.round(order.pay * (1 + unlockedSum(state, (e) => e.payBonus)));
     cash.add('yard', pay);
     const at = layout.piles.yard ?? layout.vans[van]!.route[0]!;
-    floaters.show(`+$${pay} 🚚`, new Vector3(at.x, 1.4, at.z), 'cash');
+    floaters.show(`+${money(pay)} 🚚`, new Vector3(at.x, 1.4, at.z), 'cash');
     // The county fair also pays gems, and a prize ribbon.
     if (order.gems) {
       state.gems += order.gems;
@@ -377,8 +377,8 @@ export function createFarmGame(
     const tip = tipFor(pay, visitor.patience / visitor.patienceMax, TUNING.customers);
     cash.add(counter.id, pay + tip);
     const at = layout.piles[counter.id] ?? counter.at;
-    floaters.show(`+$${pay} ${basket.map((g) => GOODS[g]!.icon).join('')}`, new Vector3(at.x, 1.2, at.z), 'cash');
-    if (tip > 0) floaters.show(`+$${tip} tip`, new Vector3(at.x + 0.6, 1.9, at.z), 'tip');
+    floaters.show(`+${money(pay)} ${basket.map((g) => GOODS[g]!.icon).join('')}`, new Vector3(at.x, 1.2, at.z), 'cash');
+    if (tip > 0) floaters.show(`+${money(tip)} tip`, new Vector3(at.x + 0.6, 1.9, at.z), 'tip');
     state.stars = nextStars(state.stars, tip > 0 ? 'happy' : 'okay', TUNING.stars);
     sound.play('ching');
     onPaid({ amount: pay + tip, tip, automated: !visitor.manual, at });

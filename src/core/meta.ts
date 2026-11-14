@@ -16,7 +16,7 @@ import type { Stage } from '../render/stage';
 import type { TownDecor } from '../render/townDecor';
 import { Ads } from '../systems/ads';
 import { finishGems, formatClock, halveBuild, secondsLeft, soonestBuild } from '../systems/construction';
-import { formatCash } from '../systems/economy';
+import { money } from '../systems/economy';
 import { addProgress, carOfDay, claimable, claimCalendar, claimMission, localDate, rollDay, type MissionKind, type MissionTown } from '../systems/daily';
 import { sideButtonOpen, tutorialActive } from '../systems/guide';
 import type { PadSystem } from '../systems/pads';
@@ -526,7 +526,7 @@ export function createMeta(deps: {
     },
     rewarded: (rewardId) => ads.rewarded(rewardId),
     async doubleJob(pay) {
-      return (await earn('double-job', '🌟', t('jobDoubleTitle'), t('jobDoubleBody', { cash: formatCash(pay) }), ADS.jobDouble.gems)) !== null;
+      return (await earn('double-job', '🌟', t('jobDoubleTitle'), t('jobDoubleBody', { cash: money(pay) }), ADS.jobDouble.gems)) !== null;
     },
     openShop: showShop,
   };

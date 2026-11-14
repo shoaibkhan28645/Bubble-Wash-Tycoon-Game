@@ -1,7 +1,7 @@
 import { formatCash } from '../systems/economy';
 import { icon } from './icons';
 
-/** Cash counter at the top. Counts up smoothly and bumps when cash arrives. */
+/** Cash counter at the top. Counts up smoothly when cash arrives (and holds still: no bump, it'd shake under steady income). */
 export class Hud {
   private readonly amount: HTMLElement;
   private readonly pill: HTMLElement;
@@ -22,7 +22,7 @@ export class Hud {
     hud.className = 'hud';
     this.pill = document.createElement('div');
     this.pill.className = 'cash-pill';
-    this.pill.innerHTML = icon('coin', 36);
+    this.pill.innerHTML = icon('cash', 40);
     this.amount = document.createElement('span');
     this.amount.className = 'cash-amount';
     this.pill.appendChild(this.amount);
@@ -80,18 +80,10 @@ export class Hud {
     }
     if (cash > this.shown + 0.5) {
       this.shown += Math.max(1, (cash - this.shown) * Math.min(1, dt * 8));
-      this.bump();
     } else {
       this.shown = cash;
     }
     this.render();
-  }
-
-  private bump(): void {
-    this.pill.classList.remove('bump');
-    // Restart the CSS animation.
-    void this.pill.offsetWidth;
-    this.pill.classList.add('bump');
   }
 
   private render(): void {

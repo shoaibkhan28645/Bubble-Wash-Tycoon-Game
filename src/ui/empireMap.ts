@@ -3,7 +3,7 @@ import { steadyRate } from '../core/empire';
 import type { GameState } from '../core/gameState';
 import { loadedTown, townIds, type TownDef } from '../core/towns';
 import { currentRank, netWorth, nextRank } from '../systems/career';
-import { formatCash } from '../systems/economy';
+import { money } from '../systems/economy';
 import { JOURNEY, previousStop, stopStatus } from '../systems/journey';
 import { openDialog } from './dialog';
 import { icon, setRich } from './icons';
@@ -35,9 +35,12 @@ export function openEmpireMap(deps: {
   // An earned title (a completed set's) goes after the rank's name.
   const title = shownTitle(state);
   const rankName = title ? `${rank.name} · ${title}` : rank.name;
-  summary.textContent = next
-    ? t('mapSummaryNext', { icon: rank.icon, rank: rankName, worth: formatCash(worth), next: next.rank.name, at: formatCash(next.rank.netWorth) })
-    : t('mapSummary', { icon: rank.icon, rank: rankName, worth: formatCash(worth) });
+  setRich(
+    summary,
+    next
+      ? t('mapSummaryNext', { icon: rank.icon, rank: rankName, worth: money(worth), next: next.rank.name, at: money(next.rank.netWorth) })
+      : t('mapSummary', { icon: rank.icon, rank: rankName, worth: money(worth) }),
+  );
   const stars = document.createElement('div');
   stars.className = 'empire-stars';
   setRich(stars, t('mapStars', { stars: state.franchiseStars }));
@@ -65,16 +68,17 @@ export function openEmpireMap(deps: {
     statusLine.className = 'empire-status';
     const progress = status === 'here' ? state : state.towns[stop.id];
     const rate = progress ? steadyRate(stop.id, progress) : 0;
-    statusLine.textContent =
+    const status_ =
       status === 'here'
-        ? t('mapHere', { rate: formatCash(rate) })
+        ? t('mapHere', { rate: money(rate) })
         : status === 'owned'
-          ? t('mapOwned', { rate: formatCash(rate) })
+          ? t('mapOwned', { rate: money(rate) })
           : status === 'open'
             ? t('mapOpen')
             : status === 'soon'
               ? t('mapSoon')
               : t('mapLocked', { town: previousStop(stop)?.name ?? '' });
+    setRich(statusLine, status_);
     text.append(name, line, statusLine);
     item.append(badge, text);
     if (status === 'owned' || status === 'open') {

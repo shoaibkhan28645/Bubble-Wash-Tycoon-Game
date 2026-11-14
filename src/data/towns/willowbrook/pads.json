@@ -189,7 +189,7 @@
     "name": "Apple orchard",
     "cost": 64000,
     "targetMinute": 34.5,
-    "adds": "Six apple trees: slow to ripen, but a crate of apples sells for $400",
+    "adds": "Six apple trees: slow to ripen, but a crate of apples sells for 💵400",
     "effects": {
       "field": "apple"
     }

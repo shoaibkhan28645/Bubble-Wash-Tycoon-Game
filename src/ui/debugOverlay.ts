@@ -49,7 +49,7 @@ export function createDebugOverlay({ root, game, state, saves, lifecycle, dev, r
     buttons.appendChild(button);
   };
 
-  addButton(`+$${DEBUG_CASH.toLocaleString('en')}`, () => {
+  addButton(`+${DEBUG_CASH.toLocaleString('en')} cash`, () => {
     state.cash += DEBUG_CASH;
     void saves.saveNow();
     showStats();

@@ -4,7 +4,7 @@
 import * as platform from '../platform/youtube';
 import type { SoundManager } from '../audio/sound';
 import { bestNetWorth, currentRank, netWorth, nextRank, rankFlag, recordNetWorth, uncelebratedRanks } from '../systems/career';
-import { formatCash } from '../systems/economy';
+import { money } from '../systems/economy';
 import { shownTitle } from '../systems/wardrobe';
 import { RankChip } from '../ui/rankChip';
 import { t } from '../ui/strings';
@@ -54,7 +54,7 @@ export function createHero(deps: {
         shout: t('rankShout'),
         icon: top.icon,
         headline: t('rankHeadline', { rank: `${/^[aeiou]/i.test(top.name) ? 'an' : 'a'} ${top.name}` }),
-        body: t('rankBody', { worth: formatCash(top.netWorth) }),
+        body: t('rankBody', { worth: money(top.netWorth) }),
         ...(top.perk ? { perk: t('rankPerk', { perk: top.perk }) } : {}),
       });
       sound.play('vip');

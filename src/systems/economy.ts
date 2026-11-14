@@ -80,10 +80,21 @@ export function formatCash(amount: number): string {
       const scaled = value / size;
       const digits = scaled < 10 ? 1 : 0;
       const factor = 10 ** digits;
-      return `$${(Math.floor(scaled * factor) / factor).toFixed(digits).replace(/\.0$/, '')}${unit}`;
+      return `${(Math.floor(scaled * factor) / factor).toFixed(digits).replace(/\.0$/, '')}${unit}`;
     }
   }
-  return `$${value}`;
+  return `${value}`;
+}
+
+/**
+ * The sign money is shown with. The interface draws it as the game's green banknote (ui/icons.ts), so an
+ * amount never names a currency.
+ */
+export const MONEY = '💵';
+
+/** An amount of money for the interface: the green note, then "1.2K". */
+export function money(amount: number): string {
+  return `${MONEY}${formatCash(amount)}`;
 }
 
 // ---- Upgrades ------------------------------------------------------------

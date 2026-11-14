@@ -1,9 +1,11 @@
-import { BoxGeometry, InstancedMesh, MeshLambertMaterial, Object3D, Vector3, type Scene } from 'three';
+import { InstancedMesh, Object3D, Vector3, type Scene } from 'three';
 import type { GameState } from '../core/gameState';
 import { town, type TownLayout, type Point, type Tuning } from '../core/config';
 import type { Particles } from '../render/effects/particles';
 import type { SoundManager } from '../audio/sound';
 import { blobShadow } from '../render/models/actors';
+import { instancedToyMaterial } from '../render/models/build';
+import { BUNDLE, bundleGeometry } from '../render/models/money';
 
 const MAX_BILLS = 32;
 const COLUMNS = [
@@ -13,8 +15,6 @@ const COLUMNS = [
   [0.24, 0.15],
 ] as const;
 
-const billGeometry = new BoxGeometry(0.44, 0.1, 0.26);
-const billMaterial = new MeshLambertMaterial({ color: 0x5cc45c });
 
 interface Pile {
   id: string;
@@ -95,7 +95,7 @@ export class CashSystem {
     let pile = this.piles.get(id);
     if (pile) return pile;
     const at = this.layout.piles[id] ?? { x: 0, z: 0 };
-    const mesh = new InstancedMesh(billGeometry, billMaterial, MAX_BILLS);
+    const mesh = new InstancedMesh(bundleGeometry(), instancedToyMaterial, MAX_BILLS);
     mesh.position.set(at.x, 0, at.z);
     mesh.count = 0;
     mesh.add(blobShadow(1.3, 1));
@@ -112,7 +112,7 @@ export class CashSystem {
     const bills = amount <= 0 ? 0 : Math.min(MAX_BILLS, Math.max(1, Math.ceil((amount / this.tuning.pileCap) * MAX_BILLS)));
     for (let i = pile.shown; i < bills; i++) {
       const [x, z] = COLUMNS[i % COLUMNS.length]!;
-      this.dummy.position.set(x, 0.05 + Math.floor(i / COLUMNS.length) * 0.11, z);
+      this.dummy.position.set(x, BUNDLE.height / 2 + Math.floor(i / COLUMNS.length) * (BUNDLE.height + 0.014), z);
       this.dummy.rotation.set(0, Math.sin(i * 12.9898) * 0.25, 0);
       this.dummy.updateMatrix();
       pile.mesh.setMatrixAt(i, this.dummy.matrix);

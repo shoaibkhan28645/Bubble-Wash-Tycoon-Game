@@ -276,7 +276,7 @@ body {
   display: flex;
   align-items: center;
   height: 40px;
-  padding: 0 14px 0 36px;
+  padding: 0 14px 0 38px;
   border: var(--rim);
   border-radius: 999px;
   background: #fff;
@@ -288,19 +288,16 @@ body {
 
 .cash-pill svg {
   position: absolute;
-  left: -8px;
+  left: -12px;
   top: 50%;
   translate: 0 -50%;
+  filter: drop-shadow(0 2px 0 var(--ink));
 }
 
-.cash-pill.bump {
-  animation: hud-bump 160ms ease-out;
-}
-
-@keyframes hud-bump {
-  50% {
-    transform: scale(1.08);
-  }
+.cash-amount {
+  min-width: 2.7em;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
 }
 
 /* Floating joystick */

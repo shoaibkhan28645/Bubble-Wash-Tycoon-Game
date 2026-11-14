@@ -24,7 +24,7 @@ import type { Point } from '../core/config';
 import { box, cylinder, mergeParts, sphere, toyMaterial } from './models/build';
 import type { PersonAvatar } from './models/person';
 import type { Job, JobBoard } from '../systems/jobs';
-import { formatCash } from '../systems/economy';
+import { money } from '../systems/economy';
 import { formatClock } from '../systems/construction';
 import { EdgePointer } from '../ui/edgePointer';
 import type { EventChips } from '../ui/eventChips';
@@ -361,7 +361,7 @@ export class JobView {
     // The chip: what, how long, what it pays (and the streak, how many picked up, how far the work's got).
     const count = def.pattern === 'collect' ? ` ${job.carried}/${def.count ?? 1}` : def.pattern === 'work' && job.held > 0 ? ` ${Math.floor(job.progress * 100)}%` : '';
     const bonus = streak > 0 && job.multiplier > 1 ? ` 🔥×${job.multiplier}` : '';
-    const text = `${job.golden ? '🌟' : '⚡'} ${t(def.title as StringKey)}${count} · ${formatClock(Math.max(0, job.left))} · +${formatCash(job.pay)}${bonus}`;
+    const text = `${job.golden ? '🌟' : '⚡'} ${t(def.title as StringKey)}${count} · ${formatClock(Math.max(0, job.left))} · +${money(job.pay)}${bonus}`;
     const look = job.left <= HURRY ? 'job-hurry' : job.golden ? 'job-gold' : 'job';
     const key = `${text}|${look}`;
     if (key !== this.chipText) {

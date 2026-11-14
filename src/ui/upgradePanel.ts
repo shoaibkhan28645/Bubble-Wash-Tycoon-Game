@@ -110,7 +110,7 @@ export class UpgradePanel {
         const maxed = row.level >= row.max;
         buy.disabled = maxed || cash < row.cost;
         if (maxed) buy.textContent = 'MAX';
-        else buy.innerHTML = `${icon('coin', 22)}${formatCash(row.cost).replace('$', '')}`;
+        else buy.innerHTML = `${icon('cash', 24)}${formatCash(row.cost)}`;
         item.append(text, buy);
         return item;
       }),

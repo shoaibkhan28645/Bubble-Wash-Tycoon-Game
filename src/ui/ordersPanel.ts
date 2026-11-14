@@ -5,7 +5,7 @@
 import { GOODS } from '../core/config';
 import type { Order } from '../core/gameState';
 import { formatClock } from '../systems/construction';
-import { formatCash } from '../systems/economy';
+import { money } from '../systems/economy';
 import { openDialog } from './dialog';
 import { setRich } from './icons';
 import { t, type StringKey } from './strings';
@@ -73,7 +73,7 @@ function card(order: Order, view: OrdersView, onSend: (van: string) => void): HT
   count.textContent = `${order.loaded} / ${order.qty}`;
   const reward = document.createElement('div');
   reward.className = 'contract-reward';
-  setRich(reward, `💵 ${formatCash(order.pay).replace('$', '')}${order.gems ? `  💎 ${order.gems}` : ''}`);
+  setRich(reward, `${money(order.pay)}${order.gems ? `  💎 ${order.gems}` : ''}`);
   const foot = document.createElement('div');
   foot.className = 'contract-foot';
   const buttons = document.createElement('div');

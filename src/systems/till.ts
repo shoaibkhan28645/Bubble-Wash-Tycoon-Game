@@ -5,7 +5,7 @@ import type { SoundManager } from '../audio/sound';
 import type { Floaters } from '../ui/carBubbles';
 import type { Car } from './cars';
 import type { CashSystem } from './cash';
-import { nextStars, ticketPay, tipFor, type Outcome } from './economy';
+import { money, nextStars, ticketPay, tipFor, type Outcome } from './economy';
 import type { Station } from './stations';
 import { comboMultiplier } from './tickets';
 import { unlockedSum } from './arrivals';
@@ -53,8 +53,8 @@ export class Till {
     const { pay, tip } = this.bill(car);
     const pileId = last.def.flow === 'forecourt' ? 'fuel' : this.state.unlocked.includes('register') ? 'register' : last.id;
     const at = this.pay(pileId, pay + tip, last.at);
-    this.floaters.show(`+$${pay}`, new Vector3(at.x, 1.2, at.z), car.vip ? 'tip' : 'cash');
-    if (tip > 0) this.floaters.show(`+$${tip} tip`, new Vector3(at.x + 0.6, 1.9, at.z), 'tip');
+    this.floaters.show(`+${money(pay)}`, new Vector3(at.x, 1.2, at.z), car.vip ? 'tip' : 'cash');
+    if (tip > 0) this.floaters.show(`+${money(tip)} tip`, new Vector3(at.x + 0.6, 1.9, at.z), 'tip');
     if (car.served.length > 1) this.floaters.show(`COMBO ×${comboMultiplier(car.served.length)}`, new Vector3(at.x - 0.4, 2.6, at.z), 'combo');
     this.rate(tip > 0 ? 'happy' : 'okay');
     this.sound.play('ching');
@@ -66,14 +66,14 @@ export class Till {
     if (car.served.length === 0) return;
     const pay = this.bill(car).pay;
     const at = this.pay('fuel', pay, car.position);
-    this.floaters.show(`+$${pay}`, new Vector3(at.x, 1.2, at.z), 'cash');
+    this.floaters.show(`+${money(pay)}`, new Vector3(at.x, 1.2, at.z), 'cash');
     this.onPaid({ amount: pay, tip: 0, automated: !car.manual, at, car, bonus: car.vip || car.special });
   }
 
   /** A waiting driver buys a snack from the vending machine. */
   sellSnack(at: Point): void {
     this.cash.add('vending', TUNING.vending.pay);
-    this.floaters.show(`+$${TUNING.vending.pay} 🥤`, new Vector3(at.x, 2.2, at.z), 'tip');
+    this.floaters.show(`+${money(TUNING.vending.pay)} 🥤`, new Vector3(at.x, 2.2, at.z), 'tip');
     this.onPaid({ amount: TUNING.vending.pay, tip: 0, automated: true, at, snack: true });
   }
 

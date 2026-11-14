@@ -79,7 +79,7 @@ export function openDialog(root: HTMLElement, options: DialogOptions): { close: 
     if (options.body) {
       const note = document.createElement('p');
       note.className = 'menu-note';
-      note.textContent = options.body;
+      setRich(note, options.body);
       sheet.appendChild(note);
     }
     sheet.appendChild(options.content!);
@@ -96,7 +96,7 @@ export function openDialog(root: HTMLElement, options: DialogOptions): { close: 
     if (options.body) {
       const body = document.createElement('p');
       body.className = 'end-body';
-      body.textContent = options.body;
+      setRich(body, options.body);
       card.appendChild(body);
     }
     card.appendChild(row);

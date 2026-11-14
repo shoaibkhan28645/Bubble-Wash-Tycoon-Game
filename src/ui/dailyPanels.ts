@@ -2,7 +2,7 @@
 import { DAILY } from '../core/config';
 import type { GameState } from '../core/gameState';
 import { calendarReady, missionReady, type MissionKind } from '../systems/daily';
-import { formatCash } from '../systems/economy';
+import { formatCash, money } from '../systems/economy';
 import { openDialog } from './dialog';
 import { icon, setRich } from './icons';
 import { t, type StringKey } from './strings';
@@ -37,7 +37,7 @@ export function showCalendar(root: HTMLElement, state: GameState, today: string,
 
 /** "Wash 30 cars", "Earn $5.2K"… */
 export function missionText(id: string, goal: number): string {
-  return t(`m_${id as MissionKind}` as StringKey, { n: goal, cash: formatCash(goal) });
+  return t(`m_${id as MissionKind}` as StringKey, { n: goal, cash: money(goal) });
 }
 
 /** Today's three missions with progress bars; finished ones can be claimed right here. */
@@ -52,7 +52,7 @@ export function showMissions(root: HTMLElement, state: GameState, onClaim: (inde
     row.className = 'mission-row';
     const text = document.createElement('div');
     text.className = 'mission-text';
-    text.textContent = missionText(id, goal);
+    setRich(text, missionText(id, goal));
     const bar = document.createElement('div');
     bar.className = 'mission-bar';
     const fill = document.createElement('div');

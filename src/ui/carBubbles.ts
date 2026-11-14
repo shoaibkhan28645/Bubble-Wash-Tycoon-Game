@@ -2,6 +2,7 @@ import { Vector3 } from 'three';
 import { TUNING } from '../core/config';
 import type { Car } from '../systems/cars';
 import { needIcon, type Need } from '../systems/tickets';
+import { setRich } from './icons';
 import type { Label, WorldLabels } from './worldLabels';
 
 const BUBBLE_HEIGHT = 2.6;
@@ -127,7 +128,7 @@ export class Floaters {
   show(text: string, at: Vector3, kind: 'cash' | 'tip' | 'star' | 'combo' = 'cash'): void {
     const el = document.createElement('div');
     el.className = `floater floater-${kind}`;
-    el.textContent = text;
+    setRich(el, text);
     const pos = at.clone();
     this.items.push({ label: this.labels.add(el, pos), at: pos, age: 0 });
   }

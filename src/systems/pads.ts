@@ -13,7 +13,7 @@ import { icon } from '../ui/icons';
 import { t } from '../ui/strings';
 
 /** A price as it reads beside a coin: "450", "2.4K" (the coin says it's money). */
-const coins = (amount: number): string => formatCash(Math.ceil(amount)).replace('$', '');
+const coins = (amount: number): string => formatCash(Math.ceil(amount));
 
 /**
  * The card under a pad: what it builds, what's left to pay beside a coin (or a padlock, for one that
@@ -27,7 +27,7 @@ function padCard(name: string, cost: number, kind: 'open' | 'locked', hint: stri
   title.textContent = name;
   const price = document.createElement('span');
   price.className = 'pad-price';
-  price.innerHTML = icon(kind === 'locked' ? 'lock' : 'coin', 22);
+  price.innerHTML = icon(kind === 'locked' ? 'lock' : 'cash', 24);
   const amount = document.createElement('span');
   amount.className = 'pad-amount';
   amount.textContent = coins(cost);
