@@ -85,6 +85,8 @@ const REVEAL_SECONDS = 0.6;
 const UPGRADES_AFTER = 'cart';
 /** The newcomer's pointing hand helps until the ticket booth has a seller. */
 const GUIDE_UNTIL = 'seller';
+/** Someone's kept waiting at a window this long (seconds) before the hand points there. */
+const WAIT_SECONDS = 6;
 /** After the road to the next town is built, the hero sets off this long after (the pad's pop first). */
 const TRAVEL_DELAY_MS = 1500;
 /** Standing this close to a ride's lever spot is standing on it. */
@@ -435,7 +437,10 @@ export function createParkGame(
     sound.play('ching');
     onPaid({ amount: pay + tip, tip, automated: !visitor.manual, at });
   };
-  const onGaveUp = (visitor: ParkVisitor): void => {
+  /** Who's given up where (the play-test bot looks): a window's line, a ride's, or 'idle' (every line they wanted full). */
+  const gaveUp: Record<string, number> = {};
+  const onGaveUp = (visitor: ParkVisitor, where: string): void => {
+    gaveUp[where] = (gaveUp[where] ?? 0) + 1;
     state.stars = nextStars(state.stars, 'angry', TUNING.stars);
     floaters.show(visitor.vip ? '💔' : '😠', new Vector3(visitor.at.x, 2.2, visitor.at.z), 'star');
     if (visitor.vip) toast(root, `💔 ${t('vipGaveUp')}`);
@@ -903,6 +908,7 @@ export function createParkGame(
     const speed = levelFactor(UPGRADES.kinds.speed, level(`${counter.id}.speed`));
     return { rate: Math.max(byStaff, byPlayer) / speed, byPlayer: byPlayer > 0 && byPlayer >= byStaff };
   };
+  crowd.served = (counter) => work(counter).rate > 0;
   const lever = (ride: Ride) => {
     const hero = near(player.position, ride.spot.lever, LEVER_REACH);
     return {
@@ -941,23 +947,49 @@ export function createParkGame(
     const empty = list.some((s) => supplies.stock(s.id) === 0);
     return empty && supplies.wanted(list, heroCarry.stack) ? { at: middleOf(layout.shed.door), text: 'guideShed' } : null;
   };
+  /** How long someone's been kept waiting at each window with nobody behind it. */
+  const kept = new Map<WalkUpCounter, number>();
+  /** The window where someone's been kept waiting longest (a while at least) with no worker behind it, if any. */
+  const keptWaiting = (dt: number): WalkUpCounter | null => {
+    let worst: WalkUpCounter | null = null;
+    for (const c of crowd.counters) {
+      if (!c.front || staff.rateFor(c) > 0) {
+        kept.delete(c);
+        continue;
+      }
+      const t = (kept.get(c) ?? 0) + dt;
+      kept.set(c, t);
+      if (t >= WAIT_SECONDS && (!worst || t > kept.get(worst)!)) worst = c;
+    }
+    return worst;
+  };
+  const counterText = (c: WalkUpCounter): GuideStep['text'] => (c === crowd.booth ? 'guideTickets' : c.id === 'cart' ? 'guideCart' : 'guideServe');
   /** Where the guide's hand points this frame (the play-test bot follows it). */
   let hint: GuideStep | null = null;
-  const guide = (): GuideStep | null => {
+  const guide = (dt: number): GuideStep | null => {
     const help = helpStep();
     if (help) return help;
-    if (state.unlocked.includes(GUIDE_UNTIL)) return null;
+    const next = pads.next;
+    const build: GuideStep | null = next && state.cash >= next.owed ? { at: next.at, text: 'guideBuild' } : null;
+    const waitingLong = keptWaiting(dt);
+    if (state.unlocked.includes(GUIDE_UNTIL)) {
+      // Past the newcomer's steps: a pad to buy is shown by the arrow alone; otherwise the hand points at a window
+      // where someone's been kept waiting with nobody behind it (a new stall works only with the hero there until
+      // its worker's hired, and the ticket seller serves the candy floss cart only when the booth is quiet).
+      return build ? null : waitingLong ? { at: middleOf(waitingLong.zone), text: counterText(waitingLong) } : null;
+    }
     const booth = crowd.booth;
     const carousel = crowd.rides[0];
     if (booth?.front && !state.flags.includes(soldFlag)) return { at: middleOf(booth.zone), text: 'guideTickets' };
     if (carousel && carousel.phase === 'loading' && carousel.seated > 0 && !state.flags.includes(launchedFlag)) return { at: carousel.spot.lever, text: 'guideLever' };
     const pile = cash.fullestPile();
     if (pile) return { at: pile.at, text: 'guideCash' };
+    // A pad that can be bought: buying it takes a moment, so it comes before serving (or in a busy park, the hand
+    // would keep the hero at the booth however much cash there was).
+    if (build) return build;
     // Someone waiting at a window with nobody behind it.
     const waiting = crowd.counters.find((c) => c.front && staff.rateFor(c) === 0 && !insideRect(player.position, c.zone));
-    if (waiting) return { at: middleOf(waiting.zone), text: waiting === booth ? 'guideTickets' : 'guideCart' };
-    const next = pads.next;
-    return next && state.cash >= next.owed ? { at: next.at, text: 'guideBuild' } : null;
+    return waiting ? { at: middleOf(waiting.zone), text: waiting === booth ? 'guideTickets' : 'guideCart' } : null;
   };
   const meta = createMeta({
     root,
@@ -1444,7 +1476,7 @@ export function createParkGame(
     carriedItems.update();
     stage.render();
     labels.update(stage.camera, stage.size.width, stage.size.height);
-    const step = guide();
+    const step = guide(dt);
     hint = step;
     hand.point(step);
     const next = pads.next;
@@ -1489,6 +1521,8 @@ export function createParkGame(
       pads,
       upgrades,
       cash,
+      crowd,
+      gaveUp,
     },
     welcomeBack: (earned) => meta.welcomeBack(earned),
     get frameMs() {

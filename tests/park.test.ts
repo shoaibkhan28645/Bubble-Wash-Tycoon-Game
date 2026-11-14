@@ -236,6 +236,31 @@ describe('the park', () => {
     expect(left.length).toBeGreaterThan(0);
   });
 
+  it("lets a wish go at a stall nobody's serving yet, without minding (a new stall before its worker; it costs sales, not the rating)", () => {
+    const { crowd, gaveUp } = park();
+    crowd.addCounter('cart', 'cart', null);
+    const cart = crowd.counters.find((c) => c.id === 'cart')!;
+    crowd.served = (counter) => counter !== cart;
+    const left: ParkVisitor[] = [];
+    for (let t = 0; t < 400; t += STEP) {
+      const before = [...cart.line] as ParkVisitor[];
+      const cross = gaveUp.length;
+      crowd.update(STEP, (c) => ({ rate: c === crowd.booth ? 1 : 0, byPlayer: false }), () => ({ hero: false, staff: true }));
+      const gone = before.filter((v) => !cart.line.includes(v));
+      left.push(...gone);
+      for (const v of gone) {
+        expect(gaveUp.slice(cross)).not.toContain(v);
+        expect(v.wishes).not.toContain('cart');
+      }
+    }
+    expect(left.length).toBeGreaterThan(0);
+    // The ticket booth is different: nobody selling tickets still makes people cross.
+    const { crowd: other, gaveUp: crossAtBooth } = park();
+    other.served = () => false;
+    run(other, TUNING.park.visitors.patience + 40, 0, { hero: false, staff: false });
+    expect(crossAtBooth.length).toBeGreaterThan(0);
+  });
+
   it('serves the candy floss cart to visitors who want it', () => {
     const { crowd, served } = park();
     crowd.addCounter('cart', 'cart', null);

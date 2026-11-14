@@ -82,6 +82,9 @@ const WAITING_TEXT: Record<string, StringKey> = { bay: 'guideWash', pump: 'guide
  * tutorial's over, untaught.
  */
 export function helpTarget(state: GameState, view: GuideView): GuideStep | null {
+  // A pad that can be bought: the arrow shows it (buying takes a moment; else in a busy lot the hand would keep
+  // the hero serving however much cash there was).
+  if (view.pad && state.cash >= view.pad.owed) return null;
   if (view.waiting) return { at: view.waiting.at, text: WAITING_TEXT[view.waiting.kind] ?? 'guideWork' };
   if (!state.unlocked.includes('runner') && view.lowStation) {
     if (view.carrying) return { at: view.lowStation, text: view.lowOnSoap ? 'guideSoapBay' : 'guideSupplyDrop' };

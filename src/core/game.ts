@@ -54,6 +54,9 @@ export interface BotView {
   readonly pads: PadSystem;
   readonly upgrades: UpgradePads;
   readonly cash: CashSystem;
+  /** The park's visitors, rides and windows, and who's giving up where (the park only). */
+  readonly crowd?: unknown;
+  readonly gaveUp?: Record<string, number>;
 }
 
 /** A later kind of town's code, fetched once (the second time it's already here). */

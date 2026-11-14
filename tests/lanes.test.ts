@@ -284,6 +284,10 @@ describe('tutorial hand', () => {
     expect(helpTarget(state, { ...view, waiting: { at: at(8), kind: 'counter' } })).toEqual({ at: at(8), text: 'guideTill' });
     expect(helpTarget(state, { ...view, waiting: { at: at(8), kind: 'pump' } })).toEqual({ at: at(8), text: 'guideFuel' });
     expect(helpTarget(state, { ...view, waiting: { at: at(8), kind: 'dryer' } })).toEqual({ at: at(8), text: 'guideWork' });
+    // A pad that can be bought: no hand (the arrow shows the pad), even with someone waiting.
+    state.cash = 50;
+    expect(helpTarget(state, { ...view, waiting: { at: at(8), kind: 'counter' } })).toBeNull();
+    state.cash = 0;
     // Once there's a runner, the supplies are theirs.
     state.unlocked.push('runner');
     expect(helpTarget(state, view)).toBeNull();

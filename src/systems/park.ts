@@ -455,7 +455,7 @@ export interface ParkEvents {
   /** A ticket sold at the booth, or a stall served someone. */
   onServed(visitor: ParkVisitor, counter: WalkUpCounter): void;
   /** Someone gave up waiting in a line and went home. */
-  onGaveUp(visitor: ParkVisitor): void;
+  onGaveUp(visitor: ParkVisitor, where: string): void;
   /** A ride went round. */
   onLaunch(ride: Ride, launch: Launch): void;
   /** Someone finished every wish on their list and is going home happy. */
@@ -494,6 +494,11 @@ export class ParkCrowd {
   open = false;
   /** Whether a stall has anything to sell: while it hasn't, its line waits (losing patience at half the rate). */
   stocked: (counter: WalkUpCounter) => boolean = () => true;
+  /**
+   * Whether anyone's serving at a window now (its worker, or the hero there). A stall built before its
+   * worker's hired works only while the hero's there; left alone, it costs its sales, not the rating.
+   */
+  served: (counter: WalkUpCounter) => boolean = () => true;
   /** Whether a worn-out ride may break down now (the game keeps it to one at a time, and not too early). */
   canBreak: (ride: Ride) => boolean = () => true;
   /** A storm: outdoor rides close (their lines wait without minding); indoor rides and stalls carry on. */
@@ -1049,13 +1054,16 @@ export class ParkCrowd {
   }
 
   /**
-   * Out of patience: steps out of the line and goes home, unhappy. At a stall that has sold out
-   * nobody's cross (running out costs sales, not the rating): they let that wish go and try something
-   * else. And someone who never got as far as the ticket line (it was full) just walks on.
+   * Out of patience: steps out of the line and goes home, unhappy. At a stall that has sold out, or
+   * that nobody's serving (a new stall before its worker's hired, with the hero elsewhere), nobody's
+   * cross (it costs sales, not the rating): they let that wish go and try something else. And someone
+   * who never got into a line at all (every one they wanted was full) just walks on.
    */
   private giveUp(visitor: ParkVisitor): void {
     const counter = visitor.counter;
-    if (counter?.outOfStock && visitor.ticket) {
+    // Where: a window's line, a ride's, or hanging about with every line they want full.
+    const where = counter ? counter.id : visitor.ride ? `ride:${visitor.ride.id}` : 'idle';
+    if (counter && visitor.ticket && (counter.outOfStock || (counter !== this.booth && !this.served(counter)))) {
       this.leaveCounterLine(visitor);
       visitor.wishes = visitor.wishes.filter((w) => w !== counter.id);
       visitor.patience = visitor.patienceMax;
@@ -1063,7 +1071,8 @@ export class ParkCrowd {
       this.next(visitor);
       return;
     }
-    const quiet = !visitor.ticket && visitor.step === 'idle';
+    // Never got into a line at all (every line they wanted was full): they shrug and walk on, not cross.
+    const quiet = visitor.step === 'idle';
     if (counter) {
       this.leaveCounterLine(visitor);
       const { aside } = counter.spot;
@@ -1076,7 +1085,7 @@ export class ParkCrowd {
     }
     visitor.state = quiet ? 'leaving' : 'angry';
     this.leaveGroup(visitor);
-    if (!quiet) this.events.onGaveUp(visitor);
+    if (!quiet) this.events.onGaveUp(visitor, where);
     if (!visitor.ticket) {
       // Never got in: back along the pavement.
       visitor.step = 'leaving';
