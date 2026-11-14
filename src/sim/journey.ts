@@ -23,7 +23,7 @@
 // takes, how much money arrives with you, how much of it the land takes,
 // and how the map's own income compares with what the old towns pay in.
 // Contracts, ads and tips for perfect launches are left out.
-import { JOBS, TUNING, UPGRADES, type PadDef } from '../core/config';
+import { CONTRACTS, JOBS, TUNING, UPGRADES, type PadDef } from '../core/config';
 import type { ParkTown, TownDef } from '../core/towns';
 import { upgradeCost, upgradeScale } from '../systems/economy';
 import { basePay, secondsToNext, streakMultiplier } from '../systems/jobs';
@@ -43,6 +43,10 @@ export interface JourneyMap {
   tutorial: string;
   /** Upgrades bought during the tutorial too (not on the first map: a player new to the game follows it pad to pad). */
   upgradesInTutorial: boolean;
+  /** The share of what's earned in the town that goes on upgrades, at most (the playthrough bot's: more where the helpers leave the hero free). */
+  upgradeSpend: number;
+  /** The pad that puts up the contracts board, if the town has one. */
+  contracts?: string;
 }
 
 export interface JourneyOptions {
@@ -56,6 +60,15 @@ export const ACTIVE: JourneyOptions = { upgrades: true, jobs: true };
 
 /** Seconds a rush job takes the hero, on average (the playthrough bot's: jobs every minute or so with 35 s between). */
 export const JOB_SECONDS = 30;
+/** Once the contracts board is up, one's finished and claimed every so often (the playthrough bot's: seven in 21 minutes). */
+export const CONTRACT_SECONDS = 180;
+
+/** What a contract pays on average with what's built: any of those the lot can take, the gem ones paying no cash. */
+export function contractPay(unlocked: ReadonlySet<string>): number {
+  const kinds = CONTRACTS.kinds.filter((def) => !def.requires || unlocked.has(def.requires));
+  const built = Math.max(0, unlocked.size - 1);
+  return kinds.reduce((sum, def) => sum + (def.cash ? def.goal * def.cash * CONTRACTS.cashGrowth ** built : 0), 0) / Math.max(1, kinds.length);
+}
 
 /** How one map went. */
 export interface JourneyLeg {
@@ -81,9 +94,10 @@ export interface JourneyLeg {
   /** Spent on upgrades, and the levels bought. */
   upgradeSpend: number;
   upgradeLevels: number;
-  /** Rush jobs done, and what they paid. */
+  /** Rush jobs done, and what they paid; what contracts paid. */
   jobs: number;
   jobPay: number;
+  contractPay: number;
   /** Minute each pad was bought. */
   boughtAt: Record<string, number>;
   /** The upgrade levels at the end. */
@@ -93,8 +107,6 @@ export interface JourneyLeg {
 const AWAY_AFTER_SECONDS = 30 * 60;
 /** The bot buys an upgrade once it costs no more than this share of the next pad. */
 export const UPGRADE_SHARE = 0.25;
-/** …and keeps what it spends on them to this share of what it's earned in the town (the playthrough bot's: it saves for the next pad first). */
-export const UPGRADE_SPEND = 0.2;
 /** The staff room's upgrade pad comes with the register, every other pad with its own station. */
 const PAD_AFTER: Record<string, string> = { staffRoom: 'register' };
 
@@ -147,6 +159,8 @@ export function playLeg(map: JourneyMap, startCash: number, background: number, 
   let jobPaid = 0;
   let since = 0;
   let job: { left: number; pay: number } | null = null;
+  let contractIn = 0;
+  let contractPaid = 0;
   /** The cheapest upgrade on offer now, if it's within the bot's budget for the next pad. */
   let earned = 0;
   const buyUpgrades = () => {
@@ -164,7 +178,7 @@ export function playLeg(map: JourneyMap, startCash: number, background: number, 
       const cost = upgradePrice(key, level, map.town.id);
       if (cost < price) [best, price] = [key, cost];
     }
-    if (!best || price > limit || price > cash || upgradeSpend + price > UPGRADE_SPEND * earned) return;
+    if (!best || price > limit || price > cash || upgradeSpend + price > map.upgradeSpend * earned) return;
     cash -= price;
     levels[best] = (levels[best] ?? 0) + 1;
     upgradeSpend += price;
@@ -208,6 +222,13 @@ export function playLeg(map: JourneyMap, startCash: number, background: number, 
     if (after?.afterGoals && goals.every((g) => unlocked.has(g) || finishing.has(g)) && cashAtLand === 0) cashAtLand = cash;
     cash += earn + background;
     earned += earn + background;
+    if (map.contracts && unlocked.has(map.contracts) && ++contractIn >= CONTRACT_SECONDS) {
+      contractIn = 0;
+      const pay = contractPay(unlocked);
+      cash += pay;
+      earned += pay;
+      contractPaid += pay;
+    }
     if (options.jobs && unlocked.has(map.tutorial)) {
       const ctx = { incomePerMinute: (earn + background) * 60, next: after ? { cost: after.cost, owed: Math.max(0, after.cost - cash) } : null };
       if (job) {
@@ -247,6 +268,7 @@ export function playLeg(map: JourneyMap, startCash: number, background: number, 
     upgradeLevels,
     jobs,
     jobPay: Math.round(jobPaid),
+    contractPay: Math.round(contractPaid),
     boughtAt,
     levels,
   };
@@ -268,6 +290,25 @@ export function playJourney(maps: JourneyMap[], options: JourneyOptions = ACTIVE
 }
 
 /** The three maps as the game has them: the car wash town, Willowbrook, Starlight Fun Park. */
+/**
+ * What each town stores as its steady rate (its staff's takings, measured while the hero plays: what it pays in the
+ * background once he's moved on), for every dollar its model gives the same buildings and upgrades. Measured with the
+ * playthrough bot on leaving each town: the car wash $1.2K a minute against the model's $2K (no tips counted, and
+ * the hero had a share of the customers), the farm $38K against $54K.
+ */
+export const STORED_RATE = { roadside: 0.6, willowbrook: 0.71, starlight: 1 };
+
+/**
+ * How a keen player plays each map, measured with the playthrough bot: the share of what's earned that goes on
+ * upgrades (more where the helpers leave the hero free to shop), and what the map takes for every dollar its model
+ * gives (the rating held at five stars, every order filled).
+ */
+export const KEEN = {
+  roadside: { upgradeSpend: 0.2, income: 1 },
+  willowbrook: { upgradeSpend: 0.5, income: 1 },
+  starlight: { upgradeSpend: 0.4, income: 1 },
+};
+
 export function gameJourney(roadside: TownDef, willowbrook: TownDef, starlight: ParkTown): JourneyMap[] {
   // The park's crowd is played for a few minutes per stage: worked out once per stage (pads are bought in order).
   const stages = new Map<number, ParkStage>();
@@ -275,7 +316,7 @@ export function gameJourney(roadside: TownDef, willowbrook: TownDef, starlight: 
     if (!stages.has(u.size)) stages.set(u.size, parkStage(starlight, u, PARK_PACING));
     return stages.get(u.size)!;
   };
-  const wash = (u: ReadonlySet<string>, t: number, levels: Levels) => incomePerSecond(roadside.pads, u, DEFAULT_PACING, t, levels);
+  const wash = (u: ReadonlySet<string>, t: number, levels: Levels) => incomePerSecond(roadside.pads, u, DEFAULT_PACING, t, levels) * KEEN.roadside.income;
   const farm = (u: ReadonlySet<string>, levels: Levels) => farmIncomePerSecond(willowbrook.pads, u, FARM_PACING, levels);
   return [
     // The golden VIPs and the hero's own work are left out of what the car wash pays in the background.
@@ -283,18 +324,21 @@ export function gameJourney(roadside: TownDef, willowbrook: TownDef, starlight: 
       name: roadside.id,
       town: roadside,
       income: wash,
-      steady: (u, levels) => incomePerSecond(roadside.pads, u, { ...DEFAULT_PACING, playerEffort: 0 }, 0, levels),
+      steady: (u, levels) => incomePerSecond(roadside.pads, u, { ...DEFAULT_PACING, playerEffort: 0 }, 0, levels) * STORED_RATE.roadside,
       tutorial: 'washer',
       upgradesInTutorial: false,
+      upgradeSpend: KEEN.roadside.upgradeSpend,
+      contracts: 'board',
     },
-    { name: willowbrook.id, town: willowbrook, income: (u, _t, levels) => farm(u, levels), steady: farm, tutorial: 'standhand', upgradesInTutorial: true },
+    { name: willowbrook.id, town: willowbrook, income: (u, _t, levels) => farm(u, levels) * KEEN.willowbrook.income, steady: (u, levels) => farm(u, levels) * STORED_RATE.willowbrook, tutorial: 'standhand', upgradesInTutorial: true, upgradeSpend: KEEN.willowbrook.upgradeSpend },
     {
       name: starlight.id,
       town: starlight,
-      income: (u, _t, levels) => parkIncome(stage(u), levels),
-      steady: (u, levels) => parkIncome(stage(u), levels),
+      income: (u, _t, levels) => parkIncome(stage(u), levels) * KEEN.starlight.income,
+      steady: (u, levels) => parkIncome(stage(u), levels) * STORED_RATE.starlight,
       tutorial: 'seller',
       upgradesInTutorial: true,
+      upgradeSpend: KEEN.starlight.upgradeSpend,
     },
   ];
 }

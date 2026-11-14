@@ -41,9 +41,9 @@ export interface FarmPacingOptions {
   efficiency: number;
   /**
    * How much of the production upgrades (growth, the helpers' speed and carrying, more animals, the oven, the vans)
-   * the farm really turns into sales, as a power of what this model makes of them. Fully upgraded, the finished
-   * farm takes about twice as much in the game (most of it from quality); this model at full strength gives over
-   * three times as much, selling every extra crate somewhere, where the game's villagers and orders don't take them all.
+   * the farm turns into sales, as a power of what this model makes of them: all of it, for a keen player (the
+   * playthrough bot's farm, fully upgraded, took what this model gives, the orders and the market taking what the
+   * stand doesn't).
    */
   production: number;
 }
@@ -57,7 +57,7 @@ export const FARM_PACING: FarmPacingOptions = {
   step: 1,
   maxMinutes: 240,
   efficiency: 0.75,
-  production: 0.2,
+  production: 1,
 };
 
 /** Goods a minute each helper moves (round trips with a full back, less breaks), measured in play. */
