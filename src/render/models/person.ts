@@ -4,6 +4,7 @@ import { AnimationMixer, LoopOnce, Mesh, Group, SkinnedMesh, Vector3, type Anima
 import { clone as cloneSkinned } from 'three/addons/utils/SkeletonUtils.js';
 import { CHARACTERS } from '../../core/config';
 import { asset } from '../assets';
+import { brandModel } from '../brand';
 import { onScreen } from '../onScreen';
 import { blobShadow } from './actors';
 import { box, cylinder, mergeParts, rbox, sphere, toyMaterial, type Part } from './build';
@@ -162,6 +163,12 @@ export class PersonAvatar {
     for (const [pose, name] of Object.entries(clips) as [Pose, string][]) {
       const clip = animations.find((a) => a.name === name);
       if (clip) this.actions.set(pose, this.mixer.clipAction(clip));
+    }
+    // The staff's polos are in the business's brand colour (the boutique), on the model they all share.
+    if (character.endsWith('-staff')) {
+      this.root.userData.staff = true;
+      const body = this.body;
+      if (body) brandModel(body.geometry, 'staff');
     }
     // A tool in the right hand, shown while working.
     this.hand = model.getObjectByName('arm-right') ?? null;

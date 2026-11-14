@@ -4,7 +4,7 @@ import { UPGRADES } from './config';
 import { upgradeCost } from '../systems/economy';
 
 /** Bump when the save shape changes, and add a migration for the old version. */
-export const SAVE_VERSION = 14;
+export const SAVE_VERSION = 15;
 
 /**
  * Upgrades taken out in v11, with what their first level cost then: the
@@ -139,6 +139,8 @@ export const MIGRATIONS: Readonly<Record<number, Migration>> = {
   },
   // v14: the boutique: the hero's wardrobe, nothing bought yet.
   13: (save) => ({ ...save, wardrobe: { owned: [], equipped: {} } }),
+  // v15: the boutique's brand colours and decorations: decorations put away (none yet).
+  14: (save) => ({ ...save, wardrobe: { ...(isObject(save.wardrobe) ? save.wardrobe : {}), hidden: [] } }),
 };
 
 /** The cow barn's "more cows" levels (v13): one cow, then two more. */
@@ -277,12 +279,12 @@ function townState(save: SaveObject): TownState {
 
 /** Bought items and what's worn: ids kept as text (one no longer sold is ignored when worn, not dropped). */
 function wardrobeState(value: unknown): WardrobeState {
-  if (!isObject(value)) return { owned: [], equipped: {} };
+  if (!isObject(value)) return { owned: [], equipped: {}, hidden: [] };
   const equipped: Record<string, string> = {};
   if (isObject(value.equipped)) {
     for (const [slot, id] of Object.entries(value.equipped)) if (typeof id === 'string' && id) equipped[slot] = id;
   }
-  return { owned: stringList(value.owned), equipped };
+  return { owned: stringList(value.owned), equipped, hidden: stringList(value.hidden) };
 }
 
 function goalsState(value: unknown): GoalsState {

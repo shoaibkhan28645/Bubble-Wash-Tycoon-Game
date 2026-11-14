@@ -77,6 +77,7 @@ import { Hud } from '../ui/hud';
 import { t } from '../ui/strings';
 import { UpgradePanel } from '../ui/upgradePanel';
 import { WorldLabels, type Label } from '../ui/worldLabels';
+import { TownDecor } from '../render/townDecor';
 
 const PARK = TUNING.park;
 /** A new building grows into place over this long. */
@@ -280,6 +281,8 @@ export function createParkGame(
   const hud = new Hud(root, state.cash);
   const input = new Input(root, lifecycle);
   const effects = new Particles(stage.scene);
+  // The boutique's decorations bought for this town.
+  const decor = new TownDecor(stage.scene, effects);
   blobShadows.attach(stage.scene);
   carriedItems.attach(stage.scene);
   warmRigidSkin(stage.scene, skinnedToyMaterial);
@@ -979,7 +982,7 @@ export function createParkGame(
     supplies: null,
     setBoost: (m) => (crowd.boost = m),
     town: 'park',
-    hero: { player, hud, stage, effects },
+    hero: { player, hud, stage, effects, decor },
     // The rewarded fix: every broken-down ride runs again at once.
     rides: {
       broken: () => crowd.rides.filter((r) => r.broken).length,
@@ -1169,7 +1172,7 @@ export function createParkGame(
     clock.advance(dt);
     state.playSeconds += dt;
     const move = input.read();
-    player.update(dt, move, [...solids, ...fixed], view.walkable);
+    player.update(dt, move, [...solids, ...fixed, ...decor.solids()], view.walkable);
     pads.update(dt, player.position);
     upgrades.update(dt, player.position);
     staff.update(dt, crowd.counters, null, solids, (counter) => insideRect(player.position, counter.zone), null, []);
@@ -1444,6 +1447,7 @@ export function createParkGame(
     }
     if (growing.length > 0) stage.refreshShadows();
     effects.update(dt);
+    decor.update(dt);
     saves.update(dt);
     meta.update(dt);
     storyline.update(dt);

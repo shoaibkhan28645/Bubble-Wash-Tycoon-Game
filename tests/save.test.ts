@@ -75,7 +75,7 @@ describe('parseSave', () => {
       goals: { done: [], claimed: [] },
       counts: {},
       franchiseStars: 0,
-      wardrobe: { owned: [], equipped: {} },
+      wardrobe: { owned: [], equipped: {}, hidden: [] },
       savedAt: 0,
     });
   });
@@ -304,17 +304,26 @@ describe('old saves', () => {
   });
 
   it('v14: an older save gets an empty wardrobe; a v14 one keeps what was bought and worn', () => {
-    expect(parseSave(fixtures['./fixtures/save-v13.json']!).state.wardrobe).toEqual({ owned: [], equipped: {} });
+    expect(parseSave(fixtures['./fixtures/save-v13.json']!).state.wardrobe).toEqual({ owned: [], equipped: {}, hidden: [] });
     expect(parseSave(fixtures['./fixtures/save-v14.json']!).state.wardrobe).toEqual({
       owned: ['charcoal', 'cap', 'bubbles'],
       equipped: { outfit: 'charcoal', hat: 'cap', trail: 'bubbles' },
+      hidden: [],
+    });
+  });
+
+  it('v15: keeps the brand colour and the decorations put away', () => {
+    expect(parseSave(fixtures['./fixtures/save-v15.json']!).state.wardrobe).toEqual({
+      owned: ['charcoal', 'cap', 'bubbles', 'sunset', 'scarecrow', 'bunting'],
+      equipped: { outfit: 'charcoal', hat: 'cap', trail: 'bubbles', brand: 'sunset' },
+      hidden: ['bunting'],
     });
   });
 
   it('repairs a broken wardrobe', () => {
     const load = (wardrobe: unknown) => parseSave(JSON.stringify({ version: SAVE_VERSION, wardrobe })).state.wardrobe;
-    expect(load('lots')).toEqual({ owned: [], equipped: {} });
-    expect(load({ owned: ['cap', 3, 'cap'], equipped: { hat: 'cap', trail: 7, outfit: '' } })).toEqual({ owned: ['cap'], equipped: { hat: 'cap' } });
+    expect(load('lots')).toEqual({ owned: [], equipped: {}, hidden: [] });
+    expect(load({ owned: ['cap', 3, 'cap'], equipped: { hat: 'cap', trail: 7, outfit: '' }, hidden: 'x' })).toEqual({ owned: ['cap'], equipped: { hat: 'cap' }, hidden: [] });
   });
 
   it('clamps stars to 1–5', () => {

@@ -73,6 +73,7 @@ import { t } from '../ui/strings';
 import { UpgradePanel } from '../ui/upgradePanel';
 import { showOrders } from '../ui/ordersPanel';
 import { WorldLabels } from '../ui/worldLabels';
+import { TownDecor } from '../render/townDecor';
 
 /** Helpers take goods to the nearer counter: this many metres of extra walk count as one more crate there. */
 const OUTLET_WALK = 6;
@@ -152,6 +153,8 @@ export function createFarmGame(
   const hud = new Hud(root, state.cash);
   const input = new Input(root, lifecycle);
   const effects = new Particles(stage.scene);
+  // The boutique's decorations bought for this town.
+  const decor = new TownDecor(stage.scene, effects);
   blobShadows.attach(stage.scene);
   carriedItems.attach(stage.scene);
   warmRigidSkin(stage.scene, skinnedToyMaterial);
@@ -942,7 +945,7 @@ export function createFarmGame(
     const next = pads.next;
     return next && state.cash >= next.owed ? { at: next.at, text: 'guideBuild' } : null;
   };
-  const meta = createMeta({ root, state, saves, sound, traffic: null, pads, supplies: null, setBoost: (m) => (walkups.boost = m), town: 'farm', hero: { player, hud, stage, effects } });
+  const meta = createMeta({ root, state, saves, sound, traffic: null, pads, supplies: null, setBoost: (m) => (walkups.boost = m), town: 'farm', hero: { player, hud, stage, effects, decor } });
   const town = createTown({
     root,
     scene: stage.scene,
@@ -1005,7 +1008,7 @@ export function createFarmGame(
     traffic.tick();
     // Nobody walks through a vehicle on its way (parked ones stand on solid spots of their own).
     const vehicles = traffic.footprints();
-    player.update(dt, move, [...solids, ...fixed, ...vehicles], view.walkable);
+    player.update(dt, move, [...solids, ...fixed, ...vehicles, ...decor.solids()], view.walkable);
     pads.update(dt, player.position);
     upgrades.update(dt, player.position);
     staff.update(dt, walkups.counters, null, solids, (counter) => insideRect(player.position, counter.zone), null, vehicles);
@@ -1071,6 +1074,7 @@ export function createFarmGame(
     tickWind(dt);
     motion.update(dt);
     effects.update(dt);
+    decor.update(dt);
     saves.update(dt);
     meta.update(dt);
     storyline.update(dt);

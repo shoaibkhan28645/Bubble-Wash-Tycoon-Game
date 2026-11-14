@@ -1,34 +1,50 @@
-import { PerspectiveCamera, type Object3D } from 'three';
+import { PerspectiveCamera, Vector3, type Object3D } from 'three';
 import type { Stage } from './stage';
 
-/** How far the close-up camera stands from the hero, how high, and the height it looks at (metres). */
+/** How far the close-up camera stands from a person, how high, and the height it looks at (metres). */
 const DISTANCE = 5.4;
 const EYE_HEIGHT = 2.1;
 const LOOK_HEIGHT = 1.2;
-/** The camera swings this far either side of the hero's front (radians), once every this many seconds. */
+/** The camera swings this far either side of its subject's front (radians), once every this many seconds. */
 const SWING = 0.75;
 const SWING_SECONDS = 9;
 
 /**
- * The boutique's close-up of the hero: a camera that stands in front of them, slowly swinging from one
- * side to the other, drawn into the shop's preview window while it's open.
+ * What the close-up looks at: a person (the hero, a staff member), framed from in front of them; or a spot
+ * (a decoration), seen from the camera's side at `distance`, from `eye` metres above it, looking at `look`.
+ */
+export type PreviewTarget = { person: Object3D } | { spot: Vector3; look: number; eye: number; distance: number };
+
+/**
+ * The boutique's close-up: a camera that stands in front of what's being shown (the hero by default),
+ * slowly swinging from one side to the other, drawn into the shop's preview window while it's open.
  */
 export class HeroPreview {
-  private readonly camera = new PerspectiveCamera(30, 0.8, 0.3, 90);
+  private readonly camera = new PerspectiveCamera(30, 0.8, 0.3, 120);
   private time = 0;
   private open = false;
+  private target: PreviewTarget;
 
   constructor(
     private readonly stage: Stage,
     private readonly hero: Object3D,
-  ) {}
+  ) {
+    this.target = { person: hero };
+  }
 
-  /** Shows the close-up in `element` (null hides it). */
+  /** Shows the close-up in `element` (null hides it, and it goes back to the hero). */
   show(element: HTMLElement | null): void {
     this.open = !!element;
     this.time = 0;
-    if (element) this.aim();
+    if (!element) this.target = { person: this.hero };
+    else this.aim();
     this.stage.setPreview(element ? { camera: this.camera, element } : null);
+  }
+
+  /** Points the close-up at something else (null: the hero). */
+  focus(target: PreviewTarget | null): void {
+    this.target = target ?? { person: this.hero };
+    if (this.open) this.aim();
   }
 
   update(dt: number): void {
@@ -38,9 +54,20 @@ export class HeroPreview {
   }
 
   private aim(): void {
-    const at = this.hero.position;
-    const angle = this.hero.rotation.y + Math.sin((this.time / SWING_SECONDS) * Math.PI * 2) * SWING;
-    this.camera.position.set(at.x + Math.sin(angle) * DISTANCE, at.y + EYE_HEIGHT, at.z + Math.cos(angle) * DISTANCE);
-    this.camera.lookAt(at.x, at.y + LOOK_HEIGHT, at.z);
+    const swing = Math.sin((this.time / SWING_SECONDS) * Math.PI * 2) * SWING;
+    const target = this.target;
+    if ('person' in target) {
+      const at = target.person.getWorldPosition(spot);
+      const angle = target.person.rotation.y + swing;
+      this.camera.position.set(at.x + Math.sin(angle) * DISTANCE, at.y + EYE_HEIGHT, at.z + Math.cos(angle) * DISTANCE);
+      this.camera.lookAt(at.x, at.y + LOOK_HEIGHT, at.z);
+      return;
+    }
+    const at = target.spot;
+    const angle = swing * 0.8;
+    this.camera.position.set(at.x + Math.sin(angle) * target.distance, at.y + target.eye, at.z + Math.cos(angle) * target.distance);
+    this.camera.lookAt(at.x, at.y + target.look, at.z);
   }
 }
+
+const spot = new Vector3();

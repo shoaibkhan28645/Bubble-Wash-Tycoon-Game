@@ -59,6 +59,7 @@ import { createStoryline } from './storyline';
 import { openEmpireMap } from '../ui/empireMap';
 import { createStreetLife } from './streetLife';
 import { LotView, SIDE_BAR_PX } from './view';
+import { TownDecor } from '../render/townDecor';
 
 
 /** Builds the car wash town (Chapter 1) and its loop, and wires pause/resume to loop, audio, input and saving. */
@@ -90,6 +91,8 @@ export function createRoadsideGame(
   const hud = new Hud(root, state.cash);
   const input = new Input(root, lifecycle);
   const effects = new Particles(stage.scene);
+  // The boutique's decorations bought for this town.
+  const decor = new TownDecor(stage.scene, effects);
   CarModel.exhaust = (at, back) => effects.puff(at, back);
   blobShadows.attach(stage.scene);
   carriedItems.attach(stage.scene);
@@ -243,7 +246,7 @@ export function createRoadsideGame(
   const pointer = new EdgePointer(root);
   const hoses = new FuelHoses(stage.scene, layout);
   const washSounds = new WashSounds(sound);
-  const meta = createMeta({ root, state, saves, sound, traffic, pads, supplies, setBoost: (m) => (traffic.boost = m), hero: { player, hud, stage, effects } });
+  const meta = createMeta({ root, state, saves, sound, traffic, pads, supplies, setBoost: (m) => (traffic.boost = m), hero: { player, hud, stage, effects, decor } });
   const town = createTown({
     root,
     scene: stage.scene,
@@ -321,7 +324,7 @@ export function createRoadsideGame(
     clock.advance(dt);
     state.playSeconds += dt;
     carRects = [...pool.active].filter((car) => car.model.mesh.visible && car.state !== 'angry').map((car) => car.footprint);
-    player.update(dt, input.read(), [...buildings.obstacles(), ...fixed, ...carRects, ...jobs.solids()], view.walkable);
+    player.update(dt, input.read(), [...buildings.obstacles(), ...fixed, ...carRects, ...jobs.solids(), ...decor.solids()], view.walkable);
     pads.update(dt, player.position);
     upgrades.update(dt, player.position);
     staff.update(dt, traffic.all(), supplies, buildings.obstacles(), (station) => insideRect(player.position, station.zone), traffic.valetCall, carRects);
@@ -351,6 +354,7 @@ export function createRoadsideGame(
     const busy = { tunnel: traffic.tunnelBusy, dryer: traffic.busy('dryer'), wax: traffic.busy('wax') };
     if (buildings.update(dt, busy)) stage.refreshShadows();
     effects.update(dt);
+    decor.update(dt);
     saves.update(dt);
     meta.update(dt);
     storyline.update(dt);

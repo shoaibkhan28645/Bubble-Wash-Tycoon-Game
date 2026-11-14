@@ -1,15 +1,16 @@
 import { describe, expect, it } from 'vitest';
 import { SHOP } from '../src/core/config';
 import { newGame } from '../src/core/gameState';
+import { DECOR_MODELS } from '../src/render/models/decor';
 import { HAT_MODELS, hatGeometry } from '../src/render/models/hats';
-import { buy, collection, DEFAULT_OUTFIT, equip, equipped, heroLook, lookWith, owns, shopItem, shopItems, unequip } from '../src/systems/wardrobe';
+import { brandColours, buy, collection, decorShown, DEFAULT_OUTFIT, equip, equipped, heroLook, lookWith, owns, shopItem, shopItems, toggleDecor, townDecor, unequip } from '../src/systems/wardrobe';
 
 const PARTICLES = ['sparkle', 'bubble', 'bill', 'water', 'confetti', 'smoke'];
 const RARITIES = ['common', 'rare', 'epic', 'legendary'];
 const HEX = /^#[0-9a-f]{6}$/;
 
 describe('shop.json', () => {
-  const all = [...SHOP.outfits, ...SHOP.hats, ...SHOP.trails];
+  const all = [...SHOP.outfits, ...SHOP.hats, ...SHOP.trails, ...SHOP.brands, ...SHOP.decor];
 
   it('has unique ids, known rarities and whole gem prices', () => {
     expect(new Set(all.map((i) => i.id)).size).toBe(all.length);
@@ -20,18 +21,29 @@ describe('shop.json', () => {
     }
   });
 
-  it('starts the hero in the free navy suit, and everything else costs gems', () => {
+  it('starts the hero in the free navy suit and the business in its own colours; everything else costs gems', () => {
     expect(DEFAULT_OUTFIT).toMatchObject({ id: 'classic', gems: 0, suit: SHOP.hero.suit, tie: SHOP.hero.tie });
-    expect(all.filter((i) => i.gems === 0)).toEqual([DEFAULT_OUTFIT]);
+    expect(SHOP.brands[0]).toMatchObject({ gems: 0 });
+    expect(SHOP.brands[0]).not.toHaveProperty('main');
+    expect(all.filter((i) => i.gems === 0)).toEqual([DEFAULT_OUTFIT, SHOP.brands[0]]);
   });
 
   it('lists each slot cheapest first, and dearer rarities cost more', () => {
-    for (const list of [SHOP.outfits, SHOP.hats, SHOP.trails]) {
+    const towns = [...new Set(SHOP.decor.map((d) => d.town))];
+    for (const list of [SHOP.outfits, SHOP.hats, SHOP.trails, SHOP.brands, ...towns.map((town) => SHOP.decor.filter((d) => d.town === town))]) {
       for (let i = 1; i < list.length; i++) {
         expect(list[i]!.gems).toBeGreaterThanOrEqual(list[i - 1]!.gems);
         expect(RARITIES.indexOf(list[i]!.rarity)).toBeGreaterThanOrEqual(RARITIES.indexOf(list[i - 1]!.rarity));
       }
     }
+  });
+
+  it('paints every brand but the classic in real colours, and has four decorations a town, each with a model', () => {
+    for (const b of SHOP.brands.slice(1)) for (const c of [b.main, b.vehicle]) expect(c).toMatch(HEX);
+    const towns = ['roadside', 'willowbrook', 'starlight'];
+    for (const town of towns) expect(SHOP.decor.filter((d) => d.town === town)).toHaveLength(4);
+    expect(SHOP.decor.every((d) => towns.includes(d.town))).toBe(true);
+    expect([...DECOR_MODELS].sort()).toEqual(SHOP.decor.map((d) => d.id).sort());
   });
 
   it('has a model for every hat on sale', () => {
@@ -114,11 +126,42 @@ describe('wardrobe', () => {
 
   it('counts the collection', () => {
     const state = newGame();
-    const total = shopItems('outfit').length + shopItems('hat').length + shopItems('trail').length - 1;
+    const total = (['outfit', 'hat', 'trail', 'brand', 'decor'] as const).reduce((n, slot) => n + shopItems(slot).filter((i) => i.gems > 0).length, 0);
     expect(collection(state)).toEqual({ owned: 0, total });
     state.gems = 1000;
     buy(state, 'cap');
     buy(state, 'bubbles');
     expect(collection(state)).toEqual({ owned: 2, total });
+  });
+
+  it('paints the business in a brand once it is bought and chosen', () => {
+    const state = newGame();
+    expect(brandColours(state)).toBeNull();
+    expect(brandColours(state, 'purple')).toEqual({ main: SHOP.brands.find((b) => b.id === 'purple')!.main, vehicle: SHOP.brands.find((b) => b.id === 'purple')!.vehicle });
+    state.gems = 1000;
+    expect(buy(state, 'purple')).toBe('bought');
+    expect(equipped(state, 'brand')?.id).toBe('purple');
+    expect(brandColours(state)?.main).toMatch(HEX);
+    expect(equip(state, 'aqua')).toBe(true);
+    expect(brandColours(state)).toBeNull();
+  });
+
+  it('puts bought decorations up in their own town, and away and back', () => {
+    const state = newGame();
+    state.gems = 1000;
+    expect(townDecor(state, 'roadside')).toEqual([]);
+    expect(townDecor(state, 'roadside', 'tubeman').map((d) => d.id)).toEqual(['tubeman']);
+    expect(buy(state, 'tubeman')).toBe('bought');
+    expect(buy(state, 'scarecrow')).toBe('bought');
+    expect(state.wardrobe.equipped).toEqual({});
+    expect(townDecor(state, 'roadside').map((d) => d.id)).toEqual(['tubeman']);
+    expect(townDecor(state, 'willowbrook').map((d) => d.id)).toEqual(['scarecrow']);
+    expect(toggleDecor(state, 'tubeman')).toBe(false);
+    expect(decorShown(state, 'tubeman')).toBe(false);
+    expect(townDecor(state, 'roadside')).toEqual([]);
+    expect(toggleDecor(state, 'tubeman')).toBe(true);
+    expect(state.wardrobe.hidden).toEqual([]);
+    expect(toggleDecor(state, 'goldcar')).toBe(false);
+    expect(toggleDecor(state, 'cap')).toBe(false);
   });
 });

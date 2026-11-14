@@ -1,14 +1,18 @@
 // Everything around the core loop: rewarded boosts, the daily calendar and
 // missions, the Car of the Day, and the ads that go with screen changes.
+import { Vector3 } from 'three';
 import * as platform from '../platform/youtube';
-import { ADS, DAILY, padById, type CarDef } from './config';
+import { ADS, CHARACTERS, DAILY, padById, type CarDef } from './config';
 import type { GameState } from './gameState';
 import type { SaveManager } from './save';
 import type { SoundManager } from '../audio/sound';
 import { hasModel, loadModel, specialCarFile } from '../render/assets';
 import type { Particles } from '../render/effects/particles';
-import { HeroPreview } from '../render/heroPreview';
+import { setBrand } from '../render/brand';
+import { HeroPreview, type PreviewTarget } from '../render/heroPreview';
+import { PersonAvatar } from '../render/models/person';
 import type { Stage } from '../render/stage';
+import type { TownDecor } from '../render/townDecor';
 import { Ads } from '../systems/ads';
 import { finishGems, formatClock, halveBuild, secondsLeft, soonestBuild } from '../systems/construction';
 import { formatCash } from '../systems/economy';
@@ -18,7 +22,7 @@ import type { PadSystem } from '../systems/pads';
 import type { Player } from '../systems/player';
 import type { Supplies } from '../systems/supplies';
 import type { Paid, Traffic } from '../systems/traffic';
-import { heroLook } from '../systems/wardrobe';
+import { brandColours, lookWith, owns, shopItem, townDecor, type Slot } from '../systems/wardrobe';
 import { showCalendar, showMissions } from '../ui/dailyPanels';
 import { offer, setUiSound, toast } from '../ui/dialog';
 import type { Hud } from '../ui/hud';
@@ -69,8 +73,11 @@ export function createMeta(deps: {
   rides?: { broken: () => number; fixAll: () => void };
   /** The park's prize shelf: how many plush toys it has (-1 before there's a ring toss), and opening it. */
   shelf?: { count: () => number; open: () => void };
-  /** The hero, dressed from the boutique; the HUD's gem counter opens it; the stage draws the close-up; the effects make the trail. */
-  hero: { player: Player; hud: Hud; stage: Stage; effects: Particles };
+  /**
+   * The boutique's things: the hero (dressed from it), the HUD (its gem counter opens it), the stage (it
+   * draws the close-up), the effects (the trail) and the town's decorations.
+   */
+  hero: { player: Player; hud: Hud; stage: Stage; effects: Particles; decor: TownDecor };
 }): Meta {
   const { root, state, saves, sound, traffic, pads, supplies } = deps;
   const town = deps.town ?? 'carWash';
@@ -165,11 +172,70 @@ export function createMeta(deps: {
     });
   };
 
-  // The hero's looks: put on as the town opens, shown up close in the boutique, a trail left behind.
-  const { player, hud, stage, effects } = deps.hero;
+  // The boutique's looks: the hero's outfit, hat and trail, the brand colour on the staff and the farm's
+  // vehicles, and this town's decorations; put on as the town opens, and tried on in the shop.
+  const { player, hud, stage, effects, decor } = deps.hero;
   player.effects = effects;
-  player.dress(heroLook(state));
   const preview = new HeroPreview(stage, player.mesh);
+
+  /** The nearest staff member to the hero (the brand's close-up), if there's one. */
+  const nearestStaff = (): PreviewTarget | null => {
+    let best: PreviewTarget | null = null;
+    let bestD = Infinity;
+    const at = player.mesh.position;
+    const where = new Vector3();
+    stage.scene.traverse((node) => {
+      if (!node.userData.staff || !node.visible) return;
+      const d = node.getWorldPosition(where).distanceToSquared(at);
+      if (d < bestD) {
+        bestD = d;
+        best = { person: node };
+      }
+    });
+    return best;
+  };
+
+  /**
+   * Where the close-up looks for a decoration in this town (null: it's elsewhere, or not up): all of it,
+   * from in front and steeply above like the game's own camera (clear of hedges and walls in front); a
+   * string of bunting from lower down, so its flags face the camera.
+   */
+  const decorView = (id: string): PreviewTarget | null => {
+    const def = shopItem(id);
+    if (def?.slot !== 'decor' || def.town !== state.currentTown) return null;
+    const ball = decor.frame(def);
+    const r = Math.max(1.2, ball.radius);
+    const flags = !!def.to;
+    return flags ? { spot: ball.center, look: 0, eye: r * 0.5, distance: r * 2.4 } : { spot: ball.center, look: 0, eye: r * 2.2, distance: r * 2.0 };
+  };
+
+  // With nobody hired yet, a member of staff stands by the hero to show off the brand (only while the shop shows it).
+  let mannequin: PersonAvatar | null = null;
+  const staffModel = (): PreviewTarget => {
+    const someone = nearestStaff();
+    if (someone) return someone;
+    if (!mannequin) {
+      mannequin = new PersonAvatar(Object.values(CHARACTERS.staff)[0]!);
+      stage.scene.add(mannequin.root);
+    }
+    const at = player.mesh.position;
+    mannequin.root.position.set(at.x + 1.3, at.y, at.z + 0.4);
+    mannequin.root.rotation.y = 0;
+    mannequin.root.visible = true;
+    return { person: mannequin.root };
+  };
+
+  /** Shows the looks as saved, with one item tried on over them (the shop), and points the close-up at it. */
+  const showLooks = (slot: Slot | null, id: string | null): void => {
+    const look = lookWith(state, slot === 'outfit' || slot === 'hat' || slot === 'trail' ? { slot, id } : null);
+    player.dress(look);
+    setBrand(brandColours(state, slot === 'brand' && id ? id : undefined));
+    // A decoration not bought yet shows while it's tried on; one that's owned shows only if it's up.
+    decor.sync(townDecor(state, state.currentTown, slot === 'decor' && id && !owns(state, id) ? id : null), look.hat?.id ?? null);
+    if (mannequin) mannequin.root.visible = false;
+    preview.focus(slot === 'brand' ? staffModel() : slot === 'decor' && id ? decorView(id) : null);
+  };
+  showLooks(null, null);
   let shopOpen = false;
 
   /** The gem boosts this town has, each with why it can't be used right now. */
@@ -206,7 +272,8 @@ export function createMeta(deps: {
       {
         root,
         state,
-        dress: (look) => player.dress(look),
+        town: state.currentTown,
+        tryOn: showLooks,
         preview: (element) => {
           preview.show(element);
           player.posing = !!element;
@@ -296,6 +363,7 @@ export function createMeta(deps: {
     update(dt) {
       sessionSeconds += dt;
       preview.update(dt);
+      if (mannequin?.root.visible) mannequin.update(dt, false, 0);
       if (supplies?.anyEmpty()) refillUntil = sessionSeconds + REFILL_LINGER_SECONDS;
       state.boostSeconds = Math.max(0, state.boostSeconds - dt);
       deps.setBoost(state.boostSeconds > 0 ? ADS.speedBoost.multiplier : 1);

@@ -1232,3 +1232,35 @@
     height: 160px;
   }
 }
+
+/* The boutique's Decor tab: each town's decorations under its name. */
+.shop-town {
+  margin: 8px 2px 6px;
+  font-size: 13px;
+  font-weight: 900;
+  color: #6b7280;
+}
+
+.shop-town:first-child {
+  margin-top: 0;
+}
+
+.shop-where {
+  font-size: 12px;
+  font-weight: 700;
+  color: #2364a8;
+}
+
+.shop-action.shop-away {
+  background: #eef1f5;
+  box-shadow: 0 3px 0 #d5dbe3;
+  color: #4b5563;
+}
+
+.shop-tabs {
+  gap: 4px;
+}
+
+.shop-tab {
+  font-size: 11px;
+}

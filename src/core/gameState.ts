@@ -77,8 +77,10 @@ export interface DeliveriesState {
 /** The hero's looks from the boutique (src/systems/wardrobe.ts): what's been bought, and what's worn in each slot. */
 export interface WardrobeState {
   owned: string[];
-  /** Item id by slot ('outfit', 'hat', 'trail'); a slot not listed wears the default (no hat, no trail). */
+  /** Item id by slot ('outfit', 'hat', 'trail', 'brand'); a slot not listed wears the default (no hat, no trail, the classic colours). */
   equipped: Record<string, string>;
+  /** Decorations bought but put away for now (bought ones are up otherwise). */
+  hidden: string[];
 }
 
 /** The town's goals: reached (they stay reached) and claimed. */
@@ -176,7 +178,7 @@ export function newGame(): GameState {
     contracts: { slots: [], doubledDate: '' },
     counts: {},
     franchiseStars: 0,
-    wardrobe: { owned: [], equipped: {} },
+    wardrobe: { owned: [], equipped: {}, hidden: [] },
     savedAt: 0,
   };
 }

@@ -4,6 +4,7 @@ import { Box3, BoxGeometry, Group, Mesh, Vector3, type Object3D } from 'three';
 import { PLOT, type Point } from '../../core/config';
 import type { Crops, Plot } from '../../systems/crops';
 import { asset, hasModel } from '../assets';
+import { brandModel, type BrandPart } from '../brand';
 import { swayMaterial } from '../wind';
 import { blobShadow } from './actors';
 import { mergeParts, skinnedToyMaterial, toyMaterial, type Part } from './build';
@@ -48,7 +49,10 @@ export function farmModel(name: string): Object3D {
 export function farmMover(name: string, shadow: 'round' | 'box' = 'round'): Object3D {
   const model = farmModel(name);
   const size = new Box3().setFromObject(model).getSize(new Vector3());
-  rigidSkin(model, toyMaterial, name, skinnedToyMaterial);
+  const skinned = rigidSkin(model, toyMaterial, name, skinnedToyMaterial);
+  // The delivery vans and the milk tanker wear the business's brand colour (the boutique).
+  const livery = BRANDED[name];
+  if (skinned && livery) brandModel(skinned.geometry, livery);
   model.traverse((node) => {
     node.castShadow = false;
     node.receiveShadow = true;
@@ -60,6 +64,9 @@ export function farmMover(name: string, shadow: 'round' | 'box' = 'round'): Obje
   );
   return model;
 }
+
+/** The farm's vehicles painted in the brand colour, and which of their paints it replaces. */
+const BRANDED: Record<string, BrandPart> = { fm_van: 'van', fm_tanker: 'tanker' };
 
 /** Which model each of the farm's pads shows once built (fields and staff have their own). */
 const PAD_MODELS: Record<string, string> = {

@@ -1,8 +1,10 @@
-// The Mogul's Boutique: the hero's outfits, hats and trails (bought with gems, just for looks), and the
-// gem boosts gathered in one place. A window above the shop shows the hero up close, wearing whatever
-// is picked, before it's bought.
+// The Mogul's Boutique: the hero's outfits, hats and trails, the business's brand colour and the towns'
+// decorations (bought with gems, just for looks), and the gem boosts gathered in one place. A window
+// above the shop shows what's picked up close (the hero, a staff member, a decoration in its spot)
+// before it's bought.
 import type { GameState } from '../core/gameState';
-import { collection, equip, equipped, lookWith, owns, shopItems, unequip, buy, type Look, type ShopItem, type Slot } from '../systems/wardrobe';
+import { JOURNEY } from '../systems/journey';
+import { buy, collection, decorShown, equip, equipped, owns, shopItems, toggleDecor, unequip, type ShopItem, type Slot } from '../systems/wardrobe';
 import { t, type StringKey } from './strings';
 
 export type ShopTab = Slot | 'boosts';
@@ -23,8 +25,14 @@ export interface BoostView {
 export interface ShopDeps {
   root: HTMLElement;
   state: GameState;
-  /** Dresses the hero (a look being tried on, or what's worn). */
-  dress: (look: Look) => void;
+  /** The town being played (a decoration elsewhere can't be seen from here). */
+  town: string;
+  /**
+   * Shows something tried on in a slot, bought or not (an outfit on the hero, a brand on the staff, a
+   * decoration in its spot) over what's saved, and points the close-up at it; null tries on the slot's
+   * "none". With no slot (the Boosts tab, or the shop closing), everything shows as saved.
+   */
+  tryOn: (slot: Slot | null, id: string | null) => void;
   /** Starts the close-up of the hero in this window (null stops it). */
   preview: (element: HTMLElement | null) => void;
   /** The town's gem boosts, as they stand right now. */
@@ -39,14 +47,32 @@ const TABS: { id: ShopTab; icon: string; label: StringKey }[] = [
   { id: 'outfit', icon: '👔', label: 'shopOutfits' },
   { id: 'hat', icon: '🎩', label: 'shopHats' },
   { id: 'trail', icon: '✨', label: 'shopTrails' },
+  { id: 'brand', icon: '🎨', label: 'shopBrand' },
+  { id: 'decor', icon: '🌷', label: 'shopDecor' },
   { id: 'boosts', icon: '⚡', label: 'shopBoosts' },
 ];
+
+/** The hint under each tab's items. */
+const HINTS: Partial<Record<Slot, StringKey>> = { brand: 'shopBrandHint', decor: 'shopDecorHint' };
+
+/** The classic brand's polo colour (art/blender/kenney_staff.py). */
+const CLASSIC_POLO = '#22c3c9';
+
+const townName = (id: string): string => JOURNEY.find((stop) => stop.id === id)?.name ?? id;
 
 /** A little suit in the outfit's colours, for its tile. */
 function suitIcon(item: ShopItem): string {
   if (item.slot !== 'outfit') return '';
   const shirt = item.shirt ?? '#f4f6f8';
   return `<svg viewBox="0 0 40 40" aria-hidden="true"><path d="M7 38V15q0-6 7-8l6 5 6-5q7 2 7 8v23z" fill="${item.suit}" stroke="rgba(0,0,0,.25)" stroke-width="1"/><path d="M14 7l6 15 6-15-6 5z" fill="${shirt}"/><path d="M18.6 12h2.8l1.3 12-2.7 3.4-2.7-3.4z" fill="${item.tie}"/><path d="M14 7l3 12 3-7M26 7l-3 12-3-7" fill="none" stroke="rgba(0,0,0,.28)" stroke-width="1.2"/></svg>`;
+}
+
+/** A polo shirt in the brand's colour (with a stripe of its vehicle paint), for its tile. */
+function poloIcon(item: ShopItem): string {
+  if (item.slot !== 'brand') return '';
+  const main = item.main ?? CLASSIC_POLO;
+  const stripe = item.vehicle ?? '#3f7a5a';
+  return `<svg viewBox="0 0 40 40" aria-hidden="true"><path d="M13 6l-9 6 4 7 4-2v19h16V17l4 2 4-7-9-6q-3 4-7 4t-7-4z" fill="${main}" stroke="rgba(0,0,0,.25)" stroke-width="1"/><path d="M13 6q3 4 7 4t7-4l-3-1q-4 3-8 0z" fill="#f6f8fb"/><rect x="12" y="29" width="16" height="4" fill="${stripe}"/><circle cx="24" cy="16" r="2" fill="#f6f8fb"/></svg>`;
 }
 
 /** Opens the boutique on a tab. Returns how to close it. */
@@ -111,22 +137,19 @@ export function openShop(deps: ShopDeps, firstTab: ShopTab = 'outfit'): { close:
     gems.textContent = `💎 ${state.gems}`;
   };
 
-  /** Puts the picked item on the hero (bought or not) and names it under the close-up. */
+  /** Shows the picked item (bought or not) and points the close-up at it. */
   const tryOn = (): void => {
-    if (tab === 'boosts') {
-      deps.dress(lookWith(state, null));
-      return;
-    }
-    deps.dress(lookWith(state, { slot: tab, id: picked }));
+    deps.tryOn(tab === 'boosts' ? null : tab, picked);
   };
 
   const pick = (id: string | null): void => {
     picked = id;
     // Something owned is put on straight away; something else is only tried on until it's bought.
-    if (tab !== 'boosts') {
+    // A decoration is only picked: the button under the shop puts it away or back up.
+    if (tab !== 'boosts' && tab !== 'decor') {
       if (id === null && tab !== 'outfit') {
         if (equipped(state, tab)) {
-          unequip(state, tab);
+          unequip(state, tab as 'hat' | 'trail');
           deps.changed();
         }
       } else if (id && owns(state, id) && equipped(state, tab)?.id !== id) {
@@ -144,18 +167,24 @@ export function openShop(deps: ShopDeps, firstTab: ShopTab = 'outfit'): { close:
     b.className = `shop-tile rarity-${item?.rarity ?? 'none'}`;
     const id = item?.id ?? null;
     if (id === picked) b.classList.add('shop-picked');
-    const worn = id === null ? !equipped(state, slot) : equipped(state, slot)?.id === id || (slot === 'outfit' && !equipped(state, 'outfit') && item?.gems === 0);
+    const worn =
+      slot === 'decor'
+        ? !!id && decorShown(state, id)
+        : id === null
+          ? !equipped(state, slot)
+          : equipped(state, slot)?.id === id || ((slot === 'outfit' || slot === 'brand') && !equipped(state, slot) && item?.gems === 0);
     if (worn) b.classList.add('shop-worn');
     const icon = document.createElement('span');
     icon.className = 'shop-icon';
     if (item?.slot === 'outfit') icon.innerHTML = suitIcon(item);
+    else if (item?.slot === 'brand') icon.innerHTML = poloIcon(item);
     else icon.textContent = item && 'icon' in item ? item.icon : '🚫';
     const name = document.createElement('span');
     name.className = 'shop-name';
     name.textContent = item ? item.name : t(slot === 'hat' ? 'shopNoHat' : 'shopNoTrail');
     const price = document.createElement('span');
     price.className = 'shop-price';
-    if (!item || owns(state, item.id)) price.textContent = worn ? '✓' : item?.gems === 0 ? t('shopFree') : '';
+    if (!item || owns(state, item.id)) price.textContent = worn ? '✓' : item?.gems === 0 ? t('shopFree') : slot === 'decor' ? t('shopPutAwayShort') : '';
     else price.textContent = `💎 ${item.gems}`;
     if (item && !owns(state, item.id) && state.gems < item.gems) price.classList.add('shop-short');
     b.append(icon, name, price);
@@ -167,14 +196,33 @@ export function openShop(deps: ShopDeps, firstTab: ShopTab = 'outfit'): { close:
   };
 
   const renderItems = (slot: Slot): void => {
-    const grid = document.createElement('div');
-    grid.className = 'shop-grid';
-    if (slot !== 'outfit') grid.appendChild(tile(null, slot));
-    for (const item of shopItems(slot)) grid.appendChild(tile(item, slot));
+    const blocks: HTMLElement[] = [];
+    const grid = (): HTMLElement => {
+      const g = document.createElement('div');
+      g.className = 'shop-grid';
+      blocks.push(g);
+      return g;
+    };
+    if (slot === 'decor') {
+      // Each town's decorations under its name, this town's first.
+      const towns = [...new Set(shopItems('decor').map((d) => (d.slot === 'decor' ? d.town : '')))].sort((a, b) => Number(b === deps.town) - Number(a === deps.town));
+      for (const town of towns) {
+        const header = document.createElement('div');
+        header.className = 'shop-town';
+        header.textContent = `${JOURNEY.find((stop) => stop.id === town)?.icon ?? ''} ${townName(town)}`;
+        blocks.push(header);
+        const g = grid();
+        for (const item of shopItems('decor')) if (item.slot === 'decor' && item.town === town) g.appendChild(tile(item, slot));
+      }
+    } else {
+      const g = grid();
+      if (slot === 'hat' || slot === 'trail') g.appendChild(tile(null, slot));
+      for (const item of shopItems(slot)) g.appendChild(tile(item, slot));
+    }
     const hint = document.createElement('p');
     hint.className = 'shop-hint';
-    hint.textContent = `${t('shopHint')} ${t('shopEarn')}`;
-    body.replaceChildren(grid, hint);
+    hint.textContent = `${t(HINTS[slot] ?? 'shopHint')} ${t('shopEarn')}`;
+    body.replaceChildren(...blocks, hint);
 
     const item = picked ? shopItems(slot).find((i) => i.id === picked) : null;
     const label = document.createElement('div');
@@ -192,10 +240,29 @@ export function openShop(deps: ShopDeps, firstTab: ShopTab = 'outfit'): { close:
       rarity.textContent = t('shopCollection', { owned, total });
     }
     label.append(name, rarity);
+    // A decoration for another town goes up there, not here.
+    const elsewhere = item?.slot === 'decor' && item.town !== deps.town ? t('shopElsewhere', { town: townName(item.town) }) : '';
+    if (elsewhere) {
+      const where = document.createElement('span');
+      where.className = 'shop-where';
+      where.textContent = elsewhere;
+      label.appendChild(where);
+    }
     const action = document.createElement('button');
     action.type = 'button';
     action.className = 'shop-action';
-    if (item && !owns(state, item.id)) {
+    if (item?.slot === 'decor' && owns(state, item.id)) {
+      const up = decorShown(state, item.id);
+      action.textContent = t(up ? 'shopPutAway' : 'shopPutUp');
+      action.classList.toggle('shop-away', up);
+      action.addEventListener('click', () => {
+        deps.click();
+        toggleDecor(state, item.id);
+        deps.changed();
+        tryOn();
+        render();
+      });
+    } else if (item && !owns(state, item.id)) {
       const short = item.gems - state.gems;
       action.textContent = `💎 ${item.gems}`;
       action.classList.add('shop-buy');
@@ -214,11 +281,11 @@ export function openShop(deps: ShopDeps, firstTab: ShopTab = 'outfit'): { close:
         render();
       });
     } else {
-      action.textContent = t('shopWearing');
+      action.textContent = t(slot === 'brand' ? 'shopInUse' : 'shopWearing');
       action.disabled = true;
     }
     foot.replaceChildren(label, action);
-    caption.textContent = item ? item.name : '';
+    caption.textContent = elsewhere || (item ? item.name : '');
     window_.className = `shop-preview rarity-${item?.rarity ?? 'none'}`;
   };
 
@@ -272,7 +339,14 @@ export function openShop(deps: ShopDeps, firstTab: ShopTab = 'outfit'): { close:
 
   const show = (next: ShopTab): void => {
     tab = next;
-    picked = next === 'boosts' ? null : next === 'outfit' ? (equipped(state, 'outfit')?.id ?? shopItems('outfit')[0]!.id) : (equipped(state, next)?.id ?? null);
+    picked =
+      next === 'boosts'
+        ? null
+        : next === 'decor'
+          ? (shopItems('decor').find((d) => d.slot === 'decor' && d.town === deps.town)?.id ?? null)
+          : next === 'outfit' || next === 'brand'
+            ? (equipped(state, next)?.id ?? shopItems(next)[0]!.id)
+            : (equipped(state, next)?.id ?? null);
     tryOn();
     render();
     body.scrollTop = 0;
@@ -284,7 +358,7 @@ export function openShop(deps: ShopDeps, firstTab: ShopTab = 'outfit'): { close:
     closed = true;
     window.removeEventListener('keydown', onKey);
     deps.preview(null);
-    deps.dress(lookWith(state, null));
+    deps.tryOn(null, null);
     overlay.remove();
     root.classList.remove('shop-open');
   };
