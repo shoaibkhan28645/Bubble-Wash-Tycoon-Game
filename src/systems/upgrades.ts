@@ -26,6 +26,10 @@ const TITLES: Record<string, string> = {
   cowbarn: 'Cow barn',
   van: 'Delivery yard',
   bakery: 'Bakery and market',
+  checkin: 'Check-in desk',
+  gate1: 'Gate 1',
+  gate2: 'Gate 2',
+  bags: 'Baggage',
 };
 /** Staff targets get their role in front of the upgrade name; the pumps (one panel for both) their number. */
 const STAFF_NAMES: Record<string, string> = {
@@ -57,6 +61,8 @@ const STAFF_NAMES: Record<string, string> = {
   janitor: 'Janitor',
   mascot: 'Mascot',
   crew: 'Coaster crew',
+  agent: 'Check-in agent',
+  handler: 'Ground handler',
 };
 /** The staff room opens once the register is built (minute 2). */
 const STAFF_ROOM_AFTER = 'register';

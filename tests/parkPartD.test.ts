@@ -150,7 +150,7 @@ describe("part D's pads, story and goals", () => {
     }
     const highway = STARLIGHT.pads.at(-1)!;
     expect(highway.afterGoals).toBe(true);
-    expect(highway.effects.travel).toBe('downtown');
+    expect(highway.effects.travel).toBe('skyport');
     expect(STARLIGHT.pads.find((p) => p.id === 'wheel')!.buildSeconds).toBe(1200);
     expect(STARLIGHT.pads.some((p) => p.effects.endOfContent)).toBe(false);
   });

@@ -66,11 +66,13 @@ export interface BotView {
 /** A later kind of town's code, fetched once (the second time it's already here). */
 const farmGame = () => import('./farmGame');
 const parkGame = () => import('./parkGame');
+const skyportGame = () => import('./skyportGame');
 
 /** Starts downloading a kind of town's code (while its models load), so opening it doesn't wait. */
 export function preloadGame(kind: string): void {
   if (kind === 'farm') void farmGame();
   else if (kind === 'park') void parkGame();
+  else if (kind === 'airport') void skyportGame();
 }
 
 /** Builds the town being played (see setTown), downloading its code first if it's a later kind of town. */
@@ -86,5 +88,6 @@ export async function createGame(
   const current = town();
   if (current.kind === 'carWash') return createRoadsideGame(container, stage, state, lifecycle, saves, sound, travelTo, current);
   if (current.kind === 'farm') return (await farmGame()).createFarmGame(container, stage, state, lifecycle, saves, sound, travelTo, current);
+  if (current.kind === 'airport') return (await skyportGame()).createSkyportGame(container, stage, state, lifecycle, saves, sound, travelTo, current);
   return (await parkGame()).createParkGame(container, stage, state, lifecycle, saves, sound, travelTo, current);
 }

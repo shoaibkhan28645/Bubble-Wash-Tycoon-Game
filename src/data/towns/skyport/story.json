@@ -1,0 +1,85 @@
+{
+  "mentor": {
+    "name": "Captain Ruby",
+    "icon": "👩‍✈️"
+  },
+  "rival": {
+    "name": "Rex Goldsby",
+    "icon": "😎",
+    "business": "Goldsby Air"
+  },
+  "beats": [
+    {
+      "id": "arrival",
+      "when": {
+        "built": "gate1"
+      },
+      "shout": "Welcome aboard!",
+      "icon": "✈️",
+      "headline": "The airfield is yours!",
+      "body": "150 million for a strip of tarmac, a windsock and one check-in desk. The first plane is already on its way in.",
+      "speaker": "mentor",
+      "words": "Thirty years I flew out of here. Check your passengers in, open the gate, and get that plane away on time."
+    },
+    {
+      "id": "ontime",
+      "when": {
+        "flag": "ontime:skyport"
+      },
+      "shout": "On time!",
+      "icon": "🕐",
+      "headline": "Your first flight left on time!",
+      "body": "Every flight that beats its clock pays a bonus, and each one in a row pays a little more than the last.",
+      "speaker": "mentor",
+      "words": "A full plane, away on the dot. Step onto the ramp pad just as the ring closes and the pilots will tip you, too."
+    },
+    {
+      "id": "fuel",
+      "when": {
+        "built": "fuel"
+      },
+      "shout": "Fill her up!",
+      "icon": "⛽",
+      "headline": "The fuel truck has arrived!",
+      "body": "Planes that leave with full tanks fly further, and every flight is worth more. Stand by the hose to fill one up.",
+      "speaker": "mentor",
+      "words": "Fuel first, then passengers. A plane that waits for fuel misses its clock."
+    },
+    {
+      "id": "gate2",
+      "when": {
+        "built": "gate2"
+      },
+      "shout": "Busy skies!",
+      "icon": "🛬",
+      "headline": "Gate 2 is open!",
+      "body": "Two planes on the ground at once, and twice the passengers. Keep both clocks in the green.",
+      "speaker": "mentor",
+      "words": "Two gates and one of you. You'll want some crew before long."
+    },
+    {
+      "id": "firstHire",
+      "when": {
+        "built": "agent"
+      },
+      "shout": "New helper!",
+      "icon": "🎫",
+      "headline": "You’ve hired a check-in agent!",
+      "body": "The desk runs itself now, so you can stay out on the apron with the planes.",
+      "speaker": "mentor",
+      "words": "That's an airline finding its feet. Now you can keep your eyes on the sky."
+    },
+    {
+      "id": "handler",
+      "when": {
+        "built": "handler"
+      },
+      "shout": "New helper!",
+      "icon": "🧳",
+      "headline": "You’ve hired a ground handler!",
+      "body": "The cases and the fuel are taken care of. All you do is open the gates and wave the planes off.",
+      "speaker": "mentor",
+      "words": "A proper little airport. Bay City wants jets next, and a terminal to match."
+    }
+  ]
+}

@@ -479,6 +479,7 @@ export function createMeta(deps: {
     onPaid(paid) {
       progress('earn', paid.amount);
       progress('parkEarn', paid.amount);
+      progress('airEarn', paid.amount);
       const car = paid.car;
       if (!car) {
         if (paid.snack) progress('snack');

@@ -24,11 +24,16 @@ export type MissionKind =
   | 'perfectDay'
   | 'prize'
   | 'parkEarn'
+  // The airport's.
+  | 'onTime'
+  | 'boardPax'
+  | 'airEarn'
+  | 'perfectTakeoff'
   // Every town's.
   | 'jobs';
 
 /** The kind of town missions are done in. */
-export type MissionTown = 'carWash' | 'farm' | 'park';
+export type MissionTown = 'carWash' | 'farm' | 'park' | 'airport';
 
 /** The player's local date as YYYY-MM-DD (the Tech Guide: today's local date in the save). */
 export function localDate(now: Date): string {

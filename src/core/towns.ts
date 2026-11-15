@@ -7,7 +7,7 @@ import roadsideLayout from '../data/towns/roadside/layout.json';
 import roadsidePads from '../data/towns/roadside/pads.json';
 import roadsideGoals from '../data/towns/roadside/goals.json';
 import roadsideStory from '../data/towns/roadside/story.json';
-import type { FarmLayout, GoalsData, LocationLayout, PadDef, ParkLayout } from './config';
+import type { AirportLayout, FarmLayout, GoalsData, LocationLayout, PadDef, ParkLayout } from './config';
 import type { StoryData } from '../systems/story';
 
 /** What every town has, whatever its kind. */
@@ -41,8 +41,14 @@ export interface ParkTown extends TownBase {
   layout: ParkLayout;
 }
 
+/** An airport (Chapter 4): planes land, are turned round at their gates and leave full, on time. */
+export interface AirportTown extends TownBase {
+  kind: 'airport';
+  layout: AirportLayout;
+}
+
 /** Every kind of town the game can build. */
-export type TownDef = RoadsideTown | FarmTown | ParkTown;
+export type TownDef = RoadsideTown | FarmTown | ParkTown | AirportTown;
 
 /** Town 1, Dusty Roadside Lot: the car wash, fuel pumps and Mini-Mart. */
 export const ROADSIDE: RoadsideTown = {
@@ -77,6 +83,7 @@ const LOADERS: Record<string, () => Promise<TownDef>> = {
   roadside: () => Promise.resolve(ROADSIDE),
   willowbrook: () => import('./willowbrook').then((m) => m.WILLOWBROOK),
   starlight: () => import('./starlight').then((m) => m.STARLIGHT),
+  skyport: () => import('./skyport').then((m) => m.SKYPORT),
 };
 
 /** Town ids in the order the hero reaches them. */

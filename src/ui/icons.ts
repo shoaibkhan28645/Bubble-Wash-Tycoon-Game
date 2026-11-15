@@ -37,6 +37,11 @@ const SHAPES = {
   cashpile: `<rect x="3" y="15" width="18" height="6.5" rx="1.8" fill="#3fb865" ${o}/><rect x="3.6" y="10.5" width="16.8" height="5.6" rx="1.6" fill="#6fd98a" ${o}/><rect x="9.6" y="10" width="4.8" height="6.6" fill="#ffd24a" stroke="${INK}" stroke-width="1.2"/><g transform="rotate(-10 12 7)"><rect x="4.5" y="3.5" width="15" height="7.5" rx="1.6" fill="#8be6a0" ${o}/><circle cx="12" cy="7.25" r="1.9" fill="#d9f8df" stroke="#2f9e57" stroke-width="1.1"/></g><path d="M5 18.3h14" stroke="#2f9e57" stroke-width="1.1"/>`,
   trophy: `<path d="M7 6H3.5c0 4 1.5 6 4.5 6.5M17 6h3.5c0 4-1.5 6-4.5 6.5" fill="none" stroke="${INK}" stroke-width="1.8" stroke-linecap="round"/><path d="M6.5 3h11v6.5a5.5 5.5 0 01-11 0z" fill="#ffd24a" ${o}/><path d="M12 15v3.5" stroke="${INK}" stroke-width="2.4"/><rect x="7" y="18" width="10" height="3.5" rx="1.4" fill="#ff5fa8" ${o}/><path d="M9.5 5.5v3.5" stroke="#fff3c4" stroke-width="1.6" stroke-linecap="round"/>`,
   clock: `<circle cx="12" cy="13" r="8.5" fill="#ffffff" ${o}/><path d="M12 8.5V13l3 2" fill="none" stroke="#ff5fa8" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/><path d="M10 2.5h4" stroke="${INK}" stroke-width="2.2" stroke-linecap="round"/>`,
+  people: `<circle cx="8" cy="8" r="3.4" fill="#ffd24a" ${o}/><path d="M2 20c0-4 2.6-6.5 6-6.5s6 2.5 6 6.5z" fill="#22c3c9" ${o}/><circle cx="16.5" cy="9" r="3" fill="#ffe9c4" ${o}/><path d="M12.5 20c.3-3.4 1.8-5.5 4-5.5 3 0 5 2.2 5 5.5z" fill="#ff5fa8" ${o}/>`,
+  pump: `<rect x="4" y="3" width="10" height="18" rx="2" fill="#ff8a3d" ${o}/><rect x="6" y="5.5" width="6" height="4.5" rx="1" fill="#ffffff" stroke="${INK}" stroke-width="1.2"/><path d="M14 9h3l2.5 2.5V17a1.6 1.6 0 01-3.2 0v-3H14" fill="none" stroke="${INK}" stroke-width="1.8" stroke-linejoin="round"/><path d="M3 21h12" stroke="${INK}" stroke-width="2" stroke-linecap="round"/>`,
+  suitcase: `<rect x="3" y="8" width="18" height="12.5" rx="2.6" fill="#ff5fa8" ${o}/><path d="M9 8V5.6a1.6 1.6 0 011.6-1.6h2.8A1.6 1.6 0 0115 5.6V8" fill="none" stroke="${INK}" stroke-width="1.8"/><path d="M8 8v12.5M16 8v12.5" stroke="#ffffff" stroke-width="2"/>`,
+  plane: `<path d="M21.5 4.5c1-1.8-.6-3.2-2.3-2L14.5 6 5 3.8 3 5.6l7.4 4.6-3.6 3.6-3-.5-1.3 1.3 4 2 2 4 1.3-1.3-.5-3 3.6-3.6 4.6 7.4 1.8-2L16 9.5z" fill="#ffffff" ${o}/><path d="M14.5 6L16 9.5" stroke="#22c3c9" stroke-width="2.2" stroke-linecap="round"/>`,
+  door: `<rect x="5" y="3" width="14" height="18" rx="2" fill="#7ee0c3" ${o}/><path d="M9 3v18" stroke="${INK}" stroke-width="1.3"/><circle cx="15.5" cy="12.5" r="1.4" fill="#ffd24a" stroke="${INK}" stroke-width="1"/>`,
 } as const;
 
 export type IconName = keyof typeof SHAPES;
@@ -71,6 +76,12 @@ const EMOJI: Record<string, IconName> = {
   '💵': 'cash',
   '🏆': 'trophy',
   '⏱': 'clock',
+  '👥': 'people',
+  '⛽': 'pump',
+  '🧳': 'suitcase',
+  '✈️': 'plane',
+  '🚪': 'door',
+  '🕐': 'clock',
 };
 
 /** The drawn icon for an emoji, if there is one. */

@@ -33,7 +33,7 @@ const MAX_CATCH_UP = 1;
 
 type Pose = 'idle' | GaitPose | 'scrub' | 'sit' | 'ride';
 /** What a person holds while working. */
-export type Tool = 'sponge' | 'towel' | 'polisher' | 'nozzle' | 'bag' | 'clipboard' | 'can' | 'soda' | 'floss' | 'plush' | 'burger' | 'wrench' | 'broom' | 'balloon';
+export type Tool = 'sponge' | 'towel' | 'polisher' | 'nozzle' | 'bag' | 'clipboard' | 'can' | 'soda' | 'floss' | 'plush' | 'burger' | 'wrench' | 'broom' | 'balloon' | 'case';
 
 const TOOL_PARTS: Record<Tool, Part[]> = {
   sponge: [{ geometry: rbox(0.13, 0.07, 0.09, 0.03), color: '#ffd24a' }],
@@ -41,6 +41,12 @@ const TOOL_PARTS: Record<Tool, Part[]> = {
   polisher: [
     { geometry: cylinder(0.08, 0.04, 12), color: '#fff3c4', y: -0.03 },
     { geometry: rbox(0.06, 0.07, 0.06, 0.02), color: '#3b4a5e', y: 0.02 },
+  ],
+  // A traveller's case, by its handle.
+  case: [
+    { geometry: rbox(0.26, 0.32, 0.13, 0.04), color: '#22c3c9', y: -0.2 },
+    { geometry: box(0.27, 0.04, 0.14), color: '#ffffff', y: -0.2 },
+    { geometry: box(0.1, 0.07, 0.03), color: '#3b3f4a', y: -0.02 },
   ],
   bag: [
     { geometry: rbox(0.2, 0.24, 0.12, 0.03), color: '#d9a866', y: -0.06 },

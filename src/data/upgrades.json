@@ -197,15 +197,25 @@
     "coaster": 480,
     "wheel": 580,
     "crew": 480,
+    "checkin": 6000,
+    "gate1": 6000,
+    "gate2": 6000,
+    "agent": 6000,
+    "handler": 6000,
     "mart": 0.96,
     "clerk": 0.77
   },
   "heroScale": {
     "roadside": 1.25,
     "willowbrook": 15,
-    "starlight": 1500
+    "starlight": 1500,
+    "skyport": 60000
   },
   "panels": {
+    "checkin": ["checkin.speed", "checkin.price", "agent.staffSpeed"],
+    "gate1": ["gate1.speed", "gate1.price"],
+    "gate2": ["gate2.speed", "gate2.price"],
+    "bags": ["player.carry", "handler.staffSpeed", "handler.staffCarry"],
     "bay1": [
       "bay1.speed",
       "bay1.quality",

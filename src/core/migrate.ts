@@ -24,7 +24,7 @@ export const REMOVED_UPGRADES: Readonly<Record<string, number>> = {
 export const LAND_PADS: Readonly<Record<string, { pad: string; opens: string }>> = {
   roadside: { pad: 'truck', opens: 'willowbrook' },
   willowbrook: { pad: 'road', opens: 'starlight' },
-  starlight: { pad: 'highway', opens: 'downtown' },
+  starlight: { pad: 'highway', opens: 'skyport' },
 };
 /** The landmarks: from v12 they build in this many seconds. */
 const LANDMARKS = ['landmark', 'windmill', 'wheel'];

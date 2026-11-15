@@ -1,0 +1,88 @@
+[
+  {
+    "id": "checkin",
+    "name": "Check-in desk",
+    "cost": 0,
+    "targetMinute": 0,
+    "adds": "Passengers buy their tickets here: stand behind the desk to check them in",
+    "effects": {
+      "desk": true
+    }
+  },
+  {
+    "id": "gate1",
+    "name": "Gate 1",
+    "cost": 0,
+    "targetMinute": 0,
+    "adds": "A stand for a propeller plane: open the gate, then clear it for take-off",
+    "effects": {
+      "gate": "gate1"
+    }
+  },
+  {
+    "id": "fuel",
+    "name": "Fuel truck",
+    "cost": 9000000,
+    "targetMinute": 3,
+    "adds": "Planes fill up before they leave and fly further: +30% on every flight",
+    "effects": {
+      "fuel": true,
+      "payBonus": 0.3
+    }
+  },
+  {
+    "id": "seats",
+    "name": "Lounge seats",
+    "cost": 10000000,
+    "targetMinute": 6,
+    "adds": "Somewhere to sit by the gates: passengers wait far longer at check-in, and more come",
+    "effects": {
+      "lounge": true,
+      "patienceBonus": 0.5,
+      "arrivalBonus": 0.15
+    }
+  },
+  {
+    "id": "gate2",
+    "name": "Gate 2",
+    "cost": 11000000,
+    "targetMinute": 9,
+    "adds": "A second stand: two planes on the ground at once, and many more passengers",
+    "effects": {
+      "gate": "gate2",
+      "arrivalBonus": 0.7
+    }
+  },
+  {
+    "id": "agent",
+    "name": "Check-in agent",
+    "cost": 12000000,
+    "targetMinute": 12,
+    "adds": "Checks passengers in for you, all day long",
+    "effects": {
+      "staff": "agent"
+    }
+  },
+  {
+    "id": "bags",
+    "name": "Baggage belt and cart",
+    "cost": 13000000,
+    "targetMinute": 15,
+    "adds": "Cases come out on the belt: carry them to each plane, for +30% on every flight",
+    "effects": {
+      "bags": true,
+      "payBonus": 0.3
+    }
+  },
+  {
+    "id": "handler",
+    "name": "Ground handler",
+    "cost": 15000000,
+    "targetMinute": 18,
+    "adds": "Loads the cases and fuels the planes for you",
+    "effects": {
+      "staff": "handler",
+      "endOfContent": true
+    }
+  }
+]

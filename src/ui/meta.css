@@ -2042,3 +2042,86 @@
 .hero-title:empty {
   display: none;
 }
+
+/* An airport's flights (Chapter 4): over each parked plane, its clock and how its turnaround's going. */
+.flight-label {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 8px 4px 4px;
+  border: var(--rim);
+  border-radius: 999px;
+  background: #fff;
+  box-shadow: var(--drop);
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+/* The clock: a dial that empties as the departure time comes. */
+.flight-clock {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border: 2px solid var(--ink);
+  border-radius: 50%;
+  background:
+    radial-gradient(circle, #fff 0 56%, transparent 58%),
+    conic-gradient(var(--aqua) var(--left, 100%), #e3eef2 0);
+  color: var(--navy);
+  font: 400 15px/1 var(--font-display);
+}
+
+.flight-clock.is-low {
+  background:
+    radial-gradient(circle, #fff 0 56%, transparent 58%),
+    conic-gradient(var(--pink) var(--left, 100%), #ffe1ee 0);
+  color: var(--pink-deep);
+  animation: flight-hurry 0.5s ease-in-out infinite alternate;
+}
+
+.flight-clock.is-late {
+  background: var(--pink);
+  color: #fff;
+}
+
+@keyframes flight-hurry {
+  to {
+    transform: scale(1.14);
+  }
+}
+
+.flight-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 7px;
+  border: 2px solid var(--ink);
+  border-radius: 999px;
+  background: var(--sky);
+  color: var(--navy);
+  font: 400 13px/1.3 var(--font-display);
+}
+
+.flight-chip.is-done {
+  background: var(--mint);
+}
+
+.flight-chip.is-go {
+  background: var(--sun);
+  animation: flight-hurry 0.45s ease-in-out infinite alternate;
+}
+
+/* A gate that's waiting to be opened. */
+.flight-door {
+  background: var(--pink);
+  animation: flight-hurry 0.5s ease-in-out infinite alternate;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .flight-clock.is-low,
+  .flight-chip.is-go,
+  .flight-door {
+    animation: none;
+  }
+}

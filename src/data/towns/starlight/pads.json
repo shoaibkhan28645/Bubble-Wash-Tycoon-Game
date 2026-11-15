@@ -307,13 +307,13 @@
   },
   {
     "id": "highway",
-    "name": "Downtown Bay City land",
+    "name": "Skyport airfield land",
     "cost": 150000000,
     "targetMinute": 110,
-    "adds": "Buy the land for your next business in Downtown Bay City; offered once every town goal is done",
+    "adds": "Buy the old airfield outside Bay City for your next business; offered once every town goal is done",
     "afterGoals": true,
     "effects": {
-      "travel": "downtown"
+      "travel": "skyport"
     }
   }
 ]

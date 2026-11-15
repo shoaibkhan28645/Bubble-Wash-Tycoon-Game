@@ -109,6 +109,16 @@ export interface PadEffects {
   driver?: boolean;
   /** A farm machine: the farmhand's pickup, the feed truck. */
   machine?: 'pickup' | 'feedTruck';
+  /** An airport's check-in desk: passengers buy their tickets there. */
+  desk?: boolean;
+  /** A stand for a plane, with its gate in the hall (the layout's `gates` key). */
+  gate?: string;
+  /** The fuel trucks: every plane is fuelled before it leaves. */
+  fuel?: boolean;
+  /** Seats by the gates. */
+  lounge?: boolean;
+  /** The baggage belt: cases to carry to each plane's hold. */
+  bags?: boolean;
 }
 
 export interface PadDef {
@@ -418,6 +428,53 @@ export interface TrackSpot {
   pool?: Point & { r: number };
 }
 
+/** One of an airport's gates: the stand its plane parks on, and everything round it. */
+export interface GateSpot {
+  /** The stand's centre line, and where a parked plane's nose stops (it faces the hall, +z). */
+  x: number;
+  noseZ: number;
+  /** The door in the hall's wall its passengers leave by, and where whoever opens the gate stands. */
+  door: Point;
+  podium: Point;
+  /** In front of the nose: where a plane is marshalled in, and cleared for take-off. */
+  marshal: Point;
+  /** Where its fuel truck parks, and where whoever fuels the plane stands. */
+  truck: Point;
+  fuelSpot: Point;
+  /** The foot of the air stairs, and the plane's door at their top. */
+  stairsFoot: Point;
+  planeDoor: Point;
+  /** Where cases go into the hold. */
+  hold: Point;
+  /** Where its passengers wait in the hall. */
+  lounge: Rect;
+}
+
+/** An airport's map (Chapter 4): the shared map, the runway and taxiway, the gates and the check-in hall. */
+export interface AirportLayout extends TownLayout {
+  /** The runway (along x) and the taxiway beside it, by their centre lines. */
+  runway: { z: number; minX: number; maxX: number; half: number };
+  taxiway: { z: number; half: number };
+  /** Where planes leave the runway for the taxiway (`exit`), join it to take off (`entry`), and the link at the far end. */
+  links: { exit: number; entry: number; far: number };
+  apron: Rect;
+  serviceRoad: Rect;
+  hall: Rect;
+  plaza: Rect;
+  /** The middle of the road along the front. */
+  roadZ: number;
+  /** The hall's door. */
+  entrance: Point;
+  /** The check-in desk: where it stands, its window (the front of the line), where whoever serves stands, the line, and the way round it to the gates. */
+  desk: { at: Point; window: Point; zone: Rect; queue: Point[]; leave: Point[] };
+  /** Where taxis set passengers down. */
+  kerb: Point[];
+  /** The baggage belt's end, and where cases are picked up. */
+  belt: { at: Point; pick: Rect };
+  gates: Record<string, GateSpot>;
+  trees: (Point & { size?: number })[];
+}
+
 /** A theme park's map (Chapter 3): the shared map, the ticket booth and stalls, the rides and the paths between them. */
 export interface ParkLayout extends TownLayout, WalkUpLayout {
   /** The middle of the road along the top. */
@@ -544,9 +601,9 @@ export interface MissionDef {
   /** Only offered once this pad is built. */
   requires?: string;
   /** The kind of town it's done in (the car wash's when not given)… */
-  town?: 'carWash' | 'farm' | 'park';
+  town?: 'carWash' | 'farm' | 'park' | 'airport';
   /** …or every kind it can be done in. */
-  towns?: ('carWash' | 'farm' | 'park')[];
+  towns?: ('carWash' | 'farm' | 'park' | 'airport')[];
 }
 
 /** A Car of the Day: a one-a-day special visitor. */

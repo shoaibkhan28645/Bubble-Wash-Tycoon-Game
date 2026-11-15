@@ -40,6 +40,9 @@ export class CameraRig {
   /** Screen strips on the right and at the top kept clear for the side buttons and the HUD (normalised units). */
   private insetRight = 0;
   private insetTop = 0;
+  /** How far back it stands, as a multiple of the usual (an airport's is further), and what it's easing towards. */
+  private zoom = 1;
+  private zoomGoal = 1;
 
   constructor(private readonly camera: PerspectiveCamera) {}
 
@@ -56,6 +59,14 @@ export class CameraRig {
   /** Keeps `pixels` at the top of a `height`-pixel screen clear of the lot. */
   setTopInset(pixels: number, height: number): void {
     this.insetTop = (2 * pixels) / Math.max(1, height);
+  }
+
+  /** Stands this many times further back than usual, easing there (or at once). */
+  setZoom(zoom: number, snap = false): void {
+    this.zoomGoal = zoom;
+    if (!snap) return;
+    this.zoom = zoom;
+    this.refit();
   }
 
   /** The camera's angle and zoom for a screen of this shape (width / height). */
@@ -79,7 +90,7 @@ export class CameraRig {
     this.viewDir.set(0, Math.sin(down), Math.cos(down));
     this.camera.fov = fov;
     this.camera.updateProjectionMatrix();
-    this.distance = distance;
+    this.distance = distance * this.zoom;
     this.measure();
   }
 
@@ -122,6 +133,10 @@ export class CameraRig {
   }
 
   update(dt: number, focus: Point): void {
+    if (Math.abs(this.zoomGoal - this.zoom) > 0.003) {
+      this.zoom += (this.zoomGoal - this.zoom) * (1 - Math.exp(-dt * 1.8));
+      this.refit();
+    }
     this.aim(focus);
     this.target.lerp(this.goal, 1 - Math.exp(-dt * FOLLOW));
     this.apply();

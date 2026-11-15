@@ -163,7 +163,7 @@ describe('delivery orders', () => {
       return town;
     };
     Object.assign(state, busy());
-    for (const id of ['roadside', 'market', 'downtown', 'port', 'skyline']) state.towns[id] = busy();
+    for (const id of ['roadside', 'market', 'skyport', 'port', 'skyline']) state.towns[id] = busy();
     expect(new TextEncoder().encode(serialize(state)).length).toBeLessThan(64 * 1024);
   });
 });
