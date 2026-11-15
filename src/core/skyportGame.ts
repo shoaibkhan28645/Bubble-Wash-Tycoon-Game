@@ -100,6 +100,9 @@ const SHOW_AFTER_SECONDS = 0.6;
 /** Sounds are full within this far of the hero (metres) and die away over the next stretch. */
 const HEAR_NEAR = 16;
 const HEAR_FADE = 60;
+/** Where taxis come from and go to along the road (x, off the screen either side). */
+const TAXI_FROM = 46;
+const TAXI_TO = -62;
 /** The crew's walking speed (m/s), and how much slower than the hero the agent checks in. */
 const CREW_SPEED = 3.3;
 const AGENT_RATE = 0.85;
@@ -229,6 +232,7 @@ export function createSkyportGame(
   // The ground, the hall, and what's always there.
   stage.scene.add(airfieldGround(layout));
   const ambience = new Ambience(stage.scene, layout);
+  ambience.onOverhead = () => sound.play('whoosh', 0.22);
   stage.scene.add(withShadows(hallModel(layout)));
   const desk = checkinDesk();
   desk.position.set(layout.desk.at.x, 0, layout.desk.at.z);
@@ -288,6 +292,10 @@ export function createSkyportGame(
       flight.needsFuel = built('fuel');
       flight.needsCases = built('bags') ? AIRPORT.bags.cases : 0;
       beltCases += flight.needsCases;
+      // More to do: longer to do it in.
+      const extra = (flight.needsFuel ? AIRPORT.fuel.clockSeconds : 0) + (flight.needsCases > 0 ? AIRPORT.bags.clockSeconds : 0);
+      flight.clock += extra;
+      flight.clockMax += extra;
       if (flight.marshalled) {
         flight.clock += AIRPORT.marshal.clockSeconds;
         flight.clockMax += AIRPORT.marshal.clockSeconds;
@@ -381,7 +389,7 @@ export function createSkyportGame(
       stage.scene.add(avatar.root);
       const member = new CrewMember(avatar, layout.staffSpots.handler ?? layout.belt.at);
       handler = Object.assign(member, {
-        carrier: new Carrier<'case'>(avatar.root, () => ({ x: member.x, z: member.z }), () => 2 + levelStep(UPGRADES.kinds.staffCarry, level('handler.staffCarry'))),
+        carrier: new Carrier<'case'>(avatar.root, () => ({ x: member.x, z: member.z }), () => AIRPORT.bags.handlerCarry + levelStep(UPGRADES.kinds.staffCarry, level('handler.staffCarry'))),
         job: 'idle' as const,
         flight: null,
         wait: 0,
@@ -523,25 +531,26 @@ export function createSkyportGame(
   });
 
   // Taxis on the road in front.
-  const taxis: Taxi[] = layout.kerb.map((kerb) => {
+  // (Two to each stopping place: the next pulls in as the one before pulls out.)
+  const taxis: Taxi[] = [...layout.kerb, ...layout.kerb].map((kerb) => {
     const mesh = taxiModel();
     mesh.visible = false;
     mesh.rotation.y = Math.PI;
-    stage.scene.add(mesh);
-    return { mesh, state: 'away' as const, x: 60, kerb, riders: 0, timer: 0 };
+    stage.scene.add(withShadows(mesh));
+    return { mesh, state: 'away' as const, x: TAXI_FROM, kerb, riders: 0, timer: 0 };
   });
   const taxiZ = layout.roadZ - 1.7;
   let spawnTimer = 2;
   const updateTaxis = (dt: number): void => {
     const rate = (1 + unlockedSum(state, (e) => e.arrivalBonus)) * (1 + (state.stars - TUNING.stars.start) * TUNING.stars.arrivalPerStar) * arrivals.rateFactor * boost;
     spawnTimer -= dt * rate;
-    const taxi = taxis.find((x) => x.state === 'away');
+    const taxi = taxis.find((x) => x.state === 'away' && !taxis.some((y) => y.kerb === x.kerb && (y.state === 'in' || y.state === 'stop' || (y.state === 'out' && y.x > y.kerb.x - 7))));
     const coming = taxis.reduce((sum, x) => sum + (x.state === 'away' ? 0 : x.riders), 0);
     if (spawnTimer <= 0 && taxi && peopleReady && passengers.all.length + coming < AIRPORT.passengers.max && passengers.line.length + coming < layout.desk.queue.length) {
       const [low, high] = AIRPORT.passengers.group as [number, number];
       taxi.riders = Math.round(low + Math.random() * (high - low));
       taxi.state = 'in';
-      taxi.x = 62;
+      taxi.x = TAXI_FROM;
       taxi.mesh.visible = true;
       spawnTimer = AIRPORT.passengers.spawnSeconds * taxi.riders;
     }
@@ -549,7 +558,7 @@ export function createSkyportGame(
       if (x.state === 'away') continue;
       if (x.state === 'in') {
         const left = x.x - x.kerb.x;
-        x.x -= Math.min(left, dt * Math.max(2.5, Math.min(13, left * 1.6)));
+        x.x -= Math.min(left, dt * Math.max(2.5, Math.min(16, left * 1.7)));
         if (left < 0.05) {
           x.state = 'stop';
           x.timer = 0.3;
@@ -567,8 +576,8 @@ export function createSkyportGame(
           }
         }
       } else {
-        x.x -= dt * Math.min(13, 3 + (x.kerb.x - x.x) * 1.8);
-        if (x.x < -75) {
+        x.x -= dt * Math.min(16, 3 + (x.kerb.x - x.x) * 2);
+        if (x.x < TAXI_TO) {
           x.state = 'away';
           x.mesh.visible = false;
         }
@@ -708,7 +717,11 @@ export function createSkyportGame(
     const arrived = h.walk(dt, speed);
     h.carrier.update(dt, !arrived);
     h.avatar.update(dt);
-    const parkedFlights = gates.map((g) => airfield.parkedAt(g.key)).filter((f): f is Flight => !!f && !f.cleared);
+    // (Whichever plane has least time left comes first.)
+    const parkedFlights = gates
+      .map((g) => airfield.parkedAt(g.key))
+      .filter((f): f is Flight => !!f && !f.cleared)
+      .sort((a, b) => a.clock - b.clock);
     const road = (layout.serviceRoad.minZ + layout.serviceRoad.maxZ) / 2 - 1.9;
     const lane = (flight: Flight) => flight.spot.x - 3.6;
     const home = layout.staffSpots.handler ?? layout.belt.at;
@@ -804,15 +817,18 @@ export function createSkyportGame(
         const el = document.createElement('div');
         el.className = 'flight-label';
         const at = new Vector3();
-        const label = labels.add(el, at);
+        const label = labels.add(el, at, true);
         v = { model, label, at, shown: '', lateSaid: false };
         views.set(flight, v);
       }
       v.model.root.position.set(flight.x, flight.y, flight.z);
       v.model.root.rotation.set(-flight.pitch, flight.heading, -flight.bank);
       v.model.update(dt, flight.engines);
-      v.at.set(flight.x, 5.6, flight.z - 1.5);
+      // (Low over its back: clear of the counters along the top of the screen, and of the hints by its nose.)
+      v.at.set(flight.x, 4.0, flight.z + 0.6);
       v.label.visible = flight.phase === 'parked';
+      // (A plane off the top of the screen keeps its clock in sight, under the counters.)
+      v.label.minY = view.topInset + 62;
       if (v.label.visible) {
         const html = describe(flight);
         if (html !== v.shown) {
@@ -1012,6 +1028,7 @@ export function createSkyportGame(
       pads,
       upgrades,
       cash,
+      carrying: () => heroCarry.stack.length,
     },
     welcomeBack: (earned) => meta.welcomeBack(earned),
     get frameMs() {

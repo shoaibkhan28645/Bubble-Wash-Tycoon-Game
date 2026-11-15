@@ -35,7 +35,8 @@ export interface GuideStep {
 
 /** The tutorial ends once the first washer is hired (GDD minute 6: "automation, the hook"). */
 export function tutorialActive(state: GameState): boolean {
-  return !state.unlocked.includes('washer');
+  // (Hired in the car wash: for a hero who's moved on, that's among the towns left behind.)
+  return !state.unlocked.includes('washer') && !Object.values(state.towns).some((town) => town.unlocked.includes('washer'));
 }
 
 /**

@@ -1,8 +1,13 @@
 // Skyport's ground: mown grass, the runway and taxiway with their paint and lights, the apron and its
 // stands, the hall's floor, the plaza and the road in front. Drawn once (parkland() does the same for
-// the park); what moves over it (the approach lights' chase, the clouds' shadows) is the Ambience.
+// the park); what moves over it (the approach lights' chase, the clouds' shadows, the radar, birds and
+// the shadows of jets high overhead) is the Ambience.
 import {
+  BufferGeometry,
   CanvasTexture,
+  CylinderGeometry,
+  DoubleSide,
+  Float32BufferAttribute,
   Group,
   InstancedMesh,
   Mesh,
@@ -179,7 +184,8 @@ export function airfield(layout: AirportLayout): Object3D {
 
 /**
  * What moves over the airfield without anyone doing anything: the approach lights running in towards
- * the runway's threshold, and the shadows of clouds drifting across the grass and the apron.
+ * the runway's threshold, the shadows of clouds drifting across the grass and the apron, a radar turning
+ * on its hut, a few birds crossing now and then, and the shadow of a jet passing high overhead.
  */
 export class Ambience {
   private readonly lights: InstancedMesh;
@@ -187,6 +193,13 @@ export class Ambience {
   private readonly clouds: Mesh[] = [];
   private time = 0;
   private readonly rows = 7;
+  private readonly dish = new Group();
+  private readonly birds: InstancedMesh;
+  private readonly flock = { x: 0, z: 0, vx: 0, vz: 0, left: 0, wait: 9 };
+  private readonly jet: Mesh;
+  private readonly overhead = { vx: 0, vz: 0, left: 0, wait: 24 };
+  /** Called as a jet goes over (the game plays its rumble). */
+  onOverhead: (() => void) | null = null;
 
   constructor(scene: Scene, private readonly layout: AirportLayout) {
     this.lights = new InstancedMesh(new SphereGeometry(0.26, 8, 6), new MeshBasicMaterial({ color: 0xfff6c8 }), this.rows * 3);
@@ -211,6 +224,78 @@ export class Ambience {
       scene.add(cloud);
       this.clouds.push(cloud);
     }
+
+    // The radar: a hut beside the apron, with a dish that turns.
+    const { apron, taxiway } = layout;
+    const hut = new Mesh(
+      mergeParts([
+        { geometry: box(2.6, 1.9, 2.6), color: WHITE, y: 0.95 },
+        { geometry: box(2.8, 0.26, 2.8), color: '#22c3c9', y: 2.0 },
+        { geometry: box(0.7, 1.2, 0.08), color: '#17324d', y: 0.6, z: 1.32 },
+        { geometry: new CylinderGeometry(0.16, 0.2, 1.5, 8), color: '#c9d6dc', y: 2.85 },
+      ]),
+      toyMaterial,
+    );
+    hut.castShadow = true;
+    const dish = new Mesh(
+      mergeParts([
+        { geometry: new SphereGeometry(1.5, 14, 6, 0, PI * 2, 0, PI / 3.2), color: WHITE, rx: PI / 2, z: -1.2 },
+        { geometry: new SphereGeometry(1.46, 14, 6, 0, PI * 2, 0, PI / 3.2), color: '#ff8a3d', rx: PI / 2, z: -1.16 },
+        { geometry: new CylinderGeometry(0.05, 0.05, 1.3, 6), color: '#3b3f4a', rx: PI / 2, z: 0.45 },
+        { geometry: new SphereGeometry(0.16, 8, 6), color: '#ff5fa8', z: 1.1 },
+      ]),
+      toyMaterial,
+    );
+    dish.castShadow = true;
+    dish.rotation.x = -0.25;
+    this.dish.add(dish);
+    this.dish.position.y = 3.7;
+    const radar = new Group();
+    radar.add(hut, this.dish);
+    radar.position.set(apron.minX - 4.6, 0, taxiway.z + taxiway.half + 9);
+    scene.add(radar);
+
+    // Birds: a pair of wings each, beating.
+    const wings = new BufferGeometry();
+    wings.setAttribute('position', new Float32BufferAttribute([0, 0, 0.16, 0, 0, -0.16, -0.62, 0.12, 0, 0, 0, 0.16, 0.62, 0.12, 0, 0, 0, -0.16], 3));
+    wings.computeVertexNormals();
+    this.birds = new InstancedMesh(wings, new MeshBasicMaterial({ color: 0x2b3a4a, side: DoubleSide }), 6);
+    this.birds.frustumCulled = false;
+    this.birds.visible = false;
+    scene.add(this.birds);
+
+    // A jet's shadow: its shape, soft, sliding over the ground.
+    canvas.width = 256;
+    canvas.height = 256;
+    const s = canvas.getContext('2d')!;
+    s.clearRect(0, 0, 256, 256);
+    s.fillStyle = 'rgb(20,50,70)';
+    s.filter = 'blur(5px)';
+    s.beginPath();
+    // Fuselage (nose up), swept wings, tailplane.
+    s.ellipse(128, 128, 13, 112, 0, 0, PI * 2);
+    s.moveTo(128, 96);
+    s.lineTo(238, 168);
+    s.lineTo(238, 184);
+    s.lineTo(128, 152);
+    s.lineTo(18, 184);
+    s.lineTo(18, 168);
+    s.closePath();
+    s.moveTo(128, 204);
+    s.lineTo(170, 236);
+    s.lineTo(170, 244);
+    s.lineTo(128, 232);
+    s.lineTo(86, 244);
+    s.lineTo(86, 236);
+    s.closePath();
+    s.fill();
+    s.filter = 'none';
+    const shape = new CanvasTexture(canvas);
+    this.jet = new Mesh(new PlaneGeometry(44, 44).rotateX(-PI / 2), new MeshBasicMaterial({ map: shape, transparent: true, opacity: 0.2, depthWrite: false }));
+    this.jet.position.y = 0.09;
+    this.jet.renderOrder = 1;
+    this.jet.visible = false;
+    scene.add(this.jet);
   }
 
   update(dt: number): void {
@@ -227,6 +312,65 @@ export class Ambience {
       }
     }
     this.lights.instanceMatrix.needsUpdate = true;
+    this.dish.rotation.y += dt * 1.1;
+
+    // Birds: now and then a few cross the field, low, in a loose V.
+    const flock = this.flock;
+    if (flock.left > 0) {
+      flock.left -= dt;
+      flock.x += flock.vx * dt;
+      flock.z += flock.vz * dt;
+      const turn = Math.atan2(flock.vx, flock.vz);
+      for (let i = 0; i < this.birds.count; i++) {
+        const row = Math.ceil(i / 2);
+        const side = i % 2 ? 1 : -1;
+        // Behind and out to one side of the leader, each bobbing and beating out of step.
+        const back = row * 1.5;
+        const out = side * row * 1.2;
+        this.marker.position.set(flock.x - Math.sin(turn) * back + Math.cos(turn) * out, 6.5 + Math.sin(this.time * 1.7 + i) * 0.35, flock.z - Math.cos(turn) * back - Math.sin(turn) * out);
+        this.marker.rotation.set(0, turn, 0);
+        this.marker.scale.set(1, 1 + Math.sin(this.time * 13 + i * 1.9) * 3.2, 1);
+        this.marker.updateMatrix();
+        this.birds.setMatrixAt(i, this.marker.matrix);
+      }
+      this.marker.rotation.set(0, 0, 0);
+      this.birds.instanceMatrix.needsUpdate = true;
+      if (flock.left <= 0) this.birds.visible = false;
+    } else if ((flock.wait -= dt) <= 0) {
+      flock.wait = 16 + rnd() * 22;
+      // From one side of the field to the other, across the apron.
+      const from = rnd() < 0.5 ? -1 : 1;
+      flock.x = from * 62;
+      flock.z = -30 + rnd() * 40;
+      const speed = 7 + rnd() * 2;
+      const aim = Math.atan2(-from * 62 - flock.x, -10 + rnd() * 30 - flock.z);
+      flock.vx = Math.sin(aim) * speed;
+      flock.vz = Math.cos(aim) * speed;
+      flock.left = 124 / speed;
+      this.birds.visible = true;
+    }
+
+    // A jet high overhead: its shadow slides across the airfield.
+    const over = this.overhead;
+    if (over.left > 0) {
+      over.left -= dt;
+      this.jet.position.x += over.vx * dt;
+      this.jet.position.z += over.vz * dt;
+      if (over.left <= 0) this.jet.visible = false;
+    } else if ((over.wait -= dt) <= 0) {
+      over.wait = 38 + rnd() * 30;
+      const aim = (rnd() - 0.5) * 1.2 + (rnd() < 0.5 ? PI / 2 : -PI / 2);
+      const speed = 46;
+      over.vx = Math.sin(aim) * speed;
+      over.vz = Math.cos(aim) * speed;
+      this.jet.position.set(-10 - Math.sin(aim) * 110, 0.09, -8 - Math.cos(aim) * 110);
+      // (The picture's nose is to -z.)
+      this.jet.rotation.y = aim + PI;
+      over.left = 220 / speed;
+      this.jet.visible = true;
+      this.onOverhead?.();
+    }
+
     for (const cloud of this.clouds) {
       cloud.position.x += dt * 1.5;
       cloud.position.z += dt * 0.35;

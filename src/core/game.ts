@@ -58,6 +58,8 @@ export interface BotView {
   readonly counters?: readonly unknown[];
   /** What's solid now (the farm only: the bot checks its way into the gap behind a counter). */
   readonly solids?: () => readonly Rect[];
+  /** How many cases the hero's carrying (the airport only). */
+  readonly carrying?: () => number;
   /** The park's visitors, rides and windows, and who's giving up where (the park only). */
   readonly crowd?: unknown;
   readonly gaveUp?: Record<string, number>;

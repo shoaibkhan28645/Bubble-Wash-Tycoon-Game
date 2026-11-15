@@ -11,6 +11,8 @@ interface Label {
   /** Kept fully on screen (sideways), e.g. the tutorial's words; its measured width, once known. */
   clamp: boolean;
   width: number | null;
+  /** Kept at least this far down the screen (px), e.g. below the counters along the top; null for anywhere. */
+  minY: number | null;
 }
 
 /** Space kept between a clamped label and the screen's edge. */
@@ -29,7 +31,7 @@ export class WorldLabels {
   }
 
   add(el: HTMLElement, at: Vector3, clamp = false): Label {
-    const label: Label = { el, at, visible: true, shownAs: null, x: NaN, y: NaN, clamp, width: null };
+    const label: Label = { el, at, visible: true, shownAs: null, x: NaN, y: NaN, clamp, width: null, minY: null };
     el.classList.add('world-label');
     this.layer.appendChild(el);
     this.labels.add(label);
@@ -63,7 +65,8 @@ export class WorldLabels {
         const half = label.width / 2 + EDGE_PX;
         x = Math.min(Math.max(x, half), width - half);
       }
-      const y = Math.round((1 - this.p.y) * height) / 2;
+      let y = Math.round((1 - this.p.y) * height) / 2;
+      if (label.minY !== null) y = Math.max(y, label.minY);
       if (x === label.x && y === label.y) continue;
       label.x = x;
       label.y = y;

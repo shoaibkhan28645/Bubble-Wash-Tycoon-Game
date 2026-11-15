@@ -271,6 +271,15 @@ describe('tutorial hand', () => {
     expect(guideTarget(state, view)).toBeNull();
   });
 
+  it('stays away in the towns that come after (the washer was hired in a town left behind)', () => {
+    const state = newGame();
+    expect(tutorialActive(state)).toBe(true);
+    // Moved on: the car wash's pads are kept under its own name, and this town has its own.
+    state.towns.roadside = { ...state.towns.roadside!, unlocked: ['bay2', 'washer'] } as (typeof state.towns)[string];
+    state.unlocked = ['checkin', 'gate1'];
+    expect(tutorialActive(state)).toBe(false);
+  });
+
   it('after the tutorial, points at a station where someone is kept waiting, and at supplies running out until a runner is hired', () => {
     const state = newGame();
     state.unlocked.push('washer', 'soap', 'mart');
