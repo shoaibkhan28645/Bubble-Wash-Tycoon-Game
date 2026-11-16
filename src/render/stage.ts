@@ -1,5 +1,6 @@
 import {
   type BufferGeometry,
+  Color,
   DirectionalLight,
   Fog,
   HemisphereLight,
@@ -51,6 +52,23 @@ export interface Look {
   ambient: number;
   sun: number;
   sunStrength: number;
+}
+
+const mixed = { a: new Color(), b: new Color() };
+/** A look part way (`t`, 0–1) from `a` to `b`: a day turning to evening or night. */
+export function mixLook(a: Look, b: Look, t: number): Look {
+  const c = (x: number, y: number) => mixed.a.setHex(x).lerp(mixed.b.setHex(y), t).getHex();
+  const n = (x: number, y: number) => x + (y - x) * t;
+  return {
+    sky: c(a.sky, b.sky),
+    fogNear: n(a.fogNear, b.fogNear),
+    fogFar: n(a.fogFar, b.fogFar),
+    skyLight: c(a.skyLight, b.skyLight),
+    groundLight: c(a.groundLight, b.groundLight),
+    ambient: n(a.ambient, b.ambient),
+    sun: c(a.sun, b.sun),
+    sunStrength: n(a.sunStrength, b.sunStrength),
+  };
 }
 
 /** Chapter 1's bright midday. */

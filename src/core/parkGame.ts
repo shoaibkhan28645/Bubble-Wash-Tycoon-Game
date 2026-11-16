@@ -8,7 +8,7 @@
 // The shared pieces (the player, pads, cash piles, upgrades, staff, the
 // camera, the side bar, the hero's career and the town's story) are the same
 // as in the first two towns.
-import { Color, Vector3, type Object3D } from 'three';
+import { Vector3, type Object3D } from 'three';
 import { Loop } from './loop';
 import { GameClock } from './clock';
 import { CHARACTERS, TUNING, UPGRADES, fixedSolids, type Point, type Rect } from './config';
@@ -25,7 +25,7 @@ import { createStoryline } from './storyline';
 import { LotView, SIDE_BAR_PX } from './view';
 import * as platform from '../platform/youtube';
 import type { SoundManager } from '../audio/sound';
-import type { Look, Stage } from '../render/stage';
+import { mixLook, type Look, type Stage } from '../render/stage';
 import { withShadows } from '../render/stage';
 import { CameraRig } from '../render/cameraRig';
 import { Fireworks } from '../render/effects/fireworks';
@@ -239,22 +239,6 @@ const PARK_STORM: Look = {
   sunStrength: 0.9,
 };
 
-const mixed = { a: new Color(), b: new Color() };
-/** A look part way between two. */
-function mixLook(a: Look, b: Look, t: number): Look {
-  const c = (x: number, y: number) => mixed.a.setHex(x).lerp(mixed.b.setHex(y), t).getHex();
-  const n = (x: number, y: number) => x + (y - x) * t;
-  return {
-    sky: c(a.sky, b.sky),
-    fogNear: n(a.fogNear, b.fogNear),
-    fogFar: n(a.fogFar, b.fogFar),
-    skyLight: c(a.skyLight, b.skyLight),
-    groundLight: c(a.groundLight, b.groundLight),
-    ambient: n(a.ambient, b.ambient),
-    sun: c(a.sun, b.sun),
-    sunStrength: n(a.sunStrength, b.sunStrength),
-  };
-}
 
 export function createParkGame(
   container: HTMLElement,

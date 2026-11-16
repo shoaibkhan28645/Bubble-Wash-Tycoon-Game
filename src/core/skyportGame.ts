@@ -25,7 +25,7 @@ import { createStoryline } from './storyline';
 import { LotView, SIDE_BAR_PX } from './view';
 import * as platform from '../platform/youtube';
 import type { SoundManager } from '../audio/sound';
-import type { Look, Stage } from '../render/stage';
+import { mixLook, type Look, type Stage } from '../render/stage';
 import { withShadows } from '../render/stage';
 import { CameraRig } from '../render/cameraRig';
 import { Particles } from '../render/effects/particles';
@@ -148,34 +148,21 @@ const SKY_LOOK: Look = {
   sunStrength: 2.75,
 };
 
-/** Night over the airfield (Part B, once the runway lights are in): a deep blue, the lamps doing the work. */
+/**
+ * Night over the airfield (Part B, once the runway lights are in): a deep blue for the runway's lights, the
+ * lamps and the terminal's windows to shine against, but (like the park's evenings) never so dark the hero
+ * is hard to see.
+ */
 const NIGHT_LOOK: Look = {
-  sky: 0x0d1d3a,
+  sky: 0x132150,
   fogNear: 70,
-  fogFar: 210,
-  skyLight: 0x4d6aa8,
-  groundLight: 0x1a2c3c,
-  ambient: 0.62,
-  sun: 0x9fb4ff,
+  fogFar: 200,
+  skyLight: 0x7a8ee0,
+  groundLight: 0x33356f,
+  ambient: 0.86,
+  sun: 0x9fb0f5,
   sunStrength: 0.55,
 };
-function mixLook(a: Look, b: Look, t: number): Look {
-  const mix = (x: number, y: number) => x + (y - x) * t;
-  const colour = (x: number, y: number) => {
-    const ch = (v: number, s: number) => (v >> s) & 255;
-    return (Math.round(mix(ch(x, 16), ch(y, 16))) << 16) | (Math.round(mix(ch(x, 8), ch(y, 8))) << 8) | Math.round(mix(ch(x, 0), ch(y, 0)));
-  };
-  return {
-    sky: colour(a.sky, b.sky),
-    fogNear: mix(a.fogNear, b.fogNear),
-    fogFar: mix(a.fogFar, b.fogFar),
-    skyLight: colour(a.skyLight, b.skyLight),
-    groundLight: colour(a.groundLight, b.groundLight),
-    ambient: mix(a.ambient, b.ambient),
-    sun: colour(a.sun, b.sun),
-    sunStrength: mix(a.sunStrength, b.sunStrength),
-  };
-}
 /** 0 by day, 1 at night: `day` seconds of day, then the night, fading in and out over `fade` (the park's evenings, system/park.ts). */
 function nightAt(seconds: number, rules: { day: number; evening: number; fade: number }): number {
   const t = seconds % (rules.day + rules.evening);
