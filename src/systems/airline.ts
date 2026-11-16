@@ -5,9 +5,14 @@
 // have been flown to, and every full tier of souvenirs puts a little on every fare at the airport.
 // Kept in the town's numbers (`supplies`): air.open.<city>, air.souv.<city>, air.route (the last city + 1),
 // air.away (seconds left on the trip; 0 at home). Pure logic: the game flies the plane and pays.
+//
+// Part D: a second plane (its numbers air.route.2, air.away.2, ...), and wear. Once there's a hangar, every
+// trip wears a plane (further cities more); a worn plane brings home less, until it's serviced in the hangar,
+// after which its next few trips bring home more (air.wear, air.fresh, and .2 for the second plane).
 import type { Tuning } from '../core/config';
 
 type Rules = Tuning['airport']['airline'];
+type HangarRules = Tuning['airport']['hangar'];
 export type City = Rules['cities'][number];
 
 /** What a trip home brought: the takings, and the city's souvenir if it came back with it (`first`: the first ever from there). */
@@ -16,15 +21,26 @@ export interface Homecoming {
   takings: number;
   souvenir: boolean;
   first: boolean;
+  /** Whether the plane came home worn (it wants the hangar). */
+  worn: boolean;
 }
 
 export class Airline {
+  /** Whether trips wear the planes (once there's a hangar to service them in). */
+  wears = false;
+
   constructor(
     private readonly rules: Rules,
     /** The town's numbers (the save). */
     private readonly store: Record<string, number>,
     private readonly random: () => number = Math.random,
+    private readonly hangar?: HangarRules,
   ) {}
+
+  /** A number's key for plane `k` (the first plane's are the plain ones). */
+  private key(name: string, k: number): string {
+    return k ? `${name}.${k + 1}` : name;
+  }
 
   get cities(): readonly City[] {
     return this.rules.cities;
@@ -64,48 +80,95 @@ export class Airline {
     return this.fullSets * this.rules.setBonus;
   }
 
-  /** The last route flown (to fly again, left alone), or null before the first. */
+  /** The first plane's last route (to fly again, left alone), or null before its first. */
   get route(): City | null {
-    const i = (this.store['air.route'] ?? 0) - 1;
+    return this.routeOf(0);
+  }
+
+  /** Seconds left on the first plane's trip (0: at home). */
+  get away(): number {
+    return this.awayOf(0);
+  }
+
+  /** Plane `k`'s last route, or null before its first. */
+  routeOf(k: number): City | null {
+    const i = (this.store[this.key('air.route', k)] ?? 0) - 1;
     return this.rules.cities[i] ?? null;
   }
 
-  /** Seconds left on the trip (0: at home). */
-  get away(): number {
-    return this.store['air.away'] ?? 0;
+  /** Seconds left on plane `k`'s trip (0: at home). */
+  awayOf(k: number): number {
+    return this.store[this.key('air.away', k)] ?? 0;
   }
 
-  /** Sets off for a city (if its tier's open): the trip's clock starts once the plane's gone. */
-  choose(id: string): City | null {
+  /** How worn plane `k` is (0 new, 1 and more: badly). */
+  wearOf(k: number): number {
+    return this.store[this.key('air.wear', k)] ?? 0;
+  }
+
+  /** Whether plane `k` wants servicing (it brings home less until it's been). */
+  worn(k: number): boolean {
+    return !!this.hangar && this.wearOf(k) >= this.hangar.serviceAt;
+  }
+
+  /** Trips left on plane `k`'s fresh service (each brings home more). */
+  freshOf(k: number): number {
+    return this.store[this.key('air.fresh', k)] ?? 0;
+  }
+
+  /** Plane `k` serviced in the hangar: good as new, and its next few trips bring home more. */
+  service(k: number): void {
+    if (!this.hangar) return;
+    this.store[this.key('air.wear', k)] = 0;
+    this.store[this.key('air.fresh', k)] = this.hangar.freshTrips;
+  }
+
+  /** Sets plane `k` off for a city (if its tier's open): the trip's clock starts once the plane's gone. */
+  choose(id: string, k = 0): City | null {
     const i = this.rules.cities.findIndex((c) => c.id === id);
     const city = this.rules.cities[i];
     if (!city || !this.unlocked(city.tier)) return null;
-    this.store['air.route'] = i + 1;
+    this.store[this.key('air.route', k)] = i + 1;
     return city;
   }
 
-  /** Off on the chosen route (the plane's left the airport): away for `speed`-shortened time. */
-  depart(speed = 1): void {
-    const city = this.route;
-    if (city) this.store['air.away'] = city.seconds / speed;
+  /** Plane `k` off on its chosen route (it's left the airport): away for `speed`-shortened time. */
+  depart(speed = 1, k = 0): void {
+    const city = this.routeOf(k);
+    if (city) this.store[this.key('air.away', k)] = city.seconds / speed;
   }
 
-  /** One step of a trip: true the moment it's over (the plane's on its way back). */
-  update(dt: number): boolean {
-    const left = this.away;
+  /** One step of plane `k`'s trip: true the moment it's over (the plane's on its way back). */
+  update(dt: number, k = 0): boolean {
+    const key = this.key('air.away', k);
+    const left = this.store[key] ?? 0;
     if (left <= 0) return false;
-    this.store['air.away'] = Math.max(0, left - dt);
-    return this.store['air.away'] === 0;
+    this.store[key] = Math.max(0, left - dt);
+    return this.store[key] === 0;
   }
 
-  /** Home from the route: the takings (`pay` times the city's), the city opened, maybe its souvenir. */
-  homecoming(pay = 1): Homecoming | null {
-    const city = this.route;
+  /**
+   * Plane `k` home from its route: the takings (`pay` times the city's, less if it was worn, more on a fresh
+   * service), the city opened, maybe its souvenir; and the trip's wear on the plane.
+   */
+  homecoming(pay = 1, k = 0): Homecoming | null {
+    const city = this.routeOf(k);
     if (!city) return null;
     const first = !this.opened(city.id);
     this.store[`air.open.${city.id}`] = 1;
     const souvenir = !this.hasSouvenir(city.id) && (first ? this.random() < this.rules.firstSouvenir : this.random() < this.rules.souvenirChance);
     if (souvenir) this.store[`air.souv.${city.id}`] = 1;
-    return { city, takings: Math.round(city.takings * pay), souvenir, first };
+    let factor = 1;
+    const hangar = this.hangar;
+    if (hangar && this.wears) {
+      if (this.worn(k)) factor *= 1 - hangar.wornPenalty;
+      const fresh = this.freshOf(k);
+      if (fresh > 0) {
+        factor *= 1 + hangar.freshBonus;
+        this.store[this.key('air.fresh', k)] = fresh - 1;
+      }
+      this.store[this.key('air.wear', k)] = this.wearOf(k) + (hangar.wear[city.tier - 1] ?? hangar.wear.at(-1)!);
+    }
+    return { city, takings: Math.round(city.takings * pay * factor), souvenir, first, worn: this.worn(k) };
   }
 }

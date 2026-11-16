@@ -13,6 +13,13 @@ export type { PlaneKind };
 export const planeAt = (spot: { plane?: PlaneKind }): PlaneKind => spot.plane ?? 'prop';
 
 /** A stand that isn't a gate's, as a gate's spot (what a gate has that it hasn't is its marshal's spot, or its door's). */
+/** The link a plane bound for a stand at `x` leaves the runway by. */
+export function exitFor(layout: AirportLayout, x: number): number {
+  const { links } = layout;
+  if (links.east !== undefined && x > links.far - 2) return links.east;
+  return x > links.exit - 2 ? links.far : links.exit;
+}
+
 export function standSpot(stand: StandSpot): GateSpot {
   const at = stand.marshal;
   const door = stand.planeDoor ?? at;
@@ -161,10 +168,9 @@ export class Flight {
     return this.boarded >= this.seats;
   }
 
-  /** Where it leaves the runway: the usual link, or (for stands east of it) the one at the far end. */
+  /** Where it leaves the runway: the usual link, or (for stands east of it) the one at the far end, or (Part D, the cargo and hangar stands further east still) the east link. */
   get exitX(): number {
-    const { links } = this.layout;
-    return this.spot.x > links.exit - 2 ? links.far : links.exit;
+    return exitFor(this.layout, this.spot.x);
   }
 
   /** Where it touches down (as far short of its exit as at the usual one, so it's no longer on the runway), and where it stops at its gate (its middle). */
@@ -216,6 +222,14 @@ export class Flight {
     return new Route(rounded([{ x: this.holdX, z: taxiway.z }, { x: links.entry, z: taxiway.z }, { x: links.entry, z: runway.z }, { x: links.entry + 9, z: runway.z }], 4.5));
   }
 
+  /** (Part D) Out to the second runway instead: on west past the first's end, round it and north, onto the second facing east. */
+  private wayOn2(): Route {
+    const { taxiway, links, runway2 } = this.layout;
+    const x = links.around!;
+    const z = runway2!.z;
+    return new Route(rounded([{ x: this.holdX, z: taxiway.z }, { x, z: taxiway.z }, { x, z }, { x: x + 11, z }], 6));
+  }
+
   /** Starts it part-way down its approach (the very first plane is nearly down as the hero arrives). */
   startAt(approach: number): void {
     this.approach = approach;
@@ -224,7 +238,8 @@ export class Flight {
 
   private fly(): void {
     const { runway } = this.layout;
-    const from = runway.minX - 96;
+    // (From no further out than a far-link arrival's, so one bound for the east link isn't hurried.)
+    const from = Math.max(runway.minX - 96, this.touchdown - 175);
     const u = this.approach;
     this.x = from + (this.touchdown - from) * u;
     this.z = runway.z;
@@ -252,7 +267,7 @@ export class Flight {
    * when it's waiting to); taxiing out, it stops short of `stopAt` (the tail of whatever's ahead of it on the
    * taxiway, queued for the runway). Returns what just happened, if anything.
    */
-  update(dt: number, may: { push: boolean; lineUp: boolean; stopAt?: number }): 'touchdown' | 'parked' | 'pushback' | 'airborne' | 'gone' | null {
+  update(dt: number, may: { push: boolean; lineUp: boolean; stopAt?: number; runway2?: boolean }): 'touchdown' | 'parked' | 'pushback' | 'airborne' | 'gone' | null {
     const f = this.rules.flight;
     switch (this.phase) {
       case 'approach': {
@@ -322,7 +337,7 @@ export class Flight {
         this.speed = 0;
         if (!may.lineUp) return null;
         this.phase = 'lineup';
-        this.route = this.wayOn();
+        this.route = may.runway2 ? this.wayOn2() : this.wayOn();
         this.along = 0;
         return null;
       }
@@ -386,6 +401,11 @@ export class Airfield {
   private lastLivery = -1;
   /** Flights that have come so far (the first has a longer clock). */
   arrivals = 0;
+  /**
+   * (Part D) Departures take off from the second runway (round the first's west end), leaving the first to
+   * the landings: arrivals no longer wait for planes lining up or taking off, nor they for arrivals.
+   */
+  runway2 = false;
 
   constructor(
     private readonly layout: AirportLayout,
@@ -471,7 +491,11 @@ export class Airfield {
   private wayInClear(gate: string): boolean {
     const spot = this.spotOf(gate)!;
     const length = this.rules.planes[planeAt(spot)].length;
+    const link = exitFor(this.layout, spot.x);
     const out = this.flights.filter((f) => this.departing(f)).sort((a, b) => a.x - b.x);
+    // (Nothing taxiing out still east of where it'll come off the runway: it'd meet it at the link.)
+    if (out.some((f) => f.phase === 'taxiOut' && f.x - (this.rules.planes[f.kind].length + length) / 2 - 4 < link && f.x + (this.rules.planes[f.kind].length + length) / 2 + 4 > link)) return false;
+    if (out.some((f) => f.phase === 'taxiOut' && f.x > link)) return false;
     let at = -Infinity;
     let before = 0;
     for (const f of out) {
@@ -506,8 +530,8 @@ export class Airfield {
   }
 
   /**
-   * Whether a cleared plane may back off its stand now: no arrival in its way, nobody else backing off, at
-   * most two others already out on their way, and every one of them west of its stretch of the taxiway
+   * Whether a cleared plane may back off its stand now: no arrival in its way, at most two others already out
+   * on their way (backing off their stands or taxiing), and every one of them west of its stretch of the taxiway
    * (heading away; one further east would come through it) — and no gate kept waiting too long for a plane
    * whose way in the queue for the runway blocks.
    */
@@ -519,7 +543,12 @@ export class Airfield {
       if (f === plane) continue;
       if (this.inTheWay(f, plane)) return false;
       if (!this.departing(f)) continue;
-      if (f.phase === 'pushback' || ++out > 2 || f.x > this.zone(plane, f).west) return false;
+      // (Another backing off its stand is fine if it's well west: it'll be gone ahead of this one. One still far
+      // to the east is too: it can't get here before this one's out on the taxiway, and then it waits behind it.)
+      const at = f.phase === 'pushback' ? f.spot.x + 6 : f.x;
+      const zone = this.zone(plane, f);
+      const far = zone.east + (f.phase === 'taxiOut' ? this.rules.flight.clearAhead : f.phase === 'pushback' ? this.rules.flight.clearAhead / 2 : 0);
+      if (++out > 2 || (at > zone.west && at < far)) return false;
     }
     return true;
   }
@@ -530,11 +559,14 @@ export class Airfield {
     const length = this.rules.planes[plane.kind].length;
     let stop = -Infinity;
     for (const f of this.flights) {
-      if (f === plane || f.x >= plane.x || f.y > 1) continue;
+      if (f === plane || f.y > 1) continue;
       const other = this.rules.planes[f.kind].length;
+      // (One backing off its stand ahead counts from the start, at the end of its push: it's on its way out.)
+      const x = f.phase === 'pushback' ? f.spot.x + 6 : f.x;
+      if (x >= plane.x) continue;
       // Still over the taxiway (an arrival not yet turned off it, a departure not yet onto the runway).
-      if (Math.abs(f.z - taxiway.z) > taxiway.half + other / 2) continue;
-      stop = Math.max(stop, f.x + (length + other) / 2 + 3);
+      if (f.phase !== 'pushback' && Math.abs(f.z - taxiway.z) > taxiway.half + other / 2) continue;
+      stop = Math.max(stop, x + (length + other) / 2 + 3);
     }
     return stop;
   }
@@ -548,7 +580,7 @@ export class Airfield {
    */
   private inTheWay(arrival: Flight, plane: Flight): boolean {
     if (arrival === plane) return false;
-    if (!(arrival.phase === 'rollout' || arrival.phase === 'taxiIn' || (arrival.phase === 'approach' && arrival.approach > 0.25))) return false;
+    if (!(arrival.phase === 'rollout' || arrival.phase === 'taxiIn' || (arrival.phase === 'approach'))) return false;
     const { taxiway, links } = this.layout;
     const length = this.rules.planes[arrival.kind].length;
     const room = (length + this.rules.planes[plane.kind].length) / 2 + 2;
@@ -561,8 +593,14 @@ export class Airfield {
     }
     const from = arrival.phase === 'taxiIn' ? arrival.x : arrival.exitX;
     if (Math.min(from, arrival.spot.x) < east && Math.max(from, arrival.spot.x) > west) return true;
-    // Still to come off the runway: in the way if it'll join the taxiway somewhere along the plane's way out.
-    return arrival.phase !== 'taxiIn' && arrival.exitX < east && arrival.exitX > links.entry;
+    // Still to come off the runway: in the way if it'll join the taxiway somewhere along the plane's way out —
+    // unless it'll be up its link and away west before the plane's even backed off its stand (then the plane
+    // just follows it along).
+    if (arrival.phase === 'taxiIn' || arrival.exitX >= east || arrival.exitX <= links.entry) return false;
+    const f = this.rules.flight;
+    const eta = arrival.phase === 'approach' ? (1 - arrival.approach) * f.approachSeconds + 4.5 : Math.max(0, arrival.exitX - arrival.x) / 10 + 1.5;
+    const off = 6 + Math.max(0, plane.spot.x + 6 - arrival.exitX) / f.taxiSpeed;
+    return eta + 3 > off;
   }
 
   update(dt: number): void {
@@ -581,22 +619,28 @@ export class Airfield {
         longest = waited;
       }
     }
-    if (pick && !this.has('approach', 'rollout', 'hold', 'lineup', 'takeoff')) {
+    if (pick && !this.has('approach', 'rollout') && (this.runway2 || !this.has('hold', 'lineup', 'takeoff'))) {
       this.send(pick);
       this.called.delete(pick);
       this.gap.set(pick, this.rules.flight.gapSeconds);
     }
-    // The plane that's waited longest on its stand since it was cleared goes first.
-    let first: Flight | null = null;
-    for (const f of this.flights) if (f.phase === 'parked' && f.cleared && (!first || f.clearedFor > first.clearedFor)) first = f;
+    // Whichever cleared plane can go first goes, the longest-waiting first; but one that's waited a good while
+    // goes before anyone else (nobody's kept on a stand while planes elsewhere come and go).
+    const cleared = this.flights.filter((f) => f.phase === 'parked' && f.cleared).sort((a, b) => b.clearedFor - a.clearedFor);
+    const head = cleared[0];
+    const queue = head && head.clearedFor > this.rules.flight.priorityWait ? [head] : cleared;
+    const first = queue.find((f) => this.mayPush(f)) ?? null;
     for (const flight of [...this.flights]) {
       const may = { push: false, lineUp: false, stopAt: -Infinity };
-      if (flight.phase === 'parked' && flight === first) may.push = this.mayPush(flight);
+      if (flight.phase === 'parked' && flight === first) may.push = true;
       else if (flight.phase === 'taxiOut') may.stopAt = this.stopAt(flight);
       else if (flight.phase === 'hold') {
-        may.lineUp = !this.flights.some((f) => f !== flight && (f.phase === 'approach' || f.phase === 'rollout' || f.phase === 'lineup' || f.phase === 'takeoff'));
+        // (Round to the second runway, one at a time; else onto the first once nothing's landing or taking off.)
+        may.lineUp = this.runway2
+          ? !this.flights.some((f) => f !== flight && f.phase === 'lineup')
+          : !this.flights.some((f) => f !== flight && (f.phase === 'approach' || f.phase === 'rollout' || f.phase === 'lineup' || f.phase === 'takeoff'));
       }
-      const event = flight.update(dt, may);
+      const event = flight.update(dt, { ...may, runway2: this.runway2 && !!this.layout.runway2 });
       if (event === 'touchdown') this.events.onTouchdown?.(flight);
       else if (event === 'parked') this.events.onParked?.(flight);
       else if (event === 'pushback') {

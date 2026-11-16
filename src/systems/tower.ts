@@ -25,6 +25,8 @@ export class Tower {
   chosen: number | null = null;
   /** Flights brought in on a chosen card (rather than the front one). */
   picks = 0;
+  /** Whether Goldsby Air still flies its cut-price hops in (Part D: not once the second runway's open). */
+  private hops = true;
 
   constructor(
     private readonly rules: Rules['tower'],
@@ -35,9 +37,10 @@ export class Tower {
   }
 
   private deal(): FlightCard {
-    const total = this.rules.cards.reduce((sum, c) => sum + c.weight, 0);
+    const cards = this.hops ? this.rules.cards : this.rules.cards.filter((c) => c.id !== 'hopper');
+    const total = cards.reduce((sum, c) => sum + c.weight, 0);
     let roll = this.random() * total;
-    const def = this.rules.cards.find((c) => (roll -= c.weight) < 0) ?? this.rules.cards[0]!;
+    const def = cards.find((c) => (roll -= c.weight) < 0) ?? cards[0]!;
     return {
       kind: def.id,
       fare: def.fare,
@@ -56,6 +59,15 @@ export class Tower {
       for (let tries = 0; tries < 6 && this.cards.length > 0 && this.cards.every((c) => c.kind === card.kind); tries++) card = this.deal();
       this.cards.push(card);
     }
+  }
+
+  /** Goldsby Air closes (the second runway's open and the airlines are back): its hops leave the queue for good. */
+  closeHops(): void {
+    if (!this.hops) return;
+    this.hops = false;
+    for (let i = this.cards.length - 1; i >= 0; i--) if (this.cards[i]!.kind === 'hopper') this.cards.splice(i, 1);
+    this.chosen = null;
+    this.fill();
   }
 
   /** Chooses a card to come in next (choosing it again un-chooses it). */
