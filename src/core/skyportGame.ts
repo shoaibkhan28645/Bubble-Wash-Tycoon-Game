@@ -1056,9 +1056,13 @@ export function createSkyportGame(
         const status =
           airline.away > 0 && route
             ? t('routeAway', { city: cityName(route.id), time: formatClock(airline.away) })
-            : route
-              ? t('routeHome', { city: cityName(route.id) })
-              : t('routeFirst');
+            : plane?.cleared && route
+              ? t('routeLeaving', { city: cityName(route.id) })
+              : !plane
+                ? t('routeComing')
+                : route
+                  ? t('routeHome', { city: cityName(route.id) })
+                  : t('routeFirst');
         return {
           cities: AIRPORT.airline.cities,
           opened: (id) => airline.opened(id),
@@ -2371,7 +2375,10 @@ export function createSkyportGame(
           star: star ? { stage: star.stage, granted: [...star.celeb.granted], patience: star.celeb.patience } : null,
           vipTimer,
           shuttle: shuttle.state,
+          limo: limoRun.state,
+          road: roadUsers(null).map((u) => `${u.lane}:${Math.round(u.x)}`),
         }),
+        grantWish: (wish: Wish) => grant(wish),
         fogNow: () => void (fog.timer = 0),
         vipNow: () => void (vipTimer = 0),
         chooseCard: (i: number) => towerQueue.choose(i),

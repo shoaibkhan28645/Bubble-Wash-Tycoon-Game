@@ -53,6 +53,8 @@ const EN = {
   routeAway: 'Away to {city}, home in {time}',
   routeHome: 'Home from {city}: choose the next route',
   routeFirst: 'Choose Mogul Air’s first route',
+  routeComing: 'Mogul Air’s on its way in: choose a route once it’s on its stand',
+  routeLeaving: 'Off to {city} now',
   routeSet: '+{n}% on every fare from full sets',
   routeTakings: 'Takings {cash} · {time}',
   mogulHome: 'Mogul Air is home from {city}!',
