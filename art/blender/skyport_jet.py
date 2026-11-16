@@ -19,6 +19,10 @@ With WIDE set (art/blender/skyport_wide.py runs this script so), it draws sp_wid
 that uses Gate 4 (Part C), the same jet half as big again (WIDE_SCALE) with a second, smaller engine further
 out under each wing (sp_wide_fanl2/_fanr2, markers _blurl2/_blurr2).
 
+With FREIGHT set too (art/blender/skyport_freighter.py), it draws sp_freighter: the wide-body as a freighter
+for the cargo stand (Part D), no cabin windows, and in place of the passengers' door a big main-deck cargo
+door on its left ahead of the wing, hinged along its top (sp_freighter_door), where the loader docks.
+
 Usage: python art/blender/skyport_jet.py <out.glb> [preview.png]
 """
 import math
@@ -35,8 +39,9 @@ from rig import Model, blob, rod  # noqa: E402
 bpy = kit.bpy
 PI = math.pi
 WIDE = globals().get('WIDE', False)
+FREIGHT = globals().get('FREIGHT', False)
 WIDE_SCALE = 20 / 14
-NAME = 'sp_wide' if WIDE else 'sp_jet'
+NAME = 'sp_freighter' if FREIGHT else 'sp_wide' if WIDE else 'sp_jet'
 
 ACCENT = '#e8493f'
 ACCENT2 = '#ffc21a'
@@ -194,8 +199,8 @@ for side in (-1, 1):
     x, _, z = on_body(-5.95, side * math.radians(62), 0.0)
     p.append(kit.box((0.05, 0.3, 0.2), (x, -5.95, z), GLASS, bevel=0.03, rot=(0, -side * math.radians(28), 0)))
 
-# Cabin windows: a long row down each side, over the cheatline.
-for side in (-1, 1):
+# Cabin windows: a long row down each side, over the cheatline (a freighter has none).
+for side in ((-1, 1) if not FREIGHT else ()):
     for i in range(17):
         y = -3.7 + i * 0.46
         if side > 0 and abs(y - 4.75) < 0.5:
@@ -210,8 +215,13 @@ GALLEY_Y = (4.38, 5.1)
 DOOR_A = (math.radians(48), math.radians(118))
 HOLD_Y = (-4.35, -3.45)
 HOLD_A = (-math.radians(132), -math.radians(78))
-for y0, y1 in (DOOR_Y, GALLEY_Y):
+# (A freighter's main-deck door: big, up the side from below the cheatline nearly to the crown.)
+CARGO_Y = (-4.85, -3.35)
+CARGO_A = (math.radians(16), math.radians(100))
+for y0, y1 in ((GALLEY_Y,) if FREIGHT else (DOOR_Y, GALLEY_Y)):
     p.append(shell(DOOR_A[0] - 0.03, DOOR_A[1] + 0.03, y0 - 0.03, y1 + 0.03, R + 0.004, 0.012, DARK))
+if FREIGHT:
+    p.append(shell(CARGO_A[0] - 0.03, CARGO_A[1] + 0.03, CARGO_Y[0] - 0.03, CARGO_Y[1] + 0.03, R + 0.004, 0.012, DARK))
 p.append(shell(HOLD_A[0] - 0.03, HOLD_A[1] + 0.03, HOLD_Y[0] - 0.03, HOLD_Y[1] + 0.03, R + 0.004, 0.012, DARK))
 
 # Antennas, a beacon's base, the pitot tubes.
@@ -300,7 +310,7 @@ for ex, ey, ez, ek, tag in ENGINES:
         m.marker('blur' + name[-1] + tag, (hub[0], ey - 0.03, ez))
 
 # --- Doors: the passenger door and the galley door hinged at their front edges, the cargo door along its top.
-for name, (y0, y1) in (('door', DOOR_Y), ('galley', GALLEY_Y)):
+for name, (y0, y1) in ((('galley', GALLEY_Y),) if FREIGHT else (('door', DOOR_Y), ('galley', GALLEY_Y))):
     d = [shell(DOOR_A[0], DOOR_A[1], y0, y1, R + 0.018, 0.05, '#eef2f6', segs=10)]
     for k in range(2):
         yk = y0 + 0.2 + k * 0.3
@@ -308,6 +318,17 @@ for name, (y0, y1) in (('door', DOOR_Y), ('galley', GALLEY_Y)):
         d.append(kit.box((0.03, 0.16, 0.2), (x, yk, z), WINDOW, bevel=0.02, rot=(0, -math.radians(26), 0)))
     d.append(kit.box((0.03, 0.14, 0.05), on_body((y0 + y1) / 2, math.radians(90), 0.07), STEEL, bevel=0.0))
     m.part(name, (R + 0.03, y0, CZ), d)
+
+if FREIGHT:
+    # The main-deck door, hinged along its top: the airline's colour in a band across it, its latches below.
+    mid = (CARGO_Y[0] + CARGO_Y[1]) / 2
+    cd = [shell(CARGO_A[0], CARGO_A[1], CARGO_Y[0], CARGO_Y[1], R + 0.018, 0.05, '#eef2f6', segs=14)]
+    cd.append(shell(math.radians(62), math.radians(74), CARGO_Y[0] + 0.05, CARGO_Y[1] - 0.05, R + 0.07, 0.01, ACCENT, segs=4))
+    for k in range(3):
+        yk = CARGO_Y[0] + 0.3 + k * 0.45
+        cd.append(kit.box((0.04, 0.16, 0.06), on_body(yk, math.radians(96), 0.08), STEEL, bevel=0.0))
+    top = on_body(mid, CARGO_A[0], 0.03)
+    m.part('door', (top[0], mid, top[2]), cd)
 
 hold_pivot = on_body((HOLD_Y[0] + HOLD_Y[1]) / 2, HOLD_A[1], 0.03)
 h = [shell(HOLD_A[0], HOLD_A[1], HOLD_Y[0], HOLD_Y[1], R + 0.018, 0.05, '#eef2f6', segs=8)]
@@ -365,7 +386,7 @@ if WIDE:
         if ob.type == 'MESH':
             ob.data.transform(Matrix.Scale(WIDE_SCALE, 4))
         ob.location = ob.location * WIDE_SCALE
-out = Path(sys.argv[1] if len(sys.argv) > 1 else f'skyport-{"wide" if WIDE else "jet"}.glb')
+out = Path(sys.argv[1] if len(sys.argv) > 1 else f'skyport-{"freighter" if FREIGHT else "wide" if WIDE else "jet"}.glb')
 rig.export_all(out)
 if len(sys.argv) > 2:
     kit.preview(sys.argv[2], look_at=(0, 0, 2.0 * (WIDE_SCALE if WIDE else 1)), distance=24 * (WIDE_SCALE if WIDE else 1), size=(1100, 800), ground='#cfd6de', angles=((0.55, -1, 0.85), (-0.9, 0.5, 0.6), (0.01, -0.02, 1.0)))

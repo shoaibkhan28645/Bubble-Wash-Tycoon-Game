@@ -128,7 +128,7 @@
       "prop": { "seats": 12, "fare": 240000, "length": 9, "sill": 1.02, "clock": 60 },
       "jet": { "seats": 24, "fare": 360000, "length": 14, "sill": 2.2, "clock": 85 },
       "wide": { "seats": 36, "fare": 480000, "length": 20, "sill": 3.14, "clock": 110 },
-      "private": { "seats": 0, "fare": 0, "length": 11, "sill": 1.05, "clock": 600 }
+      "private": { "seats": 0, "fare": 0, "length": 11, "sill": 1.05, "clock": 600 }, "freighter": { "seats": 0, "fare": 0, "length": 20, "sill": 3.3, "clock": 600 }
     },
     "flight": { "gapSeconds": 4, "starveSeconds": 20, "firstClock": 90, "approachSeconds": 7, "landSpeed": 17, "taxiSpeed": 7.5, "pushSpeed": 3.2, "takeoffAccel": 5.5, "rotateSpeed": 19, "boardStagger": 0.5, "fullBonus": 0.2, "onTimeBonus": 0.25, "streakStep": 0.05, "streakMax": 10, "perfectTip": 0.15 },
     "fuel": { "seconds": 4.5, "clockSeconds": 8 },
@@ -179,6 +179,10 @@
       ]
     },
     "vip": { "first": 25, "every": [140, 200], "patience": 75, "tip": 6000000, "allBonus": 12000000, "carpetSeconds": 1.4, "limoSeconds": 0.8 },
-    "sorter": { "perSecond": 2.5 }
+    "sorter": { "perSecond": 2.5 },
+    "cargo": { "crates": 8, "restock": 1.4, "stack": 10, "fare": 4000000, "wait": 1.5, "carry": 2, "crewSpeed": 1.0 },
+    "hangar": { "wear": [0.25, 0.32, 0.4], "serviceAt": 0.7, "wornPenalty": 0.25, "freshTrips": 3, "freshBonus": 0.2, "seconds": 8, "mechanicRate": 0.6 },
+    "jetwash": { "first": 25, "every": [80, 130], "fee": 30000000, "seconds": 16, "heroSpeed": 2.2 },
+    "runway2": { "gapSeconds": 3 }
   }
 }

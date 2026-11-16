@@ -59,6 +59,10 @@ export const SKYPORT_FILES = [
   'building:skyport-terminal',
   'building:skyport-name',
   'building:skyport-wide',
+  'building:skyport-freighter',
+  'building:skyport-cargo',
+  'building:skyport-hangar',
+  'building:skyport-jetwash',
   'building:skyport-private',
   'building:skyport-tower',
   'building:skyport-pier',
@@ -285,10 +289,12 @@ export const PRIVATE_SOLID: PlaneSolid = { half: 0.95, tail: -5.5, nose: 5.5, pa
  * painted on it, and how its passenger door opens (swung round on its front edge, or folded down as steps).
  */
 export const PLANES = {
-  prop: { size: PROP, solid: PROP_SOLID, model: 'sp_plane', spinner: 'prop', fans: ['l', 'r'], blur: 1.06, wheel: { main: 0.36, nose: 0.3 }, livery: true, airstair: false },
-  jet: { size: JET, solid: JET_SOLID, model: 'sp_jet', spinner: 'fan', fans: ['l', 'r'], blur: 0.6, wheel: { main: 0.46, nose: 0.34 }, livery: true, airstair: false },
-  wide: { size: WIDE, solid: WIDE_SOLID, model: 'sp_wide', spinner: 'fan', fans: ['l', 'r', 'l2', 'r2'], blur: 0.6 * S, wheel: { main: 0.46 * S, nose: 0.34 * S }, livery: true, airstair: false },
-  private: { size: PRIVATE, solid: PRIVATE_SOLID, model: 'sp_private', spinner: 'fan', fans: ['l', 'r'], blur: 0.42, wheel: { main: 0.3, nose: 0.22 }, livery: false, airstair: true },
+  prop: { size: PROP, solid: PROP_SOLID, model: 'sp_plane', spinner: 'prop', fans: ['l', 'r'], blur: 1.06, wheel: { main: 0.36, nose: 0.3 }, livery: true, airstair: false, cargoDoor: false },
+  jet: { size: JET, solid: JET_SOLID, model: 'sp_jet', spinner: 'fan', fans: ['l', 'r'], blur: 0.6, wheel: { main: 0.46, nose: 0.34 }, livery: true, airstair: false, cargoDoor: false },
+  wide: { size: WIDE, solid: WIDE_SOLID, model: 'sp_wide', spinner: 'fan', fans: ['l', 'r', 'l2', 'r2'], blur: 0.6 * S, wheel: { main: 0.46 * S, nose: 0.34 * S }, livery: true, airstair: false, cargoDoor: false },
+  private: { size: PRIVATE, solid: PRIVATE_SOLID, model: 'sp_private', spinner: 'fan', fans: ['l', 'r'], blur: 0.42, wheel: { main: 0.3, nose: 0.22 }, livery: false, airstair: true, cargoDoor: false },
+  // (Part D: the wide-body as a freighter, its main-deck door up the left side, hinged along its top.)
+  freighter: { size: WIDE, solid: WIDE_SOLID, model: 'sp_freighter', spinner: 'fan', fans: ['l', 'r', 'l2', 'r2'], blur: 0.6 * S, wheel: { main: 0.46 * S, nose: 0.34 * S }, livery: true, airstair: false, cargoDoor: true },
 } as const;
 export type PlaneKindName = keyof typeof PLANES;
 
@@ -348,6 +354,7 @@ export class PlaneModel {
   private readonly taxi: Mesh;
   private readonly eased = { door: 0, hold: 0, galley: 0, flaps: 0, gear: 1 };
   private readonly airstair: boolean;
+  private readonly cargoDoor: boolean;
   private turn = 0;
   private time = Math.random() * 3;
   readonly kind: PlaneKindName;
@@ -364,6 +371,7 @@ export class PlaneModel {
     this.root.rotation.order = 'YXZ';
     this.props = plane.fans.map((s) => part(model, `${name}_${plane.spinner}${s}`));
     this.airstair = plane.airstair;
+    this.cargoDoor = plane.cargoDoor;
     this.door = part(model, `${name}_door`);
     this.hold = part(model, `${name}_hold`);
     this.galley = part(model, `${name}_galley`);
@@ -405,6 +413,7 @@ export class PlaneModel {
       prop: [wingShape(PROP.span, 1.9, 1.15, 0.28), 1.0, wingShape(4.3, 1.15, 0.68, 0.45), -3.5, 1],
       jet: [wingShape(JET.span, 3.2, 1.05, 3.15), 1.7, wingShape(5.8, 1.6, 0.75, 1.25), -5.0, 1],
       wide: [wingShape(JET.span, 3.2, 1.05, 3.15), 1.7, wingShape(5.8, 1.6, 0.75, 1.25), -5.0, S],
+      freighter: [wingShape(JET.span, 3.2, 1.05, 3.15), 1.7, wingShape(5.8, 1.6, 0.75, 1.25), -5.0, S],
       private: [wingShape(PRIVATE.span, 2.3, 0.85, 2.1), 0.6, wingShape(3.7, 1.05, 0.55, 0.6), -4.95, 1],
     } as const;
     const [wingAt, wingZ, tailAt, tailZ, scale] = shapes[kind];
@@ -437,6 +446,7 @@ export class PlaneModel {
     }
     // (A private jet's door folds down from its sill to the ground as steps.)
     if (this.airstair) this.door.rotation.z = -1.78 * e.door;
+    else if (this.cargoDoor) this.door.rotation.z = 1.55 * e.door;
     else this.door.rotation.y = -2.7 * e.door;
     this.hold.rotation.z = -1.45 * e.hold;
     this.galley.rotation.y = -2.7 * e.galley;
@@ -478,6 +488,7 @@ export function standKit(kind: PlaneKindName = 'prop'): Object3D {
     prop: { wheel: [2.4, 0.5], nose: 3.3, tip: [5.75, 0.2], tail: -4.9 },
     jet: { wheel: [1.75, -0.55], nose: 5.55, tip: [7.7, -2.0], tail: -7.6 },
     wide: { wheel: [1.75 * S, -0.55 * S], nose: 5.55 * S, tip: [7.7 * S, -2.0 * S], tail: -7.6 * S },
+    freighter: { wheel: [1.75 * S, -0.55 * S], nose: 5.55 * S, tip: [7.7 * S, -2.0 * S], tail: -7.6 * S },
     private: { wheel: [1.25, -1.0], nose: 4.15, tip: [5.7, -2.2], tail: -6.1 },
   };
   const { wheel: [wx, wz], tip: [tx, tz], nose, tail } = at[kind];

@@ -139,6 +139,16 @@ export interface PadEffects {
   vip?: boolean;
   /** The bag sorter: cases go from the belt to each plane's hold by themselves, on belt loaders. */
   sorter?: boolean;
+  /** Part D. The cargo apron: a shed of crates and a stand where freighters come to be loaded. */
+  cargo?: boolean;
+  /** The maintenance hangar: Mogul Air's worn planes come home to it to be serviced. */
+  hangar?: boolean;
+  /** Mogul Air's second plane, on a stand of its own. */
+  fleet?: boolean;
+  /** The second runway: departures take off from it, the airlines come back and Goldsby Air's hops stop. */
+  runway2?: boolean;
+  /** The jet wash: airlines book their jets in for a wash. */
+  jetwash?: boolean;
 }
 
 export interface PadDef {
@@ -449,7 +459,7 @@ export interface TrackSpot {
 }
 
 /** The planes that use an airport (tuning.json `airport.planes`). */
-export type PlaneKind = 'prop' | 'jet' | 'wide' | 'private';
+export type PlaneKind = 'prop' | 'jet' | 'wide' | 'private' | 'freighter';
 
 /** A stand for a plane that isn't a gate's (Mogul Air's own plane, the private jets): where it parks, where it's marshalled in, its door. */
 export interface StandSpot {
@@ -502,8 +512,14 @@ export interface AirportLayout extends TownLayout {
   /** The runway (along x) and the taxiway beside it, by their centre lines. */
   runway: { z: number; minX: number; maxX: number; half: number };
   taxiway: { z: number; half: number };
-  /** Where planes leave the runway for the taxiway (`exit`), join it to take off (`entry`), and the link at the far end. */
-  links: { exit: number; entry: number; far: number };
+  /**
+   * Where planes leave the runway for the taxiway (`exit`), join it to take off (`entry`), the link at the far
+   * end, and (Part D) the link further east for the cargo and hangar stands and the end-around taxiway (`around`,
+   * past the runway's west end to the second runway).
+   */
+  links: { exit: number; entry: number; far: number; east?: number; around?: number };
+  /** Part D: the second runway, north of the first, that departures take off from once it's built. */
+  runway2?: { z: number; minX: number; maxX: number; half: number };
   apron: Rect;
   serviceRoad: Rect;
   hall: Rect;
@@ -542,6 +558,16 @@ export interface AirportLayout extends TownLayout {
   vip: { lounge: Rect; door: Point; south: Point; bar: Point; kerb: Point; carpet: Point; seat: Point; photo: Point[] };
   shuttle: { stop: Point; kerb: Point };
   sorter: { at: Point };
+  /**
+   * Part D, the cargo and hangar side, east of the tower: the cargo shed (its door, the dock where crates are
+   * picked up, where they stack, the loader at the freighter's door and where crates are dropped there, its
+   * pile), the maintenance hangar (its people door, where a plane's serviced), the jet wash (its controls, its
+   * pile), and the airport manager's walk.
+   */
+  cargo?: { shed: Rect; door: Point; dock: Point; stack: Point; loader: Point; drop: Point; pile: Point };
+  hangar?: { hall: Rect; door: Point; service: Point };
+  jetwash?: { hall: Rect; control: Point; pile: Point };
+  managerWalk?: Point[];
 }
 
 /** A theme park's map (Chapter 3): the shared map, the ticket booth and stalls, the rides and the paths between them. */
