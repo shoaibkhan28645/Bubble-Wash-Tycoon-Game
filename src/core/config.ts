@@ -127,6 +127,18 @@ export interface PadEffects {
   kitchen?: boolean;
   /** The airport flies through the night: dark falls now and then, its lights come on, night flights pay more. */
   nights?: boolean;
+  /** Part C. A gate with a pier of its own for its lounge (Gate 4's, east of the kitchen). */
+  pier?: boolean;
+  /** The control tower: the next flights wait as cards to choose from, and now and then fog rolls in. */
+  tower?: boolean;
+  /** The shuttle station: a bus brings passengers in by the busload. */
+  shuttle?: boolean;
+  /** Mogul Air: the player's own plane, its office, the routes it flies and the souvenirs it brings back. */
+  airline?: boolean;
+  /** The private jet stand and VIP lounge: now and then a celebrity flies in with wishes to grant. */
+  vip?: boolean;
+  /** The bag sorter: cases go from the belt to each plane's hold by themselves, on belt loaders. */
+  sorter?: boolean;
 }
 
 export interface PadDef {
@@ -436,6 +448,18 @@ export interface TrackSpot {
   pool?: Point & { r: number };
 }
 
+/** The planes that use an airport (tuning.json `airport.planes`). */
+export type PlaneKind = 'prop' | 'jet' | 'wide' | 'private';
+
+/** A stand for a plane that isn't a gate's (Mogul Air's own plane, the private jets): where it parks, where it's marshalled in, its door. */
+export interface StandSpot {
+  x: number;
+  noseZ: number;
+  plane?: PlaneKind;
+  marshal: Point;
+  planeDoor?: Point;
+}
+
 /** One of an airport's gates: the stand its plane parks on, and everything round it. */
 export interface GateSpot {
   /** The stand's centre line, and where a parked plane's nose stops (it faces the hall, +z). */
@@ -457,7 +481,7 @@ export interface GateSpot {
   /** Where its passengers wait in the hall. */
   lounge: Rect;
   /** The plane that uses it (tuning.json `airport.planes`): a propeller plane unless it says. */
-  plane?: 'prop' | 'jet';
+  plane?: PlaneKind;
   /** A jet bridge's rotunda by the wall (boarded through it rather than up air stairs), and the hero's own doorway out to the apron then. */
   bridge?: Point;
   apron?: Point;
@@ -503,6 +527,19 @@ export interface AirportLayout extends TownLayout {
   dutyfree: ShopSpot;
   security: { arch: Point; queue: Point[]; exit: Point };
   kitchen: { at: Point; hatch: Point; pick: Point };
+  /**
+   * Part C, the tower and VIP side, east of the kitchen: Gate 4's pier (its lounge), the stands that aren't
+   * gates' (Mogul Air's, the private jets'), the control tower, Mogul Air's office, the VIP lounge (its doors,
+   * the bar, the sofas, the limousine's kerb, where the carpet starts, where the photographers stand), the
+   * shuttle's stop (the bus pulls up on the road at `kerb.x`), the bag sorter by the belt.
+   */
+  pier: Rect;
+  stands: Record<string, StandSpot>;
+  tower: { at: Point; door: Point };
+  mogul: { office: Rect; board: Point; pile: Point };
+  vip: { lounge: Rect; door: Point; south: Point; bar: Point; kerb: Point; carpet: Point; seat: Point; photo: Point[] };
+  shuttle: { stop: Point; kerb: Point };
+  sorter: { at: Point };
 }
 
 /** A theme park's map (Chapter 3): the shared map, the ticket booth and stalls, the rides and the paths between them. */

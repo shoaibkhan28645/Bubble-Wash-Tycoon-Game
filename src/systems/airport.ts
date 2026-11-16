@@ -4,14 +4,27 @@
 // One runway is shared by landings and take-offs, and one taxiway by planes coming and going: nothing
 // moves onto either while it's taken. Pure logic: where each plane is and what it's doing. The game
 // draws them, walks the passengers and pays.
-import type { AirportLayout, GateSpot, Point, Tuning } from '../core/config';
+import type { AirportLayout, GateSpot, PlaneKind, Point, StandSpot, Tuning } from '../core/config';
 
 export type Phase = 'approach' | 'rollout' | 'taxiIn' | 'parked' | 'pushback' | 'taxiOut' | 'hold' | 'lineup' | 'takeoff' | 'climb';
-/** The planes that use the airport (tuning.json `airport.planes`): the propeller airliner, and from Gate 3 the jet. */
-export type PlaneKind = 'prop' | 'jet';
+export type { PlaneKind };
 
-/** The plane a gate takes. */
-export const planeAt = (spot: GateSpot): PlaneKind => spot.plane ?? 'prop';
+/** The plane a gate (or stand) takes: the propeller airliner unless it says (the jet at Gate 3, the wide-body at Gate 4, the private jet). */
+export const planeAt = (spot: { plane?: PlaneKind }): PlaneKind => spot.plane ?? 'prop';
+
+/** A stand that isn't a gate's, as a gate's spot (what a gate has that it hasn't is its marshal's spot, or its door's). */
+export function standSpot(stand: StandSpot): GateSpot {
+  const at = stand.marshal;
+  const door = stand.planeDoor ?? at;
+  return { x: stand.x, noseZ: stand.noseZ, plane: stand.plane, marshal: at, door: at, podium: at, truck: at, fuelSpot: at, stairsFoot: door, planeDoor: door, hold: at, lounge: { minX: at.x, maxX: at.x, minZ: at.z, maxZ: at.z } };
+}
+
+/** What the tower made of a flight (Part C): how its fare, its cases and its clock compare with an ordinary one's. */
+export interface FlightTerms {
+  fare: number;
+  cases: number;
+  clock: number;
+}
 
 type Rules = Tuning['airport'];
 
@@ -111,6 +124,8 @@ export class Flight {
   readyFor = 0;
   /** Seconds since it parked. */
   parkedFor = 0;
+  /** The tower's card it came in on (Part C), if it came in on one. */
+  card: (FlightTerms & { kind: string }) | null = null;
   /** Along its way on the ground, and how far through its approach it is (0–1). */
   private route: Route | null = null;
   private along = 0;
@@ -155,12 +170,15 @@ export class Flight {
   /** The way in from the runway to the stand. */
   private wayIn(): Route {
     const { runway, taxiway, links } = this.layout;
+    // (Stands past the usual exit, east of the kitchen, are reached from the link at the far end: everything
+    // on the taxiway still heads west.)
+    const exit = this.spot.x > links.exit - 2 ? links.far : links.exit;
     return new Route(
       rounded(
         [
           { x: this.touchdown, z: runway.z },
-          { x: links.exit, z: runway.z },
-          { x: links.exit, z: taxiway.z },
+          { x: exit, z: runway.z },
+          { x: exit, z: taxiway.z },
           { x: this.spot.x, z: taxiway.z },
           { x: this.spot.x, z: this.standZ },
         ],
@@ -343,6 +361,14 @@ export class Airfield {
   private readonly open = new Set<string>();
   /** Seconds until each empty gate's next plane is sent for. */
   private readonly gap = new Map<string, number>();
+  /** Gates (stands) whose planes come only when called for (Mogul Air's own, the private jets'), and those called. */
+  private readonly manual = new Set<string>();
+  private readonly called = new Set<string>();
+  /** Fog: no new arrivals are sent for while it's down (planes already coming in still land). */
+  paused = false;
+  /** The terms of the next arrival (the tower's card), asked as each is sent for. */
+  terms: ((gate: string) => (FlightTerms & { kind: string }) | null) | null = null;
+  private readonly stands = new Map<string, GateSpot>();
   private nextId = 1;
   private lastLivery = -1;
   /** Flights that have come so far (the first has a longer clock). */
@@ -356,10 +382,33 @@ export class Airfield {
     private readonly random: () => number = Math.random,
   ) {}
 
-  openGate(gate: string, wait = 0): void {
-    if (this.open.has(gate) || !this.layout.gates[gate]) return;
+  /** A gate's spot, or a stand's (as a gate's). */
+  spotOf(gate: string): GateSpot | null {
+    const spot = this.layout.gates[gate];
+    if (spot) return spot;
+    const stand = this.layout.stands?.[gate];
+    if (!stand) return null;
+    let made = this.stands.get(gate);
+    if (!made) this.stands.set(gate, (made = standSpot(stand)));
+    return made;
+  }
+
+  /** Calls for a plane to a manual stand: it's sent as soon as the runway's free (and the fog's lifted). */
+  call(gate: string): void {
+    if (this.manual.has(gate)) this.called.add(gate);
+  }
+
+  /** Whether a plane's been called for a stand and not sent yet. */
+  calling(gate: string): boolean {
+    return this.called.has(gate);
+  }
+
+  /** Opens a gate (or a stand) for planes; a `manual` one's come only when called for. */
+  openGate(gate: string, wait = 0, manual = false): void {
+    if (this.open.has(gate) || !this.spotOf(gate)) return;
     this.open.add(gate);
     this.gap.set(gate, wait);
+    if (manual) this.manual.add(gate);
   }
 
   /** The plane at (or on its way to) a gate. */
@@ -379,13 +428,16 @@ export class Airfield {
 
   /** Sends for a plane for `gate` (nearly down already if `approach` is given). */
   send(gate: string, approach = 0): Flight | null {
-    const spot = this.layout.gates[gate];
+    const spot = this.spotOf(gate);
     if (!spot || this.at(gate)) return null;
     let livery = Math.floor(this.random() * this.liveries);
     if (livery === this.lastLivery) livery = (livery + 1) % this.liveries;
     this.lastLivery = livery;
     const first = this.arrivals === 0;
-    const flight = new Flight(this.nextId++, gate, spot, livery, this.layout, this.rules, first ? this.rules.flight.firstClock : this.rules.planes[planeAt(spot)].clock);
+    const card = this.manual.has(gate) ? null : (this.terms?.(gate) ?? null);
+    const clock = (first ? this.rules.flight.firstClock : this.rules.planes[planeAt(spot)].clock) * (card?.clock ?? 1);
+    const flight = new Flight(this.nextId++, gate, spot, livery, this.layout, this.rules, clock);
+    flight.card = card;
     flight.startAt(approach);
     this.arrivals += 1;
     this.flights.push(flight);
@@ -396,11 +448,12 @@ export class Airfield {
     // New arrivals: one at a time down the approach, never while a plane's on the runway to take off or
     // backing onto the taxiway (it would meet the arrival head on).
     for (const gate of this.open) {
-      if (this.at(gate)) continue;
+      if ((this.manual.has(gate) && !this.called.has(gate)) || this.paused || this.at(gate)) continue;
       const left = (this.gap.get(gate) ?? 0) - dt;
       this.gap.set(gate, left);
       if (left > 0 || this.has('approach', 'rollout', 'hold', 'lineup', 'takeoff', 'pushback')) continue;
       this.send(gate);
+      this.called.delete(gate);
       this.gap.set(gate, this.rules.flight.gapSeconds);
     }
     for (const flight of [...this.flights]) {

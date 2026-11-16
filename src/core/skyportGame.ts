@@ -77,7 +77,7 @@ import type { CarModel } from '../render/models/actors';
 import { PadModel } from '../render/models/padModel';
 import { PersonAvatar } from '../render/models/person';
 import { TownDecor } from '../render/townDecor';
-import { Airfield, flightPay, planeAt, podiumFront, ringAt, type Flight } from '../systems/airport';
+import { Airfield, flightPay, planeAt, podiumFront, ringAt, type Flight, type PlaneKind } from '../systems/airport';
 import { unlockedSum } from '../systems/arrivals';
 import { perk } from '../systems/career';
 import { CashSystem } from '../systems/cash';
@@ -368,34 +368,18 @@ export function createSkyportGame(
 
   // The way round all that for passengers and the crew: a walking grid, made again whenever something's
   // built (or a barrier goes), with every stand taken as if a plane were parked on it.
-  /** What's solid of a plane standing with its middle at (x, mid), nose to +z: its fuselage, its wheels (and a jet's engines). */
-  const planeSolids = (kind: 'prop' | 'jet', x: number, mid: number): Rect[] => {
+  /** What's solid of a plane standing with its middle at (x, mid), nose to +z: its fuselage, then its wheels (and its propellers, or the engines under its wing) either side. */
+  const planeSolids = (kind: PlaneKind, x: number, mid: number): Rect[] => {
     const solid = PLANES[kind].solid;
     const body = { minX: x - solid.half, maxX: x + solid.half, minZ: mid + solid.tail, maxZ: mid + solid.nose };
-    if (kind === 'jet') {
-      const jet = PLANES.jet.solid;
-      return [
-        body,
-        ...[-1, 1].flatMap((side) => [
-          { minX: x + side * jet.engineX - jet.engineHalf, maxX: x + side * jet.engineX + jet.engineHalf, minZ: mid + jet.engineBack, maxZ: mid + jet.engineFront },
-          around({ x: x + side * 1.75, z: mid - 0.55 }, 0.42, 0.55),
-        ]),
-      ];
-    }
-    return [
-      body,
-      ...[-1, 1].flatMap((side) => [
-        around({ x: x + side * 2.4, z: mid + 0.5 }, 0.35, 0.45),
-        around({ x: x + side * 2.4, z: mid + 2.2 }, 1.0, 0.18),
-      ]),
-    ];
+    return [body, ...solid.parts.flatMap((q) => [-1, 1].map((side) => around({ x: x + side * q.x, z: mid + q.z }, q.hx, q.hz)))];
   };
-  const standSolids = (spot: GateSpot): Rect[] => planeSolids(planeAt(spot), spot.x, spot.noseZ - PLANES[planeAt(spot)].size.length / 2);
+  const standSolids = (spot: { x: number; noseZ: number; plane?: PlaneKind }): Rect[] => planeSolids(planeAt(spot), spot.x, spot.noseZ - PLANES[planeAt(spot)].size.length / 2);
   const NAV_AREA: Rect = { ...layout.walk, maxZ: layout.roadZ - 2 };
   let nav: NavGrid | null = null;
   const solidsChanged = (): void => void (nav = null);
   const route = (from: Point, to: Point): Point[] => {
-    nav ??= new NavGrid(NAV_AREA, [...solids, ...Object.values(layout.gates).flatMap(standSolids)], 0.3);
+    nav ??= new NavGrid(NAV_AREA, [...solids, ...[...Object.values(layout.gates), ...Object.values(layout.stands)].flatMap(standSolids)], 0.3);
     return nav.findPath(from, to);
   };
   /** Sends one of the crew off along the way round to `to`. */

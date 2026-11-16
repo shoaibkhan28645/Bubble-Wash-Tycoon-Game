@@ -58,6 +58,13 @@ export const SKYPORT_FILES = [
   'building:skyport-field',
   'building:skyport-terminal',
   'building:skyport-name',
+  'building:skyport-wide',
+  'building:skyport-private',
+  'building:skyport-tower',
+  'building:skyport-pier',
+  'building:skyport-vip',
+  'building:skyport-mogul',
+  'building:skyport-shuttle',
 ];
 
 /** The named model's node in whichever of the airport's files has it (not a copy). */
@@ -237,15 +244,47 @@ const PLANE_PAINTS: PaintFamily[] = [
 
 /** The airliner's size (metres): nose to tail, wingtip to wingtip, how fat, how high its middle rides, its door's sill. */
 export const PROP = { length: 9, span: 10.6, radius: 0.95, ride: 1.72, sill: 1.02, wingY: 2.68 } as const;
-/** Half the fuselage's width and where it starts and ends along the plane, for what's solid when it's parked. */
-export const PROP_SOLID = { half: 1.05, tail: -4.4, nose: 4.5 } as const;
+/**
+ * What's solid of a parked plane (its middle at the origin, nose to +z): half its fuselage's width and where
+ * it starts and ends along it, and the low things round it a person bumps into (wheels, propellers, engines
+ * under the wing): their middles (the right-hand one of each pair; the left's is its mirror) and half-sizes.
+ */
+export interface PlaneSolid {
+  half: number;
+  tail: number;
+  nose: number;
+  parts: { x: number; z: number; hx: number; hz: number }[];
+}
+export const PROP_SOLID: PlaneSolid = { half: 1.05, tail: -4.4, nose: 4.5, parts: [{ x: 2.4, z: 0.5, hx: 0.35, hz: 0.45 }, { x: 2.4, z: 2.2, hx: 1.0, hz: 0.18 }] };
 /** The jet's (art/blender/skyport_jet.py), and where its engines hang (out from its middle, along it). */
 export const JET = { length: 14, span: 14.4, radius: 1.3, ride: 2.55, sill: 2.2, wingY: 1.9 } as const;
-export const JET_SOLID = { half: 1.4, tail: -7.0, nose: 7.0, engineX: 3.5, engineHalf: 0.66, engineFront: 3.15, engineBack: 0.75 } as const;
-/** Each plane's size, its solid outline, its model and its wheels' radii (main, nose). */
+export const JET_SOLID: PlaneSolid = { half: 1.4, tail: -7.0, nose: 7.0, parts: [{ x: 3.5, z: 1.95, hx: 0.66, hz: 1.2 }, { x: 1.75, z: -0.55, hx: 0.42, hz: 0.55 }] };
+/** The wide-body (Gate 4): the jet half as big again, with a second, smaller engine further out under each wing. */
+const S = 20 / 14;
+export const WIDE = { length: 20, span: 14.4 * S, radius: 1.3 * S, ride: 2.55 * S, sill: 2.2 * S, wingY: 1.9 * S } as const;
+export const WIDE_SOLID: PlaneSolid = {
+  half: 1.4 * S,
+  tail: -10,
+  nose: 10,
+  parts: [
+    { x: 3.5 * S, z: 1.95 * S, hx: 0.66 * S, hz: 1.2 * S },
+    { x: 5.95 * S, z: 0.97 * S, hx: 0.56 * S, hz: 1.02 * S },
+    { x: 1.75 * S, z: -0.55 * S, hx: 0.42 * S, hz: 0.55 * S },
+  ],
+};
+/** The golden private jet (art/blender/skyport_private.py): its engines on the back of the fuselage. */
+export const PRIVATE = { length: 11, span: 10.4, radius: 0.9, ride: 1.6, sill: 1.05, wingY: 1.0 } as const;
+export const PRIVATE_SOLID: PlaneSolid = { half: 0.95, tail: -5.5, nose: 5.5, parts: [{ x: 1.42, z: -2.75, hx: 0.5, hz: 0.95 }, { x: 1.25, z: -1.0, hx: 0.3, hz: 0.4 }] };
+/**
+ * Each plane's size, its solid outline, its model, its propellers' (or fans') part names (`spinner` + each of
+ * `fans`) and their blur discs' radius, its wheels' radii (main, nose), whether the airline's colours are
+ * painted on it, and how its passenger door opens (swung round on its front edge, or folded down as steps).
+ */
 export const PLANES = {
-  prop: { size: PROP, solid: PROP_SOLID, model: 'sp_plane', spinner: 'prop', blur: 1.06, wheel: { main: 0.36, nose: 0.3 } },
-  jet: { size: JET, solid: JET_SOLID, model: 'sp_jet', spinner: 'fan', blur: 0.6, wheel: { main: 0.46, nose: 0.34 } },
+  prop: { size: PROP, solid: PROP_SOLID, model: 'sp_plane', spinner: 'prop', fans: ['l', 'r'], blur: 1.06, wheel: { main: 0.36, nose: 0.3 }, livery: true, airstair: false },
+  jet: { size: JET, solid: JET_SOLID, model: 'sp_jet', spinner: 'fan', fans: ['l', 'r'], blur: 0.6, wheel: { main: 0.46, nose: 0.34 }, livery: true, airstair: false },
+  wide: { size: WIDE, solid: WIDE_SOLID, model: 'sp_wide', spinner: 'fan', fans: ['l', 'r', 'l2', 'r2'], blur: 0.6 * S, wheel: { main: 0.46 * S, nose: 0.34 * S }, livery: true, airstair: false },
+  private: { size: PRIVATE, solid: PRIVATE_SOLID, model: 'sp_private', spinner: 'fan', fans: ['l', 'r'], blur: 0.42, wheel: { main: 0.3, nose: 0.22 }, livery: false, airstair: true },
 } as const;
 export type PlaneKindName = keyof typeof PLANES;
 
@@ -304,6 +343,7 @@ export class PlaneModel {
   private readonly strobe: Mesh;
   private readonly taxi: Mesh;
   private readonly eased = { door: 0, hold: 0, galley: 0, flaps: 0, gear: 1 };
+  private readonly airstair: boolean;
   private turn = 0;
   private time = Math.random() * 3;
   readonly kind: PlaneKindName;
@@ -312,13 +352,14 @@ export class PlaneModel {
     this.kind = kind;
     const plane = PLANES[kind];
     const name = plane.model;
-    const key = `${name}:${livery.accent}:${livery.accent2}`;
-    const model = skyMover(name, key, (geometry) => familyPainter(geometry, PLANE_PAINTS)([livery.accent, livery.accent2]));
+    // (Mogul Air's and the airlines' colours on an airliner; the private jet's gold is its own.)
+    const model = plane.livery ? skyMover(name, `${name}:${livery.accent}:${livery.accent2}`, (geometry) => familyPainter(geometry, PLANE_PAINTS)([livery.accent, livery.accent2])) : skyMover(name);
     // Its own flat shadow follows it (the sun's would be left behind on the shadow map).
     model.traverse((node) => (node.castShadow = false));
     this.root.add(model);
     this.root.rotation.order = 'YXZ';
-    this.props = ['l', 'r'].map((s) => part(model, `${name}_${plane.spinner}${s}`));
+    this.props = plane.fans.map((s) => part(model, `${name}_${plane.spinner}${s}`));
+    this.airstair = plane.airstair;
     this.door = part(model, `${name}_door`);
     this.hold = part(model, `${name}_hold`);
     this.galley = part(model, `${name}_galley`);
@@ -333,8 +374,8 @@ export class PlaneModel {
     ];
 
     // The propellers' (or fans') blur, shown over them when they're spinning fast.
-    const discMaterial = new MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: kind === 'jet' ? 0.3 : 0.22, depthWrite: false });
-    for (const s of ['l', 'r']) {
+    const discMaterial = new MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: kind === 'prop' ? 0.22 : 0.3, depthWrite: false });
+    for (const s of plane.fans) {
       const disc = new Mesh(new CircleGeometry(plane.blur, 24), discMaterial);
       disc.position.z = 0.02;
       disc.visible = false;
@@ -355,14 +396,16 @@ export class PlaneModel {
     this.taxi = light(`${name}_taxi`, 0xfff6c8, 0.1);
 
     // Its shadow on the ground, in its own shape.
-    const jet = kind === 'jet';
     const size = plane.size;
-    const outline = jet
-      ? new ShapeGeometry(wingShape(JET.span, 3.2, 1.05, 3.15)).rotateX(PI / 2).translate(0, 0, 1.7)
-      : new ShapeGeometry(wingShape(PROP.span, 1.9, 1.15, 0.28)).rotateX(PI / 2).translate(0, 0, 1.0);
-    const tail = jet
-      ? new ShapeGeometry(wingShape(5.8, 1.6, 0.75, 1.25)).rotateX(PI / 2).translate(0, 0, -5.0)
-      : new ShapeGeometry(wingShape(4.3, 1.15, 0.68, 0.45)).rotateX(PI / 2).translate(0, 0, -3.5);
+    const shapes = {
+      prop: [wingShape(PROP.span, 1.9, 1.15, 0.28), 1.0, wingShape(4.3, 1.15, 0.68, 0.45), -3.5, 1],
+      jet: [wingShape(JET.span, 3.2, 1.05, 3.15), 1.7, wingShape(5.8, 1.6, 0.75, 1.25), -5.0, 1],
+      wide: [wingShape(JET.span, 3.2, 1.05, 3.15), 1.7, wingShape(5.8, 1.6, 0.75, 1.25), -5.0, S],
+      private: [wingShape(PRIVATE.span, 2.3, 0.85, 2.1), 0.6, wingShape(3.7, 1.05, 0.55, 0.6), -4.95, 1],
+    } as const;
+    const [wingAt, wingZ, tailAt, tailZ, scale] = shapes[kind];
+    const outline = new ShapeGeometry(wingAt).rotateX(PI / 2).translate(0, 0, wingZ).scale(scale, 1, scale);
+    const tail = new ShapeGeometry(tailAt).rotateX(PI / 2).translate(0, 0, tailZ).scale(scale, 1, scale);
     const trunk = new CircleGeometry(1, 20).rotateX(-PI / 2).scale(size.radius * 0.98, 1, size.length / 2);
     for (const g of [outline, tail, trunk]) for (const name of ['normal', 'uv']) g.deleteAttribute(name);
     const flat = mergeParts([{ geometry: outline.toNonIndexed(), color: '#000000' }, { geometry: tail.toNonIndexed(), color: '#000000' }, { geometry: trunk.toNonIndexed(), color: '#000000' }]);
@@ -382,13 +425,15 @@ export class PlaneModel {
     e.flaps = ease(e.flaps, pose.flaps, 1.4);
     e.gear = ease(e.gear, pose.gear, 1.1);
     // Propellers (or fans): a visible turn while they wind up and down, a blur over a steady whirl when they're fast.
-    const blur = pose.engines > (this.kind === 'jet' ? 0.6 : 0.45);
+    const blur = pose.engines > (this.kind === 'prop' ? 0.45 : 0.6);
     this.turn += dt * (blur ? 9 : (2 + pose.engines * 20) * Math.min(1, pose.engines * 6));
     for (let i = 0; i < this.props.length; i++) {
       this.props[i]!.rotation.z = this.turn * (i ? 1 : -1);
       this.discs[i]!.visible = blur;
     }
-    this.door.rotation.y = -2.7 * e.door;
+    // (A private jet's door folds down from its sill to the ground as steps.)
+    if (this.airstair) this.door.rotation.z = -1.78 * e.door;
+    else this.door.rotation.y = -2.7 * e.door;
     this.hold.rotation.z = -1.45 * e.hold;
     this.galley.rotation.y = -2.7 * e.galley;
     for (const flap of this.flaps) flap.rotation.x = -0.5 * e.flaps;
@@ -424,14 +469,17 @@ export function airStairs(): Object3D {
 /** Wheel chocks and cones round a parked plane (its middle at the origin, nose to +z): at its wheels, off its wingtips and tail. */
 export function standKit(kind: PlaneKindName = 'prop'): Object3D {
   const group = new Group();
-  const jet = kind === 'jet';
+  // The chocks at its main wheels and nose wheel, the cones off its wingtips and tail.
+  const at: Record<PlaneKindName, { wheel: [number, number]; nose: number; tip: [number, number]; tail: number }> = {
+    prop: { wheel: [2.4, 0.5], nose: 3.3, tip: [5.75, 0.2], tail: -4.9 },
+    jet: { wheel: [1.75, -0.55], nose: 5.55, tip: [7.7, -2.0], tail: -7.6 },
+    wide: { wheel: [1.75 * S, -0.55 * S], nose: 5.55 * S, tip: [7.7 * S, -2.0 * S], tail: -7.6 * S },
+    private: { wheel: [1.25, -1.0], nose: 4.15, tip: [5.7, -2.2], tail: -6.1 },
+  };
+  const { wheel: [wx, wz], tip: [tx, tz], nose, tail } = at[kind];
   group.add(
-    skyCopies('sp_chocks', jet
-      ? [{ x: 1.75, z: -0.55, rot: PI / 2 }, { x: -1.75, z: -0.55, rot: PI / 2 }, { x: 0, z: 5.55, rot: PI / 2 }]
-      : [{ x: 2.4, z: 0.5, rot: PI / 2 }, { x: -2.4, z: 0.5, rot: PI / 2 }, { x: 0, z: 3.3, rot: PI / 2 }]),
-    skyCopies('sp_cone', jet
-      ? [{ x: 7.7, z: -2.0 }, { x: -7.7, z: -2.0 }, { x: 0, z: -7.6 }]
-      : [{ x: 5.75, z: 0.2 }, { x: -5.75, z: 0.2 }, { x: 0, z: -4.9 }]),
+    skyCopies('sp_chocks', [{ x: wx, z: wz, rot: PI / 2 }, { x: -wx, z: wz, rot: PI / 2 }, { x: 0, z: nose, rot: PI / 2 }]),
+    skyCopies('sp_cone', [{ x: tx, z: tz }, { x: -tx, z: tz }, { x: 0, z: tail }]),
   );
   return group;
 }

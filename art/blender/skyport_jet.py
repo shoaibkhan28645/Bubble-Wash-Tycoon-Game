@@ -15,6 +15,10 @@ _blurl/_blurr (where the fans' blur discs go).
 The airline's colours are the same two marker paints as the propeller airliner's (ACCENT and
 ACCENT2), repainted per livery by the game.
 
+With WIDE set (art/blender/skyport_wide.py runs this script so), it draws sp_wide instead: the wide-body
+that uses Gate 4 (Part C), the same jet half as big again (WIDE_SCALE) with a second, smaller engine further
+out under each wing (sp_wide_fanl2/_fanr2, markers _blurl2/_blurr2).
+
 Usage: python art/blender/skyport_jet.py <out.glb> [preview.png]
 """
 import math
@@ -30,6 +34,9 @@ from rig import Model, blob, rod  # noqa: E402
 
 bpy = kit.bpy
 PI = math.pi
+WIDE = globals().get('WIDE', False)
+WIDE_SCALE = 20 / 14
+NAME = 'sp_wide' if WIDE else 'sp_jet'
 
 ACCENT = '#e8493f'
 ACCENT2 = '#ffc21a'
@@ -152,7 +159,7 @@ def fin(root, tip, col):
     return obj
 
 
-m = Model('sp_jet', 0.0)
+m = Model(NAME, 0.0)
 p = []
 
 # --- The fuselage: white over a grey belly, a broad cheatline and a pinstripe down each side sweeping
@@ -229,34 +236,39 @@ for side in (-1, 1):
     # Walkway lines and a fence on the wing's top.
     p.append(kit.box((0.04, 1.6, 0.02), (side * 1.6, -0.5, WING_Z + 0.2), '#c9d3dd', bevel=0.0))
 
-# --- The engines: big round nacelles on pylons under the wing, the airline's colour round their lips.
+# --- The engines: big round nacelles on pylons under the wing, the airline's colour round their lips (the
+# wide-body has a second, smaller pair further out, further back with the wing's sweep and a little higher).
 ENG_X = 3.5
 ENG_Z = 1.04
 FAN_Y = -3.02
-for side in (-1, 1):
-    x = side * ENG_X
+ENGINES = [(ENG_X, FAN_Y, ENG_Z, 1.0, '')] + ([(5.95, FAN_Y + 1.15, ENG_Z + 0.24, 0.84, '2')] if WIDE else [])
+
+
+def engine(x, fan_y, z, k):
+    """One nacelle (scaled by k about its fan) with its intake, exhaust cone and pylon."""
+    dy = fan_y - FAN_Y
     nac = rig.loft(
-        (
-            (-3.15, x, ENG_Z, 0.5, 0.5),
-            (-3.08, x, ENG_Z, 0.62, 0.62),
-            (-2.8, x, ENG_Z, 0.66, 0.66),
-            (-1.7, x, ENG_Z, 0.64, 0.64),
-            (-1.0, x, ENG_Z + 0.02, 0.52, 0.52),
-            (-0.75, x, ENG_Z + 0.03, 0.4, 0.4),
-        ),
+        tuple((fan_y + (y - FAN_Y) * k, x, z + dz * k, r * k, r * k) for y, dz, r in ((-3.15, 0, 0.5), (-3.08, 0, 0.62), (-2.8, 0, 0.66), (-1.7, 0, 0.64), (-1.0, 0.02, 0.52), (-0.75, 0.03, 0.4))),
         NACELLE,
         verts=28,
         cap=False,
     )
-    rig.paint(nac, lambda c: ACCENT if c.y < -2.92 else NACELLE)
-    p.append(nac)
-    p.append(kit.torus(0.6, 0.05, (x, -3.1, ENG_Z), CHROME, rot=(PI / 2, 0, 0), major_segments=28, minor_segments=6))
+    rig.paint(nac, lambda c: ACCENT if c.y < fan_y + 0.1 * k else NACELLE)
+    out = [nac]
+    at = lambda y: fan_y + (y - FAN_Y) * k
+    out.append(kit.torus(0.6 * k, 0.05 * k, (x, at(-3.1), z), CHROME, rot=(PI / 2, 0, 0), major_segments=28, minor_segments=6))
     # The dark inside of the intake and the exhaust cone.
-    p.append(kit.cylinder(0.6, 0.12, (x, -2.7, ENG_Z), DARK, verts=24, rot=(PI / 2, 0, 0)))
-    p.append(kit.cylinder(0.38, 0.12, (x, -0.82, ENG_Z + 0.03), DARK, verts=18, rot=(PI / 2, 0, 0)))
-    p.append(kit.cone(0.32, 0.05, 0.6, (x, -0.5, ENG_Z + 0.03), STEEL, verts=16, rot=(-PI / 2, 0, 0)))
+    out.append(kit.cylinder(0.6 * k, 0.12 * k, (x, at(-2.7), z), DARK, verts=24, rot=(PI / 2, 0, 0)))
+    out.append(kit.cylinder(0.38 * k, 0.12 * k, (x, at(-0.82), z + 0.03 * k), DARK, verts=18, rot=(PI / 2, 0, 0)))
+    out.append(kit.cone(0.32 * k, 0.05 * k, 0.6 * k, (x, at(-0.5), z + 0.03 * k), STEEL, verts=16, rot=(-PI / 2, 0, 0)))
     # The pylon up to the wing.
-    p.append(kit.box((0.18, 1.9, 0.5), (x, -1.8, ENG_Z + 0.65), WHITE, bevel=0.05, rot=(-0.12, 0, 0)))
+    out.append(kit.box((0.18 * k, 1.9 * k, 0.5 + (0.12 if dy else 0)), (x, at(-1.8), z + 0.65 * k), WHITE, bevel=0.05, rot=(-0.12, 0, 0)))
+    return out
+
+
+for ex, ey, ez, ek, _ in ENGINES:
+    for side in (-1, 1):
+        p += engine(side * ex, ey, ez, ek)
 
 # --- The tail: a tall swept fin in the airline's colour with the logo, a low tailplane either side.
 p.append(blob((0.2, 1.5, 0.3), (0, 5.0, 3.55), ACCENT, segments=12))
@@ -273,17 +285,19 @@ p.append(tp)
 m.mesh(p)
 
 # --- The fans: a spinner with a swirl and twenty blades, turning about the plane's length.
-for side, name in ((1, 'fanl'), (-1, 'fanr')):
-    hub = (side * ENG_X, FAN_Y, ENG_Z)
-    q = [kit.cone(0.2, 0.02, 0.42, (hub[0], FAN_Y - 0.16, ENG_Z), WHITE, verts=18, rot=(PI / 2, 0, 0))]
-    swirl = kit.box((0.03, 0.02, 0.18), (hub[0], FAN_Y - 0.33, ENG_Z + 0.07), ACCENT2, bevel=0.0, rot=(0, 0, 0.6))
-    q.append(swirl)
-    for i in range(20):
-        a = i * 2 * PI / 20
-        blade = kit.box((0.12, 0.03, 0.42), (0, 0, 0.36), FANBLADE, bevel=0.01, rot=(0, 0, 0.55))
-        q.append(spun(blade, hub, a))
-    m.part(name, hub, q)
-    m.marker('blur' + name[-1], (hub[0], FAN_Y - 0.03, ENG_Z))
+for ex, ey, ez, ek, tag in ENGINES:
+    for side, name in ((1, 'fanl'), (-1, 'fanr')):
+        hub = (side * ex, ey, ez)
+        q = [kit.cone(0.2 * ek, 0.02, 0.42 * ek, (hub[0], ey - 0.16 * ek, ez), WHITE, verts=18, rot=(PI / 2, 0, 0))]
+        swirl = kit.box((0.03, 0.02, 0.18 * ek), (hub[0], ey - 0.33 * ek, ez + 0.07 * ek), ACCENT2, bevel=0.0, rot=(0, 0, 0.6))
+        q.append(swirl)
+        blades = 16 if WIDE else 20
+        for i in range(blades):
+            a = i * 2 * PI / blades
+            blade = kit.box((0.12 * ek * (20 / blades) ** 0.5, 0.03, 0.42 * ek), (0, 0, 0.36 * ek), FANBLADE, bevel=0.01, rot=(0, 0, 0.55))
+            q.append(spun(blade, hub, a))
+        m.part(name + tag, hub, q)
+        m.marker('blur' + name[-1] + tag, (hub[0], ey - 0.03, ez))
 
 # --- Doors: the passenger door and the galley door hinged at their front edges, the cargo door along its top.
 for name, (y0, y1) in (('door', DOOR_Y), ('galley', GALLEY_Y)):
@@ -343,7 +357,15 @@ m.marker('navr', (-SPAN / 2 - 0.05, 1.6, WING_Z + 0.6))
 m.marker('strobe', (0, 7.0, 3.55))
 m.marker('taxi', (0, NOSE_Y - 0.14, 0.75), on='nose')
 
-out = Path(sys.argv[1] if len(sys.argv) > 1 else 'skyport-jet.glb')
+if WIDE:
+    # Everything half as big again: the meshes about their own origins (their pivots), every node's place.
+    from mathutils import Matrix
+
+    for ob in m.base.children_recursive:
+        if ob.type == 'MESH':
+            ob.data.transform(Matrix.Scale(WIDE_SCALE, 4))
+        ob.location = ob.location * WIDE_SCALE
+out = Path(sys.argv[1] if len(sys.argv) > 1 else f'skyport-{"wide" if WIDE else "jet"}.glb')
 rig.export_all(out)
 if len(sys.argv) > 2:
-    kit.preview(sys.argv[2], look_at=(0, 0, 2.0), distance=24, size=(1100, 800), ground='#cfd6de', angles=((0.55, -1, 0.85), (-0.9, 0.5, 0.6), (0.01, -0.02, 1.0)))
+    kit.preview(sys.argv[2], look_at=(0, 0, 2.0 * (WIDE_SCALE if WIDE else 1)), distance=24 * (WIDE_SCALE if WIDE else 1), size=(1100, 800), ground='#cfd6de', angles=((0.55, -1, 0.85), (-0.9, 0.5, 0.6), (0.01, -0.02, 1.0)))

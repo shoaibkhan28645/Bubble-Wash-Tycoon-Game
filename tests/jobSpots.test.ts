@@ -12,7 +12,7 @@ import { ROADSIDE } from '../src/core/towns';
 import { WILLOWBROOK } from '../src/core/willowbrook';
 import { STARLIGHT } from '../src/core/starlight';
 import { SKYPORT } from '../src/core/skyport';
-import { entranceSign, hallWalls, loungeSeatSolids } from '../src/render/models/airport';
+import { PLANES, entranceSign, hallWalls, loungeSeatSolids } from '../src/render/models/airport';
 import { SOLID } from '../src/systems/buildings';
 import { FARM_SOLIDS } from '../src/render/models/farm';
 import { PARK_SOLIDS } from '../src/render/models/park';
@@ -101,11 +101,14 @@ const TOWNS = [
         box(layout.lot.maxX - 1.2, -8.5, 0.6, 0.85),
       ];
       for (const gate of Object.values(layout.gates)) {
-        const mid = gate.noseZ - 4.5;
-        // A parked plane's body, wheels and propellers; its stairs, fuel truck and podium; its lounge's seats.
-        rects.push({ minX: gate.x - 1.05, maxX: gate.x + 1.05, minZ: mid - 4.4, maxZ: mid + 4.5 });
-        for (const side of [-1, 1]) rects.push(box(gate.x + side * 2.4, mid + 0.5, 0.35, 0.45), box(gate.x + side * 2.4, mid + 2.2, 1.0, 0.18));
-        rects.push({ minX: gate.stairsFoot.x - 3.92, maxX: gate.stairsFoot.x + 0.02, minZ: gate.stairsFoot.z - 0.8, maxZ: gate.stairsFoot.z + 0.8 });
+        const plane = PLANES[gate.plane ?? 'prop'];
+        const mid = gate.noseZ - plane.size.length / 2;
+        // A parked plane's body, wheels and propellers (or engines); its stairs (a stair truck for the
+        // wide-body, none at a jet bridge), fuel truck and podium; its lounge's seats.
+        rects.push({ minX: gate.x - plane.solid.half, maxX: gate.x + plane.solid.half, minZ: mid + plane.solid.tail, maxZ: mid + plane.solid.nose });
+        for (const q of plane.solid.parts) for (const side of [-1, 1]) rects.push(box(gate.x + side * q.x, mid + q.z, q.hx, q.hz));
+        if (gate.plane === 'wide') rects.push({ minX: gate.planeDoor.x + 0.1, maxX: gate.stairsFoot.x - 0.35, minZ: gate.stairsFoot.z - 1.1, maxZ: gate.stairsFoot.z + 1.1 });
+        else if (!gate.bridge) rects.push({ minX: gate.stairsFoot.x - 3.92, maxX: gate.stairsFoot.x + 0.02, minZ: gate.stairsFoot.z - 0.8, maxZ: gate.stairsFoot.z + 0.8 });
         rects.push(box(gate.truck.x, gate.truck.z, 1.2, 3.3), box(gate.podium.x, gate.podium.z, 0.72, 0.38));
         rects.push(...loungeSeatSolids(gate.lounge));
       }

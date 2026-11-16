@@ -126,7 +126,9 @@
     "checkinSeconds": 1.0,
     "planes": {
       "prop": { "seats": 12, "fare": 240000, "length": 9, "sill": 1.02, "clock": 60 },
-      "jet": { "seats": 24, "fare": 360000, "length": 14, "sill": 2.2, "clock": 85 }
+      "jet": { "seats": 24, "fare": 360000, "length": 14, "sill": 2.2, "clock": 85 },
+      "wide": { "seats": 36, "fare": 480000, "length": 20, "sill": 3.14, "clock": 110 },
+      "private": { "seats": 0, "fare": 0, "length": 11, "sill": 1.05, "clock": 600 }
     },
     "flight": { "gapSeconds": 4, "firstClock": 90, "approachSeconds": 7, "landSpeed": 17, "taxiSpeed": 7.5, "pushSpeed": 3.2, "takeoffAccel": 5.5, "rotateSpeed": 19, "boardStagger": 0.5, "fullBonus": 0.2, "onTimeBonus": 0.25, "streakStep": 0.05, "streakMax": 10, "perfectTip": 0.15 },
     "fuel": { "seconds": 4.5, "clockSeconds": 8 },
@@ -141,6 +143,41 @@
     "kitchen": { "seconds": 6, "shelf": 6, "cafeShelf": 4 },
     "meals": { "trays": 4, "clockSeconds": 14, "bonus": 0.25, "handSeconds": 0.25, "runnerCarry": 3 },
     "night": { "day": 150, "evening": 70, "fade": 12, "pay": 0.3 },
-    "caseGold": 0.05
+    "caseGold": 0.05,
+    "wide": { "cases": 3, "meals": 1.5 },
+    "tower": {
+      "queue": 3,
+      "cards": [
+        { "id": "regular", "fare": 1, "cases": 1, "clock": 1, "weight": 2 },
+        { "id": "charter", "fare": 1.4, "cases": 1.5, "clock": 1.2, "weight": 1 },
+        { "id": "hopper", "fare": 0.75, "cases": 0, "clock": 0.8, "weight": 1 }
+      ],
+      "cities": ["Bay City", "Willowbrook", "Starlight", "Sunny Cove", "Maple Falls", "Port Willow", "Snow Peak", "Coral Bay", "Lantern City", "Paradise Isles"]
+    },
+    "fog": { "first": 100, "every": [220, 330], "seconds": 24, "fade": 2.5 },
+    "shuttle": { "every": 22, "riders": 8, "extra": 24 },
+    "airline": {
+      "unlock": 2,
+      "setBonus": 0.04,
+      "firstSouvenir": 0.5,
+      "souvenirChance": 0.35,
+      "waitSeconds": 20,
+      "cities": [
+        { "id": "sunnycove", "tier": 1, "seconds": 60, "takings": 9000000, "icon": "🐚" },
+        { "id": "maplefalls", "tier": 1, "seconds": 60, "takings": 9000000, "icon": "🍁" },
+        { "id": "portwillow", "tier": 1, "seconds": 60, "takings": 9000000, "icon": "⚓" },
+        { "id": "cactussprings", "tier": 1, "seconds": 60, "takings": 9000000, "icon": "🌵" },
+        { "id": "snowpeak", "tier": 2, "seconds": 120, "takings": 22000000, "icon": "❄️" },
+        { "id": "coralbay", "tier": 2, "seconds": 120, "takings": 22000000, "icon": "🐠" },
+        { "id": "oldharbour", "tier": 2, "seconds": 120, "takings": 22000000, "icon": "⛵" },
+        { "id": "lanterncity", "tier": 2, "seconds": 120, "takings": 22000000, "icon": "🏮" },
+        { "id": "pyramidsands", "tier": 3, "seconds": 240, "takings": 52000000, "icon": "🔺" },
+        { "id": "rainforest", "tier": 3, "seconds": 240, "takings": 52000000, "icon": "🦜" },
+        { "id": "auroranorth", "tier": 3, "seconds": 240, "takings": 52000000, "icon": "🐻" },
+        { "id": "paradiseisles", "tier": 3, "seconds": 240, "takings": 52000000, "icon": "🥥" }
+      ]
+    },
+    "vip": { "first": 25, "every": [140, 200], "patience": 75, "tip": 6000000, "allBonus": 12000000, "carpetSeconds": 1.4, "limoSeconds": 0.8 },
+    "sorter": { "perSecond": 2.5 }
   }
 }
