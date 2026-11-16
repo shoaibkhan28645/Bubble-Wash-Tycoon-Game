@@ -203,6 +203,13 @@
     "agent": 15000,
     "handler": 15000,
     "dispatcher": 15000,
+    "cafe": 30000,
+    "gate3": 30000,
+    "kitchen": 30000,
+    "dutyfree": 30000,
+    "fuelcrew": 30000,
+    "caterer": 30000,
+    "shops": 30000,
     "mart": 0.96,
     "clerk": 0.77
   },
@@ -217,6 +224,9 @@
     "gate1": ["gate1.speed", "gate1.price"],
     "gate2": ["gate2.speed", "gate2.price", "dispatcher.staffSpeed"],
     "bags": ["player.carry", "handler.staffSpeed", "handler.staffCarry"],
+    "cafe": ["cafe.speed", "cafe.price", "dutyfree.price", "shops.staffSpeed"],
+    "gate3": ["gate3.speed", "gate3.price", "fuelcrew.staffSpeed"],
+    "kitchen": ["kitchen.speed", "caterer.staffSpeed", "caterer.staffCarry"],
     "bay1": [
       "bay1.speed",
       "bay1.quality",

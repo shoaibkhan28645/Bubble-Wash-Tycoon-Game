@@ -48,6 +48,10 @@ export const AIR = {
 /** The airport's model files (src/core/skyport.ts says where each is). */
 export const SKYPORT_FILES = [
   'building:skyport-plane',
+  'building:skyport-jet',
+  'building:skyport-wing',
+  'building:skyport-shops',
+  'building:skyport-kitchen',
   'building:skyport-apron',
   'building:skyport-vehicles',
   'building:skyport-hall',
@@ -196,6 +200,13 @@ function signAt(model: Object3D, marker: string, text: string, width: number, he
   at.parent?.add(sign);
   return sign;
 }
+/** The same board on the back of what the marker's on, `depth` behind it (for a counter turned to face away from the camera). */
+function backSignAt(model: Object3D, marker: string, text: string, width: number, height: number, background: string, colour: string, depth: number): Mesh {
+  const sign = signAt(model, marker, text, width, height, background, colour);
+  sign.rotation.y = Math.PI;
+  sign.position.z -= depth;
+  return sign;
+}
 
 // ---- the airliner ----------------------------------------------------------------------------------------------
 
@@ -228,8 +239,15 @@ const PLANE_PAINTS: PaintFamily[] = [
 export const PROP = { length: 9, span: 10.6, radius: 0.95, ride: 1.72, sill: 1.02, wingY: 2.68 } as const;
 /** Half the fuselage's width and where it starts and ends along the plane, for what's solid when it's parked. */
 export const PROP_SOLID = { half: 1.05, tail: -4.4, nose: 4.5 } as const;
-/** Its wheels' radii: the main wheels and the nose wheel. */
-const WHEEL = { main: 0.36, nose: 0.3 } as const;
+/** The jet's (art/blender/skyport_jet.py), and where its engines hang (out from its middle, along it). */
+export const JET = { length: 14, span: 14.4, radius: 1.3, ride: 2.55, sill: 2.2, wingY: 1.9 } as const;
+export const JET_SOLID = { half: 1.4, tail: -7.0, nose: 7.0, engineX: 3.5, engineHalf: 0.66, engineFront: 3.15, engineBack: 0.75 } as const;
+/** Each plane's size, its solid outline, its model and its wheels' radii (main, nose). */
+export const PLANES = {
+  prop: { size: PROP, solid: PROP_SOLID, model: 'sp_plane', spinner: 'prop', blur: 1.06, wheel: { main: 0.36, nose: 0.3 } },
+  jet: { size: JET, solid: JET_SOLID, model: 'sp_jet', spinner: 'fan', blur: 0.6, wheel: { main: 0.46, nose: 0.34 } },
+} as const;
+export type PlaneKindName = keyof typeof PLANES;
 
 /** A wing (or tailplane) seen from above: both sides in one tapered outline, its leading edge's root at the origin. */
 function wingShape(span: number, rootChord: number, tipChord: number, sweep: number): Shape {
@@ -248,9 +266,10 @@ function wingShape(span: number, rootChord: number, tipChord: number, sweep: num
 export interface PlanePose {
   /** How hard the engines run (0 stopped, 1 flat out). */
   engines: number;
-  /** Doors open (1) or shut (0): the passengers' door, the hold's. */
+  /** Doors open (1) or shut (0): the passengers' door, the hold's, the galley's (a jet's back door, for its meals). */
   door: number;
   hold: number;
+  galley?: number;
   /** Flaps down (1) or up (0); gear down (1) or folded away (0). */
   flaps: number;
   gear: number;
@@ -275,6 +294,7 @@ export class PlaneModel {
   private readonly discs: Mesh[] = [];
   private readonly door: Object3D;
   private readonly hold: Object3D;
+  private readonly galley: Object3D;
   private readonly flaps: Object3D[];
   private readonly mainGear: Object3D[];
   private readonly noseGear: Object3D;
@@ -283,37 +303,42 @@ export class PlaneModel {
   private readonly beacon: Mesh;
   private readonly strobe: Mesh;
   private readonly taxi: Mesh;
-  private readonly eased = { door: 0, hold: 0, flaps: 0, gear: 1 };
+  private readonly eased = { door: 0, hold: 0, galley: 0, flaps: 0, gear: 1 };
   private turn = 0;
   private time = Math.random() * 3;
+  readonly kind: PlaneKindName;
 
-  constructor(livery: Livery) {
-    const key = `sp_plane:${livery.accent}:${livery.accent2}`;
-    const model = skyMover('sp_plane', key, (geometry) => familyPainter(geometry, PLANE_PAINTS)([livery.accent, livery.accent2]));
+  constructor(livery: Livery, kind: PlaneKindName = 'prop') {
+    this.kind = kind;
+    const plane = PLANES[kind];
+    const name = plane.model;
+    const key = `${name}:${livery.accent}:${livery.accent2}`;
+    const model = skyMover(name, key, (geometry) => familyPainter(geometry, PLANE_PAINTS)([livery.accent, livery.accent2]));
     // Its own flat shadow follows it (the sun's would be left behind on the shadow map).
     model.traverse((node) => (node.castShadow = false));
     this.root.add(model);
     this.root.rotation.order = 'YXZ';
-    this.props = ['l', 'r'].map((s) => part(model, `sp_plane_prop${s}`));
-    this.door = part(model, 'sp_plane_door');
-    this.hold = part(model, 'sp_plane_hold');
-    this.flaps = ['l', 'r'].map((s) => part(model, `sp_plane_flap${s}`));
-    this.mainGear = ['l', 'r'].map((s) => part(model, `sp_plane_gear${s}`));
-    this.noseGear = part(model, 'sp_plane_gearn');
-    this.nose = part(model, 'sp_plane_nose');
+    this.props = ['l', 'r'].map((s) => part(model, `${name}_${plane.spinner}${s}`));
+    this.door = part(model, `${name}_door`);
+    this.hold = part(model, `${name}_hold`);
+    this.galley = part(model, `${name}_galley`);
+    this.flaps = ['l', 'r'].map((s) => part(model, `${name}_flap${s}`));
+    this.mainGear = ['l', 'r'].map((s) => part(model, `${name}_gear${s}`));
+    this.noseGear = part(model, `${name}_gearn`);
+    this.nose = part(model, `${name}_nose`);
     this.wheels = [
-      { node: part(model, 'sp_plane_wheel_l'), radius: WHEEL.main },
-      { node: part(model, 'sp_plane_wheel_r'), radius: WHEEL.main },
-      { node: part(model, 'sp_plane_wheel_n'), radius: WHEEL.nose },
+      { node: part(model, `${name}_wheel_l`), radius: plane.wheel.main },
+      { node: part(model, `${name}_wheel_r`), radius: plane.wheel.main },
+      { node: part(model, `${name}_wheel_n`), radius: plane.wheel.nose },
     ];
 
-    // The propellers' blur, shown over them when they're spinning fast.
-    const discMaterial = new MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.22, depthWrite: false });
+    // The propellers' (or fans') blur, shown over them when they're spinning fast.
+    const discMaterial = new MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: kind === 'jet' ? 0.3 : 0.22, depthWrite: false });
     for (const s of ['l', 'r']) {
-      const disc = new Mesh(new CircleGeometry(1.06, 24), discMaterial);
+      const disc = new Mesh(new CircleGeometry(plane.blur, 24), discMaterial);
       disc.position.z = 0.02;
       disc.visible = false;
-      part(model, `sp_plane_blur${s}`).add(disc);
+      part(model, `${name}_blur${s}`).add(disc);
       this.discs.push(disc);
     }
     // Lights: the beacon on its back, red on the left wingtip and green on the right, the tail's strobe,
@@ -323,16 +348,22 @@ export class PlaneModel {
       part(model, marker).add(bulb);
       return bulb;
     };
-    this.beacon = light('sp_plane_beacon', 0xff3b30, 0.13);
-    light('sp_plane_navl', 0xff3b30, 0.11);
-    light('sp_plane_navr', 0x35d06a, 0.11);
-    this.strobe = light('sp_plane_strobe', 0xffffff, 0.14);
-    this.taxi = light('sp_plane_taxi', 0xfff6c8, 0.1);
+    this.beacon = light(`${name}_beacon`, 0xff3b30, 0.13);
+    light(`${name}_navl`, 0xff3b30, 0.11);
+    light(`${name}_navr`, 0x35d06a, 0.11);
+    this.strobe = light(`${name}_strobe`, 0xffffff, 0.14);
+    this.taxi = light(`${name}_taxi`, 0xfff6c8, 0.1);
 
     // Its shadow on the ground, in its own shape.
-    const outline = new ShapeGeometry(wingShape(PROP.span, 1.9, 1.15, 0.28)).rotateX(PI / 2).translate(0, 0, 1.0);
-    const tail = new ShapeGeometry(wingShape(4.3, 1.15, 0.68, 0.45)).rotateX(PI / 2).translate(0, 0, -3.5);
-    const trunk = new CircleGeometry(1, 20).rotateX(-PI / 2).scale(PROP.radius * 0.98, 1, PROP.length / 2);
+    const jet = kind === 'jet';
+    const size = plane.size;
+    const outline = jet
+      ? new ShapeGeometry(wingShape(JET.span, 3.2, 1.05, 3.15)).rotateX(PI / 2).translate(0, 0, 1.7)
+      : new ShapeGeometry(wingShape(PROP.span, 1.9, 1.15, 0.28)).rotateX(PI / 2).translate(0, 0, 1.0);
+    const tail = jet
+      ? new ShapeGeometry(wingShape(5.8, 1.6, 0.75, 1.25)).rotateX(PI / 2).translate(0, 0, -5.0)
+      : new ShapeGeometry(wingShape(4.3, 1.15, 0.68, 0.45)).rotateX(PI / 2).translate(0, 0, -3.5);
+    const trunk = new CircleGeometry(1, 20).rotateX(-PI / 2).scale(size.radius * 0.98, 1, size.length / 2);
     for (const g of [outline, tail, trunk]) for (const name of ['normal', 'uv']) g.deleteAttribute(name);
     const flat = mergeParts([{ geometry: outline.toNonIndexed(), color: '#000000' }, { geometry: tail.toNonIndexed(), color: '#000000' }, { geometry: trunk.toNonIndexed(), color: '#000000' }]);
     this.shadow = new Mesh(flat, new MeshBasicMaterial({ color: 0x0b1f2e, transparent: true, opacity: 0.24, depthWrite: false, side: 2 }));
@@ -347,10 +378,11 @@ export class PlaneModel {
     const e = this.eased;
     e.door = ease(e.door, pose.door, 2.2);
     e.hold = ease(e.hold, pose.hold, 2.2);
+    e.galley = ease(e.galley, pose.galley ?? 0, 2.2);
     e.flaps = ease(e.flaps, pose.flaps, 1.4);
     e.gear = ease(e.gear, pose.gear, 1.1);
-    // Propellers: a visible turn while they wind up and down, a blur over a steady whirl when they're fast.
-    const blur = pose.engines > 0.45;
+    // Propellers (or fans): a visible turn while they wind up and down, a blur over a steady whirl when they're fast.
+    const blur = pose.engines > (this.kind === 'jet' ? 0.6 : 0.45);
     this.turn += dt * (blur ? 9 : (2 + pose.engines * 20) * Math.min(1, pose.engines * 6));
     for (let i = 0; i < this.props.length; i++) {
       this.props[i]!.rotation.z = this.turn * (i ? 1 : -1);
@@ -358,6 +390,7 @@ export class PlaneModel {
     }
     this.door.rotation.y = -2.7 * e.door;
     this.hold.rotation.z = -1.45 * e.hold;
+    this.galley.rotation.y = -2.7 * e.galley;
     for (const flap of this.flaps) flap.rotation.x = -0.5 * e.flaps;
     for (const gear of this.mainGear) gear.rotation.x = -1.55 * (1 - e.gear);
     this.noseGear.rotation.x = 1.55 * (1 - e.gear);
@@ -388,20 +421,17 @@ export function airStairs(): Object3D {
   return skyModel('sp_stairs');
 }
 
-/** Wheel chocks and cones round a parked plane (its middle at the origin, nose to +z). */
-export function standKit(): Object3D {
+/** Wheel chocks and cones round a parked plane (its middle at the origin, nose to +z): at its wheels, off its wingtips and tail. */
+export function standKit(kind: PlaneKindName = 'prop'): Object3D {
   const group = new Group();
+  const jet = kind === 'jet';
   group.add(
-    skyCopies('sp_chocks', [
-      { x: 2.4, z: 0.5, rot: PI / 2 },
-      { x: -2.4, z: 0.5, rot: PI / 2 },
-      { x: 0, z: 3.3, rot: PI / 2 },
-    ]),
-    skyCopies('sp_cone', [
-      { x: 5.75, z: 0.2 },
-      { x: -5.75, z: 0.2 },
-      { x: 0, z: -4.9 },
-    ]),
+    skyCopies('sp_chocks', jet
+      ? [{ x: 1.75, z: -0.55, rot: PI / 2 }, { x: -1.75, z: -0.55, rot: PI / 2 }, { x: 0, z: 5.55, rot: PI / 2 }]
+      : [{ x: 2.4, z: 0.5, rot: PI / 2 }, { x: -2.4, z: 0.5, rot: PI / 2 }, { x: 0, z: 3.3, rot: PI / 2 }]),
+    skyCopies('sp_cone', jet
+      ? [{ x: 7.7, z: -2.0 }, { x: -7.7, z: -2.0 }, { x: 0, z: -7.6 }]
+      : [{ x: 5.75, z: 0.2 }, { x: -5.75, z: 0.2 }, { x: 0, z: -4.9 }]),
   );
   return group;
 }
@@ -525,7 +555,9 @@ export function podium(): Object3D {
  * hero to walk with room to spare), in two rows. Across from the lounge's middle, and in from its front.
  */
 const SEAT_BEAMS = [-2.75, 2.55] as const;
-const SEAT_ROWS = [1.0, 2.9] as const;
+const SEAT_ROWS = [1.0, 2.9, 4.8] as const;
+/** Rows of seats a lounge holds: two, or three if it's deep enough (a jet's 24 passengers). */
+const seatRows = (lounge: Rect): number => (lounge.maxZ - lounge.minZ >= SEAT_ROWS[2] + 1.2 ? 3 : 2);
 /** Each beam's footprint (sp_seats_a/b), from its spot. */
 const BEAM = { minX: -1.85, maxX: 1.85, minZ: -0.41, maxZ: 0.34 } as const;
 const beamSpots = (lounge: Rect, row: number): Point[] => {
@@ -536,23 +568,26 @@ const beamSpots = (lounge: Rect, row: number): Point[] => {
 /** Rows of seats filling a lounge: two beams of four in each row, two rows (the front navy, the back teal). */
 export function loungeSeats(lounge: Rect): Object3D {
   const group = new Group();
-  for (const [row, name] of [[0, 'sp_seats_a'], [1, 'sp_seats_b']] as const) group.add(skyCopies(name, beamSpots(lounge, row)));
+  for (let row = 0; row < seatRows(lounge); row++) group.add(skyCopies(row % 2 ? 'sp_seats_b' : 'sp_seats_a', beamSpots(lounge, row)));
   return group;
 }
 /** The seats' solid footprints in a lounge. */
 export function loungeSeatSolids(lounge: Rect): Rect[] {
-  return [0, 1].flatMap((row) => beamSpots(lounge, row).map((p) => ({ minX: p.x + BEAM.minX, maxX: p.x + BEAM.maxX, minZ: p.z + BEAM.minZ, maxZ: p.z + BEAM.maxZ })));
+  return Array.from({ length: seatRows(lounge) }, (_, row) => row).flatMap((row) => beamSpots(lounge, row).map((p) => ({ minX: p.x + BEAM.minX, maxX: p.x + BEAM.maxX, minZ: p.z + BEAM.minZ, maxZ: p.z + BEAM.maxZ })));
 }
-/** Where people sit in a lounge with seats: spot `i` of 16. */
+/** Where people sit in a lounge with seats: spot `i` of its 16 (or 24). */
 export function seatAt(lounge: Rect, i: number): { x: number; z: number } {
-  const row = Math.floor(i / 8) % 2;
+  const row = Math.floor(i / 8) % seatRows(lounge);
   const col = i % 8;
   const beam = beamSpots(lounge, row)[col < 4 ? 0 : 1]!;
   return { x: beam.x - 1.35 + (col % 4) * 0.9, z: beam.z + 0.02 };
 }
 
-/** The hall's walls as rectangles (solid), with gaps at the entrance and each gate's door. */
-export function hallWalls(layout: AirportLayout): Rect[] {
+/**
+ * The hall's walls as rectangles (solid), with gaps at the entrance and each of its gates' doors; its east
+ * end (the hoarding) only until the wing is built on there.
+ */
+export function hallWalls(layout: AirportLayout, wing = false): Rect[] {
   const { hall, entrance } = layout;
   const t = 0.25;
   const rects: Rect[] = [];
@@ -564,10 +599,32 @@ export function hallWalls(layout: AirportLayout): Rect[] {
     }
     rects.push({ minX: from, maxX: hall.maxX, minZ: z - t, maxZ: z + t });
   };
-  run(hall.minZ, Object.values(layout.gates).map((g): [number, number] => [g.door.x, 1.5]));
+  run(hall.minZ, Object.values(layout.gates).filter((g) => g.door.x > hall.minX && g.door.x < hall.maxX).map((g): [number, number] => [g.door.x, 1.5]));
   run(hall.maxZ, [[entrance.x, 2.5]]);
   rects.push({ minX: hall.minX - t, maxX: hall.minX + t, minZ: hall.minZ, maxZ: hall.maxZ });
-  rects.push({ minX: hall.maxX - t, maxX: hall.maxX + t, minZ: hall.minZ, maxZ: hall.maxZ });
+  if (!wing) rects.push({ minX: hall.maxX - t, maxX: hall.maxX + t, minZ: hall.minZ, maxZ: hall.maxZ });
+  return rects;
+}
+
+/**
+ * The wing's walls (art/blender/skyport_wing.py) as rectangles: along the apron with the doorway out and the
+ * jet bridge's door (its rotunda stands outside it), along the front, and the east end where the kitchen's
+ * hatch is (a window over a counter: solid all the same).
+ */
+export function wingWalls(layout: AirportLayout): Rect[] {
+  const { wing } = layout;
+  const t = 0.25;
+  const gate = Object.values(layout.gates).find((g) => g.door.x > wing.minX && g.door.x < wing.maxX);
+  const gaps: [number, number][] = gate ? [[gate.apron?.x ?? gate.door.x, 1.5], [gate.door.x, 0.75]] : [];
+  const rects: Rect[] = [];
+  let from = wing.minX;
+  for (const [x, half] of gaps.sort((a, b) => a[0] - b[0])) {
+    rects.push({ minX: from, maxX: x - half, minZ: wing.minZ - t, maxZ: wing.minZ + t });
+    from = x + half;
+  }
+  rects.push({ minX: from, maxX: wing.maxX, minZ: wing.minZ - t, maxZ: wing.minZ + t });
+  rects.push({ minX: wing.minX, maxX: wing.maxX, minZ: wing.maxZ - t, maxZ: wing.maxZ + t });
+  rects.push({ minX: wing.maxX - t, maxX: wing.maxX + t, minZ: wing.minZ, maxZ: wing.maxZ });
   return rects;
 }
 
@@ -585,9 +642,15 @@ export class Hall {
   readonly root: Object3D;
   private readonly doors: { node: Object3D; x: number; side: number }[];
   private open = 0;
+  /** The hoarding along its east end, until the wing's built there. */
+  readonly hoarding: Object3D;
   constructor(private readonly layout: AirportLayout) {
     this.root = skyMover('sp_hall');
-    Object.keys(layout.gates).forEach((key, i) => signAt(this.root, `sp_hall_${key}`, `GATE ${i + 1}`, 3.5, 0.78, AIR.navy, AIR.sun));
+    Object.keys(layout.gates).forEach((key, i) => {
+      if (this.root.getObjectByName(`sp_hall_${key}`)) signAt(this.root, `sp_hall_${key}`, `GATE ${i + 1}`, 3.5, 0.78, AIR.navy, AIR.sun);
+    });
+    this.hoarding = skyModel('sp_hoarding');
+    this.root.add(this.hoarding);
     signAt(this.root, 'sp_hall_entry', 'DEPARTURES', 5.3, 0.62, AIR.navy, '#ffffff');
     this.doors = [
       { node: part(this.root, 'sp_hall_doorl'), x: 0, side: -1 },
@@ -633,6 +696,189 @@ export function taxiCar(): CarModel {
   // Sparkling clean (a car's muddy until the car wash cleans it).
   car.setClean('dusty', 1);
   return car;
+}
+
+// ---- the terminal (Part B) -------------------------------------------------------------------------------------
+
+/** The wing built on east of the hall (where it stands), its signs painted: GATE 3 over the jet bridge's door, RAMP over the doorway out. */
+export function wingModel(gateNumber: number): Object3D {
+  const wing = skyModel('sp_wing');
+  signAt(wing, 'sp_wing_gate3', `GATE ${gateNumber}`, 2.3, 0.78, AIR.navy, AIR.sun);
+  signAt(wing, 'sp_wing_apron', 'RAMP', 3.3, 0.5, AIR.navy, '#ffffff');
+  return wing;
+}
+
+/** Each gate's colour (its cases' and its hold pad's), in gate order. */
+export const GATE_COLOURS = ['#ff5fa8', '#2c62d6', '#3fb84a'] as const;
+
+/**
+ * The jet bridge, its rotunda by the wing's wall: the tunnel turns to reach the parked jet's door and slides
+ * out to it (back in once the jet's gone); the cab at its end squares up to the fuselage; the wheels roll as
+ * it goes; its beacon turns while it moves.
+ */
+export class JetBridge {
+  readonly root: Object3D;
+  private readonly outer: Object3D;
+  private readonly cab: Object3D;
+  private readonly wheels: Object3D;
+  private readonly beacon: Mesh;
+  private readonly outerY: number;
+  /** How far the tunnel reaches (from the rotunda to the cab's front) folded right in, and how far out it is now. */
+  private readonly folded: number;
+  private reach = 0;
+  private time = 0;
+  constructor(at: Point) {
+    this.root = skyMover('sp_jetbridge');
+    this.root.position.set(at.x, 0, at.z);
+    this.outer = part(this.root, 'sp_jetbridge_outer');
+    this.cab = part(this.root, 'sp_jetbridge_cab');
+    this.wheels = part(this.root, 'sp_jetbridge_wheels');
+    this.outerY = this.outer.position.z;
+    const door = part(this.root, 'sp_jetbridge_door');
+    // (Along the tunnel, which runs to -z: the cab's door marker, out from the rotunda.)
+    this.root.updateMatrixWorld(true);
+    const local = this.root.worldToLocal(door.getWorldPosition(new Vector3()));
+    this.folded = -local.z;
+    this.beacon = new Mesh(new SphereGeometry(0.12, 8, 6), new MeshBasicMaterial({ color: 0xffb02e }));
+    part(this.root, 'sp_jetbridge_beacon').add(this.beacon);
+  }
+  /**
+   * One frame: aims along the line to `door` (the jet's, or where it would be) and reaches `docked ? all the way
+   * : folded back` (the time it takes is the hero's to watch).
+   */
+  update(dt: number, door: Point, docked: boolean): void {
+    this.time += dt;
+    const dx = door.x - this.root.position.x;
+    const dz = door.z - this.root.position.z;
+    const angle = Math.atan2(-dx, -dz);
+    this.root.rotation.y += (angle - this.root.rotation.y) * Math.min(1, dt * 1.6);
+    const want = docked ? Math.max(0, Math.hypot(dx, dz) - 0.35 - this.folded) : 0;
+    const before = this.reach;
+    this.reach += (want - this.reach) * Math.min(1, dt * 1.4);
+    const moving = Math.abs(this.reach - before) > dt * 0.05;
+    this.outer.position.z = this.outerY - this.reach;
+    this.wheels.rotation.x -= (this.reach - before) / 0.32;
+    // The cab squares up to the fuselage (which runs along z): it faces -x, whichever way the tunnel turned.
+    this.cab.rotation.y = Math.PI / 2 - this.root.rotation.y;
+    this.beacon.visible = moving && this.time % 0.8 < 0.4;
+  }
+}
+
+/** The catering truck by a jet's galley door: its box rises on the scissor arms to the door while it's loading, then sinks. */
+export class CateringTruck {
+  readonly root: Object3D;
+  private readonly box: Object3D;
+  private readonly arms: Object3D[];
+  private readonly boxZ: number;
+  private lift = 0;
+  constructor() {
+    this.root = skyMover('sp_catering');
+    this.box = part(this.root, 'sp_catering_box');
+    this.arms = ['a', 'b'].map((s) => part(this.root, `sp_catering_arm${s}`));
+    this.boxZ = this.box.position.y;
+    signAt(this.root, 'sp_catering_sign', 'SKY KITCHEN', 2.6, 0.5, AIR.aqua, '#ffffff').rotation.y = PI / 2;
+  }
+  /** Up to `height` metres (a jet's sill, less the box's floor) while `up`, else down. */
+  update(dt: number, up: boolean, height = 1.0): void {
+    this.lift += ((up ? height : 0) - this.lift) * Math.min(1, dt * 1.2);
+    this.box.position.y = this.boxZ + this.lift;
+    this.arms.forEach((arm, i) => (arm.rotation.x = (i ? 1 : -1) * Math.min(0.9, this.lift * 0.75)));
+  }
+}
+
+/** The café (its customers to -z once turned round to face the hall): its giant cup turns; the espresso machine steams while it's serving. */
+export class Cafe {
+  readonly root: Object3D;
+  private readonly cup: Object3D;
+  readonly steam: Object3D;
+  constructor() {
+    this.root = skyMover('sp_cafe');
+    this.cup = part(this.root, 'sp_cafe_cup');
+    this.steam = part(this.root, 'sp_cafe_steam');
+    signAt(this.root, 'sp_cafe_sign', 'SKY CAFÉ', 1.8, 0.38, AIR.navy, AIR.sun).position.z += 0.02;
+    signAt(this.root, 'sp_cafe_menu', 'COFFEE · CAKES · SANDWICHES', 2.9, 0.5, AIR.navy, '#ffffff').position.z += 0.05;
+    // (It stands by a wall facing away from the camera: its name on the menu board's back too.)
+    backSignAt(this.root, 'sp_cafe_menu', 'SKY CAFÉ', 2.6, 0.6, AIR.navy, AIR.sun, 0.11);
+  }
+  update(dt: number): void {
+    this.cup.rotation.y += dt * 0.8;
+  }
+}
+
+/** Duty-free: its giant perfume bottle turns on its plinth. */
+export class DutyFree {
+  readonly root: Object3D;
+  private readonly turn: Object3D;
+  constructor() {
+    this.root = skyMover('sp_dutyfree');
+    this.turn = part(this.root, 'sp_dutyfree_turn');
+    signAt(this.root, 'sp_dutyfree_sign', 'DUTY FREE', 4.4, 0.4, AIR.navy, AIR.pink).position.z += 0.02;
+    backSignAt(this.root, 'sp_dutyfree_sign', 'DUTY FREE', 4.4, 0.4, AIR.navy, AIR.pink, 0.16);
+  }
+  update(dt: number): void {
+    this.turn.rotation.y += dt * 0.9;
+  }
+}
+
+/** The security lane: the X-ray belt runs and its flaps swing while someone's going through; the arch's lamp blinks green for each. */
+export class SecurityLane {
+  readonly root: Object3D;
+  private readonly belt: Object3D;
+  private readonly beltX: number;
+  private readonly flaps: Object3D[];
+  private readonly lamp: Mesh;
+  private run = 0;
+  private time = 0;
+  private flash = 0;
+  constructor() {
+    this.root = skyMover('sp_security');
+    this.belt = part(this.root, 'sp_security_belt');
+    this.beltX = this.belt.position.x;
+    this.flaps = [0, 1, 2, 3].map((k) => part(this.root, `sp_security_flap${k}`));
+    this.lamp = new Mesh(new SphereGeometry(0.11, 8, 6), new MeshBasicMaterial({ color: 0x3fb84a }));
+    part(this.root, 'sp_security_lamp').add(this.lamp);
+  }
+  /** Someone's through: a green blink. */
+  passed(): void {
+    this.flash = 0.6;
+  }
+  update(dt: number, busy: boolean): void {
+    this.time += dt;
+    this.flash = Math.max(0, this.flash - dt);
+    if (busy) this.run = (this.run + dt * 0.6) % 0.28;
+    this.belt.position.x = this.beltX + this.run;
+    this.flaps.forEach((flap, k) => {
+      const swing = busy ? 0.4 * Math.max(0, Math.sin(this.time * 4 + k * 1.4)) : 0;
+      flap.rotation.z += (swing - flap.rotation.z) * Math.min(1, dt * 8);
+    });
+    (this.lamp.material as MeshBasicMaterial).color.setHex(this.flash > 0 ? 0x3fff6a : busy ? 0xffb02e : 0x2c8a4a);
+  }
+}
+
+/** The catering kitchen: its roof fans spin, the giant dish's lid lifts now and then; trays wait on the hatch's shelf. */
+export class Kitchen {
+  readonly root: Object3D;
+  private readonly fans: Object3D[];
+  private readonly lid: Object3D;
+  readonly hatch: Object3D;
+  readonly steam: Object3D;
+  private time = 0;
+  constructor() {
+    this.root = skyMover('sp_kitchen');
+    this.fans = ['1', '2'].map((k) => part(this.root, `sp_kitchen_fan${k}`));
+    this.lid = part(this.root, 'sp_kitchen_lid');
+    this.hatch = part(this.root, 'sp_kitchen_hatch');
+    this.steam = part(this.root, 'sp_kitchen_steam');
+    signAt(this.root, 'sp_kitchen_sign', 'SKY KITCHEN', 5.2, 0.62, AIR.navy, AIR.sun).position.z += 0.02;
+  }
+  update(dt: number): void {
+    this.time += dt;
+    for (const [i, fan] of this.fans.entries()) fan.rotation.y += dt * (5 + i);
+    // Every few seconds the lid lifts to show the dish, and settles again.
+    const t = this.time % 7;
+    const up = t < 1.6 ? Math.sin((t / 1.6) * PI) : 0;
+    this.lid.rotation.z = 0.9 * up;
+  }
 }
 
 /** The windsock: the sock turns into the wind and its rings swing as it blows. */

@@ -91,7 +91,88 @@
     "targetMinute": 21,
     "adds": "Opens the gates and waves each flight off once it's ready, so the airport earns while you're away (step on as the ring closes yourself for a perfect take-off)",
     "effects": {
-      "staff": "dispatcher",
+      "staff": "dispatcher"
+    }
+  },
+  {
+    "id": "cafe",
+    "name": "Sky Café",
+    "cost": 60000000,
+    "targetMinute": 24,
+    "adds": "Passengers stop for a coffee on their way to the gate. Stand behind the counter to serve them",
+    "effects": {
+      "shop": "cafe"
+    }
+  },
+  {
+    "id": "gate3",
+    "name": "Gate 3 and the new wing",
+    "cost": 75000000,
+    "targetMinute": 27,
+    "adds": "The terminal grows: a new wing with a security lane, and a jet bridge to Gate 3. Jets carry twice the passengers",
+    "effects": {
+      "gate": "gate3",
+      "wing": true
+    }
+  },
+  {
+    "id": "kitchen",
+    "name": "Catering kitchen",
+    "cost": 85000000,
+    "targetMinute": 30,
+    "adds": "Meals for the jets (each one pays more with its meals aboard) and sandwiches for the café. Carry the trays from the hatch",
+    "effects": {
+      "kitchen": true
+    }
+  },
+  {
+    "id": "fuelcrew",
+    "name": "Fuel crew",
+    "cost": 95000000,
+    "targetMinute": 33,
+    "adds": "Fuels every plane for you, so the ground handler only has the cases to load",
+    "effects": {
+      "staff": "fueler"
+    }
+  },
+  {
+    "id": "dutyfree",
+    "name": "Duty-free shop",
+    "cost": 105000000,
+    "targetMinute": 36,
+    "adds": "Jet passengers shop for perfume and watches once they are through security",
+    "effects": {
+      "shop": "dutyfree"
+    }
+  },
+  {
+    "id": "caterer",
+    "name": "Catering runner",
+    "cost": 115000000,
+    "targetMinute": 39,
+    "adds": "Carries the kitchen's trays to the café and out to the jets",
+    "effects": {
+      "staff": "caterer"
+    }
+  },
+  {
+    "id": "lights",
+    "name": "Runway lights",
+    "cost": 125000000,
+    "targetMinute": 42,
+    "adds": "The airport flies through the night: after dark the lights come on, and night flights pay more",
+    "effects": {
+      "nights": true
+    }
+  },
+  {
+    "id": "shops",
+    "name": "Shop assistants",
+    "cost": 140000000,
+    "targetMinute": 45,
+    "adds": "A barista at the café and a clerk at duty-free, so the shops take money while you are busy elsewhere",
+    "effects": {
+      "staff": "shops",
       "endOfContent": true
     }
   }

@@ -5,7 +5,17 @@ import type { Point } from '../core/config';
 /** Supply items: soap bottles, folded towels, wax tins. */
 export type SupplyType = 'soap' | 'towel' | 'wax';
 /** Anything carried: supplies, or a farm's goods (crates of produce by crop id, cartons of eggs, crates of milk bottles). */
-export type CarryItem = SupplyType | 'veg' | 'corn' | 'apple' | 'eggs' | 'milk' | 'bread' | 'pie' | 'sugar' | 'buns' | 'prizes' | 'case';
+export type CarryItem = SupplyType | 'veg' | 'corn' | 'apple' | 'eggs' | 'milk' | 'bread' | 'pie' | 'sugar' | 'buns' | 'prizes' | 'case' | CaseItem | 'tray';
+/** An airport's cases, in their gate's colour (Gate 1 pink, 2 blue, 3 green), and the rare golden one (any hold takes it). */
+export type CaseItem = 'case1' | 'case2' | 'case3' | 'caseGold';
+
+/** A suitcase lying flat, with its straps and handle, in this colour. */
+const suitcase = (body: string, straps = '#ffffff'): Parameters<typeof mergeParts>[0] => [
+  { geometry: box(0.44, 0.2, 0.32), color: body, y: 0.1 },
+  { geometry: box(0.06, 0.21, 0.33), color: straps, x: -0.11, y: 0.1 },
+  { geometry: box(0.06, 0.21, 0.33), color: straps, x: 0.11, y: 0.1 },
+  { geometry: box(0.12, 0.04, 0.05), color: '#3b3f4a', y: 0.1, z: 0.18 },
+];
 
 const ITEM_HEIGHT = 0.24;
 
@@ -67,7 +77,18 @@ const itemGeometries: Record<CarryItem, BufferGeometry> = (() => {
       { geometry: box(0.06, 0.27, 0.32), color: '#ffd24a', y: 0.13 },
       { geometry: sphere(0.07, 6), color: '#ffd24a', y: 0.29 },
     ]),
-    // The airport's: a suitcase lying flat, with its straps and handle.
+    // The airport's: cases in each gate's colour, the golden one; a tray of meals under their covers.
+    case1: make(suitcase('#ff5fa8')),
+    case2: make(suitcase('#2c62d6')),
+    case3: make(suitcase('#3fb84a')),
+    caseGold: make(suitcase('#ffd24a', '#fff6c8')),
+    tray: make([
+      { geometry: box(0.46, 0.04, 0.32), color: '#c9d2dc', y: 0.02 },
+      { geometry: sphere(0.09, 10), color: '#eef2f6', x: -0.11, y: 0.06 },
+      { geometry: sphere(0.09, 10), color: '#eef2f6', x: 0.11, y: 0.06 },
+      { geometry: cylinder(0.04, 0.07, 8), color: '#ffffff', z: 0.11, y: 0.07 },
+      { geometry: box(0.1, 0.03, 0.06), color: '#ff8a3d', x: 0.0, y: 0.05, z: -0.1 },
+    ]),
     case: make([
       { geometry: box(0.44, 0.2, 0.32), color: '#ff5fa8', y: 0.1 },
       { geometry: box(0.06, 0.21, 0.33), color: '#ffffff', x: -0.11, y: 0.1 },

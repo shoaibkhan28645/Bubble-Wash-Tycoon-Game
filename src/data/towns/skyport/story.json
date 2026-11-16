@@ -91,7 +91,67 @@
       "headline": "Skyport runs itself!",
       "body": "The ramp dispatcher opens the gates and sends every flight off on time, even while you're away.",
       "speaker": "mentor",
-      "words": "A proper little airport. Bay City wants jets next, and a terminal to match."
+      "words": "A proper little airport. Bay City wants jets next, and a terminal to match. Start with a café: passengers love a coffee."
+    },
+    {
+      "id": "cafe",
+      "when": {
+        "built": "cafe"
+      },
+      "shout": "Coffee time!",
+      "icon": "☕",
+      "headline": "The Sky Café opens!",
+      "body": "Passengers stop for a coffee on their way to the gate. Stand behind the counter to serve them, and keep an eye on your flights.",
+      "speaker": "mentor",
+      "words": "Nobody flies well on an empty stomach. A café pays its way, and the passengers wait happier."
+    },
+    {
+      "id": "gate3",
+      "when": {
+        "built": "gate3"
+      },
+      "shout": "Here comes a jet!",
+      "icon": "🛫",
+      "headline": "The new wing opens, and the first jet lands!",
+      "body": "Gate 3 has a jet bridge, and its jets carry twice the passengers. Everyone flying from it goes through security first. Cases now come in each gate's colour: take them to the hold of the same colour.",
+      "speaker": "mentor",
+      "words": "A jet bridge! In my day we walked across the tarmac in the rain. Mind the colours on the cases."
+    },
+    {
+      "id": "kitchen",
+      "when": {
+        "built": "kitchen"
+      },
+      "shout": "Something smells good!",
+      "icon": "🍱",
+      "headline": "The catering kitchen is cooking!",
+      "body": "Jets pay more with their meals aboard: carry trays from the kitchen's hatch to the jet's back door. Spare trays make sandwiches for the café.",
+      "speaker": "mentor",
+      "words": "Four trays for a jet, and its passengers tip the pilots for a hot meal."
+    },
+    {
+      "id": "lights",
+      "when": {
+        "built": "lights"
+      },
+      "shout": "Lights on!",
+      "icon": "🌙",
+      "headline": "Skyport flies through the night!",
+      "body": "Now and then night falls: the runway lights glow, the terminal shines, and every flight that leaves in the dark pays more.",
+      "speaker": "mentor",
+      "words": "There's nothing like a night take-off. Watch those lights stream past."
+    },
+    {
+      "id": "shops",
+      "when": {
+        "built": "shops"
+      },
+      "shout": "The terminal is open!",
+      "icon": "🛍️",
+      "headline": "Skyport has a real terminal!",
+      "body": "A barista at the café and a clerk at duty-free: the shops take money while you're out on the apron.",
+      "speaker": "mentor",
+      "words": "Jets, shops, a kitchen and night flights. Next, the city wants a control tower."
     }
   ]
 }

@@ -1,10 +1,12 @@
 // An airport's passengers (Chapter 4): set down by taxi, they line up at the check-in desk, are checked
 // in (by the hero behind the desk, later the check-in agent) and given a gate, wait in its lounge, and
-// once its gate's open walk out across the apron and up the stairs into the plane. Someone who waits too
-// long in line gives up and goes home. Where each one is and what they're doing; the game draws them
+// once its gate's open walk out across the apron and up the stairs into the plane (or along the jet
+// bridge into a jet). Someone who waits too long in line gives up and goes home. Once the terminal has
+// them, some stop at the café on the way, everyone for the wing's gate goes through the security lane,
+// and some of those shop at duty-free. Where each one is and what they're doing; the game draws them
 // (an avatar each, if it has one to give) and pays.
 import type { AirportLayout, Point, Rect, Tuning } from '../core/config';
-import type { Airfield, Flight } from './airport';
+import { planeAt, type Airfield, type Flight } from './airport';
 
 type Rules = Tuning['airport'];
 
@@ -18,7 +20,22 @@ export interface PaxAvatar {
   update(dt: number): void;
 }
 
-export type PaxState = 'queue' | 'toLounge' | 'lounge' | 'boarding' | 'leaving';
+export type PaxState = 'queue' | 'toCounter' | 'counter' | 'toLounge' | 'lounge' | 'boarding' | 'leaving';
+
+/** The terminal's counters a passenger may stop at on the way to the gate. */
+export type CounterId = 'cafe' | 'security' | 'dutyfree';
+/** A shop: the café or duty-free (security isn't one: it's on the way, not a choice). */
+export type ShopId = 'cafe' | 'dutyfree';
+
+/** A counter's line: its spots (the window first), who's in it, and how far the one at the window has got. */
+interface Counter {
+  spots: Point[];
+  line: Passenger[];
+  progress: number;
+}
+
+/** How long someone stands at a shop with nobody serving before giving up on it (seconds). */
+const SHOP_PATIENCE = 18;
 
 interface Step {
   x: number;
@@ -39,6 +56,11 @@ export class Passenger {
   spot = -1;
   /** The flight they're walking out to. */
   flight: Flight | null = null;
+  /** Where they'll stop on the way to their gate, next first; the counter they're at (or walking to). */
+  plan: CounterId[] = [];
+  at: CounterId | null = null;
+  /** Seconds stood at a shop with nobody serving. */
+  shopWait = 0;
   /** Checked in by the hero (not the agent). */
   manual = false;
   /** Done with: boarded, or gone home. */
@@ -89,6 +111,8 @@ export class Passenger {
 export interface PassengerEvents {
   /** Checked in: their ticket's paid for. `manual` if the hero did it. */
   onCheckedIn(passenger: Passenger): void;
+  /** Served at a shop (the café or duty-free), or through security; `manual` if the hero served them. */
+  onServed?(passenger: Passenger, counter: CounterId, manual: boolean): void;
   onGaveUp(passenger: Passenger): void;
   onBoarded(passenger: Passenger, flight: Flight): void;
 }
@@ -110,6 +134,15 @@ export class Passengers {
   /** Seats in the lounges (bought): people sit; before that they stand. */
   seats: ((lounge: Rect, i: number) => Point) | null = null;
   private readonly boardTimers = new Map<string, number>();
+  /** The terminal's counters, and which shops are open (the game sets these as they're bought). */
+  readonly counters: Record<CounterId, Counter>;
+  readonly open: Record<ShopId, boolean> = { cafe: false, dutyfree: false };
+  /** Whether a gate's passengers go through security first (the wing's gate, once it's built). */
+  screened: (gate: string) => boolean = () => false;
+  /** A number in [0, 1) (whether someone fancies a shop). */
+  random: () => number = Math.random;
+  /** How much quicker a gate boards (its speed upgrade). */
+  gateSpeed: (gate: string) => number = () => 1;
 
   constructor(
     private readonly layout: AirportLayout,
@@ -121,7 +154,20 @@ export class Passengers {
     private readonly events: PassengerEvents,
     /** The way round what's solid, from one place to another (its waypoints, not `from`): straight there by default. */
     private readonly route: (from: Point, to: Point) => Point[] = (_from, to) => [to],
-  ) {}
+  ) {
+    const security = layout.security;
+    this.counters = {
+      cafe: { spots: layout.cafe?.queue ?? [], line: [], progress: 0 },
+      dutyfree: { spots: layout.dutyfree?.queue ?? [], line: [], progress: 0 },
+      security: { spots: security ? [security.arch, ...security.queue] : [], line: [], progress: 0 },
+    };
+  }
+
+  /** How many seats a gate's plane has. */
+  seatsAt(gate: string): number {
+    const spot = this.layout.gates[gate];
+    return this.rules.planes[spot ? planeAt(spot) : 'prop'].seats;
+  }
 
   /** The way from where `p` is to `to`, round what's solid. */
   private way(p: Passenger, to: Point): Step[] {
@@ -141,7 +187,7 @@ export class Passengers {
   /** Seats still unsold for a gate's next departure. */
   room(gate: string): number {
     const flight = this.airfield.at(gate);
-    const seats = this.rules.planes.prop.seats;
+    const seats = this.seatsAt(gate);
     // A plane that's cleared is as good as gone: its passengers aren't in the next one's way.
     const aboard = flight && !flight.cleared ? flight.boarded : 0;
     return seats - aboard - this.bound(gate).length;
@@ -152,9 +198,19 @@ export class Passengers {
     return this.gates().some((g) => this.room(g) > 0);
   }
 
-  /** How many are waiting (or on their way to wait) for a gate. */
+  /** How many are waiting (or on their way to wait, at a shop or through security) for a gate. */
   waitingFor(gate: string): number {
-    return this.bound(gate).filter((p) => p.state === 'lounge' || p.state === 'toLounge').length;
+    return this.bound(gate).filter((p) => p.state === 'lounge' || p.state === 'toLounge' || p.state === 'counter' || p.state === 'toCounter').length;
+  }
+
+  /** The line at a counter, front first. */
+  lineAt(id: CounterId): readonly Passenger[] {
+    return this.counters[id].line;
+  }
+
+  /** How far the one at a counter's window is through being served (0–1). */
+  progressAt(id: CounterId): number {
+    return this.counters[id].progress;
   }
 
   /** Someone new at `at` (a taxi's door), heading for the end of the line. False if the line's full. */
@@ -180,7 +236,7 @@ export class Passengers {
       const room = this.room(gate);
       if (room <= 0) continue;
       const flight = this.airfield.parkedAt(gate);
-      const score = (flight && !flight.cleared ? 100 : 0) + (flight?.boarding ? 100 : 0) - (this.rules.planes.prop.seats - room);
+      const score = (flight && !flight.cleared ? 100 : 0) + (flight?.boarding ? 100 : 0) - (this.seatsAt(gate) - room);
       if (score > bestScore) {
         bestScore = score;
         best = gate;
@@ -211,14 +267,59 @@ export class Passengers {
     return this.seats ? { x: spot.x, z: spot.z + SEAT_STEP } : spot;
   }
 
-  private toLounge(p: Passenger, fromDesk: boolean): void {
+  /** Where someone just checked in for `gate` stops on the way: maybe the café, security (the wing's gate), maybe duty-free. */
+  private planFor(gate: string): CounterId[] {
+    const plan: CounterId[] = [];
+    const shops = this.rules.shops;
+    if (this.open.cafe && this.random() < shops.cafe.share) plan.push('cafe');
+    if (this.screened(gate)) {
+      plan.push('security');
+      if (this.open.dutyfree && this.random() < shops.dutyfree.share) plan.push('dutyfree');
+    }
+    return plan;
+  }
+
+  /**
+   * On to the next stop: the next counter on their way that has room (security always takes them; a shop
+   * whose line's full is skipped, as is any shop once their gate's boarding), else their lounge.
+   */
+  private onward(p: Passenger, fromDesk: boolean, lead: Point[] = fromDesk ? [this.layout.desk.leave[0]!] : []): void {
+    p.at = null;
+    p.shopWait = 0;
+    while (p.plan.length > 0) {
+      const id = p.plan.shift()!;
+      const counter = this.counters[id];
+      const boarding = !!this.airfield.parkedAt(p.gate!)?.boarding;
+      if (id !== 'security' && (boarding || counter.line.length >= counter.spots.length)) continue;
+      if (counter.spots.length === 0) continue;
+      p.at = id;
+      p.state = 'toCounter';
+      counter.line.push(p);
+      const spot = counter.spots[Math.min(counter.line.length, counter.spots.length) - 1]!;
+      const from = lead.at(-1) ?? { x: p.x, z: p.z };
+      p.path = [...lead, ...this.route(from, spot).map((w) => ({ x: w.x, z: w.z }))];
+      return;
+    }
+    this.toLounge(p, fromDesk, lead);
+  }
+
+  /** Off a counter's line (served, or given up on it), and the line shuffles up. */
+  private leaveCounter(p: Passenger): void {
+    if (!p.at) return;
+    const line = this.counters[p.at].line;
+    const i = line.indexOf(p);
+    if (i >= 0) line.splice(i, 1);
+    if (i === 0) this.counters[p.at].progress = 0;
+  }
+
+  private toLounge(p: Passenger, fromDesk: boolean, via: Point[] = fromDesk ? [this.layout.desk.leave[0]!] : []): void {
     const spot = this.spotAt(p.gate!, p.spot);
     p.state = 'toLounge';
     // Off a seat first, if they were sitting (seats just bought: everyone finds one).
     const start: Step[] = p.avatar?.seated ? [{ x: p.x, z: p.z + SEAT_STEP }] : [];
     if (p.avatar) p.avatar.seated = false;
-    const from = start[0] ?? (fromDesk ? this.layout.desk.leave[0]! : { x: p.x, z: p.z });
-    const lead: Step[] = fromDesk ? [this.layout.desk.leave[0]!] : start;
+    const lead: Step[] = start.length > 0 ? start : via;
+    const from = lead.at(-1) ?? { x: p.x, z: p.z };
     p.path = [...lead, ...this.route(from, this.approach(spot)).map((w) => ({ x: w.x, z: w.z })), ...(this.seats ? [spot] : [])];
   }
 
@@ -226,7 +327,7 @@ export class Passengers {
    * One step. `service` is how hard the desk is worked (0: nobody behind it), and by whom; `speed`
    * how much faster everything goes (the boost).
    */
-  update(dt: number, service: { rate: number; byPlayer: boolean }, speed = 1): void {
+  update(dt: number, service: { rate: number; byPlayer: boolean }, speed = 1, shopService: (id: ShopId) => { rate: number; byPlayer: boolean } = () => ({ rate: 0, byPlayer: false })): void {
     const walkSpeed = this.rules.passengers.walkSpeed;
     // The line shuffles up.
     this.line.forEach((p, i) => {
@@ -248,15 +349,52 @@ export class Passengers {
         front.gate = this.pickGate();
         front.spot = this.loungeSpot(front.gate!);
         front.manual = service.byPlayer;
-        this.toLounge(front, true);
+        front.plan = this.planFor(front.gate!);
+        this.onward(front, true);
         this.events.onCheckedIn(front);
       }
     } else if (!front || front.moving) this.progress = 0;
 
+    // The counters: each line shuffles up; the one at the window is served (security by itself, a shop by
+    // whoever's behind its counter); a shop's line gives up on it if nobody comes, or their gate opens.
+    for (const id of ['cafe', 'security', 'dutyfree'] as const) {
+      const counter = this.counters[id];
+      counter.line.forEach((p, i) => {
+        const spot = counter.spots[Math.min(i, counter.spots.length - 1)]!;
+        const last = p.path.at(-1);
+        if (last ? last.x !== spot.x || last.z !== spot.z : Math.hypot(p.x - spot.x, p.z - spot.z) > 0.05) {
+          if (p.path.length > 1) p.path[p.path.length - 1] = spot;
+          else p.path = [spot];
+        }
+      });
+      const front = counter.line[0];
+      const help = id === 'security' ? { rate: 1, byPlayer: false } : shopService(id);
+      const seconds = id === 'security' ? this.rules.security.seconds : this.rules.shops[id].seconds;
+      if (front && !front.moving && front.state === 'counter' && help.rate > 0) {
+        counter.progress += (dt * help.rate * speed) / seconds;
+        if (counter.progress >= 1) {
+          counter.progress = 0;
+          this.leaveCounter(front);
+          this.events.onServed?.(front, id, help.byPlayer);
+          // (Through the arch and out the far side.)
+          this.onward(front, false, id === 'security' && this.layout.security ? [this.layout.security.exit] : []);
+        }
+      } else if (!front || front.moving) counter.progress = 0;
+      if (id === 'security') continue;
+      for (const p of [...counter.line]) {
+        if (p.state !== 'counter' || p.moving) continue;
+        p.shopWait += help.rate > 0 ? 0 : dt;
+        if (p.shopWait > SHOP_PATIENCE || this.airfield.parkedAt(p.gate!)?.boarding) {
+          this.leaveCounter(p);
+          this.onward(p, false);
+        }
+      }
+    }
+
     // Boarding: a gate that's open sends its lounge out to the plane, one after another.
     for (const gate of this.gates()) {
       const flight = this.airfield.parkedAt(gate);
-      const timer = (this.boardTimers.get(gate) ?? 0) - dt * speed;
+      const timer = (this.boardTimers.get(gate) ?? 0) - dt * speed * this.gateSpeed(gate);
       this.boardTimers.set(gate, timer);
       if (!flight || !flight.boarding || flight.cleared || timer > 0 || flight.boarded + flight.walking >= flight.seats) continue;
       const next = this.bound(gate)
@@ -269,9 +407,22 @@ export class Passengers {
       next.flight = flight;
       flight.walking += 1;
       if (next.avatar) next.avatar.seated = false;
-      // Out of their seat, through the gate's door and round to the foot of the stairs, then up them.
+      // Out of their seat, through the gate's door and round to the foot of the stairs, then up them (or up
+      // into the jet bridge's rotunda and along it into the jet).
       const off: Step[] = next.avatar?.seated || this.seats ? [{ x: next.x, z: next.z + SEAT_STEP }] : [];
       const from = off[0] ?? { x: next.x, z: next.z };
+      if (spot.bridge) {
+        const sill = this.rules.planes[planeAt(spot)].sill;
+        next.path = [
+          ...off,
+          ...this.route(from, { x: spot.door.x, z: spot.door.z + 0.9 }).map((w) => ({ x: w.x, z: w.z })),
+          { x: spot.door.x, z: spot.door.z - 0.2, y: 0 },
+          { x: spot.bridge.x, z: spot.bridge.z, y: sill },
+          { x: spot.planeDoor.x + 0.5, z: spot.planeDoor.z, y: sill },
+          { x: spot.planeDoor.x - 0.4, z: spot.planeDoor.z, y: sill },
+        ];
+        continue;
+      }
       const foot = { x: spot.stairsFoot.x + 0.45, z: spot.stairsFoot.z };
       next.path = [
         ...off,
@@ -298,6 +449,15 @@ export class Passengers {
             p.path = this.way(p, { x: this.layout.entrance.x + 3, z: this.layout.roadZ - 3.6 });
             this.events.onGaveUp(p);
           }
+        }
+      } else if (p.state === 'toCounter' && arrived) {
+        p.state = 'counter';
+        if (p.avatar && p.at) {
+          // Facing the counter: the line runs away from its window.
+          const spots = this.counters[p.at].spots;
+          const a = spots[0]!;
+          const b = spots[1] ?? { x: a.x, z: a.z + 1 };
+          p.avatar.root.rotation.y = Math.atan2(a.x - b.x, a.z - b.z);
         }
       } else if (p.state === 'toLounge' && arrived) {
         p.state = 'lounge';
@@ -330,6 +490,7 @@ export class Passengers {
   }
 
   private remove(p: Passenger): void {
+    this.leaveCounter(p);
     p.gone = true;
     if (p.avatar) p.avatar.root.visible = false;
     const i = this.all.indexOf(p);

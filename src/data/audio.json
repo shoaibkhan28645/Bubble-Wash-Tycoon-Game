@@ -28,6 +28,8 @@
     "screech": { "synth": "screech", "volume": 0.32, "gap": 0.3 },
     "spool": { "synth": "spool", "volume": 0.3, "gap": 0.8 },
     "caw": { "synth": "caw", "volume": 0.3, "gap": 1.2 },
+    "scan": { "synth": "beep", "volume": 0.18, "gap": 0.35 },
+    "ding": { "synth": "bell", "volume": 0.22, "gap": 1.5 },
     "cheer": { "files": ["park/cheer-1", "park/cheer-2"], "volume": 0.35, "gap": 1.5, "set": "park" },
     "firework": { "files": ["park/firework-1", "park/firework-2", "park/firework-3", "park/firework-4"], "volume": 0.4, "gap": 0.15, "set": "park" },
     "ooh": { "files": ["park/ooh"], "volume": 0.3, "gap": 8, "set": "park" },

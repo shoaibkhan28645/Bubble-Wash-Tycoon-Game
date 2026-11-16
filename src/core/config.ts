@@ -119,6 +119,14 @@ export interface PadEffects {
   lounge?: boolean;
   /** The baggage belt: cases to carry to each plane's hold. */
   bags?: boolean;
+  /** An airport's shop in the terminal: passengers on their way to the gate stop there to buy. */
+  shop?: 'cafe' | 'dutyfree';
+  /** The terminal's new wing (opens with a gate): its walls, the security lane, the space for its shops. */
+  wing?: boolean;
+  /** The catering kitchen: trays of meals for the jets and the café, from a hatch in the wing. */
+  kitchen?: boolean;
+  /** The airport flies through the night: dark falls now and then, its lights come on, night flights pay more. */
+  nights?: boolean;
 }
 
 export interface PadDef {
@@ -448,6 +456,21 @@ export interface GateSpot {
   hold: Point;
   /** Where its passengers wait in the hall. */
   lounge: Rect;
+  /** The plane that uses it (tuning.json `airport.planes`): a propeller plane unless it says. */
+  plane?: 'prop' | 'jet';
+  /** A jet bridge's rotunda by the wall (boarded through it rather than up air stairs), and the hero's own doorway out to the apron then. */
+  bridge?: Point;
+  apron?: Point;
+  /** Where meals go aboard (once there's a kitchen): by the jet's back door. */
+  galley?: Point;
+}
+
+/** A counter passengers queue at: where it stands, its window (the front of the line), where whoever serves stands, the line. */
+export interface ShopSpot {
+  at: Point;
+  window: Point;
+  zone: Rect;
+  queue: Point[];
 }
 
 /** An airport's map (Chapter 4): the shared map, the runway and taxiway, the gates and the check-in hall. */
@@ -474,6 +497,12 @@ export interface AirportLayout extends TownLayout {
   belt: { at: Point; pick: Rect; side: Point };
   gates: Record<string, GateSpot>;
   trees: (Point & { size?: number })[];
+  /** Part B, the terminal: its new wing east of the hall, the café and duty-free, the security lane into the wing, the kitchen behind it. */
+  wing: Rect;
+  cafe: ShopSpot;
+  dutyfree: ShopSpot;
+  security: { arch: Point; queue: Point[]; exit: Point };
+  kitchen: { at: Point; hatch: Point; pick: Point };
 }
 
 /** A theme park's map (Chapter 3): the shared map, the ticket booth and stalls, the rides and the paths between them. */

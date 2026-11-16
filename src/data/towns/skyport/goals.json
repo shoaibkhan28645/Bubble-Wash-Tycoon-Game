@@ -33,6 +33,29 @@
       "id": "handler",
       "built": "handler",
       "gems": 20
+    },
+    {
+      "id": "gate3",
+      "built": "gate3",
+      "gems": 20
+    },
+    {
+      "id": "jets",
+      "count": "jets",
+      "goal": 10,
+      "gems": 25
+    },
+    {
+      "id": "coffees",
+      "count": "coffees",
+      "goal": 40,
+      "gems": 20
+    },
+    {
+      "id": "nightFlights",
+      "count": "nightFlights",
+      "goal": 8,
+      "gems": 25
     }
   ]
 }

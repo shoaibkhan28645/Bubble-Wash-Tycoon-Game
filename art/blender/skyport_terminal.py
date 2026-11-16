@@ -6,8 +6,12 @@ low glass walls with white mullions round the hall, lamp columns along them,
 a portal over each gate's door (markers sp_hall_gate1 / sp_hall_gate2 where
 the game hangs each gate's sign), the entrance's frame with its two sliding
 glass doors (sp_hall_doorl / sp_hall_doorr, which slide apart along X), the
-marker sp_hall_entry for the sign over it, and the striped hoarding along
-the east end where the new terminal will go.
+marker sp_hall_entry for the sign over it. Only the gates whose doors are in the
+hall's own wall (Gate 3's is in the wing, skyport_wing.py).
+
+sp_hoarding: the striped hoarding along the hall's east end where the new
+wing will go (built where it stands; the game takes it away once the wing's
+built).
 
 sp_name: the airport's name in big raised letters on a plinth, a little plane
 flying over it on a stalk (sp_name_plane, which circles).
@@ -42,7 +46,7 @@ FRAME = '#dfe6ee'
 
 hall = LAYOUT['hall']
 entrance = LAYOUT['entrance']
-gates = LAYOUT['gates']
+gates = {k: v for k, v in LAYOUT['gates'].items() if hall['minX'] < v['door']['x'] < hall['maxX']}
 
 
 def g(x, z, h=0.0):
@@ -134,7 +138,12 @@ for k in range(7):
 p.append(kit.box((5.0, 0.2, 0.14), g(ex, south - 0.25, 2.62), STEEL, bevel=0.02))
 m.marker('entry', g(ex, south + 0.26, 3.4))
 
-# The hoarding along the east end, where the new terminal will be built: striped boards on posts.
+m.mesh(p)
+
+# --- The hoarding along the east end, where the new wing will be built: striped boards on posts. ---
+m_hall = m
+m = Model('sp_hoarding', 0.0)
+p = []
 length = south - north
 n = round(length / 1.6)
 for k in range(n):
@@ -146,6 +155,7 @@ for k in range(n + 1):
     p.append(kit.box((0.18, 0.18, 2.3), g(east + 0.15, z, 1.15), STEEL, bevel=0.02))
     p.append(blob((0.09, 0.09, 0.1), g(east + 0.15, z, 2.38), ORANGE, segments=8))
 m.mesh(p)
+m = m_hall
 
 # The sliding doors: glass in white frames, each sliding outwards from the middle.
 for name, e in (('doorl', -1), ('doorr', 1)):
@@ -202,7 +212,7 @@ m.part('plane', g(PX, SZ, PY), q)
 
 out = Path(sys.argv[1] if len(sys.argv) > 1 else 'skyport-terminal.glb')
 # The hall in one file, the name in another (each under a Playables file's 512 KiB).
-rig.export_all(out, [b for b in rig.bases if b.name == 'sp_hall'])
+rig.export_all(out, [b for b in rig.bases if b.name in ('sp_hall', 'sp_hoarding')])
 rig.export_all(out.with_name(out.stem.replace('terminal', 'name') + out.suffix), [b for b in rig.bases if b.name == 'sp_name'])
 if len(sys.argv) > 2:
     rig.contact_sheet(sys.argv[2], rig.bases, size=(1000, 700), cols=1)

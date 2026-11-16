@@ -7,6 +7,11 @@
 import type { AirportLayout, GateSpot, Point, Tuning } from '../core/config';
 
 export type Phase = 'approach' | 'rollout' | 'taxiIn' | 'parked' | 'pushback' | 'taxiOut' | 'hold' | 'lineup' | 'takeoff' | 'climb';
+/** The planes that use the airport (tuning.json `airport.planes`): the propeller airliner, and from Gate 3 the jet. */
+export type PlaneKind = 'prop' | 'jet';
+
+/** The plane a gate takes. */
+export const planeAt = (spot: GateSpot): PlaneKind => spot.plane ?? 'prop';
 
 type Rules = Tuning['airport'];
 
@@ -76,6 +81,7 @@ export class Flight {
   speed = 0;
   /** How hard its engines are running (0 stopped, 1 flat out). */
   engines = 0.7;
+  readonly kind: PlaneKind;
   readonly seats: number;
   /** Passengers aboard, and on their way across the apron. */
   boarded = 0;
@@ -84,12 +90,14 @@ export class Flight {
   waiting = 0;
   /** The gate's been opened: passengers go out to the plane as they're ready. */
   boarding = false;
-  /** Fuel aboard (0–1), and cases in the hold. */
+  /** Fuel aboard (0–1), cases in the hold, trays of meals in the galley. */
   fuel = 0;
   cases = 0;
+  meals = 0;
   /** What it needs before it can go (the game sets these from what's built). */
   needsFuel = false;
   needsCases = 0;
+  needsMeals = 0;
   /** Seconds left on its departure clock (counted from when it parks), and what it started with. */
   clock: number;
   clockMax: number;
@@ -117,7 +125,8 @@ export class Flight {
     private readonly rules: Rules,
     clock: number,
   ) {
-    this.seats = rules.planes.prop.seats;
+    this.kind = planeAt(spot);
+    this.seats = rules.planes[this.kind].seats;
     this.clock = clock;
     this.clockMax = clock;
   }
@@ -127,6 +136,7 @@ export class Flight {
     if (this.phase !== 'parked' || this.cleared || !this.boarding || this.boarded === 0 || this.walking > 0) return false;
     if (this.needsFuel && this.fuel < 1) return false;
     if (this.cases < this.needsCases) return false;
+    if (this.meals < this.needsMeals) return false;
     return this.boarded >= this.seats || this.waiting === 0;
   }
 
@@ -139,7 +149,7 @@ export class Flight {
     return this.layout.runway.minX + 14;
   }
   get standZ(): number {
-    return this.spot.noseZ - this.rules.planes.prop.length / 2;
+    return this.spot.noseZ - this.rules.planes[this.kind].length / 2;
   }
 
   /** The way in from the runway to the stand. */
@@ -375,7 +385,7 @@ export class Airfield {
     if (livery === this.lastLivery) livery = (livery + 1) % this.liveries;
     this.lastLivery = livery;
     const first = this.arrivals === 0;
-    const flight = new Flight(this.nextId++, gate, spot, livery, this.layout, this.rules, first ? this.rules.flight.firstClock : this.rules.planes.prop.clock);
+    const flight = new Flight(this.nextId++, gate, spot, livery, this.layout, this.rules, first ? this.rules.flight.firstClock : this.rules.planes[planeAt(spot)].clock);
     flight.startAt(approach);
     this.arrivals += 1;
     this.flights.push(flight);
@@ -434,10 +444,20 @@ export function ringAt(readyFor: number, rules: Rules['ring']): { radius: number
   return { radius, onTarget: (1 - phase) * rules.period <= rules.window * 2 || phase * rules.period <= 0.07 };
 }
 
-/** What a departing flight pays: every seat's fare, more when it's full, on time and on a streak. */
-export function flightPay(flight: Pick<Flight, 'boarded' | 'full' | 'late' | 'marshalled'>, fare: number, streak: number, rules: Rules): { pay: number; onTime: boolean } {
+/** What a departing flight pays: every seat's fare, more when it's full, on time and on a streak, and with its meals aboard. */
+export function flightPay(
+  flight: Pick<Flight, 'boarded' | 'full' | 'late' | 'marshalled'> & { meals?: number; needsMeals?: number },
+  fare: number,
+  streak: number,
+  rules: Rules,
+): { pay: number; onTime: boolean } {
   const f = rules.flight;
   const onTime = !flight.late;
-  const bonus = (flight.full ? f.fullBonus : 0) + (onTime ? f.onTimeBonus + Math.min(streak, f.streakMax) * f.streakStep : 0) + (flight.marshalled ? rules.marshal.bonus : 0);
+  const fed = (flight.needsMeals ?? 0) > 0 && (flight.meals ?? 0) >= (flight.needsMeals ?? 0);
+  const bonus =
+    (flight.full ? f.fullBonus : 0) +
+    (onTime ? f.onTimeBonus + Math.min(streak, f.streakMax) * f.streakStep : 0) +
+    (flight.marshalled ? rules.marshal.bonus : 0) +
+    (fed ? rules.meals.bonus : 0);
   return { pay: Math.round(flight.boarded * fare * (1 + bonus)), onTime };
 }

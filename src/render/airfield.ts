@@ -180,6 +180,24 @@ export function airfield(layout: AirportLayout): Object3D {
   return group;
 }
 
+/** The terminal wing's floor (laid once the wing's built): the hall's tiles, the carpet of its gate's lounge, a plain walkway past security. */
+export function wingFloor(layout: AirportLayout, lounge: Rect | null): Object3D {
+  const group = new Group();
+  group.name = 'wing-floor';
+  const lay = (kind: string, r: Rect, y: number): void => {
+    const w = r.maxX - r.minX;
+    const d = r.maxZ - r.minZ;
+    const mesh = new Mesh(new PlaneGeometry(w, d, Math.ceil(w / 16), Math.ceil(d / 16)).rotateX(-PI / 2), material(kind, w, d));
+    mesh.position.set((r.minX + r.maxX) / 2, y, (r.minZ + r.maxZ) / 2);
+    mesh.receiveShadow = true;
+    group.add(mesh);
+  };
+  const { wing } = layout;
+  lay('floor', wing, 0.03);
+  if (lounge) lay('carpet', { minX: lounge.minX - 0.2, maxX: lounge.maxX + 0.2, minZ: wing.minZ + 0.4, maxZ: lounge.maxZ + 0.3 }, 0.035);
+  return group;
+}
+
 /**
  * What moves over the airfield without anyone doing anything: the approach lights running in towards
  * the runway's threshold, the shadows of clouds drifting across the grass and the apron, a few birds crossing now and then, and the shadow of a jet passing high overhead.

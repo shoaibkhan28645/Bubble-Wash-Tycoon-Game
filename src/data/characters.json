@@ -26,7 +26,11 @@
     "dockhand": "male-a-staff",
     "mascot": "male-d-staff",
     "crew": "female-e-staff",
-    "dispatcher": "male-d-staff"
+    "dispatcher": "male-d-staff",
+    "fueler": "male-a-staff",
+    "caterer": "female-f-staff",
+    "barista": "female-c-staff",
+    "dutyclerk": "male-f-staff"
   },
   "shoppers": ["female-a", "male-e"],
   "villagers": ["female-a", "male-e", "female-d", "male-c", "female-e", "male-a"],
