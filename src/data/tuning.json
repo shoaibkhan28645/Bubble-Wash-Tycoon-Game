@@ -156,7 +156,7 @@
       "cities": ["Bay City", "Willowbrook", "Starlight", "Sunny Cove", "Maple Falls", "Port Willow", "Snow Peak", "Coral Bay", "Lantern City", "Paradise Isles"]
     },
     "fog": { "first": 100, "every": [220, 330], "seconds": 24, "fade": 2.5 },
-    "shuttle": { "every": 22, "riders": 8, "extra": 24 },
+    "shuttle": { "every": 18, "riders": 12, "extra": 24 },
     "airline": {
       "unlock": 2,
       "setBonus": 0.04,

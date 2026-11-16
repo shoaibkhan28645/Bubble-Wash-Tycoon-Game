@@ -912,13 +912,15 @@ export function createSkyportGame(
     );
   };
 
-  // The shuttle: a bus from the east along the road to its stop, a busload off, a turn round, back east.
+  // The shuttle: a bus from the east along the road into its bay at the stop (the taxis swing out past it), a
+  // busload off, a turn round across the road, back east.
   let bus: RoadVehicle | null = null;
-  const shuttle = { state: 'away' as 'away' | 'in' | 'stop' | 'turn' | 'out', x: TAXI_FROM, riders: 0, timer: 0, wait: 4, turn: 0, swing: 0, v: 0 };
+  const shuttle = { state: 'away' as 'away' | 'in' | 'stop' | 'turn' | 'out', x: TAXI_FROM, z: 0, riders: 0, timer: 0, wait: 4, turn: 0, swing: 0, v: 0 };
   // The road's two lanes (westbound by the kerb, eastbound beyond), and the limousine's bay at the kerb.
   const laneZ = layout.roadZ - 1.7;
   const farZ = laneZ + 3.4;
   const bayZ = laneZ - 1.2;
+  const busBayZ = laneZ - 1.3;
   let shuttleWas = TAXI_FROM;
   const maxPassengers = (): number => AIRPORT.passengers.max + (built('shuttle') ? AIRPORT.shuttle.extra : 0);
   const buildShuttle = (animate: boolean): void => {
@@ -944,30 +946,36 @@ export function createSkyportGame(
       if (s.wait <= 0 && peopleReady && passengers.all.length + AIRPORT.shuttle.riders <= maxPassengers()) {
         s.state = 'in';
         s.x = TAXI_FROM;
+        s.z = laneZ;
+        s.swing = 0;
         s.riders = AIRPORT.shuttle.riders;
         bus.root.visible = true;
         bus.root.rotation.y = -Math.PI / 2;
       }
     } else if (s.state === 'in') {
-      // In along the near lane to the stop (behind whatever's ahead), swinging out past the limousine.
+      // In along the near lane (behind whatever's ahead, swinging out past the limousine), then into the bay.
       const self: RoadUser = { x: s.x, half: BUS_HALF, lane: 'west' };
       const others = roadUsers(shuttle);
       const left = s.x - Math.max(kerb, westLimit(others, self));
       if (left > 0.02) s.x -= Math.min(left, dt * Math.max(2.2, Math.min(13, left * 1.4)));
       s.swing += (swingOut(others, self) - s.swing) * (1 - Math.exp(-dt * 3));
+      const into = Math.min(1, Math.max(0, 1 - (s.x - kerb) / 11));
+      s.z = laneZ + SWING * s.swing * (1 - into) + (busBayZ - laneZ) * into * into * (3 - 2 * into);
+      bus.root.rotation.y = -Math.PI / 2 - Math.sin(Math.PI * into) * 0.1;
       if (s.x - kerb < 0.05) {
         s.state = 'stop';
         s.timer = 0.9;
+        bus.root.rotation.y = -Math.PI / 2;
         sound.play('honk', hearing({ x: kerb, z: laneZ }) * 0.5);
-        floaters.show(`🚌 ${t('shuttleIn')}`, new Vector3(kerb, 3.6, laneZ), 'star');
+        floaters.show(`🚌 ${t('shuttleIn')}`, new Vector3(kerb, 3.6, busBayZ), 'star');
       }
     } else if (s.state === 'stop') {
       s.timer -= dt;
       if (s.timer <= 0) {
-        if (s.riders > 0 && passengers.spawn({ x: kerb - 1.6 + (s.riders % 4) * 0.8, z: laneZ - 1.8 }, unlockedSum(state, (e) => e.patienceBonus))) {
+        if (s.riders > 0 && passengers.spawn({ x: kerb - 1.6 + (s.riders % 4) * 0.8, z: busBayZ - 1.5 }, unlockedSum(state, (e) => e.patienceBonus))) {
           s.riders -= 1;
           s.timer = 0.35;
-        } else if ((s.riders === 0 || s.timer < -8) && mayTurn(roadUsers(shuttle), { x: s.x, half: BUS_HALF, lane: 'west' })) {
+        } else if ((s.riders === 0 || s.timer < -8) && mayTurn(roadUsers(shuttle), { x: s.x, half: BUS_HALF + 2, lane: 'bay' })) {
           // (Everyone off, or the line's been full a while: the rest ride round again. It turns round when
           // nothing's coming past.)
           s.riders = 0;
@@ -976,27 +984,25 @@ export function createSkyportGame(
         }
       }
     } else if (s.state === 'turn') {
-      // A U-turn on the spot onto the far lane, heading back east.
-      s.turn = Math.min(Math.PI, s.turn + dt * 1.1);
-      s.x = kerb - 1.7 * Math.sin(s.turn);
+      // A U-turn out of the bay across the road onto the far lane, heading back east.
+      const r = (farZ - busBayZ) / 2;
+      s.turn = Math.min(Math.PI, s.turn + dt * 1.0);
+      s.x = kerb - r * Math.sin(s.turn);
+      s.z = busBayZ + r * (1 - Math.cos(s.turn));
       bus.root.rotation.y = -Math.PI / 2 + s.turn;
-      bus.root.position.set(s.x, 0, laneZ + 1.7 * (1 - Math.cos(s.turn)));
-      bus.update(dt);
       if (s.turn >= Math.PI) s.state = 'out';
-      return;
     } else {
       const room = eastLimit(roadUsers(shuttle), { x: s.x, half: BUS_HALF, lane: 'east' }) - s.x;
       if (room > 0) s.x += Math.min(room, dt * Math.min(14, 3 + (s.x - kerb) * 2));
-      bus.root.position.set(s.x, 0, farZ);
-      bus.update(dt);
+      s.z = farZ;
+      bus.root.rotation.y = Math.PI / 2;
       if (s.x > TAXI_FROM) {
         s.state = 'away';
         bus.root.visible = false;
         s.wait = AIRPORT.shuttle.every;
       }
-      return;
     }
-    bus.root.position.set(s.x, 0, laneZ + SWING * s.swing);
+    bus.root.position.set(s.x, 0, s.z);
     bus.update(dt, s.state === 'stop');
   };
 
@@ -1548,7 +1554,7 @@ export function createSkyportGame(
     const users: RoadUser[] = [];
     for (const x of taxis) if (x !== except && x.state !== 'away') users.push({ x: x.x, half: TAXI_HALF, lane: 'west', speed: x.state === 'stop' ? 0 : x.v });
     if (bus && shuttle !== except && shuttle.state !== 'away') {
-      const lane: Lane = shuttle.state === 'turn' ? 'both' : shuttle.state === 'out' ? 'east' : 'west';
+      const lane: Lane = shuttle.state === 'stop' ? 'bay' : shuttle.state === 'turn' ? 'both' : shuttle.state === 'out' ? 'east' : 'west';
       users.push({ x: shuttle.x, half: BUS_HALF + (lane === 'both' ? 2 : 0), lane, speed: shuttle.v });
     }
     if (limo && limoRun !== except && limoRun.state !== 'away') {
