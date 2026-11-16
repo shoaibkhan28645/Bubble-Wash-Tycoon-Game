@@ -60,6 +60,7 @@ import {
   Kitchen,
   PLANES,
   SecurityLane,
+  securityLaneSolids,
   wingModel,
   wingWalls,
   Hall,
@@ -537,9 +538,10 @@ export function createSkyportGame(
       onPaid({ amount: pay + tip, tip, automated: !p.manual, at });
     },
     onServed: (p, id, manual) => {
-      if (id === 'security') {
-        security?.passed();
-        sound.play('scan', hearing(layout.security.arch));
+      if (id === 'security' || id === 'pierSecurity') {
+        const lane = id === 'security' ? security : pierLane;
+        lane?.passed();
+        sound.play('scan', hearing(id === 'security' ? layout.security.arch : (layout.pierSecurity?.arch ?? layout.security.arch)));
         return;
       }
       let price = AIRPORT.shops[id].price * levelFactor(UPGRADES.kinds.price, level(`${id}.price`)) * payBonus();
@@ -793,6 +795,8 @@ export function createSkyportGame(
   // Part B's terminal: what's built of it, drawn and solid.
   let wing: Object3D | null = null;
   let security: SecurityLane | null = null;
+  /** Gate 4's own security lane, at the pier's door from the plaza (once the pier's built). */
+  let pierLane: SecurityLane | null = null;
   let cafe: Cafe | null = null;
   let dutyFree: DutyFree | null = null;
   let kitchen: Kitchen | null = null;
@@ -826,10 +830,7 @@ export function createSkyportGame(
     security = new SecurityLane();
     security.root.position.set(arch.x, 0, arch.z);
     show(security.root, animate);
-    solids.push(around({ x: arch.x, z: arch.z - 0.6 }, 0.16, 0.26), around({ x: arch.x, z: arch.z + 0.6 }, 0.16, 0.26));
-    solids.push({ minX: arch.x - 1.85, maxX: arch.x + 1.65, minZ: arch.z + 0.66, maxZ: arch.z + 1.48 });
-    solids.push({ minX: arch.x - 3.45, maxX: arch.x - 0.95, minZ: arch.z - 0.79, maxZ: arch.z - 0.71 });
-    solids.push({ minX: arch.x - 3.45, maxX: arch.x - 0.95, minZ: arch.z + 0.56, maxZ: arch.z + 0.64 });
+    solids.push(...securityLaneSolids(arch));
     night.setTerminal(terminalRooms());
     solidsChanged();
   };
@@ -1437,7 +1438,19 @@ export function createSkyportGame(
     if (pier) return;
     pier = show(pierModel(Object.keys(layout.gates).indexOf('gate4') + 1), animate);
     stage.scene.add(roomFloor(layout.pier, layout.gates.gate4?.lounge ?? null));
-    solids.push(...roomWalls(layout.pier, [{ side: 'north', x: layout.gates.gate4!.door.x, half: 0.75 }]));
+    // Its passengers come in from the plaza by its own security lane (not through the wing's), to a door on its south side.
+    const lane = layout.pierSecurity;
+    solids.push(...roomWalls(layout.pier, [{ side: 'north', x: layout.gates.gate4!.door.x, half: 0.75 }, ...(lane ? [{ side: 'south' as const, x: lane.arch.x, half: 0.9 }] : [])]));
+    if (lane) {
+      // (A paved way in from the plaza under its lane.)
+      stage.scene.add(roomFloor({ minX: lane.arch.x - 1.5, maxX: lane.arch.x + 1.7, minZ: layout.pier.maxZ, maxZ: layout.plaza.minZ }, null));
+      pierLane = new SecurityLane();
+      pierLane.root.position.set(lane.arch.x, 0, lane.arch.z);
+      pierLane.root.rotation.y = Math.PI / 2;
+      show(pierLane.root, animate);
+      solids.push(...securityLaneSolids(lane.arch, true));
+      passengers.pierLane = true;
+    }
     night.setTerminal(terminalRooms());
   };
 
@@ -2456,6 +2469,7 @@ export function createSkyportGame(
     cafe?.update(dt);
     dutyFree?.update(dt);
     security?.update(dt, passengers.lineAt('security').length > 0);
+    pierLane?.update(dt, passengers.lineAt('pierSecurity').length > 0);
     // Night and day, once the runway lights are in: the look, the lamps glowing, the lights on the field.
     if (built('lights')) nightTime += dt;
     dark = built('lights') ? nightAt(nightTime, AIRPORT.night) : 0;

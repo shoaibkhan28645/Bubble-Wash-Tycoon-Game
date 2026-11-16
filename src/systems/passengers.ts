@@ -23,7 +23,10 @@ export interface PaxAvatar {
 export type PaxState = 'queue' | 'toCounter' | 'counter' | 'toLounge' | 'lounge' | 'boarding' | 'leaving';
 
 /** The terminal's counters a passenger may stop at on the way to the gate. */
-export type CounterId = 'cafe' | 'security' | 'dutyfree';
+export type CounterId = 'cafe' | 'security' | 'dutyfree' | 'pierSecurity';
+/** The counters that screen passengers (the wing's lane, and the pier's once it's open): they always take them. */
+const LANES: readonly CounterId[] = ['security', 'pierSecurity'];
+const isLane = (id: CounterId): boolean => LANES.includes(id);
 /** A shop: the café or duty-free (security isn't one: it's on the way, not a choice). */
 export type ShopId = 'cafe' | 'dutyfree';
 
@@ -139,6 +142,8 @@ export class Passengers {
   readonly open: Record<ShopId, boolean> = { cafe: false, dutyfree: false };
   /** Whether a gate's passengers go through security first (the wing's gate, once it's built). */
   screened: (gate: string) => boolean = () => false;
+  /** Whether the pier's own security lane is open (its gates' passengers queue there). */
+  pierLane = false;
   /** A number in [0, 1) (whether someone fancies a shop). */
   random: () => number = Math.random;
   /** How much quicker a gate boards (its speed upgrade). */
@@ -160,6 +165,7 @@ export class Passengers {
       cafe: { spots: layout.cafe?.queue ?? [], line: [], progress: 0 },
       dutyfree: { spots: layout.dutyfree?.queue ?? [], line: [], progress: 0 },
       security: { spots: security ? [security.arch, ...security.queue] : [], line: [], progress: 0 },
+      pierSecurity: { spots: layout.pierSecurity ? [layout.pierSecurity.arch, ...layout.pierSecurity.queue] : [], line: [], progress: 0 },
     };
   }
 
@@ -230,8 +236,7 @@ export class Passengers {
 
   /** Whether someone checked in already (at the shuttle station) can come in now: a seat left somewhere, and room on security's line. */
   get canArrive(): boolean {
-    const security = this.counters.security;
-    return this.roomAnywhere && (security.spots.length === 0 || security.line.length < security.spots.length);
+    return this.roomAnywhere && LANES.some((id) => this.laneRoom(id));
   }
 
   /**
@@ -240,9 +245,11 @@ export class Passengers {
    */
   arrive(at: Point, patienceBonus: number): boolean {
     if (!this.canArrive) return false;
+    const gate = this.pickGate();
+    if (!gate || (this.screened(gate) && !this.laneRoom(this.laneFor(gate)))) return false;
     const p = new Passenger(at, this.rules.passengers.patience * (1 + patienceBonus), this.makeAvatar());
     this.all.push(p);
-    p.gate = this.pickGate();
+    p.gate = gate;
     p.spot = this.loungeSpot(p.gate!);
     p.plan = this.planFor(p.gate!);
     this.place(p);
@@ -291,13 +298,26 @@ export class Passengers {
   }
 
   /** Where someone just checked in for `gate` stops on the way: maybe the café, security (the wing's gate), maybe duty-free. */
+  /** The security lane a gate's passengers go through: the pier's for its gates once it's open, else the wing's. */
+  private laneFor(gate: string): CounterId {
+    return this.pierLane && this.layout.pierSecurity?.gates.includes(gate) ? 'pierSecurity' : 'security';
+  }
+
+  /** Whether a lane's line has room. */
+  private laneRoom(id: CounterId): boolean {
+    const lane = this.counters[id];
+    return lane.spots.length === 0 || lane.line.length < lane.spots.length;
+  }
+
   private planFor(gate: string): CounterId[] {
     const plan: CounterId[] = [];
     const shops = this.rules.shops;
     if (this.open.cafe && this.random() < shops.cafe.share) plan.push('cafe');
     if (this.screened(gate)) {
-      plan.push('security');
-      if (this.open.dutyfree && this.random() < shops.dutyfree.share) plan.push('dutyfree');
+      const lane = this.laneFor(gate);
+      plan.push(lane);
+      // (Duty-free's in the wing, beyond its lane.)
+      if (lane === 'security' && this.open.dutyfree && this.random() < shops.dutyfree.share) plan.push('dutyfree');
     }
     return plan;
   }
@@ -313,7 +333,7 @@ export class Passengers {
       const id = p.plan.shift()!;
       const counter = this.counters[id];
       const boarding = !!this.airfield.parkedAt(p.gate!)?.boarding;
-      if (id !== 'security' && (boarding || counter.line.length >= counter.spots.length)) continue;
+      if (!isLane(id) && (boarding || counter.line.length >= counter.spots.length)) continue;
       if (counter.spots.length === 0) continue;
       p.at = id;
       p.state = 'toCounter';
@@ -380,7 +400,7 @@ export class Passengers {
 
     // The counters: each line shuffles up; the one at the window is served (security by itself, a shop by
     // whoever's behind its counter); a shop's line gives up on it if nobody comes, or their gate opens.
-    for (const id of ['cafe', 'security', 'dutyfree'] as const) {
+    for (const id of ['cafe', 'security', 'pierSecurity', 'dutyfree'] as const) {
       const counter = this.counters[id];
       counter.line.forEach((p, i) => {
         const spot = counter.spots[Math.min(i, counter.spots.length - 1)]!;
@@ -391,8 +411,9 @@ export class Passengers {
         }
       });
       const front = counter.line[0];
-      const help = id === 'security' ? { rate: 1, byPlayer: false } : shopService(id);
-      const seconds = id === 'security' ? this.rules.security.seconds : this.rules.shops[id].seconds;
+      const lane = id === 'security' || id === 'pierSecurity';
+      const help = lane ? { rate: 1, byPlayer: false } : shopService(id);
+      const seconds = lane ? this.rules.security.seconds : this.rules.shops[id].seconds;
       if (front && !front.moving && front.state === 'counter' && help.rate > 0) {
         counter.progress += (dt * help.rate * speed) / seconds;
         if (counter.progress >= 1) {
@@ -400,10 +421,11 @@ export class Passengers {
           this.leaveCounter(front);
           this.events.onServed?.(front, id, help.byPlayer);
           // (Through the arch and out the far side.)
-          this.onward(front, false, id === 'security' && this.layout.security ? [this.layout.security.exit] : []);
+          const exit = id === 'security' ? this.layout.security?.exit : id === 'pierSecurity' ? this.layout.pierSecurity?.exit : undefined;
+          this.onward(front, false, exit ? [exit] : []);
         }
       } else if (!front || front.moving) counter.progress = 0;
-      if (id === 'security') continue;
+      if (lane) continue;
       for (const p of [...counter.line]) {
         if (p.state !== 'counter' || p.moving) continue;
         p.shopWait += help.rate > 0 ? 0 : dt;

@@ -228,7 +228,14 @@ north, south, west, east = pier['minZ'], pier['maxZ'], pier['minX'], pier['maxX'
 door = gate4['door']['x']
 p += wall_run(west, north, door - 0.75, north)
 p += wall_run(door + 0.75, north, east, north)
-p += wall_run(west, south, east, south)
+# The south wall's door from the plaza, where its passengers come in through their own security lane.
+lane = LAYOUT['pierSecurity']['arch']['x']
+p += wall_run(west, south, lane - 0.9, south)
+p += wall_run(lane + 0.9, south, east, south)
+for e in (-1, 1):
+    p.append(kit.box((0.26, 0.4, 2.6), g(lane + e * 1.0, south, 1.3), NAVY, bevel=0.05))
+p.append(kit.box((2.3, 0.4, 0.34), g(lane, south, 2.75), NAVY, bevel=0.05))
+p.append(kit.box((2.1, 0.44, 0.1), g(lane, south, 2.98), AQUA, bevel=0.03))
 p += wall_run(west, north, west, south)
 p += wall_run(east, north, east, south)
 for x in (west, (west + door) / 2 - 1.0, east):

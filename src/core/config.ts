@@ -534,6 +534,8 @@ export interface AirportLayout extends TownLayout {
    * shuttle's stop (the bus pulls up on the road at `kerb.x`), the bag sorter by the belt.
    */
   pier: Rect;
+  /** Gate 4's own security lane at the pier's door from the plaza (its passengers queue there, not in the wing's). */
+  pierSecurity?: { gates: string[]; arch: Point; queue: Point[]; exit: Point };
   stands: Record<string, StandSpot>;
   tower: { at: Point; door: Point };
   mogul: { office: Rect; board: Point; pile: Point };

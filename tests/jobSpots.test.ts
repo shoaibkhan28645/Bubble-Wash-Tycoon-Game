@@ -12,7 +12,7 @@ import { ROADSIDE } from '../src/core/towns';
 import { WILLOWBROOK } from '../src/core/willowbrook';
 import { STARLIGHT } from '../src/core/starlight';
 import { SKYPORT } from '../src/core/skyport';
-import { PLANES, entranceSign, hallWalls, loungeSeatSolids, roomWalls } from '../src/render/models/airport';
+import { PLANES, entranceSign, hallWalls, loungeSeatSolids, roomWalls, securityLaneSolids } from '../src/render/models/airport';
 import { SOLID } from '../src/systems/buildings';
 import { FARM_SOLIDS } from '../src/render/models/farm';
 import { PARK_SOLIDS } from '../src/render/models/park';
@@ -102,8 +102,10 @@ const TOWNS = [
       ];
       // Part C: Gate 4's pier, the VIP lounge, the tower, Mogul Air's office, the shuttle's stop, the bag sorter,
       // and the planes on the stands that aren't gates'.
-      rects.push(...roomWalls(layout.pier, [{ side: 'north', x: layout.gates.gate4!.door.x, half: 0.75 }]));
+      rects.push(...roomWalls(layout.pier, [{ side: 'north', x: layout.gates.gate4!.door.x, half: 0.75 }, { side: 'south', x: layout.pierSecurity!.arch.x, half: 0.9 }]));
       rects.push(...roomWalls(layout.vip.lounge, [{ side: 'north', x: layout.vip.door.x, half: 0.95 }, { side: 'south', x: layout.vip.door.x, half: 0.95 }]));
+      // Gate 4's own security lane, at the pier's door from the plaza, and its line.
+      rects.push(...securityLaneSolids(layout.pierSecurity!.arch, true), ...layout.pierSecurity!.queue.map((q) => box(q.x, q.z, 0.35, 0.35)));
       rects.push(box(layout.tower.at.x, layout.tower.at.z, 2.6, 2.6), layout.mogul.office, box(layout.shuttle.stop.x, layout.shuttle.stop.z, 2.45, 1.0), box(layout.sorter.at.x, layout.sorter.at.z, 1.45, 1.3));
       for (const stand of Object.values(layout.stands)) {
         const plane = PLANES[stand.plane ?? 'prop'];

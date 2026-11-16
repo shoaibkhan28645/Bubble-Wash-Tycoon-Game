@@ -328,7 +328,7 @@ describe('the airfield layout', () => {
   const walls = [
     ...hallWalls(layout, true),
     ...wingWalls(layout),
-    ...roomWalls(layout.pier, [{ side: 'north', x: layout.gates.gate4!.door.x, half: 0.75 }]),
+    ...roomWalls(layout.pier, [{ side: 'north', x: layout.gates.gate4!.door.x, half: 0.75 }, { side: 'south', x: layout.pierSecurity!.arch.x, half: 0.9 }]),
     ...roomWalls(layout.vip.lounge, [
       { side: 'north', x: layout.vip.door.x, half: 0.95 },
       { side: 'south', x: layout.vip.door.x, half: 0.95 },
@@ -349,6 +349,7 @@ describe('the airfield layout', () => {
       ]),
       ...Object.entries(layout.staffSpots).map(([id, p]): [string, { x: number; z: number }] => [`staff ${id}`, p]),
       ['security exit', layout.security.exit],
+      ...[layout.pierSecurity!.arch, ...layout.pierSecurity!.queue].map((q, i): [string, { x: number; z: number }] => [`pier security ${i}`, q]),
       ...Object.entries(layout.stands).map(([id, s]): [string, { x: number; z: number }] => [`stand ${id} marshal`, s.marshal]),
       ['mogul board', layout.mogul.board],
       ['vip carpet', layout.vip.carpet],
@@ -371,6 +372,9 @@ describe('the airfield layout', () => {
     const g3 = layout.gates.gate3!;
     expect(g3.door.x > layout.wing.minX && g3.door.x < layout.wing.maxX && Math.abs(g3.door.z - layout.wing.minZ) < 0.5).toBe(true);
     expect(inside(layout.entrance, 0.4)).toBe(false);
+    // Gate 4's pier opens onto the plaza by its own security lane: its exit is its door.
+    expect(inside(layout.pierSecurity!.exit, 0.4)).toBe(false);
+    expect(Math.abs(layout.pierSecurity!.exit.z - layout.pier.maxZ)).toBeLessThan(0.3);
   });
 
   it('parks each plane clear of the hall, its stairs, and its neighbour', () => {

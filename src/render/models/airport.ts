@@ -872,6 +872,26 @@ export class DutyFree {
   }
 }
 
+/**
+ * A security lane's solid parts round its arch: the arch's posts, the X-ray machine beside the lane, the belts
+ * guiding its line. Its line runs along +x (the wing's), or (`north`, the model turned a quarter) along -z (the pier's).
+ */
+export function securityLaneSolids(arch: { x: number; z: number }, north = false): Rect[] {
+  const local: Rect[] = [
+    { minX: -0.16, maxX: 0.16, minZ: -0.86, maxZ: -0.34 },
+    { minX: -0.16, maxX: 0.16, minZ: 0.34, maxZ: 0.86 },
+    { minX: -1.85, maxX: 1.65, minZ: 0.66, maxZ: 1.48 },
+    { minX: -3.45, maxX: -0.95, minZ: -0.79, maxZ: -0.71 },
+    { minX: -3.45, maxX: -0.95, minZ: 0.56, maxZ: 0.64 },
+  ];
+  // (Turned a quarter to the left, local x runs to -z and local z to +x.)
+  return local.map((r) =>
+    north
+      ? { minX: arch.x + r.minZ, maxX: arch.x + r.maxZ, minZ: arch.z - r.maxX, maxZ: arch.z - r.minX }
+      : { minX: arch.x + r.minX, maxX: arch.x + r.maxX, minZ: arch.z + r.minZ, maxZ: arch.z + r.maxZ },
+  );
+}
+
 /** The security lane: the X-ray belt runs and its flaps swing while someone's going through; the arch's lamp blinks green for each. */
 export class SecurityLane {
   readonly root: Object3D;
