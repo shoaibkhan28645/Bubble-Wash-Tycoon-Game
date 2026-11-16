@@ -120,11 +120,11 @@
     }
   },
   "airport": {
-    "pileCap": 60000000,
+    "pileCap": 120000000,
     "zoom": 1.5,
-    "passengers": { "spawnSeconds": 2.4, "patience": 55, "walkSpeed": 2.7, "ticket": 50000, "max": 46, "group": [1, 3], "opening": 6 },
+    "passengers": { "spawnSeconds": 2.4, "patience": 55, "walkSpeed": 2.7, "ticket": 100000, "max": 46, "group": [1, 3], "opening": 6 },
     "checkinSeconds": 1.0,
-    "planes": { "prop": { "seats": 12, "fare": 120000, "length": 9, "sill": 1.02, "clock": 60 } },
+    "planes": { "prop": { "seats": 12, "fare": 240000, "length": 9, "sill": 1.02, "clock": 60 } },
     "flight": { "gapSeconds": 4, "firstClock": 90, "approachSeconds": 7, "landSpeed": 17, "taxiSpeed": 7.5, "pushSpeed": 3.2, "takeoffAccel": 5.5, "rotateSpeed": 19, "boardStagger": 0.5, "fullBonus": 0.2, "onTimeBonus": 0.25, "streakStep": 0.05, "streakMax": 10, "perfectTip": 0.15 },
     "fuel": { "seconds": 4.5, "clockSeconds": 8 },
     "bags": { "cases": 6, "handSeconds": 0.25, "clockSeconds": 16, "handlerCarry": 3 },

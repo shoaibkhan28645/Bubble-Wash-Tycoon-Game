@@ -22,7 +22,7 @@
   {
     "id": "fuel",
     "name": "Fuel truck",
-    "cost": 9000000,
+    "cost": 22000000,
     "targetMinute": 3,
     "adds": "Planes fill up before they leave and fly further: +30% on every flight",
     "effects": {
@@ -33,7 +33,7 @@
   {
     "id": "seats",
     "name": "Lounge seats",
-    "cost": 10000000,
+    "cost": 32000000,
     "targetMinute": 6,
     "adds": "Somewhere to sit by the gates: passengers wait far longer at check-in, and more come",
     "effects": {
@@ -45,7 +45,7 @@
   {
     "id": "gate2",
     "name": "Gate 2",
-    "cost": 11000000,
+    "cost": 40000000,
     "targetMinute": 9,
     "adds": "A second stand: two planes on the ground at once, and many more passengers",
     "effects": {
@@ -56,7 +56,7 @@
   {
     "id": "agent",
     "name": "Check-in agent",
-    "cost": 12000000,
+    "cost": 46000000,
     "targetMinute": 12,
     "adds": "Checks passengers in for you, all day long",
     "effects": {
@@ -66,7 +66,7 @@
   {
     "id": "bags",
     "name": "Baggage belt and cart",
-    "cost": 13000000,
+    "cost": 52000000,
     "targetMinute": 15,
     "adds": "Cases come out on the belt: carry them to each plane, for +30% on every flight",
     "effects": {
@@ -77,7 +77,7 @@
   {
     "id": "handler",
     "name": "Ground handler",
-    "cost": 15000000,
+    "cost": 58000000,
     "targetMinute": 18,
     "adds": "Loads the cases and fuels the planes for you",
     "effects": {
@@ -87,7 +87,7 @@
   {
     "id": "dispatcher",
     "name": "Ramp dispatcher",
-    "cost": 17000000,
+    "cost": 64000000,
     "targetMinute": 21,
     "adds": "Opens the gates and waves each flight off once it's ready, so the airport earns while you're away (step on as the ring closes yourself for a perfect take-off)",
     "effects": {

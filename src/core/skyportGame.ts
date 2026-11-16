@@ -1069,6 +1069,9 @@ export function createSkyportGame(
       const closed = parked.find((x) => !x.flight.boarding && x.flight.waiting > 0);
       if (closed) return { at: podiumFront(closed.gate.spot), text: 'guideGate' };
     }
+    // Enough for the next thing (as often as not the crew who'll take a chore off the hero's hands): that first.
+    const next = pads.next;
+    if (next && state.cash >= next.owed) return { at: next.at, text: 'guideBuild' };
     if (!built('handler')) {
       const dry = parked.find((x) => x.flight.needsFuel && x.flight.fuel < 1);
       if (dry) return { at: dry.gate.spot.fuelSpot, text: 'guideFuelPlane' };
@@ -1082,8 +1085,6 @@ export function createSkyportGame(
     // The very first plane: wave it in.
     const inbound = gates.map((g) => ({ gate: g, flight: airfield.at(g.key) })).find((x) => x.flight?.phase === 'taxiIn');
     if (inbound && !state.flags.includes(clearedFlag) && passengers.line.length === 0) return { at: inbound.gate.spot.marshal, text: 'guideMarshal' };
-    const next = pads.next;
-    if (next && state.cash >= next.owed) return { at: next.at, text: 'guideBuild' };
     const pile = cash.fullestPile();
     const inPile = pile ? (state.piles[pile.id] ?? 0) : 0;
     // Cash that buys the next thing is worth leaving the desk for.

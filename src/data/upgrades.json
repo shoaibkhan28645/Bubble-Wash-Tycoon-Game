@@ -197,12 +197,12 @@
     "coaster": 480,
     "wheel": 580,
     "crew": 480,
-    "checkin": 6000,
-    "gate1": 6000,
-    "gate2": 6000,
-    "agent": 6000,
-    "handler": 6000,
-    "dispatcher": 6000,
+    "checkin": 15000,
+    "gate1": 15000,
+    "gate2": 15000,
+    "agent": 15000,
+    "handler": 15000,
+    "dispatcher": 15000,
     "mart": 0.96,
     "clerk": 0.77
   },
@@ -210,7 +210,7 @@
     "roadside": 1.25,
     "willowbrook": 15,
     "starlight": 1500,
-    "skyport": 60000
+    "skyport": 150000
   },
   "panels": {
     "checkin": ["checkin.speed", "checkin.price", "agent.staffSpeed"],
