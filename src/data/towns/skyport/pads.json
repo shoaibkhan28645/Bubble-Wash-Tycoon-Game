@@ -178,7 +178,7 @@
   {
     "id": "gate4",
     "name": "Gate 4 and the east pier",
-    "cost": 150000000,
+    "cost": 100000000,
     "targetMinute": 48,
     "adds": "A stand for the wide-bodies (36 seats each) with a pier of its own for their lounge",
     "effects": {
