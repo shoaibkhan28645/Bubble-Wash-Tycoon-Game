@@ -41,6 +41,9 @@ function halos(at: { x: number; y: number; z: number }[], size: number, colour: 
   return { points, material };
 }
 
+/** Floodlight pools at most (the stands', the rooms' washes). */
+const MAX_POOLS = 24;
+
 export class AirportNight {
   private readonly group = new Group();
   private readonly materials: { material: MeshBasicMaterial | PointsMaterial; strength: number }[] = [];
@@ -78,7 +81,7 @@ export class AirportNight {
     for (const gate of Object.values(layout.gates)) this.poolPlaces.push({ at: { x: gate.x, z: gate.noseZ - 5 }, size: 17 });
     this.poolPlaces.push({ at: { x: (hall.minX + hall.maxX) / 2, z: 8.5 }, size: 22 });
     this.roomStart = this.poolPlaces.length;
-    this.pools = new InstancedMesh(new PlaneGeometry(1, 1).rotateX(-Math.PI / 2), this.poolMaterial, 12);
+    this.pools = new InstancedMesh(new PlaneGeometry(1, 1).rotateX(-Math.PI / 2), this.poolMaterial, MAX_POOLS);
     this.pools.frustumCulled = false;
     this.pools.renderOrder = 1;
     this.placePools();
@@ -134,10 +137,30 @@ export class AirportNight {
 
   /** Moves a stand's pool (a new gate's lights). */
   addStand(at: Point): void {
-    if (this.poolPlaces.length >= 12) return;
+    if (this.poolPlaces.length >= MAX_POOLS) return;
     this.poolPlaces.splice(this.roomStart, 0, { at, size: 17 });
     this.roomStart += 1;
     this.placePools();
+  }
+
+  /** (Part D) The second runway's edge lights and ends, and the blue lights round the end-around taxiway to it. */
+  addRunway(runway: { z: number; minX: number; maxX: number; half: number }, taxiwayZ: number, around: number, west: number): void {
+    const edges: { x: number; y: number; z: number }[] = [];
+    for (let x = runway.minX + 3; x <= runway.maxX - 3; x += 6) for (const side of [-1, 1]) edges.push({ x, y: 0.3, z: runway.z + side * (runway.half + 0.5) });
+    const blue: { x: number; y: number; z: number }[] = [];
+    for (let x = around; x <= west; x += 6) blue.push({ x, y: 0.28, z: taxiwayZ + 3.4 });
+    for (let z = runway.z + runway.half + 3; z <= taxiwayZ - 3; z += 6) for (const side of [-1, 1]) blue.push({ x: around + side * 3.4, y: 0.28, z });
+    const ends = (x: number) => Array.from({ length: 7 }, (_, i) => ({ x, y: 0.3, z: runway.z - runway.half + 0.8 + (i * (2 * runway.half - 1.6)) / 6 }));
+    for (const [at, size, colour] of [
+      [edges, 1.5, '#fff1c4'],
+      [blue, 1.2, '#58c8ff'],
+      [ends(runway.minX + 1.2), 1.4, '#5dff8a'],
+      [ends(runway.maxX - 1.2), 1.4, '#ff5a4a'],
+    ] as const) {
+      const h = halos([...at], size, colour);
+      this.group.add(h.points);
+      this.materials.push({ material: h.material, strength: 1 });
+    }
   }
 
   /**

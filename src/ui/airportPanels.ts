@@ -108,6 +108,8 @@ export function showRoutes(root: HTMLElement, view: () => RoutesView, fly: (id: 
     const status = document.createElement('div');
     status.className = 'mission-text';
     status.style.padding = '2px 6px 6px';
+    // (One line for each of Mogul Air's planes.)
+    status.style.whiteSpace = 'pre-line';
     status.textContent = now.status + (now.bonus > 0 ? `  ·  ${t('routeSet', { n: Math.round(now.bonus * 100) })}` : '');
     parts.push(status);
     for (const tier of [1, 2, 3]) {

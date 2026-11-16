@@ -29,7 +29,7 @@ import { mixLook, type Look, type Stage } from '../render/stage';
 import { withShadows } from '../render/stage';
 import { CameraRig } from '../render/cameraRig';
 import { Particles } from '../render/effects/particles';
-import { Ambience, airfield as airfieldGround, roomFloor, wingFloor } from '../render/airfield';
+import { Ambience, airfield as airfieldGround, roomFloor, secondRunway, wingFloor } from '../render/airfield';
 import { AirportNight } from '../render/airportNight';
 import { nightGlow } from '../render/models/build';
 import { loadPeople } from '../render/assets';
@@ -51,6 +51,10 @@ import {
   vipModel,
   BaggageBelt,
   Cafe,
+  CargoShed,
+  HangarModel,
+  JetWash,
+  KLoader,
   JET,
   CateringTruck,
   DutyFree,
@@ -478,12 +482,15 @@ export function createSkyportGame(
     },
     onAirborne: (flight) => sound.play('whoosh', Math.max(0.35, hearing(flight))),
     onGone: (flight) => {
-      // Mogul Air's off on its route: away for the route's time.
-      if (flight.gate === 'mogul' && airline.route) {
-        airline.depart(1 / mogulTime());
-        state.supplies['air.trip'] = 1;
+      // Mogul Air's off on its route (from its own stand, or from the hangar): away for the route's time.
+      const k = planeOf(flight.gate);
+      if (k !== null && airline.routeOf(k)) {
+        airline.depart(1 / mogulTime(), k);
+        state.supplies[tripKey(k)] = 1;
         paintBoard();
       }
+      if (flight.gate === 'hangar') hangarJob = null;
+      if (wash?.flight === flight) wash = null;
       const view = views.get(flight);
       if (!view) return;
       view.model.dispose();
@@ -643,6 +650,29 @@ export function createSkyportGame(
       const avatar = new PersonAvatar(CHARACTERS.staff.marshal);
       stage.scene.add(avatar.root);
       marshal = Object.assign(new CrewMember(avatar, layout.staffSpots.marshal ?? layout.belt.at), { gate: null as string | null });
+    }
+    // Part D's: the cargo crew (crates from the dock to the freighter's loader), the mechanic (services the
+    // planes in the hangar), the airport manager (rounds of the whole airport with a clipboard).
+    if (id === 'cargocrew' && !cargoCrew) {
+      const avatar = new PersonAvatar(CHARACTERS.staff.cargocrew);
+      stage.scene.add(avatar.root);
+      const member = new CrewMember(avatar, layout.staffSpots.cargocrew ?? layout.cargo?.dock ?? layout.belt.at);
+      cargoCrew = Object.assign(member, {
+        carrier: new Carrier<CarryItem>(avatar.root, () => ({ x: member.x, z: member.z }), () => AIRPORT.cargo.carry + levelStep(UPGRADES.kinds.staffCarry, level('cargocrew.staffCarry'))),
+        job: 'idle' as const,
+        wait: 0,
+      });
+    }
+    if (id === 'engineer' && !engineer) {
+      const avatar = new PersonAvatar(CHARACTERS.staff.engineer, 'wrench');
+      stage.scene.add(avatar.root);
+      engineer = Object.assign(new CrewMember(avatar, layout.staffSpots.engineer ?? layout.hangar?.service ?? layout.belt.at), { job: 'idle' as const });
+    }
+    if (id === 'manager' && !manager && layout.managerWalk?.length) {
+      const avatar = new PersonAvatar(CHARACTERS.staff.manager, 'clipboard');
+      avatar.holding = true;
+      stage.scene.add(avatar.root);
+      manager = Object.assign(new CrewMember(avatar, layout.staffSpots.manager ?? layout.managerWalk[0]!), { leg: 0, pause: 1 });
     }
     if (id === 'shops') {
       // Behind each counter, facing its customers (north, to -z).
@@ -885,14 +915,15 @@ export function createSkyportGame(
   // Mogul Air flies in the player's brand colour (the vans' and the tanker's), else its own purple.
   const mogulColour = brandColours()?.vehicle ?? AIRLINE_PAINT;
   const mogulLivery = { accent: mogulColour, accent2: '#ffffff' };
-  const airline = new Airline(AIRPORT.airline, state.supplies);
+  const airline = new Airline(AIRPORT.airline, state.supplies, Math.random, AIRPORT.hangar);
   const towerQueue = new Tower(AIRPORT.tower, GOLDSBY);
   const fog = new Fog(AIRPORT.fog);
   let towerModel: ControlTower | null = null;
   let towerPanel: { close: () => void } | null = null;
   // The next flight in comes on the tower's card (the controller's pick if nobody's chosen); Goldsby Air flies the hops.
-  airfield.terms = () => {
-    if (!built('tower')) return null;
+  // (Only the gates': the stands' planes come on business of their own.)
+  airfield.terms = (gate) => {
+    if (!built('tower') || !layout.gates[gate]) return null;
     const card = towerQueue.take(!!controller);
     return { kind: card.kind, fare: card.fare, cases: card.cases, clock: card.clock, livery: card.kind === 'hopper' ? GOLDSBY : card.livery };
   };
@@ -1010,18 +1041,50 @@ export function createSkyportGame(
     bus.update(dt, s.state === 'stop');
   };
 
-  // Mogul Air: the office (its routes board, its shelf of souvenirs), the plane's own stand.
+  // Mogul Air: the office (its routes board, its shelf of souvenirs), the planes' own stands (Part D: a second
+  // plane, and the hangar a worn one comes home to).
   let office: MogulOffice | null = null;
   let boardPad: PadModel | null = null;
   let boardOn = false;
   let routesPanel: { close: () => void } | null = null;
-  /** Seconds the plane's stood at home since it landed (left alone a while, it flies its last route again). */
-  let mogulHome = 0;
+  /** Each plane's own stand. */
+  const MOGUL_STANDS = ['mogul', 'mogul2'] as const;
+  /** Seconds each plane's stood at home since it landed (left alone a while, it flies its last route again). */
+  const mogulHome = [0, 0];
+  /** The number that says plane `k`'s out on a trip (its takings are paid once it's home). */
+  const tripKey = (k: number): string => (k ? 'air.trip.2' : 'air.trip');
+  /** Mogul Air's plane in (or on its way to) the hangar, and how far its service has got (1: done). */
+  let hangarJob: { k: number; progress: number } | null = null;
+  let hangarModel: HangarModel | null = null;
+  let fleet = false;
+  /** Which of Mogul Air's planes a stand's plane is (null: not one of them). */
+  const planeOf = (gate: string): number | null => (gate === 'mogul' ? 0 : gate === 'mogul2' ? 1 : gate === 'hangar' ? (hangarJob?.k ?? null) : null);
+  const fleetSize = (): number => (!office ? 0 : fleet ? 2 : 1);
+  /** Plane `k` while it's home: on its own stand, or in the hangar. */
+  const homeFlight = (k: number): Flight | null => airfield.parkedAt(MOGUL_STANDS[k]!) ?? (hangarJob?.k === k ? airfield.parkedAt('hangar') : null);
+  /** Whether plane `k`'s home and can be sent off (serviced first, if it's in the hangar). */
+  const canSend = (k: number): boolean => {
+    const plane = homeFlight(k);
+    return !!plane && !plane.cleared && !(plane.gate === 'hangar' && (hangarJob?.progress ?? 0) < 1);
+  };
+  /** The first of the planes that's home and can be sent off, if any is. */
+  const readyPlane = (): number | null => {
+    for (let k = 0; k < fleetSize(); k++) if (canSend(k)) return k;
+    return null;
+  };
+  /** Plane `k`'s on its way home: to the hangar if it's worn and the hangar's free, else to its own stand. */
+  const comeHome = (k: number): void => {
+    if (hangarModel && airline.worn(k) && !hangarJob && !airfield.at('hangar') && !airfield.calling('hangar')) {
+      hangarJob = { k, progress: 0 };
+      airfield.call('hangar');
+    } else airfield.call(MOGUL_STANDS[k]!);
+  };
   const mogulPay = (): number => levelFactor(UPGRADES.kinds.price, level('mogul.price')) * payBonus();
   const mogulTime = (): number => levelFactor(UPGRADES.kinds.speed, level('mogul.speed'));
   const cityName = (id: string): string => t(`city_${id}` as StringKey);
   const paintBoard = (): void => {
-    const flying = airline.away > 0 && airline.route ? AIRPORT.airline.cities.indexOf(airline.route) : null;
+    const away = [0, 1].find((k) => k < Math.max(1, fleetSize()) && airline.awayOf(k) > 0 && !!airline.routeOf(k));
+    const flying = away !== undefined ? AIRPORT.airline.cities.indexOf(airline.routeOf(away)!) : null;
     office?.paintBoard(AIRPORT.airline.cities, (i) => airline.opened(AIRPORT.airline.cities[i]!.id), flying, mogulColour);
   };
   const buildMogul = (animate: boolean): void => {
@@ -1041,16 +1104,26 @@ export function createSkyportGame(
     airfield.openGate('mogul', 0, true);
     night.addStand({ x: stand.x, z: stand.noseZ - 4.5 });
     // At home (or brand new): it comes in to its stand. Away: it's back when its trip's done.
-    if (airline.away <= 0) airfield.call('mogul');
+    if (airline.awayOf(0) <= 0) comeHome(0);
   };
-  const flyRoute = (id: string): void => {
-    const city = airline.choose(id);
+  /** (Part D) Mogul Air's second plane, on its own stand east of the tower. */
+  const buildFleet = (): void => {
+    const stand = layout.stands.mogul2;
+    if (fleet || !office || !stand) return;
+    fleet = true;
+    airfield.openGate('mogul2', 0, true);
+    night.addStand({ x: stand.x, z: stand.noseZ - 4.5 });
+    if (airline.awayOf(1) <= 0) comeHome(1);
+  };
+  /** Sends plane `k` (the first that's home, unless said) to a city. */
+  const flyRoute = (id: string, k: number | null = readyPlane()): void => {
+    const which = k ?? 0;
+    const city = airline.choose(id, which);
     if (!city) return;
-    const plane = airfield.parkedAt('mogul');
-    if (plane && !plane.cleared) {
+    const plane = homeFlight(which);
+    if (plane && canSend(which)) {
       plane.cleared = true;
-      const stand = layout.stands.mogul!;
-      floaters.show(`${city.icon} ${t('mogulOff', { city: cityName(id) })}`, new Vector3(stand.x, 5, stand.noseZ - 3), 'star');
+      floaters.show(`${city.icon} ${t('mogulOff', { city: cityName(id) })}`, new Vector3(plane.x, 5, plane.z + 1.5), 'star');
       sound.play('chime');
     }
     paintBoard();
@@ -1058,47 +1131,47 @@ export function createSkyportGame(
   };
   const openRoutes = (): void => {
     routesPanel?.close();
+    /** Where plane `k` is: away, leaving, coming in, in for its service, or home to be sent off. */
+    const statusOf = (k: number): string => {
+      const plane = homeFlight(k);
+      const route = airline.routeOf(k);
+      const away = airline.awayOf(k);
+      if (away > 0 && route) return t('routeAway', { city: cityName(route.id), time: formatClock(away) });
+      if (plane?.cleared && route) return t('routeLeaving', { city: cityName(route.id) });
+      if (!plane) return t('routeComing');
+      if (!canSend(k)) return `🔧 ${t('hangarChip')}`;
+      return route ? t('routeHome', { city: cityName(route.id) }) : t('routeFirst');
+    };
     routesPanel = showRoutes(
       root,
-      (): RoutesView => {
-        const plane = airfield.parkedAt('mogul');
-        const route = airline.route;
-        const status =
-          airline.away > 0 && route
-            ? t('routeAway', { city: cityName(route.id), time: formatClock(airline.away) })
-            : plane?.cleared && route
-              ? t('routeLeaving', { city: cityName(route.id) })
-              : !plane
-                ? t('routeComing')
-                : route
-                  ? t('routeHome', { city: cityName(route.id) })
-                  : t('routeFirst');
-        return {
-          cities: AIRPORT.airline.cities,
-          opened: (id) => airline.opened(id),
-          souvenir: (id) => airline.hasSouvenir(id),
-          unlocked: (tier) => airline.unlocked(tier),
-          needed: (tier) => Math.max(0, AIRPORT.airline.unlock - AIRPORT.airline.cities.filter((c) => c.tier === tier - 1 && airline.opened(c.id)).length),
-          takings: (c) => c.takings * mogulPay(),
-          seconds: (c) => c.seconds * mogulTime(),
-          status,
-          canFly: !!plane && !plane.cleared,
-          bonus: airline.fareBonus,
-        };
-      },
+      (): RoutesView => ({
+        cities: AIRPORT.airline.cities,
+        opened: (id) => airline.opened(id),
+        souvenir: (id) => airline.hasSouvenir(id),
+        unlocked: (tier) => airline.unlocked(tier),
+        needed: (tier) => Math.max(0, AIRPORT.airline.unlock - AIRPORT.airline.cities.filter((c) => c.tier === tier - 1 && airline.opened(c.id)).length),
+        takings: (c) => c.takings * mogulPay(),
+        seconds: (c) => c.seconds * mogulTime(),
+        status: fleetSize() > 1 ? [0, 1].map((k) => `${t('mogulPlane', { n: k + 1 })}: ${statusOf(k)}`).join('\n') : statusOf(0),
+        canFly: readyPlane() !== null,
+        bonus: airline.fareBonus,
+      }),
       (id) => flyRoute(id),
     );
   };
-  /** Home from a trip: the takings on the pile by the office, the city opened, maybe a souvenir for the shelf. */
-  const homecoming = (): void => {
-    const back = airline.homecoming(mogulPay());
+  /** Plane `k` home from a trip: the takings on the pile by the office, the city opened, maybe a souvenir for the shelf. */
+  const homecoming = (k: number, flight: Flight): void => {
+    const fresh = airline.wears && airline.freshOf(k) > 0;
+    const back = airline.homecoming(mogulPay(), k);
     if (!back) return;
     const at = layout.piles.mogul ?? layout.mogul.pile;
     cash.add('mogul', back.takings);
     floaters.show(`+${money(back.takings)} ✈️`, new Vector3(at.x, 1.2, at.z), 'cash');
-    const stand = layout.stands.mogul!;
-    const top = new Vector3(stand.x, 5.2, stand.noseZ - 3);
+    const top = new Vector3(flight.x, 5.2, flight.z + 1.5);
     floaters.show(`${back.city.icon} ${t(back.first ? 'newCity' : 'mogulHome', { city: cityName(back.city.id) })}`, top, 'star');
+    // (Fresh from the hangar it brings home more; worn, it wants servicing.)
+    if (fresh) floaters.show(`✨ ${t('hangarFresh', { n: Math.round(AIRPORT.hangar.freshBonus * 100) })}`, new Vector3(top.x, top.y + 1.8, top.z), 'tip');
+    else if (back.worn && flight.gate !== 'hangar') floaters.show(`🔧 ${t('hangarWorn')}`, new Vector3(top.x, top.y + 1.8, top.z), 'star');
     if (back.souvenir) {
       office?.showSouvenir(AIRPORT.airline.cities.indexOf(back.city));
       floaters.show(`🎁 ${t('souvenirNew', { name: t(`souv_${back.city.id}` as StringKey) })}`, new Vector3(top.x, top.y + 1, top.z), 'tip');
@@ -1114,12 +1187,12 @@ export function createSkyportGame(
   };
   const workMogul = (dt: number): void => {
     if (!office) return;
-    if (airline.update(dt * boost)) airfield.call('mogul');
-    const home = airfield.parkedAt('mogul');
-    if (home && !home.cleared) {
-      mogulHome += dt;
-      // Left alone a while, it flies its last route again (its first, the nearest city).
-      if (mogulHome > AIRPORT.airline.waitSeconds) flyRoute(airline.route?.id ?? AIRPORT.airline.cities[0]!.id);
+    for (let k = 0; k < fleetSize(); k++) {
+      if (airline.update(dt * boost, k)) comeHome(k);
+      if (!canSend(k)) continue;
+      mogulHome[k] = (mogulHome[k] ?? 0) + dt;
+      // Left alone a while, it flies its last route again (its first: the other plane's, or the nearest city).
+      if (mogulHome[k]! > AIRPORT.airline.waitSeconds) flyRoute(airline.routeOf(k)?.id ?? airline.route?.id ?? AIRPORT.airline.cities[0]!.id, k);
     }
     const on = boardPad ? near(player.position, layout.mogul.board, 1.0) : false;
     if (on && !boardOn) openRoutes();
@@ -1431,8 +1504,15 @@ export function createSkyportGame(
     }
   };
 
-  /** The rooms the night lights wash: the hall, the wing, Gate 4's pier and the VIP lounge as they're built. */
-  const terminalRooms = (): Rect[] => [layout.hall, ...(wing ? [layout.wing] : []), ...(pier ? [layout.pier] : []), ...(vipRoom ? [layout.vip.lounge] : [])];
+  /** The rooms the night lights wash: the hall, the wing, Gate 4's pier, the VIP lounge, the hangar and the jet wash as they're built. */
+  const terminalRooms = (): Rect[] => [
+    layout.hall,
+    ...(wing ? [layout.wing] : []),
+    ...(pier ? [layout.pier] : []),
+    ...(vipRoom ? [layout.vip.lounge] : []),
+    ...(hangarModel && layout.hangar ? [layout.hangar.hall] : []),
+    ...(jetWash && layout.jetwash ? [layout.jetwash.hall] : []),
+  ];
   let pier: Object3D | null = null;
   const buildPier = (animate: boolean): void => {
     if (pier) return;
@@ -1454,16 +1534,464 @@ export function createSkyportGame(
     night.setTerminal(terminalRooms());
   };
 
-  /** A plane on a stand that isn't a gate's: Mogul Air home from a trip, or a star's private jet. Neither runs late. */
+  // ---- Part D: cargo and the hangars ----------------------------------------------------------------------------
+  // The cargo shed: crates come out onto its dock and are carried (by the hero, or the cargo crew) to the
+  // K-loader at the freighter's main-deck door; once it's full it's off, paying for every crate.
+  let shed: CargoShed | null = null;
+  let kloader: KLoader | null = null;
+  let dockCrates: Carrier<CarryItem> | null = null;
+  let dockPad: PadModel | null = null;
+  let dropPad: PadModel | null = null;
+  let restockIn = 0;
+  /** Seconds the freighter's stood full (it closes up and goes after a moment), and whether the crew put its last crate aboard. */
+  let fullFor = 0;
+  let crewLoaded = false;
+  let cargoCrew: (CrewMember & { carrier: Carrier<CarryItem>; job: 'idle' | 'toDock' | 'toDrop' | 'home'; wait: number }) | null = null;
+  const cargoPay = (): number => AIRPORT.cargo.fare * levelFactor(UPGRADES.kinds.price, level('cargo.price')) * payBonus();
+  /** The freighter on its stand, while it's still taking crates. */
+  const freighter = (): Flight | null => {
+    const f = airfield.parkedAt('cargo');
+    return f && !f.cleared && f.cases < f.needsCases ? f : null;
+  };
+  const buildCargo = (animate: boolean): void => {
+    const cg = layout.cargo;
+    if (shed || !cg) return;
+    shed = new CargoShed();
+    show(shed.root, animate);
+    kloader = new KLoader();
+    kloader.root.position.set(cg.loader.x, 0, cg.loader.z);
+    kloader.root.rotation.y = -Math.PI / 2;
+    show(kloader.root, animate);
+    const { door } = cg;
+    solids.push(
+      { ...cg.shed },
+      // The dock's lip, the pallets and the drum by the door, the canopy's posts, the loader.
+      { minX: door.x - 3.5, maxX: door.x + 3.5, minZ: door.z - 1.15, maxZ: door.z },
+      around({ x: door.x - 5.0, z: door.z - 0.6 }, 0.62, 0.52),
+      around({ x: door.x - 5.0, z: door.z - 1.9 }, 0.62, 0.52),
+      around({ x: door.x + 5.4, z: door.z - 0.7 }, 0.62, 0.52),
+      around({ x: door.x + 6.7, z: door.z - 0.5 }, 0.36),
+      ...[-1, 1].map((e) => around({ x: door.x + e * 3.6, z: door.z - 2.25 }, 0.12)),
+      footprint('sp_kloader', cg.loader.x, cg.loader.z, -Math.PI / 2, 0.05),
+    );
+    // The crates waiting on the dock's lip: two rows of five.
+    const lip = new Object3D();
+    lip.position.set(cg.stack.x, 0, cg.stack.z);
+    stage.scene.add(lip);
+    dockCrates = new Carrier<CarryItem>(lip, () => cg.stack, () => AIRPORT.cargo.stack);
+    dockCrates.arrange = (i) => [(((i % 5) - 2) * 0.8) / 1.6, (0.36 + Math.floor(i / 5) * 0.49 - 1.0) / 1.6, (0.35 + 0.5) / 1.6];
+    for (let i = 0; i < 4; i++) dockCrates.push('cargo');
+    dockPad = spotPad(cg.dock, 1.5, 0x2c62d6);
+    dropPad = spotPad(cg.drop, 1.5, 0x2c62d6);
+    airfield.openGate('cargo', animate ? 8 : 0);
+    const stand = layout.stands.cargo!;
+    night.addStand({ x: stand.x, z: stand.noseZ - 7 });
+    solidsChanged();
+  };
+  /** A freighter on its stand: its crates to load. */
+  const freighterParked = (flight: Flight): void => {
+    flight.needsCases = AIRPORT.cargo.crates;
+    flight.cases = 0;
+    fullFor = 0;
+    crewLoaded = false;
+  };
+  /** A crate onto the K-loader, and aboard. */
+  const loadCrate = (flight: Flight, byCrew: boolean): void => {
+    flight.cases += 1;
+    kloader?.load();
+    crewLoaded = byCrew;
+    count('crates');
+    meta.count('crates');
+    sound.play('drop', hearing(layout.cargo!.drop));
+    if (flight.cases >= flight.needsCases) floaters.show(`📦 ${t('cargoLoaded')}`, new Vector3(flight.x + 3, 5.4, flight.z + 4), 'star');
+  };
+  /** Full: off it goes, paying for every crate. */
+  const sendFreighter = (flight: Flight): void => {
+    flight.cleared = true;
+    const n = flight.cases;
+    const pay = Math.round(n * cargoPay());
+    cash.add('cargo', pay);
+    const at = layout.piles.cargo ?? layout.cargo!.pile;
+    floaters.show(`📦 +${money(pay)}`, new Vector3(at.x, 1.2, at.z), 'cash');
+    floaters.show(`✈️ ${t('cargoPaid', { n })}`, new Vector3(flight.x, 5.6, flight.z + 3), 'star');
+    sound.play('ching', hearing(at));
+    onPaid({ amount: pay, tip: 0, automated: crewLoaded, at });
+    void saves.saveNow();
+  };
+  const workCargo = (dt: number): void => {
+    const cg = layout.cargo;
+    if (!shed || !kloader || !dockCrates || !dockPad || !dropPad || !cg) return;
+    // More crates out onto the dock, while there's room on it.
+    restockIn -= dt * boost;
+    if (restockIn <= 0) {
+      restockIn = AIRPORT.cargo.restock;
+      if (dockCrates.stack.length < AIRPORT.cargo.stack) dockCrates.push('cargo');
+    }
+    const parked = airfield.parkedAt('cargo');
+    const loading = parked && !parked.cleared ? parked : null;
+    const wanting = freighter();
+    const coming = airfield.at('cargo');
+    // The hero: crates off the dock (as many as the freighter, there or on its way, still wants), onto the loader.
+    const wanted = wanting ? wanting.needsCases - wanting.cases : coming && coming.phase !== 'parked' ? AIRPORT.cargo.crates : 0;
+    const want = wanted - heroCarry.count('cargo');
+    const atDock = near(player.position, cg.dock, 1.1);
+    if (atDock && want > 0 && dockCrates.stack.length > 0 && !heroCarry.full && heroCarry.timer <= 0) {
+      dockCrates.remove('cargo');
+      heroCarry.push('cargo');
+      heroCarry.timer = AIRPORT.bags.handSeconds;
+      sound.play('pick');
+    }
+    const atDrop = near(player.position, cg.drop, 1.1);
+    if (wanting && atDrop && heroCarry.count('cargo') > 0 && heroCarry.timer <= 0) {
+      heroCarry.remove('cargo');
+      heroCarry.timer = AIRPORT.bags.handSeconds;
+      loadCrate(wanting, false);
+    }
+    dockPad.group.visible = want > 0 && dockCrates.stack.length > 0;
+    dockPad.update(dt, atDock);
+    dropPad.group.visible = !!wanting;
+    dropPad.update(dt, atDrop);
+    if (wanting) dropPad.setProgress(wanting.cases / wanting.needsCases);
+    // Full: a moment to close up, then it's off.
+    if (loading && loading.needsCases > 0 && loading.cases >= loading.needsCases) {
+      fullFor += dt;
+      if (fullFor >= AIRPORT.cargo.wait) sendFreighter(loading);
+    }
+    shed.update(dt, !!loading);
+    kloader.update(dt, loading ? AIRPORT.planes.freighter.sill - 1.12 : 0);
+  };
+  /** Where the cargo crew picks up and puts down (beside the hero's own spots). */
+  const crewDock = (): Point => ({ x: layout.cargo!.dock.x + 1.3, z: layout.cargo!.dock.z });
+  const crewDrop = (): Point => ({ x: layout.cargo!.drop.x, z: layout.cargo!.drop.z + 1.1 });
+  /** The cargo crew: crates off the dock (as many as it carries, as the freighter wants), out to the loader; home between freighters. */
+  const workCargoCrew = (dt: number): void => {
+    const c = cargoCrew;
+    const cg = layout.cargo;
+    if (!c || !cg || !dockCrates) return;
+    const speed = (CREW_SPEED * AIRPORT.cargo.crewSpeed * boost) / levelFactor(UPGRADES.kinds.staffSpeed, level('cargocrew.staffSpeed'));
+    const arrived = c.walk(dt, speed);
+    c.carrier.update(dt, !arrived);
+    c.avatar.update(dt);
+    if (!arrived) return;
+    c.wait = Math.max(0, c.wait - dt);
+    if (c.wait > 0) return;
+    const f = freighter();
+    if (c.job === 'toDock') {
+      const want = f ? f.needsCases - f.cases : 0;
+      while (!c.carrier.full && c.carrier.stack.length < want && dockCrates.stack.length > 0) {
+        dockCrates.remove('cargo');
+        c.carrier.push('cargo');
+      }
+      if (c.carrier.stack.length > 0 && f) {
+        c.job = 'toDrop';
+        go(c, crewDrop());
+        sound.play('pick', hearing(c));
+      } else c.job = 'idle';
+      c.wait = 0.4;
+      return;
+    }
+    if (c.job === 'toDrop') {
+      if (f) {
+        while (c.carrier.count('cargo') > 0 && f.cases < f.needsCases) {
+          c.carrier.remove('cargo');
+          loadCrate(f, true);
+        }
+        c.avatar.root.rotation.y = -Math.PI / 2;
+      }
+      c.job = 'idle';
+      c.wait = 0.4;
+      return;
+    }
+    if (f && c.carrier.count('cargo') > 0) {
+      c.job = 'toDrop';
+      go(c, crewDrop());
+      return;
+    }
+    if (f && dockCrates.stack.length > 0) {
+      c.job = 'toDock';
+      go(c, crewDock());
+      return;
+    }
+    const home = layout.staffSpots.cargocrew ?? cg.dock;
+    if (c.job !== 'home' && Math.hypot(c.x - home.x, c.z - home.z) > 0.5) {
+      c.job = 'home';
+      go(c, home);
+    } else if (c.job === 'home') {
+      c.job = 'idle';
+      c.avatar.root.rotation.y = Math.PI;
+    }
+  };
+
+  // The maintenance hangar: Mogul Air's worn planes come home to it and are serviced there (the hero at the
+  // service pad, or the mechanic), flying better for a few trips after.
+  let servicePad: PadModel | null = null;
+  let engineer: (CrewMember & { job: 'idle' | 'toWork' | 'working' | 'home' }) | null = null;
+  let clankIn = 0;
+  const buildHangar = (animate: boolean): void => {
+    const hg = layout.hangar;
+    const stand = layout.stands.hangar;
+    if (hangarModel || !hg || !stand) return;
+    const r = hg.hall;
+    const third = (r.maxX - r.minX) / 3;
+    hangarModel = new HangarModel('HANGAR 1', r.maxX - r.minX);
+    show(hangarModel.root, animate);
+    solids.push(
+      // Its walls (the people's door at the back), the front posts.
+      { minX: r.minX - 0.2, maxX: r.minX + 0.2, minZ: r.minZ - 0.3, maxZ: r.maxZ + 0.2 },
+      { minX: r.maxX - 0.2, maxX: r.maxX + 0.2, minZ: r.minZ - 0.3, maxZ: r.maxZ + 0.2 },
+      { minX: r.minX, maxX: hg.door.x - 0.8, minZ: r.maxZ - 0.2, maxZ: r.maxZ + 0.2 },
+      { minX: hg.door.x + 0.8, maxX: r.maxX, minZ: r.maxZ - 0.2, maxZ: r.maxZ + 0.2 },
+      // Along the back wall the workbench, the tool chest and the shelves; the spare engine, the steps by
+      // the nose, the extinguisher, the tool cart.
+      { minX: r.minX + 1.2, maxX: r.minX + 5.5, minZ: r.maxZ - 1.25, maxZ: r.maxZ },
+      { minX: r.minX + 6.8, maxX: r.minX + 8.0, minZ: r.maxZ - 1.15, maxZ: r.maxZ },
+      { minX: r.maxX - 6.6, maxX: r.maxX - 4.2, minZ: r.maxZ - 1.1, maxZ: r.maxZ },
+      around({ x: r.minX + 3.0, z: r.minZ + 5.0 }, 0.72, 1.25),
+      around({ x: stand.x - 3.4, z: stand.noseZ + 0.8 }, 0.55, 0.95),
+      around({ x: r.maxX - 0.5, z: r.maxZ - 1.8 }, 0.16),
+      around({ x: r.maxX - 2.4, z: r.minZ + 6.0 }, 0.65, 0.4),
+      // The door leaves stacked either side (the middle ones too while they're shut: movingSolids).
+      { minX: r.minX, maxX: r.minX + third, minZ: r.minZ - 0.85, maxZ: r.minZ - 0.05 },
+      { minX: r.maxX - third, maxX: r.maxX, minZ: r.minZ - 0.85, maxZ: r.minZ - 0.05 },
+    );
+    airline.wears = true;
+    airfield.openGate('hangar', 0, true);
+    servicePad = spotPad(hg.service, 1.6, 0xff9f1c);
+    night.addStand({ x: stand.x, z: stand.noseZ - 4.5 });
+    night.setTerminal(terminalRooms());
+    solidsChanged();
+  };
+  const workHangar = (dt: number): void => {
+    const hg = layout.hangar;
+    if (!hangarModel || !hg || !servicePad) return;
+    const plane = airfield.parkedAt('hangar');
+    const job = hangarJob;
+    const onPad = near(player.position, hg.service, 1.1);
+    let working = false;
+    if (plane && job && job.progress < 1 && !plane.cleared) {
+      const byHero = onPad ? 1 : 0;
+      const byMechanic = engineer?.job === 'working' ? AIRPORT.hangar.mechanicRate / levelFactor(UPGRADES.kinds.staffSpeed, level('engineer.staffSpeed')) : 0;
+      const rate = Math.max(byHero, byMechanic) / (AIRPORT.hangar.seconds * levelFactor(UPGRADES.kinds.speed, level('hangar.speed')));
+      working = rate > 0;
+      if (working) {
+        job.progress = Math.min(1, job.progress + dt * boost * rate);
+        // Sparks off the engine now and then, the clank of a spanner.
+        clankIn -= dt;
+        if (clankIn <= 0) {
+          clankIn = 0.7 + Math.random() * 0.6;
+          sound.play('clank', hearing(hg.service) * 0.6);
+          effects.burst('sparkle', new Vector3(plane.x + 2.4, PROP.wingY - 0.4, plane.z + 1.6), 4, 2, 0.3);
+        }
+        if (job.progress >= 1) {
+          airline.service(job.k);
+          count('serviced');
+          mogulHome[job.k] = 0;
+          floaters.show(`🔧 ${t('hangarDone')}`, new Vector3(plane.x, 5.2, plane.z + 1.5), 'star');
+          effects.burst('sparkle', new Vector3(plane.x, 2.4, plane.z), 26, 4, 1.2);
+          sound.play('reward');
+          void saves.saveNow();
+        }
+      }
+      servicePad.group.visible = true;
+      servicePad.setProgress(job.progress);
+    } else servicePad.group.visible = false;
+    servicePad.update(dt, onPad && servicePad.group.visible);
+    // Its doors open for a plane coming in or going, shut while it's being worked on.
+    const moving = airfield.flights.some((f) => f.gate === 'hangar' && (f.phase === 'taxiIn' || f.phase === 'pushback' || (f.phase === 'parked' && f.cleared)));
+    hangarModel.update(dt, moving, working);
+  };
+  /** Where the mechanic works: by the plane's engine, beside the hero's pad. */
+  const engineerSpot = (): Point => ({ x: layout.hangar!.service.x, z: layout.hangar!.service.z - 1.7 });
+  /** The mechanic: to the plane in the hangar while it wants servicing, back to the bench between. */
+  const workEngineer = (dt: number): void => {
+    const e = engineer;
+    if (!e || !layout.hangar) return;
+    const speed = (CREW_SPEED * boost) / levelFactor(UPGRADES.kinds.staffSpeed, level('engineer.staffSpeed'));
+    const arrived = e.walk(dt, speed);
+    const plane = airfield.parkedAt('hangar');
+    const wanted = !!plane && !!hangarJob && hangarJob.progress < 1 && !plane.cleared;
+    e.avatar.update(dt, e.job === 'working');
+    if (wanted && (e.job === 'idle' || e.job === 'home')) {
+      e.job = 'toWork';
+      go(e, engineerSpot());
+      return;
+    }
+    if (!arrived) return;
+    if (e.job === 'toWork') e.job = wanted ? 'working' : 'idle';
+    if (e.job === 'working') {
+      if (wanted && plane) {
+        e.avatar.root.rotation.y = Math.atan2(plane.x + 2.4 - e.x, plane.z + 1.0 - e.z);
+        return;
+      }
+      e.job = 'idle';
+    }
+    const home = layout.staffSpots.engineer ?? layout.hangar.service;
+    if (e.job !== 'home' && Math.hypot(e.x - home.x, e.z - home.z) > 0.5) {
+      e.job = 'home';
+      go(e, home);
+    } else if (e.job === 'home') {
+      e.job = 'idle';
+      e.avatar.root.rotation.y = -Math.PI / 2;
+    }
+  };
+
+  // The jet wash: now and then an airline books a jet in; the gantry rolls the length of the bay and back,
+  // brushes spinning, water and foam everywhere (quicker with the hero at the controls), and the fee's paid.
+  let jetWash: JetWash | null = null;
+  let controlPad: PadModel | null = null;
+  let washTimer: number = AIRPORT.jetwash.first;
+  let wash: { flight: Flight; progress: number } | null = null;
+  let sprayIn = 0;
+  let splashIn = 0;
+  const sprayAt = new Vector3();
+  const washPay = (): number => AIRPORT.jetwash.fee * levelFactor(UPGRADES.kinds.price, level('jetwash.price')) * payBonus();
+  const buildJetwash = (animate: boolean): void => {
+    const jw = layout.jetwash;
+    const stand = layout.stands.jetwash;
+    if (jetWash || !jw || !stand) return;
+    const r = jw.hall;
+    // (The gantry's run: from its place at the front of the bay to the jet's nose.)
+    jetWash = new JetWash(stand.noseZ + 0.5 - (r.minZ + 1.2));
+    show(jetWash.root, animate);
+    solids.push(
+      // Its sides (columns and splash walls), the back wall, the bucket and mop in the corner.
+      { minX: r.minX - 0.3, maxX: r.minX + 0.3, minZ: r.minZ - 0.3, maxZ: r.maxZ + 0.2 },
+      { minX: r.maxX - 0.3, maxX: r.maxX + 0.3, minZ: r.minZ - 0.3, maxZ: r.maxZ + 0.2 },
+      { minX: r.minX, maxX: r.maxX, minZ: r.maxZ - 0.2, maxZ: r.maxZ + 0.2 },
+      around({ x: r.maxX - 1.1, z: r.maxZ - 1.3 }, 0.4),
+    );
+    airfield.openGate('jetwash', 0, true);
+    controlPad = spotPad(jw.control, 1.6, 0xff5fa8);
+    night.addStand({ x: stand.x, z: stand.noseZ - 7 });
+    night.setTerminal(terminalRooms());
+    solidsChanged();
+  };
+  const finishWash = (flight: Flight): void => {
+    flight.cleared = true;
+    wash = null;
+    const pay = Math.round(washPay());
+    cash.add('jetwash', pay);
+    const at = layout.piles.jetwash ?? layout.jetwash!.pile;
+    floaters.show(`💦 +${money(pay)}`, new Vector3(at.x, 1.2, at.z), 'cash');
+    floaters.show(`✨ ${t('washDone')}`, new Vector3(flight.x, 6, flight.z + 3), 'star');
+    effects.burst('sparkle', new Vector3(flight.x, 3, flight.z), 30, 5, 2.5);
+    sound.play('sparkle', hearing(flight));
+    sound.play('ching', hearing(at));
+    count('washes');
+    meta.count('washes');
+    onPaid({ amount: pay, tip: 0, automated: true, at });
+    void saves.saveNow();
+  };
+  const workJetwash = (dt: number): void => {
+    const jw = layout.jetwash;
+    const stand = layout.stands.jetwash;
+    if (!jetWash || !controlPad || !jw || !stand) return;
+    // A booking now and then, while the bay's empty.
+    if (!wash && !airfield.at('jetwash') && !airfield.calling('jetwash')) {
+      washTimer -= dt * boost;
+      if (washTimer <= 0) {
+        const [low, high] = AIRPORT.jetwash.every as [number, number];
+        washTimer = low + Math.random() * (high - low);
+        airfield.call('jetwash');
+        floaters.show(`💦 ${t('washBooked')}`, new Vector3(stand.x, 6, stand.noseZ - 4), 'star');
+      }
+    }
+    const w = wash && wash.flight.phase === 'parked' && !wash.flight.cleared ? wash : null;
+    const atControls = near(player.position, jw.control, 1.1);
+    if (w) {
+      const speed = ((atControls ? AIRPORT.jetwash.heroSpeed : 1) * boost) / (AIRPORT.jetwash.seconds * levelFactor(UPGRADES.kinds.speed, level('jetwash.speed')));
+      w.progress = Math.min(1, w.progress + dt * speed);
+      // Water off the spray bars (and now and then foam), the hiss of it.
+      sprayIn -= dt;
+      if (sprayIn <= 0) {
+        sprayIn = 0.14;
+        for (const nozzle of jetWash.sprays) {
+          nozzle.getWorldPosition(sprayAt);
+          effects.burst(Math.random() < 0.75 ? 'water' : 'bubble', sprayAt, 2, 2.2, 0.25);
+        }
+      }
+      splashIn -= dt;
+      if (splashIn <= 0) {
+        splashIn = 1.4;
+        sound.play('spray', hearing({ x: stand.x, z: stand.noseZ - 5 }) * 0.7);
+      }
+      if (w.progress >= 1) finishWash(w.flight);
+    }
+    controlPad.group.visible = !!w;
+    controlPad.update(dt, atControls && !!w);
+    if (w) controlPad.setProgress(w.progress);
+    jetWash.update(dt, w ? w.progress : null);
+  };
+
+  // The second runway: departures take off from it (round the first one's west end), the first takes the
+  // landings; Goldsby Air can't keep up and closes.
+  let runwayTwo: Object3D | null = null;
+  const buildRunway2 = (animate: boolean): void => {
+    const second = layout.runway2;
+    if (runwayTwo || !second) return;
+    runwayTwo = secondRunway(layout);
+    stage.scene.add(runwayTwo);
+    airfield.runway2 = true;
+    towerQueue.closeHops();
+    night.addRunway(second, layout.taxiway.z, layout.links.around ?? second.minX + 6, layout.runway.minX);
+    if (animate) {
+      const at = new Vector3(player.position.x, 4.5, player.position.z);
+      floaters.show(`🛫 ${t('runwayTwo')}`, at, 'star');
+      floaters.show(`👋 ${t('goldsbyGone')}`, new Vector3(at.x, at.y + 1.2, at.z), 'star');
+    }
+  };
+
+  /** The airport manager: rounds of the whole airport with a clipboard, a pause at each stop. */
+  let manager: (CrewMember & { leg: number; pause: number }) | null = null;
+  const workManager = (dt: number): void => {
+    const m = manager;
+    const walk = layout.managerWalk;
+    if (!m || !walk || walk.length === 0) return;
+    const arrived = m.walk(dt, 1.9 * boost);
+    m.avatar.update(dt);
+    if (!arrived) return;
+    if (m.pause > 0) {
+      m.pause -= dt;
+      if (m.pause <= 0) {
+        m.leg = (m.leg + 1) % walk.length;
+        go(m, walk[m.leg]!);
+      }
+      return;
+    }
+    m.pause = 2 + Math.random() * 2;
+  };
+
+  /** What of Part D moves and is solid: the hangar's middle door leaves while they're shut, the jet wash's gantry legs. */
+  const movingSolids = (): Rect[] => {
+    const out: Rect[] = [];
+    if (hangarModel && layout.hangar && hangarModel.opened < 0.5) {
+      const r = layout.hangar.hall;
+      const third = (r.maxX - r.minX) / 3;
+      out.push({ minX: r.minX + third, maxX: r.maxX - third, minZ: r.minZ - 0.85, maxZ: r.minZ - 0.05 });
+    }
+    if (jetWash && layout.jetwash) {
+      const r = layout.jetwash.hall;
+      for (const x of [r.minX + 0.9, r.maxX - 0.9]) out.push(around({ x, z: jetWash.gantryAt }, 0.4, 0.65));
+    }
+    return out;
+  };
+
+  /**
+   * A plane on a stand that isn't a gate's: Mogul Air home from a trip (on its own stand, or in the hangar), a
+   * star's private jet, a freighter, a jet in for a wash. None of them runs late.
+   */
   const standParked = (flight: Flight): void => {
     flight.clock = flight.clockMax = 1e9;
-    if (flight.gate === 'mogul') {
-      mogulHome = 0;
-      if (airline.route && airline.away <= 0 && (state.supplies['air.trip'] ?? 0) > 0) {
-        state.supplies['air.trip'] = 0;
-        homecoming();
+    const k = planeOf(flight.gate);
+    if (k !== null) {
+      mogulHome[k] = 0;
+      if (airline.routeOf(k) && airline.awayOf(k) <= 0 && (state.supplies[tripKey(k)] ?? 0) > 0) {
+        state.supplies[tripKey(k)] = 0;
+        homecoming(k, flight);
       }
     } else if (flight.gate === 'vip') meetStar(flight);
+    else if (flight.gate === 'cargo') freighterParked(flight);
+    else if (flight.gate === 'jetwash') wash = { flight, progress: 0 };
   };
 
   const addBuilt = (id: string, animate: boolean): void => {
@@ -1483,6 +2011,11 @@ export function createSkyportGame(
     if (effects_?.shuttle) buildShuttle(animate);
     if (effects_?.airline) buildMogul(animate);
     if (effects_?.vip) buildVip(animate);
+    if (effects_?.cargo) buildCargo(animate);
+    if (effects_?.hangar) buildHangar(animate);
+    if (effects_?.fleet) buildFleet();
+    if (effects_?.runway2) buildRunway2(animate);
+    if (effects_?.jetwash) buildJetwash(animate);
     if (effects_?.sorter) buildSorter(animate);
     if (effects_?.bags && !belt) {
       belt = new BaggageBelt();
@@ -1502,7 +2035,7 @@ export function createSkyportGame(
   // The first plane's on short final as the hero arrives.
   if (built('gate1')) airfield.send('gate1', 0.5);
 
-  void loadPeople([...CHARACTERS.visitors, CHARACTERS.staff.seller, CHARACTERS.staff.attendant, CHARACTERS.staff.dispatcher, CHARACTERS.staff.fueler, CHARACTERS.staff.caterer, CHARACTERS.staff.barista, CHARACTERS.staff.dutyclerk, CHARACTERS.staff.controller, CHARACTERS.staff.marshal, CHARACTERS.staff.celebrity, CHARACTERS.staff.photographer]).then(() => {
+  void loadPeople([...CHARACTERS.visitors, CHARACTERS.staff.seller, CHARACTERS.staff.attendant, CHARACTERS.staff.dispatcher, CHARACTERS.staff.fueler, CHARACTERS.staff.caterer, CHARACTERS.staff.barista, CHARACTERS.staff.dutyclerk, CHARACTERS.staff.controller, CHARACTERS.staff.marshal, CHARACTERS.staff.celebrity, CHARACTERS.staff.photographer, CHARACTERS.staff.cargocrew, CHARACTERS.staff.engineer, CHARACTERS.staff.manager]).then(() => {
     peopleReady = true;
     for (const id of state.unlocked) hire(id);
     // A few are already in line.
@@ -2135,11 +2668,24 @@ export function createSkyportGame(
 
   /** A flight's label: its clock, who's aboard, and what it's still waiting for. */
   const describe = (flight: Flight): string => {
-    if (flight.gate === 'mogul') {
-      const route = airline.route;
+    const k = planeOf(flight.gate);
+    if (k !== null) {
+      const route = airline.routeOf(k);
       if (flight.cleared) return `<span class="flight-chip is-go">${rich(`✈️ ${t('mogulOff', { city: route ? t(`city_${route.id}` as StringKey) : '' })}`)}</span>`;
-      const left = Math.max(0, Math.ceil(AIRPORT.airline.waitSeconds - mogulHome));
-      return `<span class="flight-chip">${rich(`✈️ ${t('mogulChip')}`)}</span><span class="flight-chip is-go">${rich(`🗺️ ${t('mogulPick')}`)}</span>${route ? `<span class="flight-chip">${rich(`🔁 ${route.icon} ${left}`)}</span>` : ''}`;
+      // (In the hangar: how far its service has got.)
+      if (flight.gate === 'hangar' && hangarJob && hangarJob.progress < 1) return `<span class="flight-chip">${rich(`🔧 ${t('hangarChip')} ${Math.floor(hangarJob.progress * 100)}%`)}</span>`;
+      const left = Math.max(0, Math.ceil(AIRPORT.airline.waitSeconds - (mogulHome[k] ?? 0)));
+      const name = fleetSize() > 1 ? `${t('mogulChip')} ${k + 1}` : t('mogulChip');
+      const worn = airline.worn(k) ? `<span class="flight-chip">${rich('🔧')}</span>` : '';
+      return `<span class="flight-chip">${rich(`✈️ ${name}`)}</span><span class="flight-chip is-go">${rich(`🗺️ ${t('mogulPick')}`)}</span>${route ? `<span class="flight-chip">${rich(`🔁 ${route.icon} ${left}`)}</span>` : ''}${worn}`;
+    }
+    if (flight.gate === 'cargo') {
+      if (flight.cleared) return `<span class="flight-chip is-go">${rich(`📦 ${t('cargoLoaded')}`)}</span>`;
+      return `<span class="flight-chip">${rich(`✈️ ${t('cargoChip')}`)}</span><span class="flight-chip${flight.cases >= flight.needsCases ? ' is-done' : ''}">${rich(`📦 ${flight.cases}/${flight.needsCases}`)}</span>`;
+    }
+    if (flight.gate === 'jetwash') {
+      if (flight.cleared) return `<span class="flight-chip is-go">${rich(`✨ ${t('washDone')}`)}</span>`;
+      return `<span class="flight-chip">${rich(`💦 ${t('washChip')} ${Math.floor((wash?.progress ?? 0) * 100)}%`)}</span>`;
     }
     if (flight.gate === 'vip') {
       if (!star) return `<span class="flight-chip is-go">${rich('🌟')}</span>`;
@@ -2183,7 +2729,7 @@ export function createSkyportGame(
     const leaving = flight.phase === 'taxiOut' || flight.phase === 'hold' || flight.phase === 'lineup' || flight.phase === 'takeoff' || (flight.phase === 'climb' && flight.y < 14);
     return {
       engines: flight.engines,
-      door: parked && !flight.cleared ? 1 : 0,
+      door: parked && !flight.cleared && flight.gate !== 'jetwash' ? 1 : 0,
       hold: parked && !flight.cleared && flight.needsCases > 0 ? 1 : 0,
       galley: parked && !flight.cleared && flight.needsMeals > 0 ? 1 : 0,
       flaps: landing ? 1 : leaving ? 0.5 : 0,
@@ -2193,11 +2739,13 @@ export function createSkyportGame(
       taxiLight: onGround && !parked && flight.engines > 0.1,
     };
   };
+  /** The stands' labels' rows (Mogul Air's planes and the hangar's, the private jet's and the wash's, the freighter's). */
+  const STAND_ROWS: Record<string, number> = { mogul: 4, mogul2: 4, hangar: 4, vip: 5, jetwash: 5, cargo: 6 };
   const drawFlights = (dt: number): void => {
     for (const flight of airfield.flights) {
       let v = views.get(flight);
       if (!v) {
-        const model = new PlaneModel(flight.gate === 'mogul' ? mogulLivery : LIVERIES[flight.livery % LIVERIES.length]!, flight.kind);
+        const model = new PlaneModel(planeOf(flight.gate) !== null ? mogulLivery : LIVERIES[flight.livery % LIVERIES.length]!, flight.kind);
         stage.scene.add(model.root, model.shadow);
         const el = document.createElement('div');
         el.className = 'flight-label';
@@ -2211,7 +2759,7 @@ export function createSkyportGame(
       v.model.update(dt, pose(flight, v, dt));
       // (Low over its back: clear of the counters along the top of the screen, and of the hints by its nose.)
       // (Each gate's a row lower than the one before, so two side by side never overlap.)
-      const row = layout.gates[flight.gate] ? Object.keys(layout.gates).indexOf(flight.gate) : flight.gate === 'mogul' ? 4 : 5;
+      const row = layout.gates[flight.gate] ? Object.keys(layout.gates).indexOf(flight.gate) : (STAND_ROWS[flight.gate] ?? 5);
       v.at.set(flight.x, flight.kind === 'wide' ? 6.4 : flight.kind === 'jet' ? 5.0 : 4.0, flight.z + 0.6 + (row % 4) * 2.6);
       v.label.visible = flight.phase === 'parked';
       // (A plane off the top of the screen keeps its clock in sight, under the counters.)
@@ -2257,8 +2805,15 @@ export function createSkyportGame(
       if (!granted.has('champagne')) return heroCarry.count('champagne') > 0 && star.member ? { at: { x: star.member.x + 1.0, z: star.member.z }, text: 'guideStar' } : { at: barSpot(), text: 'guideChampagne' };
       if (!granted.has('limo')) return { at: limoSpot(), text: 'guideLimo' };
     }
-    // Mogul Air's first route.
-    if (office && !airline.route && airfield.parkedAt('mogul')) return { at: layout.mogul.board, text: 'guideRoutes' };
+    // Mogul Air's first route (each plane's).
+    for (let k = 0; k < fleetSize(); k++) if (!airline.routeOf(k) && canSend(k)) return { at: layout.mogul.board, text: 'guideRoutes' };
+    // A freighter's crates (until there's a cargo crew): off the dock, onto the loader at its door.
+    if (!built('cargocrew') && layout.cargo && freighter()) {
+      if (heroCarry.count('cargo') > 0) return { at: layout.cargo.drop, text: 'guideLoad' };
+      if (dockCrates && dockCrates.stack.length > 0 && !heroCarry.full) return { at: layout.cargo.dock, text: 'guideCrates' };
+    }
+    // A plane in the hangar (until there's a mechanic): service it.
+    if (!built('engineer') && layout.hangar && hangarJob && hangarJob.progress < 1 && airfield.parkedAt('hangar')) return { at: layout.hangar.service, text: 'guideService' };
     // Meals for a jet (until there's a catering runner): to the hatch for trays, then the galley.
     if (!built('caterer')) {
       const jet = parked.find((x) => x.flight.meals < x.flight.needsMeals);
@@ -2288,6 +2843,8 @@ export function createSkyportGame(
         if (beltCases.length > 0) return { at: layout.belt.side, text: 'guideBelt' };
       }
     }
+    // A jet in the wash, the first few times: the controls make it quicker.
+    if (wash && layout.jetwash && (state.counts.washes ?? 0) < 3 && !near(player.position, layout.jetwash.control, 1.1)) return { at: layout.jetwash.control, text: 'guideJetWash' };
     if (built(GUIDE_UNTIL)) return null;
     // The very first plane: wave it in.
     const inbound = gates.map((g) => ({ gate: g, flight: airfield.at(g.key) })).find((x) => x.flight?.phase === 'taxiIn');
@@ -2384,7 +2941,7 @@ export function createSkyportGame(
         solids,
         standSolids,
         route,
-        crew: () => [agent, handler, dispatcher, fueler, runner, barista, clerk, controller, marshal],
+        crew: () => [agent, handler, dispatcher, fueler, runner, barista, clerk, controller, marshal, cargoCrew, engineer, manager],
         terminal: () => ({ hatch: hatchTrays?.stack.length ?? 0, cafe: cafeTrays?.stack.length ?? 0, belt: [...beltCases], dark }),
         partC: () => ({
           cards: towerQueue.cards.map((c) => c.kind),
@@ -2400,6 +2957,25 @@ export function createSkyportGame(
           limo: limoRun.state,
           road: roadUsers(null).map((u) => `${u.lane}:${Math.round(u.x)}`),
         }),
+        partD: () => {
+          const freight = airfield.at('cargo');
+          return {
+            dock: dockCrates?.stack.length ?? 0,
+            freighter: freight ? { phase: freight.phase, cases: freight.cases, needs: freight.needsCases } : null,
+            hangar: hangarJob ? { ...hangarJob } : null,
+            wear: [airline.wearOf(0), airline.wearOf(1)],
+            fresh: [airline.freshOf(0), airline.freshOf(1)],
+            away: [airline.awayOf(0), airline.awayOf(1)],
+            routes: [airline.routeOf(0)?.id ?? null, airline.routeOf(1)?.id ?? null],
+            wash: wash ? wash.progress : null,
+            washTimer,
+            runway2: airfield.runway2,
+            crew: { cargo: cargoCrew?.job ?? null, engineer: engineer?.job ?? null, manager: manager ? manager.leg : null },
+          };
+        },
+        washNow: () => void (washTimer = 0),
+        /** Wears plane `k` out (it comes home to the hangar next). */
+        wearOut: (k: number) => void (state.supplies[k ? 'air.wear.2' : 'air.wear'] = 5),
         grantWish: (wish: Wish) => grant(wish),
         fogNow: () => void (fog.timer = 0),
         vipNow: () => void (vipTimer = 0),
@@ -2424,7 +3000,7 @@ export function createSkyportGame(
     clock.advance(dt);
     state.playSeconds += dt;
     const hulls = airfield.flights.map(hull).filter((r): r is Rect => !!r);
-    player.update(dt, input.read(), [...solids, ...hulls, ...airfield.flights.flatMap(parkedSolids), ...decor.solids(), ...jobs.solids()], view.walkable);
+    player.update(dt, input.read(), [...solids, ...hulls, ...airfield.flights.flatMap(parkedSolids), ...movingSolids(), ...decor.solids(), ...jobs.solids()], view.walkable);
     // A plane rolling onto its stand eases the hero out of its way.
     for (const rect of hulls) pushOut(player.mesh.position, TUNING.player.radius, rect);
     pads.update(dt, player.position);
@@ -2448,6 +3024,12 @@ export function createSkyportGame(
     workMogul(dt);
     workVip(dt);
     workMarshal(dt);
+    workCargo(dt);
+    workCargoCrew(dt);
+    workHangar(dt);
+    workEngineer(dt);
+    workJetwash(dt);
+    workManager(dt);
     updateShuttle(dt);
     towerModel?.update(dt);
     controller?.avatar.update(dt);
@@ -2492,7 +3074,7 @@ export function createSkyportGame(
     chips.set('streak', streak >= 2 ? `🔥 ${t('onTimeStreak', { n: streak })}` : null);
     windsock.update(dt);
     ambience.update(dt);
-    belt?.update(dt, beltCases.length > 0 && airfield.flights.some((f) => f.phase === 'parked' && f.cases < f.needsCases));
+    belt?.update(dt, beltCases.length > 0 && airfield.flights.some((f) => f.phase === 'parked' && !!layout.gates[f.gate] && f.cases < f.needsCases));
     nameSign.update(dt);
     let drone = 0;
     for (const f of airfield.flights) drone = Math.max(drone, f.engines * hearing(f) * (f.y > 25 ? 0.5 : 1));

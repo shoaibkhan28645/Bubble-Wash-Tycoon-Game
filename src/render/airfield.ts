@@ -180,6 +180,55 @@ export function airfield(layout: AirportLayout): Object3D {
   return group;
 }
 
+/**
+ * (Part D) The second runway, north of the first, with its markings, and the end-around taxiway out to it:
+ * on west along the taxiway past the first runway's end, then north round it to the second's end.
+ */
+export function secondRunway(layout: AirportLayout): Object3D {
+  const group = new Group();
+  group.name = 'runway2';
+  const runway = layout.runway2!;
+  const { taxiway } = layout;
+  const around = layout.links.around!;
+  const lay = (kind: string, r: Rect, y: number): void => {
+    const w = r.maxX - r.minX;
+    const d = r.maxZ - r.minZ;
+    const mesh = new Mesh(new PlaneGeometry(w, d, Math.ceil(w / 16), Math.ceil(d / 16)).rotateX(-PI / 2), material(kind, w, d));
+    mesh.position.set((r.minX + r.maxX) / 2, y, (r.minZ + r.maxZ) / 2);
+    mesh.receiveShadow = true;
+    group.add(mesh);
+  };
+  const rw = { minX: runway.minX, maxX: runway.maxX, minZ: runway.z - runway.half, maxZ: runway.z + runway.half };
+  lay('runway', rw, 0.01);
+  // The taxiway on west past the first runway's end, and the link north to the second's.
+  lay('taxi', { minX: around - 3, maxX: layout.runway.minX, minZ: taxiway.z - taxiway.half, maxZ: taxiway.z + taxiway.half }, 0.011);
+  lay('taxi', { minX: around - 3, maxX: around + 3, minZ: rw.maxZ, maxZ: taxiway.z - taxiway.half }, 0.012);
+  const marks: Part[] = [];
+  const mark = (x: number, z: number, w: number, d: number, color = WHITE): void => void marks.push({ geometry: box(w, 0.02, d), color, x, y: 0.035, z });
+  const mid = (runway.minX + runway.maxX) / 2;
+  const long = runway.maxX - runway.minX;
+  for (let x = runway.minX + 19; x <= runway.maxX - 19; x += 7) mark(x, runway.z, 3.6, 0.4);
+  for (const side of [-1, 1]) mark(mid, runway.z + side * (runway.half - 0.6), long - 2, 0.28);
+  for (const end of [-1, 1]) {
+    const x = end < 0 ? runway.minX + 2.4 : runway.maxX - 2.4;
+    for (let i = 0; i < 8; i++) mark(x, runway.z - (runway.half - 1.2) + i * ((2 * runway.half - 2.4) / 7), 3.2, 0.55);
+    for (const d of [10, 15, 20]) for (const side of [-1, 1]) mark(x - end * d, runway.z + side * 2.3, 2.6, 0.8);
+  }
+  group.add(painted('09L', runway.minX + 9.2, runway.z, 3.0, WHITE, PI / 2), painted('27R', runway.maxX - 9.2, runway.z, 3.0, WHITE, -PI / 2));
+  // The yellow line along the taxiway's new stretch and up the link, round the corner onto the runway.
+  mark((around + layout.runway.minX) / 2, taxiway.z, layout.runway.minX - around, 0.26, YELLOW);
+  mark(around, (rw.maxZ + taxiway.z) / 2, 0.26, taxiway.z - rw.maxZ, YELLOW);
+  const paint = new Mesh(mergeParts(marks), toyMaterial);
+  paint.receiveShadow = true;
+  group.add(paint);
+  // Its edge lights, as the first runway's.
+  const lights: Part[] = [];
+  for (let x = runway.minX + 3; x <= runway.maxX - 3; x += 6) for (const side of [-1, 1]) lights.push({ geometry: new SphereGeometry(0.2, 6, 5), color: '#fff3a0', x, y: 0.2, z: runway.z + side * (runway.half + 0.5) });
+  for (let z = rw.maxZ + 3; z <= taxiway.z - 3; z += 6) for (const side of [-1, 1]) lights.push({ geometry: new SphereGeometry(0.16, 6, 5), color: '#5ad8ff', x: around + side * 3.4, y: 0.18, z });
+  group.add(new Mesh(mergeParts(lights), toyMaterial));
+  return group;
+}
+
 /** The terminal wing's floor (laid once the wing's built): the hall's tiles, the carpet of its gate's lounge, a plain walkway past security. */
 export function wingFloor(layout: AirportLayout, lounge: Rect | null): Object3D {
   return roomFloor(layout.wing, lounge);

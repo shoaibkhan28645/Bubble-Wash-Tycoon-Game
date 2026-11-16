@@ -32,6 +32,8 @@ export type MissionKind =
   | 'coffees'
   | 'privateJets'
   | 'routes'
+  | 'crates'
+  | 'washes'
   // Every town's.
   | 'jobs';
 

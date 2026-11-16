@@ -5,7 +5,7 @@ import type { Point } from '../core/config';
 /** Supply items: soap bottles, folded towels, wax tins. */
 export type SupplyType = 'soap' | 'towel' | 'wax';
 /** Anything carried: supplies, or a farm's goods (crates of produce by crop id, cartons of eggs, crates of milk bottles). */
-export type CarryItem = SupplyType | 'veg' | 'corn' | 'apple' | 'eggs' | 'milk' | 'bread' | 'pie' | 'sugar' | 'buns' | 'prizes' | 'case' | CaseItem | 'tray' | 'champagne';
+export type CarryItem = SupplyType | 'veg' | 'corn' | 'apple' | 'eggs' | 'milk' | 'bread' | 'pie' | 'sugar' | 'buns' | 'prizes' | 'case' | CaseItem | 'tray' | 'champagne' | 'cargo';
 /** An airport's cases, in their gate's colour (Gate 1 pink, 2 blue, 3 green), and the rare golden one (any hold takes it). */
 export type CaseItem = 'case1' | 'case2' | 'case3' | 'case4' | 'caseGold';
 
@@ -90,6 +90,13 @@ const itemGeometries: Record<CarryItem, BufferGeometry> = (() => {
       { geometry: box(0.1, 0.07, 0.02), color: '#fff6dc', y: 0.13, z: 0.07 },
     ]),
     caseGold: make(suitcase('#ffd24a', '#fff6c8')),
+    // A cargo crate for a freighter (Part D): a blue box with yellow straps and a white label.
+    cargo: make([
+      { geometry: box(0.46, 0.3, 0.34), color: '#2c62d6', y: 0.15 },
+      { geometry: box(0.48, 0.31, 0.06), color: '#ffd24a', y: 0.15, z: -0.08 },
+      { geometry: box(0.48, 0.31, 0.06), color: '#ffd24a', y: 0.15, z: 0.08 },
+      { geometry: box(0.16, 0.1, 0.02), color: '#ffffff', y: 0.18, z: 0.175 },
+    ]),
     tray: make([
       { geometry: box(0.46, 0.04, 0.32), color: '#c9d2dc', y: 0.02 },
       { geometry: sphere(0.09, 10), color: '#eef2f6', x: -0.11, y: 0.06 },

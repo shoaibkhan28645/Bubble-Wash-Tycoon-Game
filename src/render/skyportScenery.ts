@@ -124,7 +124,14 @@ export class SkyportScenery {
     const linkBands: Rect[] = [links.entry, links.exit, links.far].map((x) => ({ minX: x - 6, maxX: x + 6, minZ: runway.z, maxZ: taxiway.z }));
     const road: Rect = { minX: -200, maxX: 200, minZ: roadZ - 6, maxZ: roadZ + 5 };
     const club: Rect = { minX: -55, maxX: -34, minZ: -12, maxZ: 14 };
-    const keepOut = [lot, runwayBand, taxiBand, ...linkBands, road, club, { minX: -38, maxX: -30, minZ: -16, maxZ: -6 }];
+    // (And clear of where the second runway goes, with the taxiway out round the first's end to it.)
+    const second: Rect[] = layout.runway2
+      ? [
+          { minX: layout.runway2.minX - 12, maxX: layout.runway2.maxX + 12, minZ: layout.runway2.z - layout.runway2.half - 6, maxZ: layout.runway2.z + layout.runway2.half + 4 },
+          { minX: (links.around ?? runway.minX) - 9, maxX: runway.minX, minZ: layout.runway2.z, maxZ: taxiway.z + taxiway.half + 3 },
+        ]
+      : [];
+    const keepOut = [lot, runwayBand, taxiBand, ...linkBands, ...second, road, club, { minX: -38, maxX: -30, minZ: -16, maxZ: -6 }];
     const woods: { x: number; z: number; s: number; r: number }[] = layout.trees.map((t) => ({ x: t.x, z: t.z, s: 2.4 * (t.size ?? 1), r: rand() * 6 }));
     let tries = 0;
     while (woods.length < 90 && tries++ < 6000) {

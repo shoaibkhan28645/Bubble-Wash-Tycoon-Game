@@ -253,7 +253,87 @@
     "targetMinute": 69,
     "adds": "Guides every plane onto its stand, for the parking bonus on every flight",
     "effects": {
-      "staff": "marshal",
+      "staff": "marshal"
+    }
+  },
+  {
+    "id": "cargo",
+    "name": "Cargo apron",
+    "cost": 270000000,
+    "targetMinute": 72,
+    "adds": "A cargo shed and a stand for freighters: carry crates from the dock to the loader at the freighter's door",
+    "effects": {
+      "cargo": true
+    }
+  },
+  {
+    "id": "cargocrew",
+    "name": "Cargo crew",
+    "cost": 285000000,
+    "targetMinute": 75,
+    "adds": "Loads every freighter from the dock for you",
+    "effects": {
+      "staff": "cargocrew"
+    }
+  },
+  {
+    "id": "hangar",
+    "name": "Maintenance hangar",
+    "cost": 300000000,
+    "targetMinute": 78,
+    "adds": "Mogul Air's planes wear with every trip: worn ones come home to the hangar to be serviced, and fly better after",
+    "effects": {
+      "hangar": true
+    }
+  },
+  {
+    "id": "engineer",
+    "name": "Mechanic",
+    "cost": 320000000,
+    "targetMinute": 81,
+    "adds": "Services worn planes in the hangar for you",
+    "effects": {
+      "staff": "engineer"
+    }
+  },
+  {
+    "id": "mogul2",
+    "name": "Mogul Air's second plane",
+    "cost": 340000000,
+    "targetMinute": 84,
+    "adds": "A second plane in your colours, flying routes of its own",
+    "effects": {
+      "fleet": true
+    }
+  },
+  {
+    "id": "runway2",
+    "name": "Second runway",
+    "cost": 360000000,
+    "targetMinute": 87,
+    "adds": "Planes take off from a runway of their own while the first takes the landings: more flights, shorter waits",
+    "effects": {
+      "runway2": true
+    }
+  },
+  {
+    "id": "jetwash",
+    "name": "Jet wash",
+    "cost": 385000000,
+    "targetMinute": 90,
+    "adds": "Airlines book their jets in for a wash: a gantry of brushes, foam and water, and a fee for every one",
+    "effects": {
+      "jetwash": true
+    }
+  },
+  {
+    "id": "manager",
+    "name": "Airport manager",
+    "cost": 410000000,
+    "targetMinute": 93,
+    "adds": "Keeps the whole airport earning in full while you're away",
+    "effects": {
+      "staff": "manager",
       "endOfContent": true
     }
   }

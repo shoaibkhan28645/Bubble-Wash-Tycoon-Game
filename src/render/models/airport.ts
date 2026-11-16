@@ -6,6 +6,7 @@
 // call, its parts still turned by name. The words on signs are painted here.
 import {
   Box3,
+  BoxGeometry,
   CanvasTexture,
   CircleGeometry,
   CylinderGeometry,
@@ -1143,6 +1144,155 @@ export class BagSorter {
     const swing = busy ? 0.55 * Math.max(0, Math.sin(this.time * 5)) : 0;
     this.arm.rotation.y += (swing - this.arm.rotation.y) * Math.min(1, dt * 10);
     (this.lamp.material as MeshBasicMaterial).color.setHex(busy ? (this.time % 0.5 < 0.25 ? 0xffd24a : 0x3fb84a) : 0x2c8a4a);
+  }
+}
+
+/** (Part D) The cargo shed (built where it stands): its name board over the dock, its roller door that rolls up while a freighter's being loaded. */
+export class CargoShed {
+  readonly root: Object3D;
+  private readonly shutter: Object3D;
+  private open = 0;
+  constructor() {
+    this.root = skyMover('sp_cargoshed');
+    signAt(this.root, 'sp_cargoshed_sign', 'CARGO', 3.0, 0.7, AIR.navy, '#ffd24a').position.z -= 0.04;
+    this.shutter = part(this.root, 'sp_cargoshed_shutter');
+  }
+  update(dt: number, open: boolean): void {
+    this.open += ((open ? 1 : 0) - this.open) * Math.min(1, dt * 2.2);
+    // (Rolled up into its drum: squashed to a sliver at the top of the doorway.)
+    this.shutter.scale.y = 1 - 0.94 * this.open;
+  }
+}
+
+/** (Part D) The K-loader at a freighter's main-deck door: its platform rises on scissor arms to the door's sill, a crate rides up on it now and then. */
+export class KLoader {
+  readonly root: Object3D;
+  private readonly lift: Object3D;
+  private readonly platform: Object3D;
+  private readonly crate: Object3D;
+  private readonly liftY: number;
+  private readonly platformY: number;
+  private raised = 0;
+  private carrying = 0;
+  constructor() {
+    this.root = skyMover('sp_kloader');
+    this.lift = part(this.root, 'sp_kloader_lift');
+    this.platform = part(this.root, 'sp_kloader_platform');
+    this.liftY = this.lift.position.y;
+    this.platformY = this.platform.position.y;
+    this.crate = new Mesh(mergeParts(CRATE_PARTS), toyMaterial);
+    this.crate.visible = false;
+    this.platform.add(this.crate);
+  }
+  /** A crate's gone on: it rides the platform a moment. */
+  load(): void {
+    this.carrying = 1.2;
+  }
+  /** `height` above its lowered place (to the door's sill) while a freighter's there, 0 when there's none. */
+  update(dt: number, height: number): void {
+    this.raised += (height - this.raised) * Math.min(1, dt * 1.6);
+    this.platform.position.y = this.platformY + this.raised;
+    // (The arms hang from the platform to the chassis: stretched to the gap between.)
+    this.lift.position.y = this.liftY + this.raised;
+    this.lift.scale.y = (0.88 + this.raised) / 0.88;
+    this.carrying = Math.max(0, this.carrying - dt);
+    this.crate.visible = this.carrying > 0;
+    this.crate.position.set(0, 0.15, -0.4 - 1.0 * (1 - this.carrying / 1.2));
+  }
+}
+
+/** A cargo crate as the hero carries it (and the K-loader lifts it): a blue box, yellow straps, a label. */
+export const CRATE_PARTS: Parameters<typeof mergeParts>[0] = [
+  { geometry: new BoxGeometry(0.46, 0.3, 0.34), color: '#2c62d6', y: 0.15 },
+  { geometry: new BoxGeometry(0.48, 0.31, 0.06), color: '#ffd24a', y: 0.15, z: -0.08 },
+  { geometry: new BoxGeometry(0.48, 0.31, 0.06), color: '#ffd24a', y: 0.15, z: 0.08 },
+  { geometry: new BoxGeometry(0.16, 0.1, 0.02), color: '#ffffff', y: 0.18, z: 0.175 },
+];
+
+/** (Part D) The maintenance hangar (built where it stands): its name board, the door leaves that slide aside for a plane, the crane that runs to and fro while one's serviced. */
+export class HangarModel {
+  readonly root: Object3D;
+  private readonly leaves: { node: Object3D; x: number; shift: number }[] = [];
+  private readonly crane: Object3D;
+  private readonly hook: Object3D;
+  private readonly craneZ: number;
+  private readonly hookY: number;
+  private open = 0;
+  private work = 0;
+  private time = 0;
+  readonly lamps: Vector3[] = [];
+  constructor(name: string, span: number) {
+    this.root = skyMover('sp_hangar');
+    signAt(this.root, 'sp_hangar_sign', name, 4.4, 0.8, AIR.navy, '#ffd24a').position.z -= 0.05;
+    const leaf = span / 6;
+    for (const [side, key] of [[-1, 'l'], [1, 'r']] as const) {
+      for (let k = 0; k < 3; k++) {
+        const node = part(this.root, `sp_hangar_door${key}${k}`);
+        this.leaves.push({ node, x: node.position.x, shift: side * k * leaf });
+      }
+    }
+    this.crane = part(this.root, 'sp_hangar_crane');
+    this.hook = part(this.root, 'sp_hangar_hook');
+    this.craneZ = this.crane.position.z;
+    this.hookY = this.hook.position.y;
+    for (let k = 0; k < 4; k++) {
+      const at = this.root.getObjectByName(`sp_hangar_lamp${k}`);
+      if (at) this.lamps.push(at.position.clone());
+    }
+  }
+  /** How far its doors are open (0 shut, 1 wide open). */
+  get opened(): number {
+    return this.open;
+  }
+  /** `open`: its doors aside for a plane coming or going; `working`: a plane's being serviced. */
+  update(dt: number, open: boolean, working: boolean): void {
+    this.time += dt;
+    this.open += ((open ? 1 : 0) - this.open) * Math.min(1, dt * 0.9);
+    for (const l of this.leaves) l.node.position.x = l.x + l.shift * this.open;
+    this.work += ((working ? 1 : 0) - this.work) * Math.min(1, dt * 0.8);
+    // The crane runs along the hangar and back; its hook lowers to the plane and lifts.
+    this.crane.position.z = this.craneZ + (1 - Math.cos(this.time * 0.35)) * 4.5 * this.work;
+    this.hook.position.y = this.hookY - (0.5 + 0.5 * Math.sin(this.time * 1.3)) * 0.9 * this.work;
+  }
+}
+
+/** (Part D) The jet wash (built where it stands): its gantry rolls the length of the bay and back, brushes spinning, water spraying. */
+export class JetWash {
+  readonly root: Object3D;
+  private readonly gantry: Object3D;
+  private readonly brushes: Object3D[];
+  private readonly roller: Object3D;
+  private readonly gantryZ: number;
+  readonly sprays: Object3D[] = [];
+  private spin = 0;
+  constructor(length: number) {
+    this.root = skyMover('sp_jetwash');
+    signAt(this.root, 'sp_jetwash_sign', 'JET WASH', 5.2, 0.9, '#ff5fa8', '#ffffff').position.z -= 0.06;
+    this.gantry = part(this.root, 'sp_jetwash_gantry');
+    this.brushes = ['l', 'r'].map((s) => part(this.root, `sp_jetwash_brush${s}`));
+    this.roller = part(this.root, 'sp_jetwash_brusht');
+    this.gantryZ = this.gantry.position.z;
+    this.length = length;
+    for (let k = 0; k < 6; k++) {
+      const at = this.root.getObjectByName(`sp_jetwash_spray${k}`);
+      if (at) this.sprays.push(at);
+    }
+  }
+  private readonly length: number;
+  /** Where the gantry is along the bay now (its legs are solid). */
+  get gantryAt(): number {
+    return this.gantry.position.z;
+  }
+  /** How far along a wash is (0–1: out to the back of the bay and home again), or null when it's not washing. */
+  update(dt: number, wash: number | null): void {
+    const p = wash ?? 0;
+    const along = p < 0.5 ? p * 2 : (1 - p) * 2;
+    const want = this.gantryZ + this.length * along * along * (3 - 2 * along);
+    this.gantry.position.z += (want - this.gantry.position.z) * Math.min(1, dt * 4);
+    this.spin += (wash !== null ? 1 : 0) - this.spin > 0 ? dt * 0.8 : -dt * 0.8;
+    this.spin = Math.max(0, Math.min(1, this.spin));
+    for (const [i, b] of this.brushes.entries()) b.rotation.y += dt * 7 * this.spin * (i ? -1 : 1);
+    this.roller.rotation.x += dt * 6 * this.spin;
   }
 }
 

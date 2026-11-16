@@ -34,7 +34,9 @@
     "controller": "female-e-staff",
     "marshal": "male-b-staff",
     "celebrity": "female-a",
-    "photographer": "male-c"
+    "photographer": "male-c",
+    "cargocrew": "male-f-staff",
+    "engineer": "male-a-staff"
   },
   "shoppers": ["female-a", "male-e"],
   "villagers": ["female-a", "male-e", "female-d", "male-c", "female-e", "male-a"],

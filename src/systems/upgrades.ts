@@ -36,6 +36,9 @@ const TITLES: Record<string, string> = {
   gate4: 'Gate 4',
   mogul: 'Mogul Air',
   vip: 'VIP lounge',
+  cargo: 'Cargo apron',
+  hangar: 'Maintenance hangar',
+  jetwash: 'Jet wash',
 };
 /** Staff targets get their role in front of the upgrade name; the pumps (one panel for both) their number. */
 const STAFF_NAMES: Record<string, string> = {
@@ -75,6 +78,8 @@ const STAFF_NAMES: Record<string, string> = {
   shops: 'Shop assistants',
   marshal: 'Marshal',
   controller: 'Tower controller',
+  cargocrew: 'Cargo crew',
+  engineer: 'Mechanic',
 };
 /** The staff room opens once the register is built (minute 2). */
 const STAFF_ROOM_AFTER = 'register';

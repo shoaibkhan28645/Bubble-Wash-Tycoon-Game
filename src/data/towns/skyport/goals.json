@@ -85,6 +85,29 @@
       "count": "privateJets",
       "goal": 5,
       "gems": 30
+    },
+    {
+      "id": "crates",
+      "count": "crates",
+      "goal": 60,
+      "gems": 25
+    },
+    {
+      "id": "serviced",
+      "count": "serviced",
+      "goal": 5,
+      "gems": 25
+    },
+    {
+      "id": "runway2",
+      "built": "runway2",
+      "gems": 30
+    },
+    {
+      "id": "washes",
+      "count": "washes",
+      "goal": 6,
+      "gems": 30
     }
   ]
 }

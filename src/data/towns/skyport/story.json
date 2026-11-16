@@ -266,12 +266,108 @@
       "when": {
         "built": "marshal"
       },
-      "shout": "The tower side is done!",
-      "icon": "🏆",
-      "headline": "Skyport rules the skies",
-      "body": "The marshal guides every plane in. The tower, your own airline and the stars: Skyport is a real international airport.",
+      "shout": "The tower side's open!",
+      "icon": "🦺",
+      "headline": "You've hired a marshal",
+      "body": "The marshal guides every plane onto its stand, for the parking bonus on every flight.",
       "speaker": "mentor",
       "words": "Next the city wants cargo, a hangar, and a second runway. Goldsby Air won't like that."
+    },
+    {
+      "id": "cargo",
+      "when": {
+        "built": "cargo"
+      },
+      "shout": "Cargo's open!",
+      "icon": "📦",
+      "headline": "Freighters at Skyport",
+      "body": "Freighters land at the cargo stand. Carry crates from the shed's dock to the loader at the freighter's door: a full freighter pays for every crate.",
+      "speaker": "mentor",
+      "words": "No passengers, no clock. Just crates, and plenty of them."
+    },
+    {
+      "id": "cargocrew",
+      "when": {
+        "built": "cargocrew"
+      },
+      "shout": "New helper!",
+      "icon": "🦺",
+      "headline": "You've hired a cargo crew",
+      "body": "The crew loads every freighter from the dock.",
+      "speaker": "mentor",
+      "words": "Strong arms. Mind your toes."
+    },
+    {
+      "id": "hangar",
+      "when": {
+        "built": "hangar"
+      },
+      "shout": "Hangar open!",
+      "icon": "🔧",
+      "headline": "The maintenance hangar",
+      "body": "Mogul Air's planes wear with every trip, and a worn plane brings home less. Worn ones now come home to the hangar: stand by the plane to service it, and its next trips pay more.",
+      "speaker": "mentor",
+      "words": "A plane looked after is a plane that looks after you."
+    },
+    {
+      "id": "engineer",
+      "when": {
+        "built": "engineer"
+      },
+      "shout": "New helper!",
+      "icon": "🔧",
+      "headline": "You've hired a mechanic",
+      "body": "The mechanic services worn planes in the hangar.",
+      "speaker": "mentor",
+      "words": "Oil on the hands, a song on the radio. Every hangar needs one."
+    },
+    {
+      "id": "mogul2",
+      "when": {
+        "built": "mogul2"
+      },
+      "shout": "A second plane!",
+      "icon": "✈️",
+      "headline": "Mogul Air doubles its fleet",
+      "body": "A second plane in your colours flies routes of its own. Choose for both on the routes board.",
+      "speaker": "mentor",
+      "words": "Two planes, two cities at once. Now you're an airline."
+    },
+    {
+      "id": "runway2",
+      "when": {
+        "built": "runway2"
+      },
+      "shout": "Second runway!",
+      "icon": "🛫",
+      "headline": "The airlines are back",
+      "body": "Planes take off from the new runway while the first takes the landings. The big airlines are back, and Goldsby Air has closed its cut-price hops for good.",
+      "speaker": "rival",
+      "words": "Two runways? Fine. Keep your airport, Mogul. Goldsby Air's flying off somewhere quieter."
+    },
+    {
+      "id": "jetwash",
+      "when": {
+        "built": "jetwash"
+      },
+      "shout": "Jet wash!",
+      "icon": "🫧",
+      "headline": "The car wash, come full circle",
+      "body": "Airlines book their jets in for a wash: a gantry of brushes rolls over each one. Stand at the controls and it washes twice as fast.",
+      "speaker": "mentor",
+      "words": "From a bucket and a sponge to this. Who'd have thought it?"
+    },
+    {
+      "id": "manager",
+      "when": {
+        "built": "manager"
+      },
+      "shout": "The cargo side is done!",
+      "icon": "🏆",
+      "headline": "Skyport goes global",
+      "body": "Freighters, a hangar, two runways and the cleanest jets in the world. And the manager keeps it all earning while you're away.",
+      "speaker": "mentor",
+      "words": "Only one thing left: the Sky Queen. The biggest plane there is."
     }
   ]
 }

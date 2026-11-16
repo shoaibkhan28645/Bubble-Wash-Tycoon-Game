@@ -216,7 +216,12 @@
     "mogul": 30000,
     "vip": 30000,
     "marshal": 30000,
-    "controller": 30000
+    "controller": 30000,
+    "cargo": 30000,
+    "cargocrew": 30000,
+    "hangar": 30000,
+    "engineer": 30000,
+    "jetwash": 30000
   },
   "heroScale": {
     "roadside": 1.25,
@@ -235,6 +240,9 @@
     "gate4": ["gate4.speed", "gate4.price", "marshal.staffSpeed"],
     "mogul": ["mogul.speed", "mogul.price"],
     "vip": ["vip.price", "controller.staffSpeed"],
+    "cargo": ["cargo.price", "cargocrew.staffSpeed", "cargocrew.staffCarry"],
+    "hangar": ["hangar.speed", "engineer.staffSpeed"],
+    "jetwash": ["jetwash.speed", "jetwash.price"],
     "bay1": [
       "bay1.speed",
       "bay1.quality",
