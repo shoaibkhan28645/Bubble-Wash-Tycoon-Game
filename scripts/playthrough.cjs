@@ -569,8 +569,9 @@ function tapUI() {
       lastBuy = s.play;
       continue;
     }
-    // The end of what's built so far: the airport's last pad (the park's highway now travels on to Skyport).
-    if (s.unlocked.includes('dispatcher') && town === 'skyport') {
+    // The end of what's built so far: the airport's last pad, the terminal's shop assistants (the park's highway
+    // travels on to Skyport).
+    if (s.unlocked.includes('shops') && town === 'skyport') {
       await p.clock.runFor(3000);
       await shot('the-end');
       log('THE END: the last pad bought');

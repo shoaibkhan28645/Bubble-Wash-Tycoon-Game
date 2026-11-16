@@ -31,7 +31,8 @@
     { "id": "onTime", "goal": 6, "growth": 1.04, "gems": 6, "town": "airport" },
     { "id": "boardPax", "goal": 60, "growth": 1.05, "gems": 6, "town": "airport" },
     { "id": "airEarn", "goal": 60000000, "growth": 1.15, "gems": 6, "town": "airport" },
-    { "id": "perfectTakeoff", "goal": 3, "growth": 1.03, "gems": 6, "town": "airport" }
+    { "id": "perfectTakeoff", "goal": 3, "growth": 1.03, "gems": 6, "town": "airport" },
+    { "id": "coffees", "goal": 15, "growth": 1.05, "gems": 5, "town": "airport", "requires": "cafe" }
   ],
   "carOfDay": {
     "afterSeconds": 60,

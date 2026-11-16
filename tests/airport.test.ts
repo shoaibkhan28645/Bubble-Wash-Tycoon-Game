@@ -5,8 +5,8 @@ import { describe, expect, it } from 'vitest';
 import { TUNING } from '../src/core/config';
 import { SKYPORT } from '../src/core/skyport';
 import { Airfield, flightPay, ringAt, type Flight } from '../src/systems/airport';
-import { Passengers } from '../src/systems/passengers';
-import { hallWalls } from '../src/render/models/airport';
+import { Passengers, type CounterId, type Passenger } from '../src/systems/passengers';
+import { hallWalls, wingWalls } from '../src/render/models/airport';
 
 const layout = SKYPORT.layout;
 const rules = TUNING.airport;
@@ -226,8 +226,87 @@ describe('passengers', () => {
   });
 });
 
+describe('the terminal (its wing, shops and security)', () => {
+  /** One gate open with its first plane coming in, the shops as asked, everyone fancying a shop. */
+  function terminal(gate: string, shops: { cafe?: boolean; dutyfree?: boolean }) {
+    const airfield = new Airfield(layout, rules, 6, {}, seeded(5));
+    airfield.openGate(gate);
+    const flight = airfield.send(gate, 0)!;
+    const stops = new Map<Passenger, CounterId[]>();
+    const events = { gaveUp: 0, boarded: 0 };
+    const passengers = new Passengers(layout, rules, airfield, () => [gate], () => null, {
+      onCheckedIn: () => {},
+      onServed: (p, id) => stops.set(p, [...(stops.get(p) ?? []), id]),
+      onGaveUp: () => (events.gaveUp += 1),
+      onBoarded: () => (events.boarded += 1),
+    });
+    passengers.open.cafe = !!shops.cafe;
+    passengers.open.dutyfree = !!shops.dutyfree;
+    passengers.screened = (g) => !!layout.gates[g]?.bridge;
+    passengers.random = () => 0;
+    let highest = 0;
+    const step = (seconds: number, shopRate: number): void => {
+      for (let t = 0; t < seconds; t += DT) {
+        airfield.update(DT);
+        passengers.update(DT, { rate: 1, byPlayer: false }, 1, () => ({ rate: shopRate, byPlayer: false }));
+        for (const p of passengers.all) highest = Math.max(highest, p.y);
+      }
+    };
+    return { airfield, flight, passengers, stops, events, step, highest: () => highest };
+  }
+
+  it("sends the wing's gate a jet, its passengers by way of the café, security and duty-free, and boards them over the bridge", () => {
+    const { flight, passengers, stops, events, step, highest } = terminal('gate3', { cafe: true, dutyfree: true });
+    expect(flight.kind).toBe('jet');
+    expect(flight.seats).toBe(rules.planes.jet.seats);
+    expect(passengers.seatsAt('gate3')).toBe(rules.planes.jet.seats);
+    for (let i = 0; i < 4; i++) expect(passengers.spawn(layout.desk.window, 0, true)).toBe(true);
+    step(120, 1);
+    expect(stops.size).toBe(4);
+    for (const route of stops.values()) expect(route).toEqual(['cafe', 'security', 'dutyfree']);
+    expect(passengers.all.every((p) => p.state === 'lounge')).toBe(true);
+    expect(flight.phase).toBe('parked');
+    flight.boarding = true;
+    step(60, 1);
+    expect(events.boarded).toBe(4);
+    expect(flight.boarded).toBe(4);
+    // Up the bridge to the jet's sill, not stairs to a prop's.
+    expect(highest()).toBeCloseTo(rules.planes.jet.sill, 1);
+  });
+
+  it("keeps the other gates' passengers out of security and duty-free", () => {
+    const { stops, passengers, step } = terminal('gate1', { cafe: true, dutyfree: true });
+    for (let i = 0; i < 3; i++) passengers.spawn(layout.desk.window, 0, true);
+    step(90, 1);
+    for (const route of stops.values()) expect(route).toEqual(['cafe']);
+    expect(passengers.all.every((p) => p.state === 'lounge')).toBe(true);
+  });
+
+  it("gives up on a shop nobody's serving, but not on the flight; security needs nobody", () => {
+    const { flight, stops, passengers, events, step } = terminal('gate3', { cafe: true, dutyfree: true });
+    for (let i = 0; i < 3; i++) passengers.spawn(layout.desk.window, 0, true);
+    step(150, 0);
+    for (const route of stops.values()) expect(route).toEqual(['security']);
+    expect(stops.size).toBe(3);
+    expect(events.gaveUp).toBe(0);
+    expect(passengers.all.every((p) => p.state === 'lounge')).toBe(true);
+    flight.boarding = true;
+    step(60, 0);
+    expect(events.boarded).toBe(3);
+  });
+
+  it('pays a jet more with its meals aboard', () => {
+    const jet = { boarded: 24, full: true, late: false, marshalled: false };
+    const hungry = flightPay({ ...jet, meals: 2, needsMeals: 4 }, 100, 0, rules).pay;
+    const fed = flightPay({ ...jet, meals: 4, needsMeals: 4 }, 100, 0, rules).pay;
+    expect(fed).toBeGreaterThan(hungry);
+    expect(fed - hungry).toBe(Math.round(24 * 100 * rules.meals.bonus));
+  });
+});
+
 describe('the airfield layout', () => {
-  const walls = hallWalls(layout);
+  // The hall and its wing as they stand once the wing's built (the hall's east end opened into it).
+  const walls = [...hallWalls(layout, true), ...wingWalls(layout)];
   const inside = (p: { x: number; z: number }, margin = 0.45): boolean => walls.some((w) => p.x > w.minX - margin && p.x < w.maxX + margin && p.z > w.minZ - margin && p.z < w.maxZ + margin);
   it('keeps every spot the hero stands on clear of the hall walls and inside the walkable ground', () => {
     const spots: [string, { x: number; z: number }][] = [
@@ -239,7 +318,12 @@ describe('the airfield layout', () => {
         [`${id} marshal`, g.marshal],
         [`${id} fuel`, g.fuelSpot],
         [`${id} hold`, g.hold],
+        ...(g.galley ? [[`${id} galley`, g.galley] as [string, { x: number; z: number }]] : []),
       ]),
+      ...Object.entries(layout.staffSpots).map(([id, p]): [string, { x: number; z: number }] => [`staff ${id}`, p]),
+      ['security exit', layout.security.exit],
+      ['kitchen pick', layout.kitchen.pick],
+      ...(['cafe', 'dutyfree'] as const).flatMap((id): [string, { x: number; z: number }][] => layout[id].queue.map((q, i) => [`${id} queue ${i}`, q])),
     ];
     for (const [name, p] of spots) {
       expect(inside(p), name).toBe(false);
@@ -247,8 +331,11 @@ describe('the airfield layout', () => {
     }
   });
 
-  it('has a door in the hall wall at every gate and at the entrance', () => {
+  it('has a door in the hall (or wing) wall at every gate and at the entrance', () => {
     for (const gate of Object.values(layout.gates)) expect(inside(gate.door, 0.4)).toBe(false);
+    // The wing's gate opens out of the wing.
+    const g3 = layout.gates.gate3!;
+    expect(g3.door.x > layout.wing.minX && g3.door.x < layout.wing.maxX && Math.abs(g3.door.z - layout.wing.minZ) < 0.5).toBe(true);
     expect(inside(layout.entrance, 0.4)).toBe(false);
   });
 

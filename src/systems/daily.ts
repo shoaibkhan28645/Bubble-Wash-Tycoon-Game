@@ -29,6 +29,7 @@ export type MissionKind =
   | 'boardPax'
   | 'airEarn'
   | 'perfectTakeoff'
+  | 'coffees'
   // Every town's.
   | 'jobs';
 

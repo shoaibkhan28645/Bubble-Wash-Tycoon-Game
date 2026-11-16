@@ -529,6 +529,7 @@ export function createSkyportGame(
       if (id === 'cafe' && cafe) effects.puff(cafe.steam.getWorldPosition(new Vector3()), new Vector3(0, 1, 0), 3);
       state.stars = nextStars(state.stars, 'happy', TUNING.stars);
       count(id === 'cafe' ? 'coffees' : 'dutyfree');
+      if (id === 'cafe') meta.count('coffees');
       sound.play('ching', hearing(at));
       onPaid({ amount: pay, tip: 0, automated: !manual, at });
       void p;
