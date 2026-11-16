@@ -228,6 +228,29 @@ export class Passengers {
     return true;
   }
 
+  /** Whether someone checked in already (at the shuttle station) can come in now: a seat left somewhere, and room on security's line. */
+  get canArrive(): boolean {
+    const security = this.counters.security;
+    return this.roomAnywhere && (security.spots.length === 0 || security.line.length < security.spots.length);
+  }
+
+  /**
+   * Someone who checked in at the shuttle station: they skip the desk's line and go straight on through
+   * security (and the shops) to their gate, their ticket sold. False if they can't come in yet.
+   */
+  arrive(at: Point, patienceBonus: number): boolean {
+    if (!this.canArrive) return false;
+    const p = new Passenger(at, this.rules.passengers.patience * (1 + patienceBonus), this.makeAvatar());
+    this.all.push(p);
+    p.gate = this.pickGate();
+    p.spot = this.loungeSpot(p.gate!);
+    p.plan = this.planFor(p.gate!);
+    this.place(p);
+    this.onward(p, false);
+    this.events.onCheckedIn(p);
+    return true;
+  }
+
   /** The gate a new passenger gets: one with a plane boarding first (to fill it), then the emptiest lounge. */
   private pickGate(): string | null {
     let best: string | null = null;

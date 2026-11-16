@@ -527,8 +527,10 @@ export function createSkyportGame(
       const tip = tipFor(pay, p.patience / p.patienceMax, TUNING.customers);
       cash.add('checkin', pay + tip);
       const at = layout.piles.checkin ?? layout.desk.at;
-      floaters.show(`+${money(pay)}`, new Vector3(at.x, 1.2, at.z), 'cash');
-      if (tip > 0) floaters.show(`+${money(tip)} tip`, new Vector3(at.x + 0.6, 1.9, at.z), 'tip');
+      // (Checked in at the shuttle station: the ticket shows where they got off.)
+      const where = Math.hypot(p.x - at.x, p.z - at.z) > 6 ? { x: p.x, z: p.z } : at;
+      floaters.show(`+${money(pay)}`, new Vector3(where.x, 1.2, where.z), 'cash');
+      if (tip > 0) floaters.show(`+${money(tip)} tip`, new Vector3(where.x + 0.6, 1.9, where.z), 'tip');
       state.stars = nextStars(state.stars, tip > 0 ? 'happy' : 'okay', TUNING.stars);
       if (p.manual) flag(servedFlag);
       sound.play('ching');
@@ -972,11 +974,12 @@ export function createSkyportGame(
     } else if (s.state === 'stop') {
       s.timer -= dt;
       if (s.timer <= 0) {
-        if (s.riders > 0 && passengers.spawn({ x: kerb - 1.6 + (s.riders % 4) * 0.8, z: busBayZ - 1.5 }, unlockedSum(state, (e) => e.patienceBonus))) {
+        // (They checked in at the station: straight on to security, as there's room in its line.)
+        if (s.riders > 0 && passengers.arrive({ x: kerb - 1.6 + (s.riders % 4) * 0.8, z: busBayZ - 1.5 }, unlockedSum(state, (e) => e.patienceBonus))) {
           s.riders -= 1;
-          s.timer = 0.35;
-        } else if ((s.riders === 0 || s.timer < -8) && mayTurn(roadUsers(shuttle), { x: s.x, half: BUS_HALF + 2, lane: 'bay' })) {
-          // (Everyone off, or the line's been full a while: the rest ride round again. It turns round when
+          s.timer = 0.6;
+        } else if ((s.riders === 0 || s.timer < -25) && mayTurn(roadUsers(shuttle), { x: s.x, half: BUS_HALF + 2, lane: 'bay' })) {
+          // (Everyone off, or no seat left for a good while: the rest ride round again. It turns round when
           // nothing's coming past.)
           s.riders = 0;
           s.state = 'turn';

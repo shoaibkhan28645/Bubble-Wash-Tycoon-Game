@@ -255,6 +255,24 @@ describe('the terminal (its wing, shops and security)', () => {
     return { airfield, flight, passengers, stops, events, step, highest: () => highest };
   }
 
+  it('takes people checked in at the shuttle station straight to security and their gate, past the desk, as security has room', () => {
+    const { flight, passengers, stops, events, step } = terminal('gate3', {});
+    const stop = { x: layout.shuttle.stop.x, z: layout.shuttle.stop.z + 1.8 };
+    let came = 0;
+    while (passengers.arrive(stop, 0)) came += 1;
+    // As many as security's line holds come in at once; none of them stand in the desk's line.
+    expect(came).toBe(passengers.counters.security.spots.length);
+    expect(passengers.line.length).toBe(0);
+    expect(passengers.all.every((p) => p.gate === 'gate3')).toBe(true);
+    step(90, 0);
+    for (const route of stops.values()) expect(route).toEqual(['security']);
+    expect(stops.size).toBe(came);
+    expect(passengers.canArrive).toBe(true);
+    flight.boarding = true;
+    step(60, 0);
+    expect(events.boarded).toBe(came);
+  });
+
   it("sends the wing's gate a jet, its passengers by way of the café, security and duty-free, and boards them over the bridge", () => {
     const { flight, passengers, stops, events, step, highest } = terminal('gate3', { cafe: true, dutyfree: true });
     expect(flight.kind).toBe('jet');
