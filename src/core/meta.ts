@@ -79,6 +79,8 @@ export function createMeta(deps: {
   rides?: { broken: () => number; fixAll: () => void };
   /** The park's prize shelf: how many plush toys it has (-1 before there's a ring toss), and opening it. */
   shelf?: { count: () => number; open: () => void };
+  /** The airport's control tower (once it's built): its button's badge, and opening its flight cards. */
+  tower?: { badge: () => string | null; open: () => void };
   /**
    * The boutique's things: the hero (dressed from it), the HUD (its gem counter opens it), the stage (it
    * draws the close-up), the effects (the trail) and the town's decorations.
@@ -117,7 +119,7 @@ export function createMeta(deps: {
     return ok ? 'ad' : null;
   };
 
-  const rewards: Record<Exclude<SideAction, 'calendar' | 'missions' | 'shelf' | 'shop'>, () => Promise<void>> = {
+  const rewards: Record<Exclude<SideAction, 'calendar' | 'missions' | 'shelf' | 'shop' | 'tower'>, () => Promise<void>> = {
     fix: async () => {
       const rides = deps.rides;
       if (!rides || rides.broken() === 0) return;
@@ -274,7 +276,7 @@ export function createMeta(deps: {
   /** The gem boosts this town has, each with why it can't be used right now. */
   const boosts = (): BoostView[] => {
     const list: BoostView[] = [];
-    const add = (action: Exclude<SideAction, 'calendar' | 'missions' | 'shelf' | 'shop'>, view: Omit<BoostView, 'use'>): void => {
+    const add = (action: Exclude<SideAction, 'calendar' | 'missions' | 'shelf' | 'shop' | 'tower'>, view: Omit<BoostView, 'use'>): void => {
       if (available(action)) list.push({ ...view, use: () => void rewards[action]() });
     };
     add('speed', { icon: '⚡', title: t('speedTitle'), body: t('speedBody'), gems: ADS.speedBoost.gems, status: state.boostSeconds > 0 ? t('boostOn', { time: formatClock(state.boostSeconds) }) : '' });
@@ -368,6 +370,7 @@ export function createMeta(deps: {
         }
       });
     } else if (action === 'shelf') deps.shelf?.open();
+    else if (action === 'tower') deps.tower?.open();
     else void rewards[action]();
   });
 
@@ -409,7 +412,8 @@ export function createMeta(deps: {
     (action !== 'refill' || !!supplies) &&
     (action !== 'missions' || state.daily.missions.length > 0) &&
     (action !== 'fix' || !!deps.rides) &&
-    (action !== 'shelf' || !!deps.shelf);
+    (action !== 'shelf' || !!deps.shelf) &&
+    (action !== 'tower' || !!deps.tower);
 
   const progress = (kind: Parameters<typeof addProgress>[1], amount = 1): void => {
     // Missions open with the Mini-Mart; until then they count quietly.
@@ -468,6 +472,7 @@ export function createMeta(deps: {
         finish: pads.nearlyAffordable(ADS.finishPad.fraction),
         fix: (deps.rides?.broken() ?? 0) > 0,
         shelf: deps.shelf?.count() ?? -1,
+        tower: deps.tower ? (deps.tower.badge() ?? '') : null,
         shop: fresh,
         available,
         build: (() => {

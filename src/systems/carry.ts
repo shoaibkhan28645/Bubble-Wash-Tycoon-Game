@@ -5,9 +5,9 @@ import type { Point } from '../core/config';
 /** Supply items: soap bottles, folded towels, wax tins. */
 export type SupplyType = 'soap' | 'towel' | 'wax';
 /** Anything carried: supplies, or a farm's goods (crates of produce by crop id, cartons of eggs, crates of milk bottles). */
-export type CarryItem = SupplyType | 'veg' | 'corn' | 'apple' | 'eggs' | 'milk' | 'bread' | 'pie' | 'sugar' | 'buns' | 'prizes' | 'case' | CaseItem | 'tray';
+export type CarryItem = SupplyType | 'veg' | 'corn' | 'apple' | 'eggs' | 'milk' | 'bread' | 'pie' | 'sugar' | 'buns' | 'prizes' | 'case' | CaseItem | 'tray' | 'champagne';
 /** An airport's cases, in their gate's colour (Gate 1 pink, 2 blue, 3 green), and the rare golden one (any hold takes it). */
-export type CaseItem = 'case1' | 'case2' | 'case3' | 'caseGold';
+export type CaseItem = 'case1' | 'case2' | 'case3' | 'case4' | 'caseGold';
 
 /** A suitcase lying flat, with its straps and handle, in this colour. */
 const suitcase = (body: string, straps = '#ffffff'): Parameters<typeof mergeParts>[0] => [
@@ -81,6 +81,14 @@ const itemGeometries: Record<CarryItem, BufferGeometry> = (() => {
     case1: make(suitcase('#ff5fa8')),
     case2: make(suitcase('#2c62d6')),
     case3: make(suitcase('#3fb84a')),
+    case4: make(suitcase('#ff8a3d')),
+    // A bottle of champagne for a star: green glass, a gold foil top, a white label.
+    champagne: make([
+      { geometry: cylinder(0.07, 0.24, 10), color: '#2f5d3a', y: 0.12 },
+      { geometry: cylinder(0.035, 0.12, 8), color: '#2f5d3a', y: 0.29 },
+      { geometry: cylinder(0.04, 0.07, 8), color: '#d9a62e', y: 0.35 },
+      { geometry: box(0.1, 0.07, 0.02), color: '#fff6dc', y: 0.13, z: 0.07 },
+    ]),
     caseGold: make(suitcase('#ffd24a', '#fff6c8')),
     tray: make([
       { geometry: box(0.46, 0.04, 0.32), color: '#c9d2dc', y: 0.02 },

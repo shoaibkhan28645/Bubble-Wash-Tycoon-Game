@@ -30,6 +30,8 @@ export type MissionKind =
   | 'airEarn'
   | 'perfectTakeoff'
   | 'coffees'
+  | 'privateJets'
+  | 'routes'
   // Every town's.
   | 'jobs';
 

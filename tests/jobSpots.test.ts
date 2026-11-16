@@ -12,7 +12,7 @@ import { ROADSIDE } from '../src/core/towns';
 import { WILLOWBROOK } from '../src/core/willowbrook';
 import { STARLIGHT } from '../src/core/starlight';
 import { SKYPORT } from '../src/core/skyport';
-import { PLANES, entranceSign, hallWalls, loungeSeatSolids } from '../src/render/models/airport';
+import { PLANES, entranceSign, hallWalls, loungeSeatSolids, roomWalls } from '../src/render/models/airport';
 import { SOLID } from '../src/systems/buildings';
 import { FARM_SOLIDS } from '../src/render/models/farm';
 import { PARK_SOLIDS } from '../src/render/models/park';
@@ -100,6 +100,17 @@ const TOWNS = [
         box(layout.lot.minX + 1.4, -8.5, 0.6, 0.85),
         box(layout.lot.maxX - 1.2, -8.5, 0.6, 0.85),
       ];
+      // Part C: Gate 4's pier, the VIP lounge, the tower, Mogul Air's office, the shuttle's stop, the bag sorter,
+      // and the planes on the stands that aren't gates'.
+      rects.push(...roomWalls(layout.pier, [{ side: 'north', x: layout.gates.gate4!.door.x, half: 0.75 }]));
+      rects.push(...roomWalls(layout.vip.lounge, [{ side: 'north', x: layout.vip.door.x, half: 0.95 }, { side: 'south', x: layout.vip.door.x, half: 0.95 }]));
+      rects.push(box(layout.tower.at.x, layout.tower.at.z, 2.6, 2.6), layout.mogul.office, box(layout.shuttle.stop.x, layout.shuttle.stop.z, 2.45, 1.0), box(layout.sorter.at.x, layout.sorter.at.z, 1.45, 1.3));
+      for (const stand of Object.values(layout.stands)) {
+        const plane = PLANES[stand.plane ?? 'prop'];
+        const mid = stand.noseZ - plane.size.length / 2;
+        rects.push({ minX: stand.x - plane.solid.half, maxX: stand.x + plane.solid.half, minZ: mid + plane.solid.tail, maxZ: mid + plane.solid.nose });
+        for (const q of plane.solid.parts) for (const side of [-1, 1]) rects.push(box(stand.x + side * q.x, mid + q.z, q.hx, q.hz));
+      }
       for (const gate of Object.values(layout.gates)) {
         const plane = PLANES[gate.plane ?? 'prop'];
         const mid = gate.noseZ - plane.size.length / 2;

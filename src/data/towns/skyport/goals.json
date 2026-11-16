@@ -56,6 +56,35 @@
       "count": "nightFlights",
       "goal": 8,
       "gems": 25
+    },
+    {
+      "id": "gate4",
+      "built": "gate4",
+      "gems": 20
+    },
+    {
+      "id": "widebodies",
+      "count": "widebodies",
+      "goal": 8,
+      "gems": 25
+    },
+    {
+      "id": "destinations",
+      "count": "destinations",
+      "goal": 6,
+      "gems": 25
+    },
+    {
+      "id": "souvenirs",
+      "count": "souvenirs",
+      "goal": 6,
+      "gems": 25
+    },
+    {
+      "id": "privateJets",
+      "count": "privateJets",
+      "goal": 5,
+      "gems": 30
     }
   ]
 }

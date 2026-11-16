@@ -152,6 +152,126 @@
       "body": "A barista at the café and a clerk at duty-free: the shops take money while you're out on the apron.",
       "speaker": "mentor",
       "words": "Jets, shops, a kitchen and night flights. Next, the city wants a control tower."
+    },
+    {
+      "id": "gate4",
+      "when": {
+        "built": "gate4"
+      },
+      "shout": "Wide-bodies!",
+      "icon": "🛫",
+      "headline": "Gate 4 takes the big ones",
+      "body": "Thirty-six seats a time. Fuel, cases and meals as for a jet, just more of everything.",
+      "speaker": "mentor",
+      "words": "Those engines! Keep the trays and the cases coming, and the wide-bodies pay like nothing else."
+    },
+    {
+      "id": "tower",
+      "when": {
+        "built": "tower"
+      },
+      "shout": "The tower is open!",
+      "icon": "🗼",
+      "headline": "You choose what lands next",
+      "body": "Tap the tower button to pick the next flight: a holiday charter, an ordinary flight, or one of Goldsby Air's cut-price hops.",
+      "speaker": "rival",
+      "words": "Goldsby Air flies cheaper than anyone. Quick hops, no bags, no fuss. You'll see."
+    },
+    {
+      "id": "fog",
+      "when": {
+        "flag": "fog:skyport"
+      },
+      "shout": "Fog!",
+      "icon": "🌫️",
+      "headline": "A foggy morning",
+      "body": "Nothing can land until it lifts. The planes are circling; when it clears they'll come in one after another.",
+      "speaker": "mentor",
+      "words": "Good time to get every plane on the ground turned round. The rush is coming."
+    },
+    {
+      "id": "shuttle",
+      "when": {
+        "built": "shuttle"
+      },
+      "shout": "All aboard the shuttle!",
+      "icon": "🚌",
+      "headline": "Passengers by the busload",
+      "body": "The airport shuttle brings a busload at a time, enough to fill the wide-bodies.",
+      "speaker": "mentor",
+      "words": "More passengers than ever. Keep that check-in desk quick."
+    },
+    {
+      "id": "mogulair",
+      "when": {
+        "built": "mogulair"
+      },
+      "shout": "Mogul Air takes off!",
+      "icon": "✈️",
+      "headline": "Your own airline",
+      "body": "A plane in your colours. Pick its routes at the office: further cities pay more, and it brings home souvenirs.",
+      "speaker": "mentor",
+      "words": "Your name on the tail. I flew for thirty years and never had that."
+    },
+    {
+      "id": "vip",
+      "when": {
+        "built": "vip"
+      },
+      "shout": "The VIP lounge is open!",
+      "icon": "🌟",
+      "headline": "Private jets welcome",
+      "body": "Now and then a celebrity flies in. Roll out the carpet, bring the champagne, call the limousine: every wish is a tip.",
+      "speaker": "mentor",
+      "words": "Celebrities don't wait. Be quick and they tip like royalty."
+    },
+    {
+      "id": "star",
+      "when": {
+        "flag": "celebrity:skyport"
+      },
+      "shout": "A star has landed!",
+      "icon": "📸",
+      "headline": "A celebrity at Skyport",
+      "body": "The photographers are already at the door. Grant all three wishes for the full tip.",
+      "speaker": "mentor",
+      "words": "Smile for the cameras!"
+    },
+    {
+      "id": "sorter",
+      "when": {
+        "built": "sorter"
+      },
+      "shout": "The bags sort themselves!",
+      "icon": "🧳",
+      "headline": "The bag sorter is running",
+      "body": "Cases go straight from the belt into every hold on belt loaders, each in its gate's colour.",
+      "speaker": "mentor",
+      "words": "No more carrying cases. Your hands are free for the important things."
+    },
+    {
+      "id": "controller",
+      "when": {
+        "built": "controller"
+      },
+      "shout": "New helper!",
+      "icon": "🎧",
+      "headline": "You've hired a tower controller",
+      "body": "Whenever you haven't chosen, the controller brings in the best-paying flight.",
+      "speaker": "mentor",
+      "words": "A steady voice in the tower. That's half of flying."
+    },
+    {
+      "id": "marshal",
+      "when": {
+        "built": "marshal"
+      },
+      "shout": "The tower side is done!",
+      "icon": "🏆",
+      "headline": "Skyport rules the skies",
+      "body": "The marshal guides every plane in. The tower, your own airline and the stars: Skyport is a real international airport.",
+      "speaker": "mentor",
+      "words": "Next the city wants cargo, a hangar, and a second runway. Goldsby Air won't like that."
     }
   ]
 }

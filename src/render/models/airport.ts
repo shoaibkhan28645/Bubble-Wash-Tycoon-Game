@@ -229,7 +229,11 @@ export const LIVERIES: Livery[] = [
   { accent: '#22c3c9', accent2: '#ff5fa8' },
   { accent: '#ff5fa8', accent2: '#ffd24a' },
   { accent: '#2c62d6', accent2: '#ffd24a' },
+  // Goldsby Air, Rex's cut-price airline (the tower's hops): always last.
+  { accent: '#2b2f38', accent2: '#ffc21a' },
 ];
+/** Goldsby Air's colours (the last livery): the others are the airlines that come and go. */
+export const GOLDSBY = LIVERIES.length - 1;
 
 /** The marker paints the airliner is modelled in (art/blender/skyport_plane.py: ACCENT and ACCENT2). */
 const near = (hex: string): PaintFamily['test'] => {
@@ -757,7 +761,7 @@ export function wingModel(gateNumber: number): Object3D {
 }
 
 /** Each gate's colour (its cases' and its hold pad's), in gate order. */
-export const GATE_COLOURS = ['#ff5fa8', '#2c62d6', '#3fb84a'] as const;
+export const GATE_COLOURS = ['#ff5fa8', '#2c62d6', '#3fb84a', '#ff8a3d'] as const;
 
 /**
  * The jet bridge, its rotunda by the wing's wall: the tunnel turns to reach the parked jet's door and slides
@@ -1010,5 +1014,287 @@ export class TimingRing {
     if (radius === null) return;
     this.mesh.scale.set(radius, 1, radius);
     (this.mesh.material as MeshBasicMaterial).color.setHex(onTarget ? 0xffd24a : 0xff5fa8);
+  }
+}
+
+// ---- the tower and VIP side (Part C) ---------------------------------------------------------------------------
+
+/** A room's low walls as solid rectangles, with doorways (`x` along the north or south wall, `half` wide either side). */
+export function roomWalls(room: Rect, doors: { side: 'north' | 'south'; x: number; half: number }[]): Rect[] {
+  const t = 0.25;
+  const rects: Rect[] = [];
+  for (const side of ['north', 'south'] as const) {
+    const z = side === 'north' ? room.minZ : room.maxZ;
+    let from = room.minX;
+    for (const d of doors.filter((d) => d.side === side).sort((a, b) => a.x - b.x)) {
+      rects.push({ minX: from, maxX: d.x - d.half, minZ: z - t, maxZ: z + t });
+      from = d.x + d.half;
+    }
+    rects.push({ minX: from, maxX: room.maxX, minZ: z - t, maxZ: z + t });
+  }
+  rects.push({ minX: room.minX - t, maxX: room.minX + t, minZ: room.minZ, maxZ: room.maxZ });
+  rects.push({ minX: room.maxX - t, maxX: room.maxX + t, minZ: room.minZ, maxZ: room.maxZ });
+  return rects;
+}
+
+/** Gate 4's pier (built where it stands), its sign over the door. */
+export function pierModel(gateNumber: number): Object3D {
+  const pier = skyModel('sp_pier');
+  signAt(pier, 'sp_pier_gate4', `GATE ${gateNumber}`, 2.3, 0.74, AIR.navy, AIR.sun).position.z += 0.54;
+  return pier;
+}
+
+/** The control tower: its radar turns, its beacon flashes green and white (and keeps on through fog). */
+export class ControlTower {
+  readonly root: Object3D;
+  private readonly radar: Object3D;
+  private readonly beacon: Mesh;
+  private time = 0;
+  constructor() {
+    this.root = skyMover('sp_tower');
+    this.radar = part(this.root, 'sp_tower_radar');
+    signAt(this.root, 'sp_tower_sign', 'TOWER', 2.4, 0.56, AIR.navy, AIR.sun).position.z += 0.02;
+    this.beacon = new Mesh(new SphereGeometry(0.24, 10, 8), new MeshBasicMaterial({ color: 0x3fff6a }));
+    part(this.root, 'sp_tower_beacon').add(this.beacon);
+  }
+  update(dt: number): void {
+    this.time += dt;
+    this.radar.rotation.y += dt * 1.7;
+    (this.beacon.material as MeshBasicMaterial).color.setHex(this.time % 2 < 1 ? 0x3fff6a : 0xffffff);
+    this.beacon.visible = this.time % 1 < 0.6;
+  }
+}
+
+/** The wide-body's stair truck: its landing at the origin at the door's sill, the stairs down along +x. */
+export function stairTruck(): Object3D {
+  return skyModel('sp_stairtruck');
+}
+
+/** A belt loader at a hold: its belt's top at the origin, rising along -x; the cleats run while cases go up. */
+export class BeltLoader {
+  readonly root: Object3D;
+  private readonly belt: Object3D;
+  private readonly at: Vector3;
+  private run = 0;
+  constructor() {
+    this.root = skyMover('sp_beltloader');
+    this.belt = part(this.root, 'sp_beltloader_belt');
+    this.at = this.belt.position.clone();
+  }
+  update(dt: number, running: boolean): void {
+    if (running) this.run = (this.run + dt * 0.9) % 0.33;
+    // Up the slope towards the hold (-x, and up by its rise).
+    this.belt.position.set(this.at.x - this.run * 0.96, this.at.y + this.run * 0.28, this.at.z);
+  }
+}
+
+/** The bag sorter by the belt: its belt runs and its pusher arm swings while cases go through; its lamp blinks. */
+export class BagSorter {
+  readonly root: Object3D;
+  private readonly belt: Object3D;
+  private readonly arm: Object3D;
+  private readonly beltX: number;
+  private readonly lamp: Mesh;
+  private time = 0;
+  private run = 0;
+  constructor() {
+    this.root = skyMover('sp_sorter');
+    this.belt = part(this.root, 'sp_sorter_belt');
+    this.arm = part(this.root, 'sp_sorter_arm');
+    this.beltX = this.belt.position.x;
+    this.lamp = new Mesh(new SphereGeometry(0.1, 8, 6), new MeshBasicMaterial({ color: 0x3fb84a }));
+    part(this.root, 'sp_sorter_lamp').add(this.lamp);
+  }
+  update(dt: number, busy: boolean): void {
+    this.time += dt;
+    if (busy) this.run = (this.run + dt * 0.7) % 0.28;
+    this.belt.position.x = this.beltX + this.run;
+    const swing = busy ? 0.55 * Math.max(0, Math.sin(this.time * 5)) : 0;
+    this.arm.rotation.y += (swing - this.arm.rotation.y) * Math.min(1, dt * 10);
+    (this.lamp.material as MeshBasicMaterial).color.setHex(busy ? (this.time % 0.5 < 0.25 ? 0xffd24a : 0x3fb84a) : 0x2c8a4a);
+  }
+}
+
+/** The VIP lounge (built where it stands): VIP over both doorways, the side the camera sees. */
+export function vipModel(): Object3D {
+  const lounge = skyModel('sp_vip');
+  signAt(lounge, 'sp_vip_sign', 'VIP LOUNGE', 2.4, 0.62, AIR.navy, '#ffd24a').position.z += 0.52;
+  signAt(lounge, 'sp_vip_sign2', 'VIP', 2.4, 0.62, AIR.navy, '#ffd24a').position.z += 0.02;
+  return lounge;
+}
+
+/** The red carpet from the VIP lounge's door out to the private jet: rolled up, it unrolls to `length`. */
+export class RedCarpet {
+  readonly root: Object3D;
+  private length = 0;
+  private want = 0;
+  constructor() {
+    this.root = skyModel('sp_carpet');
+    this.root.scale.set(1, 1, 0.001);
+    this.root.visible = false;
+  }
+  /** Out to `length` metres (0 rolls it back up). */
+  set(length: number): void {
+    this.want = length;
+  }
+  get out(): number {
+    return this.length;
+  }
+  update(dt: number): void {
+    this.length += (this.want - this.length) * (1 - Math.exp(-dt * 2.4));
+    this.root.visible = this.length > 0.05;
+    this.root.scale.z = Math.max(0.001, this.length);
+  }
+}
+
+/** A long vehicle on the road (the limousine, the shuttle bus): its wheels roll as it goes. */
+export class RoadVehicle {
+  readonly root: Object3D;
+  private readonly wheels: Object3D[];
+  private readonly door: Object3D | null;
+  private readonly doorAt: Vector3 | null;
+  private last: Vector3 | null = null;
+  private open = 0;
+  constructor(
+    name: 'sp_limo' | 'sp_shuttle',
+    private readonly radius: number,
+  ) {
+    this.root = skyMover(name);
+    this.wheels = [part(this.root, `${name}_wheel_f`), part(this.root, `${name}_wheel_r`)];
+    this.door = name === 'sp_shuttle' ? part(this.root, 'sp_shuttle_door') : null;
+    this.doorAt = this.door?.position.clone() ?? null;
+    if (name === 'sp_shuttle') {
+      signAt(this.root, 'sp_shuttle_sign', 'AIRPORT', 1.5, 0.28, '#111820', '#ffb02e').position.z += 0.02;
+    }
+  }
+  /** One frame where it's got to: the wheels roll by how far it moved; the bus's door slides open while it stands with its door open. */
+  update(dt: number, doorOpen = false): void {
+    const at = this.root.position;
+    if (this.last) {
+      const moved = at.distanceTo(this.last);
+      for (const w of this.wheels) w.rotation.x += moved / this.radius;
+    }
+    (this.last ??= new Vector3()).copy(at);
+    if (this.door && this.doorAt) {
+      this.open += ((doorOpen ? 1 : 0) - this.open) * Math.min(1, dt * 5);
+      this.door.position.set(this.doorAt.x - 0.08 * this.open, this.doorAt.y, this.doorAt.z + 1.0 * this.open);
+    }
+  }
+}
+
+/** The shuttle's stop on the plaza, its sign. */
+export function busStop(): Object3D {
+  const stop = skyModel('sp_busstop');
+  signAt(stop, 'sp_busstop_sign', 'SHUTTLE', 0.92, 0.5, AIR.navy, '#ffffff').position.z += 0.06;
+  return stop;
+}
+
+/** One of Mogul Air's twelve souvenirs (in the order of tuning.json's cities), standing at the origin. */
+export function souvenirModel(k: number): Object3D {
+  const piece = skyPiece(`sp_souvenirs_s${k}`).clone(true);
+  piece.position.set(0, 0, 0);
+  piece.traverse((node) => {
+    if (node instanceof Mesh) {
+      node.material = toyMaterial;
+      node.castShadow = true;
+    }
+  });
+  return piece;
+}
+
+/** The airline's colour in Blender (art/blender/skyport_east.py AIRLINE), repainted in Mogul Air's. */
+export const AIRLINE_PAINT = '#7a3fd0';
+
+/**
+ * Mogul Air's office: its awning and panels in the airline's colour, its sign, the routes board on the back
+ * wall (the game paints the cities on it), the souvenirs on the shelf as they come home.
+ */
+export class MogulOffice {
+  readonly root: Object3D;
+  private readonly board: Mesh;
+  private readonly canvas: HTMLCanvasElement;
+  private readonly texture: CanvasTexture;
+  private readonly slots: Object3D[];
+  private readonly shown = new Set<number>();
+  constructor(colour: string) {
+    this.root = skyMover('sp_mogul', `sp_mogul:${colour}`, (geometry) => familyPainter(geometry, [{ base: AIRLINE_PAINT, test: (r, g, b) => b > 150 && r > 90 && r < 160 && g < 90 }])([colour]));
+    signAt(this.root, 'sp_mogul_sign', 'MOGUL AIR', 3.4, 0.54, AIR.navy, '#ffffff').position.z += 0.02;
+    this.canvas = document.createElement('canvas');
+    this.canvas.width = 512;
+    this.canvas.height = 256;
+    this.texture = new CanvasTexture(this.canvas);
+    this.texture.colorSpace = SRGBColorSpace;
+    this.board = new Mesh(new PlaneGeometry(4.2, 1.95), new MeshBasicMaterial({ map: this.texture }));
+    const at = part(this.root, 'sp_mogul_board');
+    this.board.position.copy(at.position);
+    this.board.position.z += 0.03;
+    at.parent?.add(this.board);
+    this.slots = Array.from({ length: 12 }, (_, k) => part(this.root, `sp_mogul_slot${k}`));
+  }
+  /** Paints the routes board: each city a dot on its tier's ring (opened ones lit), the plane's route drawn out to where it's flying. */
+  paintBoard(cities: readonly { icon: string; tier: number }[], opened: (i: number) => boolean, flying: number | null, colour: string): void {
+    const g = this.canvas.getContext('2d')!;
+    g.fillStyle = '#17324d';
+    g.fillRect(0, 0, 512, 256);
+    // Faint continents and the rings of the three tiers round home.
+    g.fillStyle = '#21486a';
+    for (const [x, y, rx, ry] of [[120, 90, 80, 46], [300, 70, 90, 40], [380, 170, 70, 50], [150, 190, 60, 36]] as const) {
+      g.beginPath();
+      g.ellipse(x, y, rx, ry, 0.3, 0, PI * 2);
+      g.fill();
+    }
+    const home = { x: 256, y: 128 };
+    g.strokeStyle = 'rgba(255,255,255,0.18)';
+    for (const r of [52, 86, 116]) {
+      g.beginPath();
+      g.ellipse(home.x, home.y, r * 1.9, r, 0, 0, PI * 2);
+      g.stroke();
+    }
+    const place = (i: number): { x: number; y: number } => {
+      const c = cities[i]!;
+      const ring = [52, 86, 116][c.tier - 1] ?? 116;
+      const a = (i % 4) * (PI / 2) + c.tier * 0.55;
+      return { x: home.x + Math.cos(a) * ring * 1.9, y: home.y + Math.sin(a) * ring };
+    };
+    if (flying !== null && cities[flying]) {
+      const to = place(flying);
+      g.strokeStyle = colour;
+      g.lineWidth = 4;
+      g.setLineDash([10, 8]);
+      g.beginPath();
+      g.moveTo(home.x, home.y);
+      g.quadraticCurveTo((home.x + to.x) / 2, Math.min(home.y, to.y) - 40, to.x, to.y);
+      g.stroke();
+      g.setLineDash([]);
+    }
+    g.font = '28px "Noto Color Emoji", "Apple Color Emoji", sans-serif';
+    g.textAlign = 'center';
+    g.textBaseline = 'middle';
+    cities.forEach((c, i) => {
+      const p = place(i);
+      g.globalAlpha = opened(i) ? 1 : 0.35;
+      g.fillStyle = opened(i) ? '#ffd24a' : '#9fb4c8';
+      g.beginPath();
+      g.arc(p.x, p.y, 15, 0, PI * 2);
+      g.fill();
+      g.fillText(c.icon, p.x, p.y + 1);
+    });
+    g.globalAlpha = 1;
+    g.fillStyle = colour;
+    g.beginPath();
+    g.arc(home.x, home.y, 13, 0, PI * 2);
+    g.fill();
+    g.fillStyle = '#ffffff';
+    g.font = '400 20px "Lilita One", Nunito, Arial, sans-serif';
+    g.fillText('SKYPORT', home.x, home.y + 30);
+    this.texture.needsUpdate = true;
+  }
+  /** Puts a souvenir on its slot (once). */
+  showSouvenir(k: number): void {
+    if (this.shown.has(k) || !this.slots[k]) return;
+    this.shown.add(k);
+    const s = souvenirModel(k);
+    s.scale.setScalar(1.25);
+    this.slots[k]!.add(s);
   }
 }

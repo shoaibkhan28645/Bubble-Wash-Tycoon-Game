@@ -30,7 +30,11 @@
     "fueler": "male-a-staff",
     "caterer": "female-f-staff",
     "barista": "female-c-staff",
-    "dutyclerk": "male-f-staff"
+    "dutyclerk": "male-f-staff",
+    "controller": "female-e-staff",
+    "marshal": "male-b-staff",
+    "celebrity": "female-a",
+    "photographer": "male-c"
   },
   "shoppers": ["female-a", "male-e"],
   "villagers": ["female-a", "male-e", "female-d", "male-c", "female-e", "male-a"],

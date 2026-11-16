@@ -32,7 +32,9 @@
     { "id": "boardPax", "goal": 60, "growth": 1.05, "gems": 6, "town": "airport" },
     { "id": "airEarn", "goal": 60000000, "growth": 1.15, "gems": 6, "town": "airport" },
     { "id": "perfectTakeoff", "goal": 3, "growth": 1.03, "gems": 6, "town": "airport" },
-    { "id": "coffees", "goal": 15, "growth": 1.05, "gems": 5, "town": "airport", "requires": "cafe" }
+    { "id": "coffees", "goal": 15, "growth": 1.05, "gems": 5, "town": "airport", "requires": "cafe" },
+    { "id": "privateJets", "goal": 2, "growth": 1.02, "gems": 8, "town": "airport", "requires": "vip" },
+    { "id": "routes", "goal": 4, "growth": 1.04, "gems": 6, "town": "airport", "requires": "mogulair" }
   ],
   "carOfDay": {
     "afterSeconds": 60,

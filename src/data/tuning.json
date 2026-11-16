@@ -130,7 +130,7 @@
       "wide": { "seats": 36, "fare": 480000, "length": 20, "sill": 3.14, "clock": 110 },
       "private": { "seats": 0, "fare": 0, "length": 11, "sill": 1.05, "clock": 600 }
     },
-    "flight": { "gapSeconds": 4, "firstClock": 90, "approachSeconds": 7, "landSpeed": 17, "taxiSpeed": 7.5, "pushSpeed": 3.2, "takeoffAccel": 5.5, "rotateSpeed": 19, "boardStagger": 0.5, "fullBonus": 0.2, "onTimeBonus": 0.25, "streakStep": 0.05, "streakMax": 10, "perfectTip": 0.15 },
+    "flight": { "gapSeconds": 4, "starveSeconds": 20, "firstClock": 90, "approachSeconds": 7, "landSpeed": 17, "taxiSpeed": 7.5, "pushSpeed": 3.2, "takeoffAccel": 5.5, "rotateSpeed": 19, "boardStagger": 0.5, "fullBonus": 0.2, "onTimeBonus": 0.25, "streakStep": 0.05, "streakMax": 10, "perfectTip": 0.15 },
     "fuel": { "seconds": 4.5, "clockSeconds": 8 },
     "bags": { "cases": 6, "handSeconds": 0.25, "clockSeconds": 16, "handlerCarry": 3 },
     "marshal": { "bonus": 0.05, "clockSeconds": 6, "reach": 0.9 },
@@ -147,6 +147,7 @@
     "wide": { "cases": 3, "meals": 1.5 },
     "tower": {
       "queue": 3,
+      "divert": 3,
       "cards": [
         { "id": "regular", "fare": 1, "cases": 1, "clock": 1, "weight": 2 },
         { "id": "charter", "fare": 1.4, "cases": 1.5, "clock": 1.2, "weight": 1 },

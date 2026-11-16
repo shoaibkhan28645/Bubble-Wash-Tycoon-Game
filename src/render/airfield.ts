@@ -182,8 +182,13 @@ export function airfield(layout: AirportLayout): Object3D {
 
 /** The terminal wing's floor (laid once the wing's built): the hall's tiles, the carpet of its gate's lounge, a plain walkway past security. */
 export function wingFloor(layout: AirportLayout, lounge: Rect | null): Object3D {
+  return roomFloor(layout.wing, lounge);
+}
+
+/** A room's floor tiles (the wing's, Gate 4's pier, the VIP lounge), carpet under a lounge's seats (or all over, `carpet`). */
+export function roomFloor(room: Rect, lounge: Rect | null, carpet = false): Object3D {
   const group = new Group();
-  group.name = 'wing-floor';
+  group.name = 'room-floor';
   const lay = (kind: string, r: Rect, y: number): void => {
     const w = r.maxX - r.minX;
     const d = r.maxZ - r.minZ;
@@ -192,9 +197,8 @@ export function wingFloor(layout: AirportLayout, lounge: Rect | null): Object3D 
     mesh.receiveShadow = true;
     group.add(mesh);
   };
-  const { wing } = layout;
-  lay('floor', wing, 0.03);
-  if (lounge) lay('carpet', { minX: lounge.minX - 0.2, maxX: lounge.maxX + 0.2, minZ: wing.minZ + 0.4, maxZ: lounge.maxZ + 0.3 }, 0.035);
+  lay(carpet ? 'carpet' : 'floor', room, 0.03);
+  if (lounge) lay('carpet', { minX: lounge.minX - 0.2, maxX: lounge.maxX + 0.2, minZ: room.minZ + 0.4, maxZ: lounge.maxZ + 0.3 }, 0.035);
   return group;
 }
 

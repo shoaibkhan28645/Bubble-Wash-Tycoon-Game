@@ -39,6 +39,11 @@ export function brandModel(geometry: BufferGeometry, part: BrandPart): void {
   if (current) apply(part, paint);
 }
 
+/** The brand's colours now (null: the classic look). */
+export function brandColours(): BrandColours | null {
+  return current;
+}
+
 /** Repaints everything in the brand's colours (null: back to the classic look). */
 export function setBrand(colours: BrandColours | null): void {
   if (colours?.main === current?.main && colours?.vehicle === current?.vehicle) return;

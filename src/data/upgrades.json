@@ -211,7 +211,12 @@
     "caterer": 30000,
     "shops": 30000,
     "mart": 0.96,
-    "clerk": 0.77
+    "clerk": 0.77,
+    "gate4": 30000,
+    "mogul": 30000,
+    "vip": 30000,
+    "marshal": 30000,
+    "controller": 30000
   },
   "heroScale": {
     "roadside": 1.25,
@@ -227,6 +232,9 @@
     "cafe": ["cafe.speed", "cafe.price", "dutyfree.price", "shops.staffSpeed"],
     "gate3": ["gate3.speed", "gate3.price", "fuelcrew.staffSpeed"],
     "kitchen": ["kitchen.speed", "caterer.staffSpeed", "caterer.staffCarry"],
+    "gate4": ["gate4.speed", "gate4.price", "marshal.staffSpeed"],
+    "mogul": ["mogul.speed", "mogul.price"],
+    "vip": ["vip.price", "controller.staffSpeed"],
     "bay1": [
       "bay1.speed",
       "bay1.quality",

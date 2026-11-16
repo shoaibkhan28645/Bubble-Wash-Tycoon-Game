@@ -6,7 +6,7 @@
 // announcement, a tyre's chirp on touchdown, propellers spooling up, a gull's
 // call, and the drone of turboprops (a seamless loop).
 
-export type SynthSound = 'squeak' | 'spray' | 'pop' | 'honk' | 'bell' | 'glug' | 'beep' | 'step' | 'moo' | 'cluck' | 'chime' | 'screech' | 'spool' | 'caw' | 'drone';
+export type SynthSound = 'squeak' | 'spray' | 'pop' | 'honk' | 'bell' | 'glug' | 'beep' | 'step' | 'moo' | 'cluck' | 'chime' | 'screech' | 'spool' | 'caw' | 'drone' | 'shutter';
 
 /** Small seeded random generator, so every run sounds the same. */
 function seeded(seed: number): () => number {
@@ -59,6 +59,16 @@ function pop(sampleRate: number): Float32Array {
     const freq = 1100 * Math.exp(-t * 30) + 300;
     phase += (2 * Math.PI * freq) / sampleRate;
     return Math.sin(phase) * Math.exp(-t * 60) * 0.7;
+  });
+}
+
+/** A camera's shutter: a sharp double click, then the flash's whine charging back up. */
+function shutter(sampleRate: number): Float32Array {
+  let phase = 0;
+  return render(sampleRate, 0.55, (t) => {
+    const click = (at: number) => (t > at && t < at + 0.012 ? (Math.random() * 2 - 1) * Math.exp(-(t - at) * 300) : 0);
+    const whine = t > 0.08 ? Math.sin((phase += (2 * Math.PI * (2400 + 4200 * (t - 0.08))) / sampleRate)) * 0.07 * Math.exp(-(t - 0.08) * 5) : 0;
+    return click(0) * 0.8 + click(0.035) * 0.6 + whine;
   });
 }
 
@@ -397,5 +407,6 @@ export function renderSynth(sampleRate: number): Record<SynthSound, Float32Array
     spool: [spool(sampleRate)],
     caw: [0, 1].map((v) => caw(sampleRate, v)),
     drone: [drone(sampleRate)],
+    shutter: [shutter(sampleRate)],
   };
 }

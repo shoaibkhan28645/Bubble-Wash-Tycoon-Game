@@ -9,12 +9,13 @@ import type { FlightTerms } from './airport';
 type Rules = Tuning['airport'];
 export type CardKind = Rules['tower']['cards'][number]['id'];
 
-/** A flight waiting to come in: its kind's terms, its airline's colours and where it's from. */
+/** A flight waiting to come in: its kind's terms, its airline's colours and where it's from, and how many others have landed ahead of it. */
 export interface FlightCard extends FlightTerms {
   kind: CardKind;
   livery: number;
   /** Where it's from (an index into the tower's cities). */
   from: number;
+  waited: number;
 }
 
 export class Tower {
@@ -44,6 +45,7 @@ export class Tower {
       clock: def.clock,
       livery: Math.floor(this.random() * this.liveries),
       from: Math.floor(this.random() * this.rules.cities.length),
+      waited: 0,
     };
   }
 
@@ -77,6 +79,9 @@ export class Tower {
     if (this.chosen !== null) this.picks += 1;
     const [card] = this.cards.splice(picked, 1);
     this.chosen = null;
+    // The others wait on; one that's waited through too many landings diverts to another airport.
+    for (const c of this.cards) c.waited += 1;
+    for (let i = this.cards.length - 1; i >= 0; i--) if (this.cards[i]!.waited >= this.rules.divert) this.cards.splice(i, 1);
     this.fill();
     return card!;
   }

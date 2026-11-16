@@ -18,6 +18,8 @@ export interface SideView {
   fix: boolean;
   /** Plush toys on the prize shelf so far (the park), or -1 for no shelf. */
   shelf: number;
+  /** The airport's control tower: null without one, else its badge (a flight waiting to be chosen, '!'). */
+  tower: string | null;
   /** Something new in the boutique the gems would buy. */
   shop: boolean;
   /** Seconds left on the building going up soonest (0 = nothing being built). */
@@ -26,7 +28,7 @@ export interface SideView {
   available: (action: SideAction) => boolean;
 }
 
-export type SideAction = 'calendar' | 'shop' | 'missions' | 'speed' | 'convoy' | 'refill' | 'finish' | 'build' | 'fix' | 'shelf';
+export type SideAction = 'calendar' | 'shop' | 'missions' | 'speed' | 'convoy' | 'refill' | 'finish' | 'build' | 'fix' | 'shelf' | 'tower';
 
 interface SideButton {
   el: HTMLButtonElement;
@@ -38,9 +40,9 @@ interface SideButton {
 /** A button that has just appeared glows this long. */
 const NEW_GLOW_MS = 4000;
 
-const ICONS: Record<SideAction, IconName> = { calendar: 'gift', shop: 'bag', missions: 'clipboard', speed: 'bolt', convoy: 'crown', refill: 'bottle', finish: 'crane', build: 'cone', fix: 'wrench', shelf: 'teddy' };
+const ICONS: Record<SideAction, IconName> = { calendar: 'gift', shop: 'bag', missions: 'clipboard', speed: 'bolt', convoy: 'crown', refill: 'bottle', finish: 'crane', build: 'cone', fix: 'wrench', shelf: 'teddy', tower: 'tower' };
 /** What each button is, for screen readers. */
-const NAMES: Record<SideAction, string> = { calendar: 'Daily gift', shop: 'Boutique', missions: 'Missions', speed: 'Speed boost', convoy: 'VIP convoy', refill: 'Instant delivery', finish: 'Finish it now', build: 'Building', fix: 'Fix every ride', shelf: 'Prize shelf' };
+const NAMES: Record<SideAction, string> = { calendar: 'Daily gift', shop: 'Boutique', missions: 'Missions', speed: 'Speed boost', convoy: 'VIP convoy', refill: 'Instant delivery', finish: 'Finish it now', build: 'Building', fix: 'Fix every ride', shelf: 'Prize shelf', tower: 'Control tower' };
 
 const clock = (seconds: number) =>
   seconds >= 3600 ? `${Math.floor(seconds / 3600)}h${String(Math.floor((seconds % 3600) / 60)).padStart(2, '0')}` : `${Math.floor(seconds / 60)}:${String(Math.floor(seconds % 60)).padStart(2, '0')}`;
@@ -88,6 +90,7 @@ export class SideBar {
     this.set('build', view.build > 0 && open('build'), clock(view.build), false);
     this.set('fix', view.fix && open('fix'), '📺', false);
     this.set('shelf', view.shelf >= 0 && open('shelf'), view.shelf >= 0 ? String(view.shelf) : '', false);
+    this.set('tower', view.tower !== null && open('tower'), view.tower ?? '', !!view.tower);
     this.started = true;
   }
 

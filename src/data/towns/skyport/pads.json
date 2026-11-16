@@ -172,7 +172,88 @@
     "targetMinute": 45,
     "adds": "A barista at the café and a clerk at duty-free, so the shops take money while you are busy elsewhere",
     "effects": {
-      "staff": "shops",
+      "staff": "shops"
+    }
+  },
+  {
+    "id": "gate4",
+    "name": "Gate 4 and the east pier",
+    "cost": 150000000,
+    "targetMinute": 48,
+    "adds": "A stand for the wide-bodies (36 seats each) with a pier of its own for their lounge",
+    "effects": {
+      "gate": "gate4",
+      "pier": true
+    }
+  },
+  {
+    "id": "tower",
+    "name": "Control tower",
+    "cost": 160000000,
+    "targetMinute": 51,
+    "adds": "Choose which flight lands next: a rich charter, an ordinary flight or a quick hop. And now and then, fog",
+    "effects": {
+      "tower": true
+    }
+  },
+  {
+    "id": "shuttle",
+    "name": "Shuttle station",
+    "cost": 170000000,
+    "targetMinute": 54,
+    "adds": "A bus brings passengers in by the busload, enough to fill the wide-bodies",
+    "effects": {
+      "shuttle": true
+    }
+  },
+  {
+    "id": "mogulair",
+    "name": "Mogul Air",
+    "cost": 185000000,
+    "targetMinute": 57,
+    "adds": "Your own airline: a plane in your colours flies the routes you choose and comes home with the takings, and souvenirs",
+    "effects": {
+      "airline": true
+    }
+  },
+  {
+    "id": "vip",
+    "name": "VIP lounge",
+    "cost": 200000000,
+    "targetMinute": 60,
+    "adds": "A private jet stand: now and then a celebrity flies in with wishes to grant, for big tips",
+    "effects": {
+      "vip": true
+    }
+  },
+  {
+    "id": "sorter",
+    "name": "Bag sorter",
+    "cost": 215000000,
+    "targetMinute": 63,
+    "adds": "Cases go from the belt straight into every plane's hold, on belt loaders",
+    "effects": {
+      "sorter": true
+    }
+  },
+  {
+    "id": "controller",
+    "name": "Tower controller",
+    "cost": 230000000,
+    "targetMinute": 66,
+    "adds": "Picks the best-paying flight to land next whenever you haven't chosen one",
+    "effects": {
+      "staff": "controller"
+    }
+  },
+  {
+    "id": "marshal",
+    "name": "Marshal",
+    "cost": 250000000,
+    "targetMinute": 69,
+    "adds": "Guides every plane onto its stand, for the parking bonus on every flight",
+    "effects": {
+      "staff": "marshal",
       "endOfContent": true
     }
   }

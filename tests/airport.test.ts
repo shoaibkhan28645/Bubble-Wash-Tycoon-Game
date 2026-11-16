@@ -6,7 +6,7 @@ import { TUNING } from '../src/core/config';
 import { SKYPORT } from '../src/core/skyport';
 import { Airfield, flightPay, ringAt, type Flight } from '../src/systems/airport';
 import { Passengers, type CounterId, type Passenger } from '../src/systems/passengers';
-import { hallWalls, wingWalls } from '../src/render/models/airport';
+import { hallWalls, roomWalls, wingWalls } from '../src/render/models/airport';
 
 const layout = SKYPORT.layout;
 const rules = TUNING.airport;
@@ -305,8 +305,17 @@ describe('the terminal (its wing, shops and security)', () => {
 });
 
 describe('the airfield layout', () => {
-  // The hall and its wing as they stand once the wing's built (the hall's east end opened into it).
-  const walls = [...hallWalls(layout, true), ...wingWalls(layout)];
+  // The hall and its wing as they stand once the wing's built (the hall's east end opened into it); Gate 4's
+  // pier and the VIP lounge (Part C).
+  const walls = [
+    ...hallWalls(layout, true),
+    ...wingWalls(layout),
+    ...roomWalls(layout.pier, [{ side: 'north', x: layout.gates.gate4!.door.x, half: 0.75 }]),
+    ...roomWalls(layout.vip.lounge, [
+      { side: 'north', x: layout.vip.door.x, half: 0.95 },
+      { side: 'south', x: layout.vip.door.x, half: 0.95 },
+    ]),
+  ];
   const inside = (p: { x: number; z: number }, margin = 0.45): boolean => walls.some((w) => p.x > w.minX - margin && p.x < w.maxX + margin && p.z > w.minZ - margin && p.z < w.maxZ + margin);
   it('keeps every spot the hero stands on clear of the hall walls and inside the walkable ground', () => {
     const spots: [string, { x: number; z: number }][] = [
@@ -322,6 +331,13 @@ describe('the airfield layout', () => {
       ]),
       ...Object.entries(layout.staffSpots).map(([id, p]): [string, { x: number; z: number }] => [`staff ${id}`, p]),
       ['security exit', layout.security.exit],
+      ...Object.entries(layout.stands).map(([id, s]): [string, { x: number; z: number }] => [`stand ${id} marshal`, s.marshal]),
+      ['mogul board', layout.mogul.board],
+      ['vip carpet', layout.vip.carpet],
+      ['vip bar side', { x: layout.vip.bar.x + 1.05, z: layout.vip.bar.z }],
+      ['vip seat side', { x: layout.vip.seat.x - 1.6, z: layout.vip.seat.z }],
+      ['tower door', layout.tower.door],
+      ['shuttle stop front', { x: layout.shuttle.stop.x, z: layout.shuttle.stop.z + 1.6 }],
       ['kitchen pick', layout.kitchen.pick],
       ...(['cafe', 'dutyfree'] as const).flatMap((id): [string, { x: number; z: number }][] => layout[id].queue.map((q, i) => [`${id} queue ${i}`, q])),
     ];

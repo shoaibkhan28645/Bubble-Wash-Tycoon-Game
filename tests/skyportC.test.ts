@@ -6,6 +6,7 @@ import { TUNING } from '../src/core/config';
 import { SKYPORT } from '../src/core/skyport';
 import { Airfield, type Flight } from '../src/systems/airport';
 import { Airline } from '../src/systems/airline';
+import { ease, eastLimit, mayTurn, swingOut, westLimit, type RoadUser } from '../src/systems/road';
 import { Fog, Tower } from '../src/systems/tower';
 import { Celebrity, WISHES } from '../src/systems/vip';
 
@@ -37,6 +38,19 @@ describe('the tower', () => {
       }
     }
     expect(tower.picks).toBe(20);
+  });
+
+  it('never clogs: a card that has waited through too many landings diverts (the controller only takes the best)', () => {
+    const tower = new Tower(rules.tower, 6, seeded(11));
+    for (let i = 0; i < 60; i++) {
+      tower.take(true);
+      expect(tower.cards.every((c) => c.waited < rules.tower.divert)).toBe(true);
+      expect(tower.cards.length).toBe(rules.tower.queue);
+    }
+    // Nobody choosing, every kind lands in turn.
+    const kinds = new Set<string>();
+    for (let i = 0; i < 60; i++) kinds.add(tower.take(false).kind);
+    expect(kinds.size).toBe(rules.tower.cards.length);
   });
 
   it("lets the controller pick the best-paying card, and choosing a card twice un-chooses it", () => {
@@ -200,27 +214,96 @@ describe('the airfield in Part C', () => {
     expect(flight.clockMax).toBeCloseTo(rules.flight.firstClock * 1.2);
   });
 
-  it('never has two planes on the runway with every stand in use over a long day', () => {
+  it('keeps every stand busy all day with nobody on the runway at once, nobody in the same place, and nobody kept waiting', () => {
     const airfield = new Airfield(layout, rules, 6, {}, seeded(9));
-    for (const gate of ['gate1', 'gate2', 'gate3', 'gate4']) airfield.openGate(gate);
+    const gates = ['gate1', 'gate2', 'gate3', 'gate4'];
+    for (const gate of gates) airfield.openGate(gate);
     airfield.openGate('mogul', 0, true);
     airfield.openGate('vip', 0, true);
+    const random = seeded(10);
+    const turnaround = new Map<Flight, number>();
+    const clearedAt = new Map<Flight, number>();
+    const away = new Map<string, number>();
+    const empty: Record<string, number> = {};
     let worst = 0;
+    let closest = Infinity;
+    let longest = 0;
     let departed = 0;
-    for (let t = 0; t < 900; t += DT) {
+    const day = 1800;
+    for (let t = 0; t < day; t += DT) {
       airfield.update(DT);
       for (const f of airfield.flights) {
-        if (f.phase === 'parked' && f.parkedFor > 20 && !f.cleared) {
-          f.boarding = true;
-          f.cleared = true;
+        // The crew turns a plane round in 60–90% of its clock, and clears it.
+        if (f.phase === 'parked' && !f.cleared) {
+          if (!turnaround.has(f)) turnaround.set(f, f.clockMax * (0.6 + random() * 0.3));
+          if (f.parkedFor >= turnaround.get(f)!) {
+            f.boarding = true;
+            f.cleared = true;
+            clearedAt.set(f, t);
+          }
+        }
+        if (f.phase === 'pushback' && clearedAt.has(f)) {
+          longest = Math.max(longest, t - clearedAt.get(f)!);
+          clearedAt.delete(f);
+          departed += 1;
         }
       }
-      for (const stand of ['mogul', 'vip']) if (!airfield.at(stand) && Math.floor(t) % 90 === 0) airfield.call(stand);
+      for (const gate of gates) if (!airfield.at(gate)) empty[gate] = (empty[gate] ?? 0) + DT;
+      // Mogul Air's back a minute after it leaves; a celebrity's jet every three minutes or so.
+      for (const stand of ['mogul', 'vip']) {
+        if (airfield.at(stand) || airfield.calling(stand)) continue;
+        const left = (away.get(stand) ?? (stand === 'mogul' ? 60 : 170)) - DT;
+        away.set(stand, left);
+        if (left <= 0) {
+          airfield.call(stand);
+          away.delete(stand);
+        }
+      }
       const onRunway = airfield.flights.filter((f) => f.phase === 'rollout' || f.phase === 'lineup' || f.phase === 'takeoff').length;
       worst = Math.max(worst, onRunway);
-      departed = Math.max(departed, airfield.arrivals);
+      const ground = airfield.flights.filter((f) => f.y < 6);
+      for (let i = 0; i < ground.length; i++) {
+        for (let j = i + 1; j < ground.length; j++) closest = Math.min(closest, Math.hypot(ground[i]!.x - ground[j]!.x, ground[i]!.z - ground[j]!.z));
+      }
     }
     expect(worst).toBeLessThanOrEqual(1);
-    expect(departed).toBeGreaterThan(20);
+    expect(departed).toBeGreaterThan(65);
+    // Nose to tail in the queue for the runway (or a plane at the hold and one turning in) is the closest they come.
+    expect(closest).toBeGreaterThan(10);
+    // A cleared plane's off within a minute or so, however busy (a gate kept waiting for a plane comes first).
+    expect(longest).toBeLessThan(75);
+    // And no gate sits empty for long: the next plane's on its way soon after the last one leaves.
+    for (const gate of gates) expect(empty[gate]! / day).toBeLessThan(0.3);
+  });
+});
+
+describe('the road in front', () => {
+  it('keeps a taxi behind the shuttle at its stop, and the shuttle turns round with it waiting there', () => {
+    const bus: RoadUser = { x: 4.5, half: 4.2, lane: 'west', speed: 0 };
+    const taxi: RoadUser = { x: 90, half: 1.6, lane: 'west', speed: 16 };
+    // The taxi's bound for a kerb past the stop: it drives in, slowing, and stops short of the bus.
+    for (let t = 0; t < 20; t += DT) {
+      const left = taxi.x - Math.max(-19.5, westLimit([bus], taxi));
+      taxi.speed = ease(taxi.speed!, left > 0.02 ? Math.max(2.5, Math.min(16, left * 1.7)) : 0, DT, 20);
+      taxi.x -= Math.min(Math.max(0, left), taxi.speed * DT);
+    }
+    expect(taxi.x - bus.x).toBeGreaterThanOrEqual(bus.half + taxi.half);
+    expect(taxi.x - bus.x).toBeLessThan(bus.half + taxi.half + 2);
+    // Waiting there, it doesn't hold up the bus turning round; one coming fast, or alongside, does.
+    expect(mayTurn([{ ...taxi, speed: 0 }], bus)).toBe(true);
+    expect(mayTurn([{ ...taxi, x: bus.x + 12, speed: 14 }], bus)).toBe(false);
+    expect(mayTurn([{ ...taxi, x: bus.x + 1, speed: 0 }], bus)).toBe(false);
+    // Turning, it holds up both lanes; heading east, it keeps behind what's ahead.
+    const turning: RoadUser = { ...bus, lane: 'both', half: 6.2 };
+    expect(westLimit([turning], taxi)).toBeGreaterThan(turning.x + turning.half);
+    expect(eastLimit([{ x: 60, half: 3.3, lane: 'east' }], { x: 20, half: 4.2, lane: 'east' })).toBeCloseTo(60 - 3.3 - 4.2 - 1.5);
+  });
+
+  it('passes the limousine in its bay with a swing out, and never stops behind it', () => {
+    const limo: RoadUser = { x: 61.6, half: 3.3, lane: 'bay' };
+    const taxi: RoadUser = { x: 90, half: 1.6, lane: 'west' };
+    expect(westLimit([limo], taxi)).toBe(-Infinity);
+    expect(swingOut([limo], { ...taxi, x: 61.6 })).toBe(1);
+    expect(swingOut([limo], taxi)).toBe(0);
   });
 });
