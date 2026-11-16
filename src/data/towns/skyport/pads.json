@@ -81,7 +81,17 @@
     "targetMinute": 18,
     "adds": "Loads the cases and fuels the planes for you",
     "effects": {
-      "staff": "handler",
+      "staff": "handler"
+    }
+  },
+  {
+    "id": "dispatcher",
+    "name": "Ramp dispatcher",
+    "cost": 17000000,
+    "targetMinute": 21,
+    "adds": "Opens the gates and waves each flight off once it's ready, so the airport earns while you're away (step on as the ring closes yourself for a perfect take-off)",
+    "effects": {
+      "staff": "dispatcher",
       "endOfContent": true
     }
   }

@@ -25,7 +25,8 @@
     "janitor": "male-f-staff",
     "dockhand": "male-a-staff",
     "mascot": "male-d-staff",
-    "crew": "female-e-staff"
+    "crew": "female-e-staff",
+    "dispatcher": "male-d-staff"
   },
   "shoppers": ["female-a", "male-e"],
   "villagers": ["female-a", "male-e", "female-d", "male-c", "female-e", "male-a"],

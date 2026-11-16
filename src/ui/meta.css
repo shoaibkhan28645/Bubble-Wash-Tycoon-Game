@@ -2125,3 +2125,22 @@
     animation: none;
   }
 }
+
+/* On a narrow (portrait) screen the two gates' labels sit side by side: smaller, so they don't overlap. */
+@media (max-width: 560px) {
+  .flight-label {
+    gap: 3px;
+    padding: 2px 6px 2px 2px;
+  }
+
+  .flight-clock {
+    width: 28px;
+    height: 28px;
+    font-size: 13px;
+  }
+
+  .flight-chip {
+    padding: 1px 5px;
+    font-size: 11px;
+  }
+}

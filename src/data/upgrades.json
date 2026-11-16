@@ -202,6 +202,7 @@
     "gate2": 6000,
     "agent": 6000,
     "handler": 6000,
+    "dispatcher": 6000,
     "mart": 0.96,
     "clerk": 0.77
   },
@@ -214,7 +215,7 @@
   "panels": {
     "checkin": ["checkin.speed", "checkin.price", "agent.staffSpeed"],
     "gate1": ["gate1.speed", "gate1.price"],
-    "gate2": ["gate2.speed", "gate2.price"],
+    "gate2": ["gate2.speed", "gate2.price", "dispatcher.staffSpeed"],
     "bags": ["player.carry", "handler.staffSpeed", "handler.staffCarry"],
     "bay1": [
       "bay1.speed",

@@ -63,6 +63,7 @@ const STAFF_NAMES: Record<string, string> = {
   crew: 'Coaster crew',
   agent: 'Check-in agent',
   handler: 'Ground handler',
+  dispatcher: 'Ramp dispatcher',
 };
 /** The staff room opens once the register is built (minute 2). */
 const STAFF_ROOM_AFTER = 'register';

@@ -79,6 +79,18 @@
       "headline": "You’ve hired a ground handler!",
       "body": "The cases and the fuel are taken care of. All you do is open the gates and wave the planes off.",
       "speaker": "mentor",
+      "words": "Loading and fuelling sorted. Now find someone to wave them off."
+    },
+    {
+      "id": "dispatcher",
+      "when": {
+        "built": "dispatcher"
+      },
+      "shout": "New helper!",
+      "icon": "🚦",
+      "headline": "Skyport runs itself!",
+      "body": "The ramp dispatcher opens the gates and sends every flight off on time, even while you're away.",
+      "speaker": "mentor",
       "words": "A proper little airport. Bay City wants jets next, and a terminal to match."
     }
   ]

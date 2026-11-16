@@ -1,54 +1,128 @@
-// Skyport International's models, built in code in the game's toy style (the same vertex-coloured
-// material as everything else): the propeller plane, with its spinning propellers, lights and shadow;
-// the check-in hall; the air stairs, fuel truck, baggage belt and taxis; the windsock. Nothing here is
-// fetched: the airport adds no model files to the download.
+// Skyport International's models, made in Blender (art/blender/skyport_plane.py, skyport_kit.py and
+// skyport_terminal.py) and drawn here: the airliner in each airline's colours, with its propellers, doors,
+// flaps, gear, wheels and lights; the air stairs, fuel truck and baggage belt; the check-in desk, the
+// gates' podiums, the lounges' seats; the hall with its sliding doors; the airport's name; the windsock,
+// the radar and the flags. A model with moving parts is drawn as one skinned mesh (rigid.ts): one draw
+// call, its parts still turned by name. The words on signs are painted here.
 import {
   CanvasTexture,
   CircleGeometry,
-  ConeGeometry,
   CylinderGeometry,
-  ExtrudeGeometry,
   Group,
-  IcosahedronGeometry,
+  Matrix4,
   Mesh,
   MeshBasicMaterial,
+  Object3D,
   PlaneGeometry,
+  Quaternion,
   RingGeometry,
   SRGBColorSpace,
   Shape,
   ShapeGeometry,
   SphereGeometry,
+  Vector3,
   type BufferGeometry,
-  type Object3D,
 } from 'three';
-import type { AirportLayout, GateSpot, Rect, Point } from '../../core/config';
-import { cylinder, mergeParts, rbox, sphere, toyMaterial, type Part } from './build';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+import type { AirportLayout, CarDef, GateSpot, Point, Rect } from '../../core/config';
+import { asset, hasModel, plain } from '../assets';
+import { familyPainter, type PaintFamily } from '../repaint';
+import { CarModel } from './actors';
+import { mergeParts, skinnedToyMaterial, toyMaterial } from './build';
+import { rigidSkin } from './rigid';
 
 const PI = Math.PI;
 export const AIR = {
   white: '#f7f8fa',
-  glass: '#bfeef0',
   aqua: '#22c3c9',
-  aquaDeep: '#14959b',
   pink: '#ff5fa8',
   sun: '#ffd24a',
   orange: '#ff8a3d',
   navy: '#17324d',
-  red: '#e8493f',
-  purple: '#8a4fd8',
-  mint: '#7ee0c3',
-  steel: '#cfd6de',
   dark: '#3b3f4a',
-  tyre: '#2b2f38',
-  cream: '#ffe9c4',
 } as const;
 
-const mesh = (parts: Part[], cast = true): Mesh => {
-  const m = new Mesh(mergeParts(parts), toyMaterial);
-  m.castShadow = cast;
-  m.receiveShadow = true;
-  return m;
-};
+// ---- the model files -------------------------------------------------------------------------------------------
+
+/** The airport's model files (src/core/skyport.ts says where each is). */
+export const SKYPORT_FILES = [
+  'building:skyport-plane',
+  'building:skyport-apron',
+  'building:skyport-vehicles',
+  'building:skyport-hall',
+  'building:skyport-field',
+  'building:skyport-terminal',
+  'building:skyport-name',
+];
+
+/** The named model's node in whichever of the airport's files has it (not a copy). */
+export function skyPiece(name: string): Object3D {
+  for (const file of SKYPORT_FILES) {
+    const found = hasModel(file) ? asset(file).scene.getObjectByName(name) : undefined;
+    if (found) return found;
+  }
+  throw new Error(`No airport model called ${name}`);
+}
+
+/** A copy of a model, standing on its own base at the origin, casting and catching shadows. */
+export function skyModel(name: string): Object3D {
+  const copy = skyPiece(name).clone(true);
+  copy.position.set(0, 0, 0);
+  copy.traverse((node) => {
+    if (node instanceof Mesh) {
+      node.material = toyMaterial;
+      node.castShadow = true;
+      node.receiveShadow = true;
+    }
+  });
+  return copy;
+}
+
+/** Kinds of model whose shared geometry has been repainted already (by key). */
+const painted = new Set<string>();
+
+/**
+ * A copy of a model whose parts move, drawn as one skinned mesh. `key` names its geometry (copies with the
+ * same key share it); `paint` repaints that geometry the first time a key is made.
+ */
+function skyMover(name: string, key = name, paint?: (geometry: BufferGeometry) => void): Object3D {
+  const model = skyModel(name);
+  const skinned = rigidSkin(model, toyMaterial, key, skinnedToyMaterial);
+  if (skinned && paint && !painted.has(key)) {
+    paint(skinned.geometry);
+    painted.add(key);
+  }
+  return model;
+}
+
+/** A model's part by its name (an empty stand-in if it's missing, so nothing breaks). */
+function part(model: Object3D, name: string): Object3D {
+  return model.getObjectByName(name) ?? new Object3D();
+}
+
+/** One model placed many times, merged into one mesh: lamps, fences, benches. */
+export function skyCopies(name: string, at: readonly { x: number; z: number; rot?: number; scale?: number }[]): Mesh {
+  const base = skyPiece(name);
+  base.updateMatrixWorld(true);
+  const inverseBase = new Matrix4().copy(base.matrixWorld).invert();
+  const place = new Matrix4();
+  const pieces: BufferGeometry[] = [];
+  for (const p of at) {
+    place.compose(new Vector3(p.x, 0, p.z), new Quaternion().setFromAxisAngle(new Vector3(0, 1, 0), p.rot ?? 0), new Vector3().setScalar(p.scale ?? 1));
+    base.traverse((node) => {
+      if (!(node instanceof Mesh)) return;
+      const local = new Matrix4().multiplyMatrices(inverseBase, node.matrixWorld);
+      pieces.push(plain(node.geometry as BufferGeometry).applyMatrix4(new Matrix4().multiplyMatrices(place, local)));
+    });
+  }
+  const geometry = mergeGeometries(pieces);
+  for (const piece of pieces) piece.dispose();
+  if (!geometry) throw new Error(`Could not merge ${name}`);
+  const mesh = new Mesh(geometry, toyMaterial);
+  mesh.castShadow = mesh.receiveShadow = true;
+  mesh.name = name;
+  return mesh;
+}
 
 /** Words on a board (a sign's face), drawn once the game's display font is ready. */
 export function signBoard(text: string, width: number, height: number, background: string, colour = '#ffffff'): Mesh {
@@ -76,9 +150,50 @@ export function signBoard(text: string, width: number, height: number, backgroun
   return board;
 }
 
-// ---- the propeller plane -------------------------------------------------------------------------------------
+/** A sign painted onto a model's marker (its face to +z), `width` × `height` metres. */
+function signAt(model: Object3D, marker: string, text: string, width: number, height: number, background: string, colour: string): Mesh {
+  const sign = signBoard(text, width, height, background, colour);
+  const at = part(model, marker);
+  sign.position.copy(at.position);
+  at.parent?.add(sign);
+  return sign;
+}
 
-/** A wing (or tailplane) seen from above: both sides in one tapered slab, its leading edge's root at the origin. */
+// ---- the airliner ----------------------------------------------------------------------------------------------
+
+/** An airline's colours: its main colour (the tail, the cheatline, the engines' lips) and its second. */
+export interface Livery {
+  accent: string;
+  accent2: string;
+}
+export const LIVERIES: Livery[] = [
+  { accent: '#e8493f', accent2: '#ffc21a' },
+  { accent: '#ff8a3d', accent2: '#17324d' },
+  { accent: '#8a4fd8', accent2: '#ff5fa8' },
+  { accent: '#22c3c9', accent2: '#ff5fa8' },
+  { accent: '#ff5fa8', accent2: '#ffd24a' },
+  { accent: '#2c62d6', accent2: '#ffd24a' },
+];
+
+/** The marker paints the airliner is modelled in (art/blender/skyport_plane.py: ACCENT and ACCENT2). */
+const near = (hex: string): PaintFamily['test'] => {
+  const n = parseInt(hex.slice(1), 16);
+  const [r0, g0, b0] = [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+  return (r, g, b) => Math.abs(r - r0) < 9 && Math.abs(g - g0) < 9 && Math.abs(b - b0) < 9;
+};
+const PLANE_PAINTS: PaintFamily[] = [
+  { test: near('#e8493f'), base: '#e8493f' },
+  { test: near('#ffc21a'), base: '#ffc21a' },
+];
+
+/** The airliner's size (metres): nose to tail, wingtip to wingtip, how fat, how high its middle rides, its door's sill. */
+export const PROP = { length: 9, span: 10.6, radius: 0.95, ride: 1.72, sill: 1.02, wingY: 2.68 } as const;
+/** Half the fuselage's width and where it starts and ends along the plane, for what's solid when it's parked. */
+export const PROP_SOLID = { half: 1.05, tail: -4.4, nose: 4.5 } as const;
+/** Its wheels' radii: the main wheels and the nose wheel. */
+const WHEEL = { main: 0.36, nose: 0.3 } as const;
+
+/** A wing (or tailplane) seen from above: both sides in one tapered outline, its leading edge's root at the origin. */
 function wingShape(span: number, rootChord: number, tipChord: number, sweep: number): Shape {
   const s = new Shape();
   s.moveTo(0, 0);
@@ -90,146 +205,96 @@ function wingShape(span: number, rootChord: number, tipChord: number, sweep: num
   s.closePath();
   return s;
 }
-function wing(span: number, rootChord: number, tipChord: number, sweep: number, thick: number): BufferGeometry {
-  const g = new ExtrudeGeometry(wingShape(span, rootChord, tipChord, sweep), { depth: thick, bevelEnabled: false });
-  // The outline's "up" becomes forward (+z, the nose's way); the slab hangs down from y = 0.
-  g.rotateX(PI / 2);
-  return g;
-}
-/** The fin: a swept slab standing on the tail, its foot's front at the origin (z back, y up). */
-function fin(foot: number, top: number, height: number, lean: number, thick: number): BufferGeometry {
-  const s = new Shape();
-  s.moveTo(0, 0);
-  s.lineTo(-foot, 0);
-  s.lineTo(-lean - top, height);
-  s.lineTo(-lean, height);
-  s.closePath();
-  const g = new ExtrudeGeometry(s, { depth: thick, bevelEnabled: false });
-  // The outline's x becomes z; its depth, x (centred).
-  g.rotateY(-PI / 2);
-  g.translate(thick / 2, 0, 0);
-  return g;
-}
 
-/** A plane's colours: its body, and the airline's colour on its tail, stripe and tips. */
-export interface Livery {
-  body?: string;
-  accent: string;
-  tips?: string;
+/** How the airliner's moving parts stand this frame. */
+export interface PlanePose {
+  /** How hard the engines run (0 stopped, 1 flat out). */
+  engines: number;
+  /** Doors open (1) or shut (0): the passengers' door, the hold's. */
+  door: number;
+  hold: number;
+  /** Flaps down (1) or up (0); gear down (1) or folded away (0). */
+  flaps: number;
+  gear: number;
+  /** The nose wheel's turn (radians), and how far it rolled since the last frame (metres; back is less than 0). */
+  steer: number;
+  roll: number;
+  /** The taxi light on the nose leg. */
+  taxiLight: boolean;
 }
-export const LIVERIES: Livery[] = [
-  { accent: AIR.red },
-  { accent: AIR.orange },
-  { accent: AIR.purple },
-  { accent: AIR.aqua, tips: AIR.pink },
-  { accent: AIR.pink, tips: AIR.sun },
-  { accent: '#2c62d6', tips: AIR.sun },
-];
-
-/** The propeller plane's size (metres): nose to tail, wingtip to wingtip, how fat, and how high its middle rides. */
-export const PROP = { length: 9, span: 10.6, radius: 0.95, ride: 1.72, sill: 1.02, wingY: 2.62 } as const;
-/** Half the fuselage's width and where it starts and ends along the plane, for what's solid when it's parked. */
-export const PROP_SOLID = { half: 1.05, tail: -4.4, nose: 4.5 } as const;
-/** The engines: out along the wing, how far forward their propellers are, and the propeller's reach. */
-const ENGINE = { x: 2.4, z: 2.05, y: 2.22, blade: 1.02 } as const;
 
 /**
- * A twin-engined propeller plane, nose to +z, wheels on the ground at y = 0. Its wing sits on top of
- * the fuselage, high enough to walk under. The propellers spin, the beacon blinks, and a shadow in its
- * own shape lies on the ground under it (further off, and fainter, the higher it flies).
+ * The twin-propeller airliner (Blender), nose to +z, wheels on the ground at y = 0, in an airline's
+ * colours. The propellers spin (a blur over them at speed), the doors open, the flaps lower, the gear folds
+ * away after take-off and the wheels roll; the beacon blinks while the engines run, the wingtips glow red
+ * and green, the tail strobes in the air. A shadow in its own shape lies on the ground under it (further
+ * off, and fainter, the higher it flies).
  */
 export class PlaneModel {
   readonly root = new Group();
   readonly shadow: Mesh;
-  private readonly props: Group[] = [];
-  private readonly blades: Mesh[] = [];
+  private readonly props: Object3D[];
   private readonly discs: Mesh[] = [];
+  private readonly door: Object3D;
+  private readonly hold: Object3D;
+  private readonly flaps: Object3D[];
+  private readonly mainGear: Object3D[];
+  private readonly noseGear: Object3D;
+  private readonly nose: Object3D;
+  private readonly wheels: { node: Object3D; radius: number }[];
   private readonly beacon: Mesh;
-  private readonly tips: Mesh[] = [];
+  private readonly strobe: Mesh;
+  private readonly taxi: Mesh;
+  private readonly eased = { door: 0, hold: 0, flaps: 0, gear: 1 };
   private turn = 0;
   private time = Math.random() * 3;
 
   constructor(livery: Livery) {
-    const { length: len, span, radius: r, ride: y } = PROP;
-    const body = livery.body ?? AIR.white;
-    const accent = livery.accent;
-    const tips = livery.tips ?? accent;
-    const front = len / 2 - r * 1.7;
-    const rear = -1.6;
-    const parts: Part[] = [
-      // Fuselage, nose and tail cone.
-      { geometry: new CylinderGeometry(r, r, front - rear, 20), color: body, rx: PI / 2, y, z: (front + rear) / 2 },
-      { geometry: new SphereGeometry(r, 20, 14).scale(1, 1, 1.7), color: body, y, z: front },
-      { geometry: new CylinderGeometry(r, r * 0.3, len / 2 + rear, 20), color: body, rx: PI / 2, y: y + 0.28, z: (rear - len / 2) / 2 },
-      // The airline's stripe down each side, the windows over it, and the colour along its back.
-      ...[-1, 1].flatMap((side): Part[] => [
-        { geometry: rbox(0.06, 0.24, front - rear + 1.4, 0.02), color: accent, x: side * (r - 0.012), y: y - 0.02, z: (front + rear) / 2 + 0.2 },
-        ...Array.from({ length: 6 }, (_, i): Part => ({ geometry: rbox(0.06, 0.3, 0.34, 0.02), color: '#2b3a4a', x: side * (r - 0.03), y: y + 0.36, z: rear + 0.5 + i * 0.62 })),
-      ]),
-      { geometry: rbox(0.62, 0.1, front - rear + 0.6, 0.04), color: accent, y: y + r - 0.03, z: (front + rear) / 2 - 0.4 },
-      // The windscreen, the black nose.
-      { geometry: rbox(1.22, 0.42, 0.5, 0.1), color: '#2b3a4a', y: y + 0.5, z: front + 0.62, rx: -0.62 },
-      { geometry: new SphereGeometry(0.34, 12, 10).scale(1, 1, 1.2), color: '#39424e', y: y - 0.05, z: len / 2 - 0.3 },
-      // The doors: passengers on its left, in front; the hold on its right, behind the wing.
-      { geometry: rbox(0.05, 1.42, 0.82, 0.02), color: '#dfe6ee', x: r - 0.01, y: y - 0.02, z: 3.1 },
-      { geometry: rbox(0.05, 0.9, 1.1, 0.02), color: '#dfe6ee', x: -(r - 0.01), y: y - 0.28, z: -2.8 },
-      // The wing on top, coloured at its tips; the tailplane and the fin.
-      { geometry: wing(span, 1.9, 1.15, 0.28, 0.24), color: '#e9eef2', y: PROP.wingY + 0.24, z: 1.0 },
-      ...[-1, 1].map((side): Part => ({ geometry: rbox(0.5, 0.28, 1.2, 0.08), color: tips, x: side * (span / 2 - 0.22), y: PROP.wingY + 0.12, z: 0.14 })),
-      { geometry: wing(4.3, 1.15, 0.72, 0.22, 0.16), color: '#e9eef2', y: y + 0.72, z: -3.1 },
-      { geometry: fin(1.9, 0.95, 2.0, 0.85, 0.2), color: accent, y: y + 0.62, z: -2.5 },
-      // Engines under the wing, each with its wheel under it; the nose wheel.
-      ...[-1, 1].flatMap((side): Part[] => [
-        { geometry: new CylinderGeometry(0.43, 0.34, 2.1, 14), color: body, rx: PI / 2, x: side * ENGINE.x, y: ENGINE.y, z: ENGINE.z - 1.05 },
-        { geometry: new CylinderGeometry(0.445, 0.445, 0.3, 14), color: accent, rx: PI / 2, x: side * ENGINE.x, y: ENGINE.y, z: ENGINE.z - 0.2 },
-        { geometry: cylinder(0.07, ENGINE.y - 0.5, 8), color: AIR.steel, x: side * ENGINE.x, y: (ENGINE.y + 0.3) / 2, z: 0.5 },
-        { geometry: cylinder(0.36, 0.3, 14), color: AIR.tyre, rz: PI / 2, x: side * ENGINE.x, y: 0.36, z: 0.5 },
-        { geometry: cylinder(0.16, 0.32, 10), color: AIR.steel, rz: PI / 2, x: side * ENGINE.x, y: 0.36, z: 0.5 },
-      ]),
-      { geometry: cylinder(0.06, y - r - 0.2, 8), color: AIR.steel, y: (y - r + 0.3) / 2, z: 3.3 },
-      { geometry: cylinder(0.3, 0.24, 14), color: AIR.tyre, rz: PI / 2, y: 0.3, z: 3.3 },
-    ];
-    const hull = mesh(parts, false);
-    hull.name = 'plane';
-    this.root.add(hull);
+    const key = `sp_plane:${livery.accent}:${livery.accent2}`;
+    const model = skyMover('sp_plane', key, (geometry) => familyPainter(geometry, PLANE_PAINTS)([livery.accent, livery.accent2]));
+    // Its own flat shadow follows it (the sun's would be left behind on the shadow map).
+    model.traverse((node) => (node.castShadow = false));
+    this.root.add(model);
     this.root.rotation.order = 'YXZ';
+    this.props = ['l', 'r'].map((s) => part(model, `sp_plane_prop${s}`));
+    this.door = part(model, 'sp_plane_door');
+    this.hold = part(model, 'sp_plane_hold');
+    this.flaps = ['l', 'r'].map((s) => part(model, `sp_plane_flap${s}`));
+    this.mainGear = ['l', 'r'].map((s) => part(model, `sp_plane_gear${s}`));
+    this.noseGear = part(model, 'sp_plane_gearn');
+    this.nose = part(model, 'sp_plane_nose');
+    this.wheels = [
+      { node: part(model, 'sp_plane_wheel_l'), radius: WHEEL.main },
+      { node: part(model, 'sp_plane_wheel_r'), radius: WHEEL.main },
+      { node: part(model, 'sp_plane_wheel_n'), radius: WHEEL.nose },
+    ];
 
-    // Propellers: three blades each, and a blurred disc for when they're spinning fast.
-    const bladeGeometry = (): BufferGeometry =>
-      mergeParts([
-        ...[0, 1, 2].map((i): Part => ({ geometry: rbox(0.17, ENGINE.blade, 0.05, 0.02).translate(0, ENGINE.blade / 2 + 0.06, 0), color: '#39424e', rz: (i * 2 * PI) / 3 })),
-        { geometry: new ConeGeometry(0.2, 0.42, 12), color: accent, rx: PI / 2, z: 0.12 },
-      ]);
-    const discMaterial = new MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.2, depthWrite: false });
-    for (const side of [-1, 1]) {
-      const prop = new Group();
-      prop.position.set(side * ENGINE.x, ENGINE.y, ENGINE.z);
-      const blades = new Mesh(bladeGeometry(), toyMaterial);
-      const disc = new Mesh(new CircleGeometry(ENGINE.blade + 0.05, 20), discMaterial);
+    // The propellers' blur, shown over them when they're spinning fast.
+    const discMaterial = new MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.22, depthWrite: false });
+    for (const s of ['l', 'r']) {
+      const disc = new Mesh(new CircleGeometry(1.06, 24), discMaterial);
       disc.position.z = 0.02;
       disc.visible = false;
-      prop.add(blades, disc);
-      this.root.add(prop);
-      this.props.push(prop);
-      this.blades.push(blades);
+      part(model, `sp_plane_blur${s}`).add(disc);
       this.discs.push(disc);
     }
-
-    // Lights: a red beacon on its back, red on the left wingtip and green on the right.
-    this.beacon = new Mesh(new SphereGeometry(0.14, 8, 6), new MeshBasicMaterial({ color: 0xff3b30 }));
-    this.beacon.position.set(0, y + r + 0.1, -0.6);
-    this.root.add(this.beacon);
-    for (const [side, colour] of [[1, 0xff3b30], [-1, 0x35d06a]] as const) {
-      const light = new Mesh(new SphereGeometry(0.12, 8, 6), new MeshBasicMaterial({ color: colour }));
-      light.position.set(side * (span / 2 + 0.02), PROP.wingY + 0.12, 0.5);
-      this.root.add(light);
-      this.tips.push(light);
-    }
+    // Lights: the beacon on its back, red on the left wingtip and green on the right, the tail's strobe,
+    // the taxi light on the nose leg.
+    const light = (marker: string, colour: number, radius: number): Mesh => {
+      const bulb = new Mesh(new SphereGeometry(radius, 8, 6), new MeshBasicMaterial({ color: colour }));
+      part(model, marker).add(bulb);
+      return bulb;
+    };
+    this.beacon = light('sp_plane_beacon', 0xff3b30, 0.13);
+    light('sp_plane_navl', 0xff3b30, 0.11);
+    light('sp_plane_navr', 0x35d06a, 0.11);
+    this.strobe = light('sp_plane_strobe', 0xffffff, 0.14);
+    this.taxi = light('sp_plane_taxi', 0xfff6c8, 0.1);
 
     // Its shadow on the ground, in its own shape.
-    const outline = new ShapeGeometry(wingShape(span, 1.9, 1.15, 0.28)).rotateX(PI / 2).translate(0, 0, 1.0);
-    const tail = new ShapeGeometry(wingShape(4.3, 1.15, 0.72, 0.22)).rotateX(PI / 2).translate(0, 0, -3.1);
-    const trunk = new CircleGeometry(1, 20).rotateX(-PI / 2).scale(r * 0.98, 1, len / 2);
+    const outline = new ShapeGeometry(wingShape(PROP.span, 1.9, 1.15, 0.28)).rotateX(PI / 2).translate(0, 0, 1.0);
+    const tail = new ShapeGeometry(wingShape(4.3, 1.15, 0.68, 0.45)).rotateX(PI / 2).translate(0, 0, -3.5);
+    const trunk = new CircleGeometry(1, 20).rotateX(-PI / 2).scale(PROP.radius * 0.98, 1, PROP.length / 2);
     for (const g of [outline, tail, trunk]) for (const name of ['normal', 'uv']) g.deleteAttribute(name);
     const flat = mergeParts([{ geometry: outline.toNonIndexed(), color: '#000000' }, { geometry: tail.toNonIndexed(), color: '#000000' }, { geometry: trunk.toNonIndexed(), color: '#000000' }]);
     this.shadow = new Mesh(flat, new MeshBasicMaterial({ color: 0x0b1f2e, transparent: true, opacity: 0.24, depthWrite: false, side: 2 }));
@@ -237,21 +302,32 @@ export class PlaneModel {
     this.shadow.renderOrder = 1;
   }
 
-  /**
-   * One frame: `engines` is how hard they're running (0 stopped, 1 flat out). The shadow follows on
-   * the ground, slipping away from under the plane as it climbs (the sun's in the south-west).
-   */
-  update(dt: number, engines: number): void {
+  /** One frame. The shadow follows on the ground, slipping away from under the plane as it climbs (the sun's in the south-west). */
+  update(dt: number, pose: PlanePose): void {
     this.time += dt;
-    this.turn += dt * (2 + engines * 34) * Math.min(1, engines * 6);
-    const blur = engines > 0.45;
+    const ease = (from: number, to: number, rate: number): number => from + (to - from) * (1 - Math.exp(-dt * rate));
+    const e = this.eased;
+    e.door = ease(e.door, pose.door, 2.2);
+    e.hold = ease(e.hold, pose.hold, 2.2);
+    e.flaps = ease(e.flaps, pose.flaps, 1.4);
+    e.gear = ease(e.gear, pose.gear, 1.1);
+    // Propellers: a visible turn while they wind up and down, a blur over a steady whirl when they're fast.
+    const blur = pose.engines > 0.45;
+    this.turn += dt * (blur ? 9 : (2 + pose.engines * 20) * Math.min(1, pose.engines * 6));
     for (let i = 0; i < this.props.length; i++) {
       this.props[i]!.rotation.z = this.turn * (i ? 1 : -1);
-      this.blades[i]!.visible = !blur;
       this.discs[i]!.visible = blur;
     }
-    // The beacon flashes while the engines run; the wingtips glow steadily.
-    this.beacon.visible = engines > 0.02 && this.time % 1.1 < 0.16;
+    this.door.rotation.y = -2.7 * e.door;
+    this.hold.rotation.z = -1.45 * e.hold;
+    for (const flap of this.flaps) flap.rotation.x = -0.5 * e.flaps;
+    for (const gear of this.mainGear) gear.rotation.x = -1.55 * (1 - e.gear);
+    this.noseGear.rotation.x = 1.55 * (1 - e.gear);
+    this.nose.rotation.y = ease(this.nose.rotation.y, pose.steer, 6);
+    for (const wheel of this.wheels) wheel.node.rotation.x += pose.roll / wheel.radius;
+    this.beacon.visible = pose.engines > 0.02 && this.time % 1.1 < 0.16;
+    this.strobe.visible = pose.engines > 0.6 && this.time % 1.3 < 0.07;
+    this.taxi.visible = pose.taxiLight;
     const { x, y, z } = this.root.position;
     this.shadow.position.set(x + y * 0.45, 0.04, z - y * 0.25);
     this.shadow.rotation.y = this.root.rotation.y;
@@ -269,140 +345,152 @@ export class PlaneModel {
 
 /** How high the air stairs climb, and how long they are from foot to door. */
 export const STAIRS = { rise: PROP.sill, run: 3.8 } as const;
-/** Air stairs: their foot at the origin, climbing towards -x to the plane's door. */
-export function airStairs(): Mesh {
-  const steps = 6;
-  const parts: Part[] = [];
-  for (let i = 0; i < steps; i++) {
-    const h = ((i + 1) / steps) * STAIRS.rise;
-    parts.push({ geometry: rbox(0.5, h, 1.3, 0.03), color: i % 2 ? AIR.white : '#e4e9ee', x: -0.3 - i * 0.5, y: h / 2 });
-  }
-  parts.push({ geometry: rbox(0.9, STAIRS.rise, 1.3, 0.03), color: AIR.white, x: -3.35, y: STAIRS.rise / 2 });
-  for (const side of [-1, 1]) {
-    // The blue sides, a handrail on posts.
-    parts.push({ geometry: rbox(3.9, 0.5, 0.1, 0.03), color: '#2c62d6', x: -1.9, y: 0.3, z: side * 0.7 });
-    parts.push({ geometry: rbox(3.4, 0.07, 0.07, 0.02), color: AIR.sun, x: -1.55, y: STAIRS.rise / 2 + 1.05, z: side * 0.68, rz: -Math.atan2(STAIRS.rise, 3) });
-    parts.push({ geometry: rbox(0.9, 0.07, 0.07, 0.02), color: AIR.sun, x: -3.35, y: STAIRS.rise + 0.98, z: side * 0.68 });
-    for (const [x, h] of [[-0.15, 0.2], [-1.6, 0.6], [-3.0, 1.0], [-3.75, 1.0]] as const) parts.push({ geometry: cylinder(0.035, 1, 6), color: AIR.sun, x, y: h + 0.5, z: side * 0.68 });
-    for (const x of [-0.7, -3.2]) parts.push({ geometry: cylinder(0.2, 0.14, 10), color: AIR.tyre, rx: PI / 2, x, y: 0.2, z: side * 0.78 });
-  }
-  return mesh(parts);
+/** Air stairs under their canopy: their foot at the origin, climbing towards -x to the plane's door. */
+export function airStairs(): Object3D {
+  return skyModel('sp_stairs');
 }
 
-/** The fuel truck: cab to +z, a tank in the airline's aqua behind it. */
-export function fuelTruck(): Mesh {
-  return mesh([
-    { geometry: rbox(2.3, 0.5, 6.4, 0.1), color: AIR.dark, y: 0.55 },
-    { geometry: rbox(2.2, 1.7, 1.9, 0.25), color: AIR.white, y: 1.5, z: 2.2 },
-    { geometry: rbox(2.0, 0.7, 0.1, 0.03), color: '#2b3a4a', y: 1.85, z: 3.16 },
-    { geometry: new CylinderGeometry(1.08, 1.08, 4.1, 18), color: AIR.aqua, rx: PI / 2, y: 1.75, z: -0.95 },
-    ...[-2.4, -0.95, 0.5].map((z): Part => ({ geometry: new CylinderGeometry(1.11, 1.11, 0.16, 18), color: AIR.white, rx: PI / 2, y: 1.75, z })),
-    { geometry: cylinder(0.3, 0.3, 12), color: AIR.steel, y: 2.9, z: -0.95 },
-    { geometry: cylinder(0.42, 0.5, 12), color: AIR.sun, rz: PI / 2, x: 1.2, y: 1.2, z: 0.4 },
-    ...[-1, 1].flatMap((side): Part[] => [2.2, -0.6, -2.3].map((z): Part => ({ geometry: cylinder(0.42, 0.34, 12), color: AIR.tyre, rz: PI / 2, x: side * 1.02, y: 0.42, z }))),
-  ]);
+/** Wheel chocks and cones round a parked plane (its middle at the origin, nose to +z). */
+export function standKit(): Object3D {
+  const group = new Group();
+  group.add(
+    skyCopies('sp_chocks', [
+      { x: 2.4, z: 0.5, rot: PI / 2 },
+      { x: -2.4, z: 0.5, rot: PI / 2 },
+      { x: 0, z: 3.3, rot: PI / 2 },
+    ]),
+    skyCopies('sp_cone', [
+      { x: 5.75, z: 0.2 },
+      { x: -5.75, z: 0.2 },
+      { x: 0, z: -4.9 },
+    ]),
+  );
+  return group;
+}
+
+/**
+ * The fuel truck, cab to +z, its hose reel on its right (+x) side: the reel turns while it's fuelling,
+ * the amber beacon on its cab spins while it's on duty.
+ */
+export class FuelTruck {
+  readonly root: Object3D;
+  private readonly reel: Object3D;
+  private readonly beacon: Object3D;
+  private readonly nozzleAt: Object3D;
+  constructor() {
+    this.root = skyMover('sp_fuel');
+    this.reel = part(this.root, 'sp_fuel_reel');
+    this.beacon = part(this.root, 'sp_fuel_beacon');
+    this.nozzleAt = part(this.root, 'sp_fuel_nozzle');
+  }
+  /** Where the hose leaves the reel, in the world. */
+  nozzle(out: Vector3): Vector3 {
+    this.root.updateMatrixWorld(true);
+    return this.nozzleAt.getWorldPosition(out);
+  }
+  update(dt: number, onDuty: boolean, fuelling: boolean): void {
+    if (onDuty) this.beacon.rotation.y += dt * 7;
+    if (fuelling) this.reel.rotation.x -= dt * 2.4;
+  }
 }
 
 /** The hose from a fuel truck to a wing: a tube from the origin along +z, one metre long (stretched to fit). */
 export function fuelHose(): Mesh {
-  const hose = mesh([{ geometry: new CylinderGeometry(0.07, 0.07, 1, 8), color: AIR.dark, rx: PI / 2, z: 0.5 }], false);
+  const tube = new CylinderGeometry(0.07, 0.07, 1, 8, 1, true).rotateX(PI / 2).translate(0, 0, 0.5);
+  const hose = new Mesh(mergeParts([{ geometry: tube, color: '#2b2f38' }]), toyMaterial);
   hose.visible = false;
   return hose;
 }
 
-/** The baggage belt out of the hall's wall, and the cart beside it: the belt's end at the origin, the wall to +z. */
-export function baggageBelt(): Mesh {
-  return mesh([
-    { geometry: rbox(1.3, 0.7, 2.0, 0.06), color: AIR.steel, y: 0.45, z: 0.1 },
-    { geometry: rbox(1.1, 0.08, 2.0, 0.03), color: AIR.dark, y: 0.84, z: 0.1 },
-    ...[-0.8, 0.9].map((z): Part => ({ geometry: cylinder(0.12, 1.34, 8), color: '#9aa4b0', rz: PI / 2, y: 0.84, z })),
-    // The flap in the wall the cases come through.
-    { geometry: rbox(1.6, 1.3, 0.2, 0.05), color: AIR.navy, y: 1.0, z: 1.05 },
-    ...[-0.45, -0.15, 0.15, 0.45].map((x): Part => ({ geometry: rbox(0.26, 0.9, 0.06, 0.02), color: AIR.sun, x, y: 0.95, z: 0.93 })),
-    // The cart: a flat bed with a tow bar.
-    { geometry: rbox(1.9, 0.2, 2.5, 0.06), color: '#9aa4b0', y: 0.5, z: -2.0 },
-    { geometry: rbox(1.9, 0.5, 0.1, 0.03), color: AIR.sun, y: 0.8, z: -3.2 },
-    { geometry: rbox(0.12, 0.12, 1.0, 0.03), color: AIR.dark, y: 0.45, z: -3.7 },
-    ...[-1, 1].flatMap((side): Part[] => [-1.2, -2.8].map((z): Part => ({ geometry: cylinder(0.26, 0.2, 10), color: AIR.tyre, rz: PI / 2, x: side * 0.9, y: 0.26, z }))),
-  ]);
+/**
+ * The baggage hatch in the hall's north wall, its belt and the cart beyond it with its tug: the belt's end
+ * at the origin, the wall to +z. While cases are coming the slats run and the hatch's rubber flaps swing.
+ */
+export class BaggageBelt {
+  readonly root: Object3D;
+  private readonly flaps: Object3D[];
+  private readonly slats: Object3D;
+  private readonly slatsZ: number;
+  private run = 0;
+  private time = 0;
+  constructor() {
+    this.root = skyMover('sp_belt');
+    this.flaps = [0, 1, 2, 3].map((k) => part(this.root, `sp_belt_flap${k}`));
+    this.slats = part(this.root, 'sp_belt_slats');
+    this.slatsZ = this.slats.position.z;
+  }
+  update(dt: number, running: boolean): void {
+    this.time += dt;
+    if (running) this.run = (this.run + dt * 0.7) % 0.25;
+    this.slats.position.z = this.slatsZ - this.run;
+    this.flaps.forEach((flap, k) => {
+      const swing = running ? 0.35 * Math.max(0, Math.sin(this.time * 4.5 + k * 1.3)) : 0;
+      flap.rotation.x += (swing - flap.rotation.x) * Math.min(1, dt * 8);
+    });
+  }
 }
 
-/** A suitcase, standing: for the cart's pile and the hold. */
-export function caseParts(colour: string): Part[] {
-  return [
-    { geometry: rbox(0.5, 0.36, 0.7, 0.07), color: colour, y: 0.18 },
-    { geometry: rbox(0.52, 0.06, 0.1, 0.02), color: AIR.white, y: 0.18, z: 0.18 },
-    { geometry: rbox(0.52, 0.06, 0.1, 0.02), color: AIR.white, y: 0.18, z: -0.18 },
-    { geometry: rbox(0.2, 0.05, 0.06, 0.02), color: AIR.dark, y: 0.38 },
-  ];
-}
-const CASE_COLOURS = [AIR.pink, AIR.aqua, AIR.sun, AIR.orange, AIR.purple, AIR.mint];
-/** Cases piled on the belt's cart: `count` of them shown (up to 12). */
+/** Cases piled on the belt's cart (art/blender: sp_case0..5): `count` of them shown, up to 12, as one mesh. */
 export class CasePile {
-  readonly root = new Group();
-  private readonly cases: Mesh[] = [];
+  readonly root: Mesh;
+  private readonly ends: number[] = [0];
   constructor() {
+    const pieces: BufferGeometry[] = [];
+    const place = new Matrix4();
     for (let i = 0; i < 12; i++) {
-      const c = mesh(caseParts(CASE_COLOURS[i % CASE_COLOURS.length]!), false);
-      c.position.set(i % 2 ? 0.42 : -0.42, 0.6 + Math.floor(i / 6) * 0.38, -1.1 - (Math.floor(i / 2) % 3) * 0.8);
-      c.rotation.y = (i * 1.7) % 0.5 - 0.25;
-      c.visible = false;
-      this.cases.push(c);
-      this.root.add(c);
+      const base = skyPiece(`sp_case${i % 6}`);
+      base.updateMatrixWorld(true);
+      const inverse = new Matrix4().copy(base.matrixWorld).invert();
+      place.compose(
+        new Vector3(i % 2 ? 0.42 : -0.42, 0.6 + Math.floor(i / 6) * 0.33, -1.1 - (Math.floor(i / 2) % 3) * 0.8),
+        new Quaternion().setFromAxisAngle(new Vector3(0, 1, 0), ((i * 1.7) % 0.5) - 0.25),
+        new Vector3(1, 1, 1),
+      );
+      const parts: BufferGeometry[] = [];
+      base.traverse((node) => {
+        if (node instanceof Mesh) parts.push(plain(node.geometry as BufferGeometry).applyMatrix4(new Matrix4().multiplyMatrices(place, new Matrix4().multiplyMatrices(inverse, node.matrixWorld))));
+      });
+      const one = parts.length === 1 ? parts[0]! : mergeGeometries(parts)!;
+      pieces.push(one);
+      this.ends.push(this.ends.at(-1)! + (one.index ? one.index.count : one.getAttribute('position').count));
     }
+    this.root = new Mesh(mergeGeometries(pieces)!, toyMaterial);
+    this.root.receiveShadow = true;
+    this.show(0);
   }
   show(count: number): void {
-    for (let i = 0; i < this.cases.length; i++) this.cases[i]!.visible = i < count;
+    const n = Math.max(0, Math.min(12, count));
+    this.root.geometry.setDrawRange(0, this.ends[n]!);
+    this.root.visible = n > 0;
   }
 }
 
 // ---- the check-in hall -----------------------------------------------------------------------------------------
 
-/** The check-in desk, its window to +z: counter, screen, scale, and a sign over it on two posts. */
+/** The check-in desk, its window to +z, with its sign painted; the belt barriers along its line. */
 export function checkinDesk(): Object3D {
-  const group = new Group();
-  group.add(
-    mesh([
-      { geometry: rbox(3.0, 1.05, 0.9, 0.1), color: '#2c62d6', y: 0.53 },
-      { geometry: rbox(3.14, 0.1, 1.04, 0.04), color: AIR.white, y: 1.1 },
-      { geometry: rbox(2.6, 0.18, 0.06, 0.02), color: AIR.sun, y: 0.75, z: 0.47 },
-      { geometry: rbox(0.6, 0.42, 0.08, 0.03), color: AIR.dark, x: -0.7, y: 1.42, z: -0.15, rx: -0.2 },
-      { geometry: rbox(0.1, 0.2, 0.1, 0.02), color: AIR.dark, x: -0.7, y: 1.2, z: -0.2 },
-      // The scale for cases, beside the desk.
-      { geometry: rbox(1.0, 0.24, 0.9, 0.05), color: AIR.steel, x: 2.1, y: 0.12 },
-      { geometry: rbox(0.86, 0.04, 0.76, 0.02), color: AIR.dark, x: 2.1, y: 0.25 },
-      ...[-1.9, 1.9].map((x): Part => ({ geometry: cylinder(0.08, 3.3, 8), color: AIR.white, x, y: 1.65, z: -0.6 })),
-      { geometry: rbox(4.1, 0.9, 0.16, 0.05), color: AIR.navy, y: 3.2, z: -0.6 },
-    ]),
-  );
-  const sign = signBoard('CHECK-IN', 3.9, 0.7, AIR.navy, AIR.sun);
-  sign.position.set(0, 3.2, -0.51);
-  group.add(sign);
-  return group;
+  const desk = skyModel('sp_desk');
+  signAt(desk, 'sp_desk_sign', 'CHECK-IN', 4.0, 0.78, AIR.navy, AIR.sun);
+  const queue = skyModel('sp_queue');
+  queue.position.z = 1.0;
+  desk.add(queue);
+  return desk;
 }
 
-/** A gate's podium: where whoever opens the gate stands (behind it, to -z), a screen on top. */
-export function podium(): Mesh {
-  return mesh([
-    { geometry: rbox(1.3, 1.05, 0.6, 0.08), color: AIR.aqua, y: 0.53 },
-    { geometry: rbox(1.4, 0.08, 0.7, 0.03), color: AIR.white, y: 1.1 },
-    { geometry: rbox(0.5, 0.36, 0.06, 0.02), color: AIR.dark, y: 1.38, z: -0.05, rx: 0.2 },
-  ]);
+/** A gate's podium: whoever opens the gate stands in front of it (+z), its screen towards them. */
+export function podium(): Object3D {
+  return skyModel('sp_podium');
 }
 
-/** Rows of seats filling a lounge. */
-export function loungeSeats(lounge: Rect): Mesh {
-  const parts: Part[] = [];
+/** Rows of seats filling a lounge: two beams of four in each row, two rows (the front navy, the back teal). */
+export function loungeSeats(lounge: Rect): Object3D {
   const cx = (lounge.minX + lounge.maxX) / 2;
-  for (const [z, colour] of [[lounge.minZ + 1.0, AIR.navy], [lounge.minZ + 2.9, AIR.aquaDeep]] as const) {
-    for (const off of [-2.6, 2.3]) {
-      parts.push({ geometry: rbox(3.6, 0.16, 0.7, 0.06), color: colour, x: cx + off, y: 0.46, z });
-      parts.push({ geometry: rbox(3.6, 0.62, 0.14, 0.05), color: colour, x: cx + off, y: 0.82, z: z - 0.34 });
-      for (const leg of [-1.5, 1.5]) parts.push({ geometry: cylinder(0.05, 0.4, 6), color: AIR.steel, x: cx + off + leg, y: 0.2, z });
-      for (let i = 0; i < 4; i++) parts.push({ geometry: rbox(0.04, 0.3, 0.6, 0.01), color: AIR.steel, x: cx + off - 1.8 + i * 1.2, y: 0.62, z });
-    }
+  const group = new Group();
+  for (const [row, name] of [[0, 'sp_seats_a'], [1, 'sp_seats_b']] as const) {
+    const z = lounge.minZ + (row ? 2.9 : 1.0) + 0.08;
+    group.add(skyCopies(name, [{ x: cx - 2.6, z }, { x: cx + 2.3, z }]));
   }
-  return mesh(parts);
+  return group;
 }
 /** Where people sit in a lounge with seats: spot `i` of 16. */
 export function seatAt(lounge: Rect, i: number): { x: number; z: number } {
@@ -432,139 +520,129 @@ export function hallWalls(layout: AirportLayout): Rect[] {
   return rects;
 }
 
-/**
- * The check-in hall: open to the sky, so the camera always sees inside. Low glass walls, white columns
- * and beams, a canopy with the airport's name over the door, an arch with its number at each gate, and
- * striped boards along the east end where the terminal will be built.
- */
-/** Where the airport's name board stands, on the plaza beside the entrance. */
+/** Where the airport's name stands, on the plaza beside the entrance. */
 export function entranceSign(layout: AirportLayout): Point {
   return { x: layout.entrance.x - 9.4, z: layout.hall.maxZ + 3.4 };
 }
 
-export function hallModel(layout: AirportLayout): Object3D {
-  const { hall, entrance } = layout;
-  const group = new Group();
-  const parts: Part[] = [];
-  const wallH = 1.35;
-  const walls = hallWalls(layout);
-  walls.forEach((w, i) => {
-    const east = i === walls.length - 1;
-    const width = w.maxX - w.minX;
-    const depth = w.maxZ - w.minZ;
-    if (east) {
-      // Hoarding: orange and white stripes.
-      const n = Math.round(depth / 1.6);
-      for (let k = 0; k < n; k++) parts.push({ geometry: rbox(0.3, 2.2, depth / n, 0.02), color: k % 2 ? AIR.white : AIR.orange, x: (w.minX + w.maxX) / 2, y: 1.1, z: w.minZ + (k + 0.5) * (depth / n) });
-      return;
-    }
-    parts.push({ geometry: rbox(Math.max(0.5, width), wallH, Math.max(0.5, depth), 0.08), color: AIR.glass, x: (w.minX + w.maxX) / 2, y: wallH / 2, z: (w.minZ + w.maxZ) / 2 });
-    parts.push({ geometry: rbox(Math.max(0.7, width + 0.16), 0.14, Math.max(0.7, depth + 0.16), 0.05), color: AIR.white, x: (w.minX + w.maxX) / 2, y: wallH + 0.05, z: (w.minZ + w.maxZ) / 2 });
-  });
-  // Posts down both long sides, each with an aqua cap and a lamp (the hall's open to the sky: a roof would
-  // hide what's under and behind it).
-  const bays = 6;
-  for (let i = 0; i <= bays; i++) {
-    const x = hall.minX + (i * (hall.maxX - hall.minX)) / bays;
-    for (const z of [hall.minZ, hall.maxZ]) {
-      // (None in a doorway.)
-      if (Math.abs(x - entrance.x) < 2.2 && z === hall.maxZ) continue;
-      if (z === hall.minZ && Object.values(layout.gates).some((gate) => Math.abs(x - gate.door.x) < 2.2)) continue;
-      parts.push({ geometry: rbox(0.6, 2.3, 0.6, 0.1), color: AIR.white, x, y: 1.15, z });
-      parts.push({ geometry: rbox(0.78, 0.22, 0.78, 0.06), color: AIR.aqua, x, y: 2.36, z });
-      parts.push({ geometry: sphere(0.24, 10), color: '#fff3b8', x, y: 2.66, z });
-    }
+/**
+ * The check-in hall (built where it stands): glass walls, lamp columns, a portal with its sign over each
+ * gate's door, the entrance with its sliding doors (they open as anyone comes near), the hoarding where the
+ * new terminal will go.
+ */
+export class Hall {
+  readonly root: Object3D;
+  private readonly doors: { node: Object3D; x: number; side: number }[];
+  private open = 0;
+  constructor(private readonly layout: AirportLayout) {
+    this.root = skyMover('sp_hall');
+    Object.keys(layout.gates).forEach((key, i) => signAt(this.root, `sp_hall_${key}`, `GATE ${i + 1}`, 3.5, 0.78, AIR.navy, AIR.sun));
+    signAt(this.root, 'sp_hall_entry', 'DEPARTURES', 5.3, 0.62, AIR.navy, '#ffffff');
+    this.doors = [
+      { node: part(this.root, 'sp_hall_doorl'), x: 0, side: -1 },
+      { node: part(this.root, 'sp_hall_doorr'), x: 0, side: 1 },
+    ];
+    for (const door of this.doors) door.x = door.node.position.x;
   }
-  // An arch over each gate's door.
-  for (const gate of Object.values(layout.gates)) {
-    for (const side of [-1, 1]) parts.push({ geometry: rbox(0.3, 3.1, 0.3, 0.06), color: AIR.navy, x: gate.door.x + side * 1.6, y: 1.55, z: hall.minZ });
-    parts.push({ geometry: rbox(3.5, 0.9, 0.3, 0.08), color: AIR.navy, x: gate.door.x, y: 3.3, z: hall.minZ });
+  /** The doors slide open while anyone's within a step or two of them. */
+  update(dt: number, near: readonly Point[]): void {
+    const { entrance, hall } = this.layout;
+    const someone = near.some((p) => Math.abs(p.x - entrance.x) < 3.2 && Math.abs(p.z - hall.maxZ) < 2.4);
+    this.open += ((someone ? 1 : 0) - this.open) * Math.min(1, dt * 5);
+    for (const door of this.doors) door.node.position.x = door.x + door.side * 1.2 * this.open;
   }
-  // Plants in the corners.
-  for (const [x, z] of [[hall.minX + 1, hall.maxZ - 1], [hall.maxX - 1.1, hall.maxZ - 1], [hall.maxX - 1.1, hall.minZ + 6.2], [hall.minX + 1, hall.minZ + 6.2]] as const) {
-    parts.push({ geometry: cylinder(0.42, 0.6, 10), color: AIR.cream, x, y: 0.3, z });
-    parts.push({ geometry: new IcosahedronGeometry(0.72, 0), color: '#5fb84f', x, y: 1.15, z });
+}
+
+/** The airport's name in big letters on its plinth, a little plane circling over it. */
+export class NameSign {
+  readonly root: Object3D;
+  private readonly plane: Object3D;
+  constructor() {
+    this.root = skyMover('sp_name');
+    this.plane = part(this.root, 'sp_name_plane');
   }
-  // An open frame over the entrance, on four posts (open, so the line under it can be seen), and the
-  // airport's name on a board beside it.
-  const cz = hall.maxZ + 2.7;
-  for (const dz of [-2.4, 2.4]) parts.push({ geometry: rbox(10.4, 0.3, 0.34, 0.08), color: AIR.aqua, x: entrance.x, y: 4.5, z: cz + dz });
-  for (const dx of [-5, 5]) parts.push({ geometry: rbox(0.34, 0.3, 5.1, 0.08), color: AIR.aqua, x: entrance.x + dx, y: 4.5, z: cz });
-  for (const dx of [-2.5, 0, 2.5]) parts.push({ geometry: rbox(0.14, 0.16, 4.8, 0.04), color: AIR.white, x: entrance.x + dx, y: 4.5, z: cz });
-  for (const dx of [-5, 5]) for (const dz of [-2.4, 2.4]) parts.push({ geometry: cylinder(0.2, 4.4, 8), color: AIR.white, x: entrance.x + dx, y: 2.2, z: cz + dz });
-  const board = entranceSign(layout);
-  parts.push({ geometry: rbox(7.4, 1.5, 0.34, 0.1), color: AIR.navy, x: board.x, y: 1.75, z: board.z });
-  parts.push({ geometry: rbox(7.7, 0.3, 0.6, 0.08), color: AIR.aqua, x: board.x, y: 2.6, z: board.z });
-  for (const dx of [-3, 3]) parts.push({ geometry: rbox(0.4, 1.1, 0.4, 0.06), color: AIR.white, x: board.x + dx, y: 0.55, z: board.z });
-  group.add(mesh(parts));
-  const name = signBoard('SKYPORT', 7, 1.2, AIR.navy, '#ffffff');
-  name.position.set(board.x, 1.75, board.z + 0.18);
-  group.add(name);
-  Object.values(layout.gates).forEach((gate, i) => {
-    const number = signBoard(`GATE ${i + 1}`, 3.3, 0.7, AIR.navy, AIR.sun);
-    number.position.set(gate.door.x, 3.3, hall.minZ + 0.16);
-    number.name = `sign:gate${i + 1}`;
-    group.add(number);
-  });
-  return group;
+  update(dt: number): void {
+    this.plane.rotation.y -= dt * 0.9;
+  }
 }
 
 /** A barrier across a gate's door until the gate is bought. */
-export function gateBarrier(gate: GateSpot): Mesh {
-  const barrier = mesh([
-    { geometry: rbox(3.0, 0.9, 0.16, 0.04), color: AIR.orange, y: 0.75 },
-    ...[-1, 0, 1].map((i): Part => ({ geometry: rbox(0.5, 0.92, 0.18, 0.04), color: AIR.white, x: i * 1.0, y: 0.75 })),
-    ...[-1.4, 1.4].map((x): Part => ({ geometry: rbox(0.2, 1.1, 0.5, 0.04), color: AIR.dark, x, y: 0.55 })),
-  ]);
+export function gateBarrier(gate: GateSpot): Object3D {
+  const barrier = skyModel('sp_barrier');
   barrier.position.set(gate.door.x, 0, gate.door.z);
   return barrier;
 }
 
 // ---- outside ---------------------------------------------------------------------------------------------------
 
-/** A taxi, its nose to +x. */
-export function taxiModel(): Mesh {
-  return mesh(
-    [
-      { geometry: rbox(3.7, 0.75, 1.75, 0.2), color: AIR.sun, y: 0.62 },
-      { geometry: rbox(1.9, 0.62, 1.52, 0.2), color: '#cfe9f2', x: -0.15, y: 1.2 },
-      { geometry: rbox(1.7, 0.08, 1.4, 0.03), color: AIR.sun, x: -0.15, y: 1.54 },
-      { geometry: rbox(0.6, 0.22, 0.3, 0.05), color: AIR.dark, x: -0.15, y: 1.7 },
-      ...[-1, 1].flatMap((side): Part[] => [-1.15, 1.15].map((x): Part => ({ geometry: cylinder(0.33, 0.26, 12), color: AIR.tyre, rx: PI / 2, x, y: 0.33, z: side * 0.82 }))),
-      ...[-1, 1].map((side): Part => ({ geometry: rbox(3.72, 0.16, 0.02, 0.01), color: AIR.dark, y: 0.72, z: side * 0.885 })),
-    ],
-    false,
-  );
+/** A taxi (the town's yellow cab, art/blender/cars_special.py), nose to +z; its wheels roll as it drives. */
+export function taxiCar(): CarModel {
+  const car = new CarModel();
+  car.setType({ id: 'taxi', name: 'Taxi', model: 'taxi', scale: 0.92, size: [1.58, 1.38, 3.42], paints: ['#ffd24a'] } as unknown as CarDef);
+  return car;
 }
 
-/** A windsock on its pole: the sock swings round with the wind and lifts as it blows. */
+/** The windsock: the sock turns into the wind and its rings swing as it blows. */
 export class Windsock {
-  readonly root = new Group();
-  private readonly sock = new Group();
-  private time = 0;
+  readonly root: Object3D;
+  private readonly sock: Object3D;
+  private readonly rings: Object3D[];
+  private time = Math.random() * 10;
   constructor() {
-    this.root.add(mesh([{ geometry: cylinder(0.1, 5.2, 8), color: AIR.white, y: 2.6 }, { geometry: sphere(0.16, 8), color: AIR.orange, y: 5.25 }]));
-    const sock = mesh(
-      [0, 1, 2, 3].map((i): Part => ({ geometry: new CylinderGeometry(0.52 - i * 0.09, 0.43 - i * 0.09, 0.7, 12, 1, true), color: i % 2 ? AIR.white : AIR.orange, rz: -PI / 2, x: 0.35 + i * 0.7 })),
-      false,
-    );
-    this.sock.add(sock);
-    this.sock.position.y = 4.9;
-    this.root.add(this.sock);
+    this.root = skyMover('sp_windsock');
+    this.sock = part(this.root, 'sp_windsock_sock');
+    this.rings = [0, 1, 2, 3].map((k) => part(this.root, `sp_windsock_ring${k}`));
   }
   update(dt: number): void {
     this.time += dt;
-    this.sock.rotation.y = 0.5 + Math.sin(this.time * 0.35) * 0.35 + Math.sin(this.time * 1.9) * 0.06;
-    this.sock.rotation.z = -0.22 + Math.sin(this.time * 2.6) * 0.07;
+    const t = this.time;
+    this.sock.rotation.y = 0.5 + Math.sin(t * 0.35) * 0.35 + Math.sin(t * 1.9) * 0.06;
+    this.rings.forEach((ring, k) => {
+      ring.rotation.z = -0.05 - k * 0.025 + Math.sin(t * 2.6 - k * 0.8) * 0.05;
+      ring.rotation.y = Math.sin(t * 3.1 - k * 0.9) * 0.07;
+    });
   }
 }
 
-/** A low-poly tree. */
-export function treeParts(x: number, z: number, size = 1): Part[] {
-  return [
-    { geometry: cylinder(0.3 * size, 1.7 * size, 6), color: '#8a5a33', x, y: 0.85 * size, z },
-    { geometry: new IcosahedronGeometry(1.75 * size, 0), color: ['#4fb55a', '#5fc468', '#45a851'][Math.abs(Math.round(x * 3 + z)) % 3]!, x, y: 3.0 * size, z, ry: (x + z) % 3 },
-  ];
+/** The radar on its hut: the dish goes round. */
+export class Radar {
+  readonly root: Object3D;
+  private readonly dish: Object3D;
+  constructor() {
+    this.root = skyMover('sp_radar');
+    this.dish = part(this.root, 'sp_radar_dish');
+  }
+  update(dt: number): void {
+    this.dish.rotation.y += dt * 1.1;
+  }
+}
+
+/** A flag on its pole: its four strips wave, each a moment after the last. */
+export class Flag {
+  readonly root: Object3D;
+  private readonly strips: Object3D[];
+  private time = Math.random() * 10;
+  constructor() {
+    this.root = skyMover('sp_flag');
+    this.strips = [0, 1, 2, 3].map((k) => part(this.root, `sp_flag_s${k}`));
+  }
+  update(dt: number): void {
+    this.time += dt;
+    this.strips.forEach((strip, k) => (strip.rotation.y = Math.sin(this.time * 3.4 - k * 1.1) * (0.18 + k * 0.05)));
+  }
+}
+
+/** A little single-engined plane on the grass, its propeller ticking over (or still). */
+export class LightPlane {
+  readonly root: Object3D;
+  private readonly prop: Object3D;
+  constructor(private readonly running: boolean) {
+    this.root = skyMover('sp_gaplane');
+    this.prop = part(this.root, 'sp_gaplane_prop');
+  }
+  update(dt: number): void {
+    if (this.running) this.prop.rotation.z += dt * 14;
+  }
 }
 
 /**

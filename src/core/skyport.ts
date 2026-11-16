@@ -14,6 +14,15 @@ export const SKYPORT: AirportTown = {
   pads: pads as PadDef[],
   goals: goals as GoalsData,
   story: story as StoryData,
-  // Everything here is built in code (render/models/airport.ts): no model files to fetch.
-  models: {},
+  // Made in Blender (art/blender/skyport_*.py), each file under 512 KiB; the taxis are the town's cabs.
+  models: {
+    'building:skyport-plane': 'models/buildings/skyport-plane.glb',
+    'building:skyport-apron': 'models/buildings/skyport-apron.glb',
+    'building:skyport-vehicles': 'models/buildings/skyport-vehicles.glb',
+    'building:skyport-hall': 'models/buildings/skyport-hall.glb',
+    'building:skyport-field': 'models/buildings/skyport-field.glb',
+    'building:skyport-terminal': 'models/buildings/skyport-terminal.glb',
+    'building:skyport-name': 'models/buildings/skyport-name.glb',
+    'cars:special-taxi': 'models/cars/special-taxi.glb',
+  },
 };

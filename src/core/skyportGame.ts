@@ -32,8 +32,12 @@ import { Ambience, airfield as airfieldGround } from '../render/airfield';
 import { loadPeople } from '../render/assets';
 import { blobShadows } from '../render/models/actors';
 import {
+  BaggageBelt,
   CasePile,
+  FuelTruck,
+  Hall,
   LIVERIES,
+  NameSign,
   PROP,
   PROP_SOLID,
   PlaneModel,
@@ -41,19 +45,20 @@ import {
   TimingRing,
   Windsock,
   airStairs,
-  baggageBelt,
   checkinDesk,
   entranceSign,
   fuelHose,
-  fuelTruck,
   gateBarrier,
-  hallModel,
   hallWalls,
   loungeSeats,
   podium,
   seatAt,
-  taxiModel,
+  standKit,
+  taxiCar,
+  type PlanePose,
 } from '../render/models/airport';
+import { SkyportScenery } from '../render/skyportScenery';
+import type { CarModel } from '../render/models/actors';
 import { PadModel } from '../render/models/padModel';
 import { PersonAvatar } from '../render/models/person';
 import { TownDecor } from '../render/townDecor';
@@ -100,6 +105,12 @@ const SHOW_AFTER_SECONDS = 0.6;
 /** Sounds are full within this far of the hero (metres) and die away over the next stretch. */
 const HEAR_NEAR = 16;
 const HEAR_FADE = 60;
+/** What the ramp dispatcher's doing. */
+type DispatchJob = 'idle' | 'toGate' | 'toPad' | 'home';
+/** The ramp dispatcher waits this long before stepping in (seconds): the hero's chance to do it. */
+const DISPATCH_WAIT = 1.6;
+/** The service road the dispatcher walks along, between the stands and the hall (z). */
+const DISPATCH_ROAD_Z = 9.0;
 /** Where taxis come from and go to along the road (x, off the screen either side). */
 const TAXI_FROM = 46;
 const TAXI_TO = -62;
@@ -126,7 +137,7 @@ const around = (at: Point, hw: number, hd = hw): Rect => ({ minX: at.x - hw, max
 
 /** A taxi on the road in front: it pulls up, sets its passengers down one by one, and drives off. */
 interface Taxi {
-  mesh: Object3D;
+  car: CarModel;
   state: 'away' | 'in' | 'stop' | 'out';
   x: number;
   kerb: Point;
@@ -175,6 +186,8 @@ class CrewMember {
 /** What's drawn for a flight: its plane, and the label over it (its clock, and how its turnaround's going). */
 interface FlightView {
   model: PlaneModel;
+  /** Where it was and which way it faced last frame (to roll its wheels and steer its nose wheel). */
+  last: { x: number; z: number; heading: number } | null;
   label: Label;
   at: Vector3;
   shown: string;
@@ -190,8 +203,10 @@ interface GateView {
   fuelPad: PadModel;
   holdPad: PadModel;
   doorLabel: Label;
-  truck: Object3D | null;
+  truck: FuelTruck | null;
   hose: Object3D | null;
+  /** Chocks at its wheels and cones off its wingtips while a plane's parked. */
+  kit: Object3D;
   /** The hero was on the ramp pad last frame, and for how long while the plane's been ready. */
   onPad: boolean;
   stood: number;
@@ -233,7 +248,14 @@ export function createSkyportGame(
   stage.scene.add(airfieldGround(layout));
   const ambience = new Ambience(stage.scene, layout);
   ambience.onOverhead = () => sound.play('whoosh', 0.22);
-  stage.scene.add(withShadows(hallModel(layout)));
+  const hall = new Hall(layout);
+  stage.scene.add(hall.root);
+  const nameSign = new NameSign();
+  const nameAt = entranceSign(layout);
+  nameSign.root.position.set(nameAt.x, 0, nameAt.z);
+  stage.scene.add(nameSign.root);
+  const scenery = new SkyportScenery(layout);
+  stage.scene.add(scenery.group);
   const desk = checkinDesk();
   desk.position.set(layout.desk.at.x, 0, layout.desk.at.z);
   stage.scene.add(withShadows(desk));
@@ -373,9 +395,11 @@ export function createSkyportGame(
     },
   });
 
-  // The crew: the check-in agent behind the desk, the ground handler out on the apron.
+  // The crew: the check-in agent behind the desk, the ground handler out on the apron, the ramp dispatcher
+  // who opens the gates and waves the planes off.
   let agent: CrewMember | null = null;
   let handler: (CrewMember & { carrier: Carrier<'case'>; job: 'idle' | 'toBelt' | 'toHold' | 'toFuel' | 'fuelling' | 'home'; flight: Flight | null; wait: number }) | null = null;
+  let dispatcher: (CrewMember & { job: DispatchJob; gate: GateView | null }) | null = null;
   const hire = (id: string): void => {
     if (!peopleReady) return;
     if (id === 'agent' && !agent) {
@@ -394,6 +418,11 @@ export function createSkyportGame(
         flight: null,
         wait: 0,
       });
+    }
+    if (id === 'dispatcher' && !dispatcher) {
+      const avatar = new PersonAvatar(CHARACTERS.staff.dispatcher);
+      stage.scene.add(avatar.root);
+      dispatcher = Object.assign(new CrewMember(avatar, layout.staffSpots.dispatcher ?? layout.belt.at), { job: 'idle' as DispatchJob, gate: null as GateView | null });
     }
   };
 
@@ -415,8 +444,9 @@ export function createSkyportGame(
   };
   const addTruck = (gate: GateView, animate: boolean): void => {
     if (gate.truck) return;
-    gate.truck = show(fuelTruck(), animate);
-    gate.truck.position.set(gate.spot.truck.x, 0, gate.spot.truck.z);
+    gate.truck = new FuelTruck();
+    show(gate.truck.root, animate);
+    gate.truck.root.position.set(gate.spot.truck.x, 0, gate.spot.truck.z);
     gate.hose = fuelHose();
     stage.scene.add(gate.hose);
     solids.push({ minX: gate.spot.truck.x - 1.2, maxX: gate.spot.truck.x + 1.2, minZ: gate.spot.truck.z - 3.2, maxZ: gate.spot.truck.z + 3.2 });
@@ -443,7 +473,11 @@ export function createSkyportGame(
     door.innerHTML = rich(`🚪 ${t('gateClosed')}`);
     const doorLabel = labels.add(door, new Vector3(spot.podium.x, 2.6, spot.podium.z));
     doorLabel.visible = false;
-    const gate: GateView = { key, spot, pad, ring, fuelPad: spotPad(spot.fuelSpot, 1.5, 0xff8a3d), holdPad: spotPad(spot.hold, 1.5, 0xff5fa8), doorLabel, truck: null, hose: null, onPad: false, stood: 0 };
+    const kit = standKit();
+    kit.position.set(spot.x, 0, spot.noseZ - PROP.length / 2);
+    kit.visible = false;
+    stage.scene.add(kit);
+    const gate: GateView = { key, spot, pad, ring, fuelPad: spotPad(spot.fuelSpot, 1.5, 0xff8a3d), holdPad: spotPad(spot.hold, 1.5, 0xff5fa8), doorLabel, truck: null, hose: null, kit, onPad: false, stood: 0 };
     gates.push(gate);
     if (built('fuel')) addTruck(gate, animate);
     if (built('seats')) addSeats(spot, animate);
@@ -451,7 +485,7 @@ export function createSkyportGame(
     airfield.openGate(key, animate ? 2 : gates.length === 1 ? 0 : 6);
   };
 
-  let belt: Object3D | null = null;
+  let belt: BaggageBelt | null = null;
   const casePile = new CasePile();
   const addBuilt = (id: string, animate: boolean): void => {
     const effects_ = current.pads.find((p) => p.id === id)?.effects;
@@ -463,8 +497,9 @@ export function createSkyportGame(
       passengers.reseat();
     }
     if (effects_?.bags && !belt) {
-      belt = show(baggageBelt(), animate);
-      belt.position.set(layout.belt.at.x, 0, layout.belt.at.z);
+      belt = new BaggageBelt();
+      show(belt.root, animate);
+      belt.root.position.set(layout.belt.at.x, 0, layout.belt.at.z);
       casePile.root.position.set(layout.belt.at.x, 0, layout.belt.at.z);
       stage.scene.add(casePile.root);
       solids.push({ minX: layout.belt.at.x - 0.7, maxX: layout.belt.at.x + 0.7, minZ: layout.belt.at.z - 0.2, maxZ: layout.belt.at.z + 1.2 });
@@ -478,7 +513,7 @@ export function createSkyportGame(
   // The first plane's on short final as the hero arrives.
   if (built('gate1')) airfield.send('gate1', 0.5);
 
-  void loadPeople([...CHARACTERS.visitors, CHARACTERS.staff.seller, CHARACTERS.staff.attendant]).then(() => {
+  void loadPeople([...CHARACTERS.visitors, CHARACTERS.staff.seller, CHARACTERS.staff.attendant, CHARACTERS.staff.dispatcher]).then(() => {
     peopleReady = true;
     for (const id of state.unlocked) hire(id);
     // A few are already in line.
@@ -533,11 +568,12 @@ export function createSkyportGame(
   // Taxis on the road in front.
   // (Two to each stopping place: the next pulls in as the one before pulls out.)
   const taxis: Taxi[] = [...layout.kerb, ...layout.kerb].map((kerb) => {
-    const mesh = taxiModel();
-    mesh.visible = false;
-    mesh.rotation.y = Math.PI;
-    stage.scene.add(withShadows(mesh));
-    return { mesh, state: 'away' as const, x: TAXI_FROM, kerb, riders: 0, timer: 0 };
+    const car = taxiCar();
+    car.mesh.visible = false;
+    // Driving west, nose to -x.
+    car.mesh.rotation.y = -Math.PI / 2;
+    stage.scene.add(car.mesh);
+    return { car, state: 'away' as const, x: TAXI_FROM, kerb, riders: 0, timer: 0 };
   });
   const taxiZ = layout.roadZ - 1.7;
   let spawnTimer = 2;
@@ -551,7 +587,7 @@ export function createSkyportGame(
       taxi.riders = Math.round(low + Math.random() * (high - low));
       taxi.state = 'in';
       taxi.x = TAXI_FROM;
-      taxi.mesh.visible = true;
+      taxi.car.mesh.visible = true;
       spawnTimer = AIRPORT.passengers.spawnSeconds * taxi.riders;
     }
     for (const x of taxis) {
@@ -579,10 +615,11 @@ export function createSkyportGame(
         x.x -= dt * Math.min(16, 3 + (x.kerb.x - x.x) * 2);
         if (x.x < TAXI_TO) {
           x.state = 'away';
-          x.mesh.visible = false;
+          x.car.mesh.visible = false;
         }
       }
-      x.mesh.position.set(x.x, 0, taxiZ);
+      x.car.mesh.position.set(x.x, 0, taxiZ);
+      x.car.animate(dt, x.state === 'in' || x.state === 'out', x.state === 'stop');
     }
   };
 
@@ -601,7 +638,7 @@ export function createSkyportGame(
   };
 
   /** Clears a flight for take-off: it pays for every seat, and more for leaving full and on time. */
-  const clear = (flight: Flight, gate: GateView, perfect: boolean): void => {
+  const clear = (flight: Flight, gate: GateView, perfect: boolean, byCrew = false): void => {
     flight.cleared = true;
     flight.perfect = perfect;
     const fare = AIRPORT.planes.prop.fare * levelFactor(UPGRADES.kinds.price, level(`${gate.key}.price`)) * payBonus();
@@ -632,7 +669,7 @@ export function createSkyportGame(
     } else sound.play('ching');
     state.stars = nextStars(state.stars, onTime ? 'happy' : 'okay', TUNING.stars);
     flag(clearedFlag);
-    onPaid({ amount: pay + tip, tip, automated: false, at });
+    onPaid({ amount: pay + tip, tip, automated: byCrew, at });
     void saves.saveNow();
   };
 
@@ -667,12 +704,14 @@ export function createSkyportGame(
     gate.fuelPad.group.visible = wantsFuel;
     gate.fuelPad.update(dt, !!fuelling);
     if (wantsFuel) gate.fuelPad.setProgress(parked!.fuel);
+    gate.truck?.update(dt, wantsFuel, !!fuelling);
+    gate.kit.visible = flight?.phase === 'parked';
     if (gate.hose && gate.truck) {
       gate.hose.visible = !!fuelling;
       if (fuelling) {
         // From the truck's reel up to the wing.
-        const from = new Vector3(spot.truck.x + 1.2, 1.2, spot.truck.z + 0.4);
-        const to = new Vector3(spot.x - 2.4, PROP.wingY - 0.1, flight!.z + 0.6);
+        const from = gate.truck.nozzle(new Vector3());
+        const to = new Vector3(spot.x - 3.5, PROP.wingY - 0.05, flight!.z + 0.3);
         gate.hose.position.copy(from);
         gate.hose.lookAt(to);
         gate.hose.scale.set(1, 1, from.distanceTo(to));
@@ -707,6 +746,68 @@ export function createSkyportGame(
     }
     gate.pad.update(dt, onPad || ready);
     gate.onPad = onPad;
+  };
+
+  /**
+   * The ramp dispatcher: opens a gate once its plane has parked and people are waiting, and waves a plane
+   * off once it's been ready a moment (the hero has that moment to make it a perfect take-off). Walks the
+   * service road between jobs, through the gate's door to its podium.
+   */
+  const workDispatcher = (dt: number): void => {
+    const d = dispatcher;
+    if (!d) return;
+    const speed = (CREW_SPEED * boost) / levelFactor(UPGRADES.kinds.staffSpeed, level('dispatcher.staffSpeed'));
+    const arrived = d.walk(dt, speed);
+    d.avatar.update(dt);
+    if (!arrived) return;
+    const road = DISPATCH_ROAD_Z;
+    const gate = d.gate;
+    if (d.job === 'toGate' && gate) {
+      const flight = airfield.parkedAt(gate.key);
+      if (flight && !flight.cleared && !flight.boarding) {
+        flight.boarding = true;
+        floaters.show(`🚪 ${t('gateOpen')}`, new Vector3(gate.spot.door.x, 3.2, gate.spot.door.z), 'star');
+        sound.play('open', hearing(gate.spot.door));
+      }
+      d.job = 'idle';
+      d.path = [{ x: gate.spot.door.x, z: gate.spot.door.z + 1.2 }, { x: gate.spot.door.x, z: road }];
+      return;
+    }
+    if (d.job === 'toPad' && gate) {
+      const flight = airfield.parkedAt(gate.key);
+      if (flight && !flight.cleared && flight.ready) {
+        clear(flight, gate, false, true);
+        d.avatar.wave();
+      }
+      d.job = 'idle';
+      d.path = [{ x: gate.spot.marshal.x + 1.6, z: road }];
+      return;
+    }
+    // What's next: a plane that's ready, then a gate to open, else home.
+    const parked = gates.map((g) => ({ g, f: airfield.parkedAt(g.key) })).filter((x): x is { g: GateView; f: Flight } => !!x.f && !x.f.cleared);
+    const ready = parked.find((x) => x.f.ready && x.f.readyFor >= DISPATCH_WAIT && !near(player.position, x.g.spot.marshal, 2.2));
+    if (ready) {
+      d.job = 'toPad';
+      d.gate = ready.g;
+      d.path = [{ x: d.x, z: road }, { x: ready.g.spot.marshal.x + 0.8, z: road }, { x: ready.g.spot.marshal.x, z: ready.g.spot.marshal.z }];
+      return;
+    }
+    const closed = parked.find((x) => !x.f.boarding && x.f.waiting > 0 && x.f.parkedFor >= DISPATCH_WAIT);
+    if (closed) {
+      const door = closed.g.spot.door;
+      d.job = 'toGate';
+      d.gate = closed.g;
+      d.path = [{ x: d.x, z: road }, { x: door.x, z: road }, { x: door.x, z: door.z + 1.2 }, podiumFront(closed.g.spot)];
+      return;
+    }
+    const home = layout.staffSpots.dispatcher ?? layout.belt.at;
+    if (d.job !== 'home' && Math.hypot(d.x - home.x, d.z - home.z) > 0.5) {
+      d.job = 'home';
+      d.path = [{ x: d.x, z: road }, { x: home.x, z: road }, home];
+    } else if (d.job === 'home') {
+      d.job = 'idle';
+      d.avatar.root.rotation.y = Math.PI;
+    }
   };
 
   /** The ground handler: cases from the cart to whichever plane wants them, then its fuel. */
@@ -808,6 +909,38 @@ export function createSkyportGame(
     if (flight.ready) html += `<span class="flight-chip is-go">${t('flightReady')}</span>`;
     return html;
   };
+  /**
+   * How a flight's plane stands: its doors open once it's parked (the hold's only for cases), flaps down to
+   * land and half down to take off, gear folded once it's well up, the nose wheel steering into its turns,
+   * its wheels rolling as far as it went on the ground.
+   */
+  const pose = (flight: Flight, v: FlightView, dt: number): PlanePose => {
+    const onGround = flight.y < 0.05;
+    let roll = 0;
+    let steer = 0;
+    if (v.last && dt > 0 && onGround) {
+      const dx = flight.x - v.last.x;
+      const dz = flight.z - v.last.z;
+      roll = dx * Math.sin(flight.heading) + dz * Math.cos(flight.heading);
+      if (Math.abs(roll) > 3) roll = 0;
+      const turned = Math.atan2(Math.sin(flight.heading - v.last.heading), Math.cos(flight.heading - v.last.heading));
+      steer = Math.max(-0.6, Math.min(0.6, (turned / dt) * 0.9 * Math.sign(roll || 1)));
+    }
+    v.last = { x: flight.x, z: flight.z, heading: flight.heading };
+    const parked = flight.phase === 'parked';
+    const landing = flight.phase === 'approach' || flight.phase === 'rollout';
+    const leaving = flight.phase === 'taxiOut' || flight.phase === 'hold' || flight.phase === 'lineup' || flight.phase === 'takeoff' || (flight.phase === 'climb' && flight.y < 14);
+    return {
+      engines: flight.engines,
+      door: parked && !flight.cleared ? 1 : 0,
+      hold: parked && !flight.cleared && flight.needsCases > 0 ? 1 : 0,
+      flaps: landing ? 1 : leaving ? 0.5 : 0,
+      gear: (flight.phase === 'climb' && flight.y > 5) || (flight.phase === 'approach' && flight.approach < 0.2) ? 0 : 1,
+      steer: onGround ? steer : 0,
+      roll,
+      taxiLight: onGround && !parked && flight.engines > 0.1,
+    };
+  };
   const drawFlights = (dt: number): void => {
     for (const flight of airfield.flights) {
       let v = views.get(flight);
@@ -818,17 +951,19 @@ export function createSkyportGame(
         el.className = 'flight-label';
         const at = new Vector3();
         const label = labels.add(el, at, true);
-        v = { model, label, at, shown: '', lateSaid: false };
+        v = { model, label, at, shown: '', lateSaid: false, last: null };
         views.set(flight, v);
       }
       v.model.root.position.set(flight.x, flight.y, flight.z);
       v.model.root.rotation.set(-flight.pitch, flight.heading, -flight.bank);
-      v.model.update(dt, flight.engines);
+      v.model.update(dt, pose(flight, v, dt));
       // (Low over its back: clear of the counters along the top of the screen, and of the hints by its nose.)
-      v.at.set(flight.x, 4.0, flight.z + 0.6);
+      // (Each gate's a row lower than the one before, so two side by side never overlap.)
+      v.at.set(flight.x, 4.0, flight.z + 0.6 + Math.max(0, Object.keys(layout.gates).indexOf(flight.gate)) * 2.6);
       v.label.visible = flight.phase === 'parked';
       // (A plane off the top of the screen keeps its clock in sight, under the counters.)
-      v.label.minY = view.topInset + 62;
+      const row = Math.max(0, Object.keys(layout.gates).indexOf(flight.gate));
+      v.label.minY = view.topInset + 62 + row * 44;
       if (v.label.visible) {
         const html = describe(flight);
         if (html !== v.shown) {
@@ -908,8 +1043,10 @@ export function createSkyportGame(
   const hero = createHero({ root, state, town: current, sound, press, flag, save: () => saves.saveNow(), onChipTap: empireMap });
   const storyline = createStoryline({ state, town: current, press, arrivals, flag });
 
-  if (import.meta.env.DEV) Object.assign(window, { skyport: { airfield, passengers, gates, clear, layout } });
+  if (import.meta.env.DEV) Object.assign(window, { skyport: { airfield, passengers, gates, clear, layout, rig, views } });
 
+  /** Who's near the hall's doors this frame (they slide open for anyone). */
+  const doorNear: Point[] = [];
   let rateTimer = 0;
   let stillFor = 0;
   let showShift = 0;
@@ -935,6 +1072,7 @@ export function createSkyportGame(
     airfield.update(dt);
     for (const gate of gates) workGate(dt, gate);
     workHandler(dt);
+    workDispatcher(dt);
     agent?.avatar.update(dt);
     passengers.update(dt, deskService(), boost);
     updateTaxis(dt);
@@ -949,6 +1087,13 @@ export function createSkyportGame(
     chips.set('streak', streak >= 2 ? `🔥 ${t('onTimeStreak', { n: streak })}` : null);
     windsock.update(dt);
     ambience.update(dt);
+    belt?.update(dt, beltCases > 0 && airfield.flights.some((f) => f.phase === 'parked' && f.cases < f.needsCases));
+    nameSign.update(dt);
+    scenery.update(dt, airfield.flights);
+    doorNear.length = 0;
+    doorNear.push(player.position);
+    for (const p of passengers.all) doorNear.push(p);
+    hall.update(dt, doorNear);
     if (cash.update(player.position)) flag('collected');
     floaters.update(dt);
     rateTimer += dt;

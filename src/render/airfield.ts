@@ -1,11 +1,10 @@
 // Skyport's ground: mown grass, the runway and taxiway with their paint and lights, the apron and its
 // stands, the hall's floor, the plaza and the road in front. Drawn once (parkland() does the same for
-// the park); what moves over it (the approach lights' chase, the clouds' shadows, the radar, birds and
+// the park); what moves over it (the approach lights' chase, the clouds' shadows, birds and
 // the shadows of jets high overhead) is the Ambience.
 import {
   BufferGeometry,
   CanvasTexture,
-  CylinderGeometry,
   DoubleSide,
   Float32BufferAttribute,
   Group,
@@ -22,7 +21,6 @@ import {
 } from 'three';
 import type { AirportLayout, Rect } from '../core/config';
 import { box, mergeParts, toyMaterial, type Part } from './models/build';
-import { treeParts } from './models/airport';
 
 const PI = Math.PI;
 const WHITE = '#f4f6f8';
@@ -169,8 +167,8 @@ export function airfield(layout: AirportLayout): Object3D {
   for (let x = runway.minX + 3; x <= runway.maxX - 3; x += 6) lights.push({ geometry: new SphereGeometry(0.16, 6, 5), color: '#5ad8ff', x, y: 0.18, z: tw.maxZ + 0.4 });
   group.add(new Mesh(mergeParts(lights), toyMaterial));
 
-  // Trees round the plaza, and a hedge either side of the door.
-  const green: Part[] = layout.trees.flatMap((t) => treeParts(t.x, t.z, t.size ?? 1));
+  // A hedge either side of the door (the trees are the town's own, render/skyportScenery.ts).
+  const green: Part[] = [];
   for (let x = hall.minX + 1.2; x <= hall.maxX - 1; x += 1.5) {
     if (Math.abs(x - layout.entrance.x) < 6) continue;
     green.push({ geometry: new SphereGeometry(0.72, 8, 6), color: '#5fb84f', x, y: 0.5, z: hall.maxZ + 0.95 });
@@ -184,8 +182,7 @@ export function airfield(layout: AirportLayout): Object3D {
 
 /**
  * What moves over the airfield without anyone doing anything: the approach lights running in towards
- * the runway's threshold, the shadows of clouds drifting across the grass and the apron, a radar turning
- * on its hut, a few birds crossing now and then, and the shadow of a jet passing high overhead.
+ * the runway's threshold, the shadows of clouds drifting across the grass and the apron, a few birds crossing now and then, and the shadow of a jet passing high overhead.
  */
 export class Ambience {
   private readonly lights: InstancedMesh;
@@ -193,7 +190,6 @@ export class Ambience {
   private readonly clouds: Mesh[] = [];
   private time = 0;
   private readonly rows = 7;
-  private readonly dish = new Group();
   private readonly birds: InstancedMesh;
   private readonly flock = { x: 0, z: 0, vx: 0, vz: 0, left: 0, wait: 9 };
   private readonly jet: Mesh;
@@ -224,36 +220,6 @@ export class Ambience {
       scene.add(cloud);
       this.clouds.push(cloud);
     }
-
-    // The radar: a hut beside the apron, with a dish that turns.
-    const { apron, taxiway } = layout;
-    const hut = new Mesh(
-      mergeParts([
-        { geometry: box(2.6, 1.9, 2.6), color: WHITE, y: 0.95 },
-        { geometry: box(2.8, 0.26, 2.8), color: '#22c3c9', y: 2.0 },
-        { geometry: box(0.7, 1.2, 0.08), color: '#17324d', y: 0.6, z: 1.32 },
-        { geometry: new CylinderGeometry(0.16, 0.2, 1.5, 8), color: '#c9d6dc', y: 2.85 },
-      ]),
-      toyMaterial,
-    );
-    hut.castShadow = true;
-    const dish = new Mesh(
-      mergeParts([
-        { geometry: new SphereGeometry(1.5, 14, 6, 0, PI * 2, 0, PI / 3.2), color: WHITE, rx: PI / 2, z: -1.2 },
-        { geometry: new SphereGeometry(1.46, 14, 6, 0, PI * 2, 0, PI / 3.2), color: '#ff8a3d', rx: PI / 2, z: -1.16 },
-        { geometry: new CylinderGeometry(0.05, 0.05, 1.3, 6), color: '#3b3f4a', rx: PI / 2, z: 0.45 },
-        { geometry: new SphereGeometry(0.16, 8, 6), color: '#ff5fa8', z: 1.1 },
-      ]),
-      toyMaterial,
-    );
-    dish.castShadow = true;
-    dish.rotation.x = -0.25;
-    this.dish.add(dish);
-    this.dish.position.y = 3.7;
-    const radar = new Group();
-    radar.add(hut, this.dish);
-    radar.position.set(apron.minX - 4.6, 0, taxiway.z + taxiway.half + 9);
-    scene.add(radar);
 
     // Birds: a pair of wings each, beating.
     const wings = new BufferGeometry();
@@ -312,7 +278,6 @@ export class Ambience {
       }
     }
     this.lights.instanceMatrix.needsUpdate = true;
-    this.dish.rotation.y += dt * 1.1;
 
     // Birds: now and then a few cross the field, low, in a loose V.
     const flock = this.flock;
