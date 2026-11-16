@@ -9,8 +9,7 @@ climbing towards -X to a plane's door 1.02 m up), sp_fuel (the fuel truck,
 cab to -Y: wheels sp_fuel_wheel_*, the hose reel sp_fuel_reel turning about
 X, the amber beacon sp_fuel_beacon), sp_belt (the baggage hatch in the hall's
 north wall at y = -0.7 with rubber flaps sp_belt_flap0..3, a conveyor whose
-slats sp_belt_slats run towards +Y, a baggage cart beyond it and the tug
-that pulls it), sp_case0..5 (suitcases, lying flat), sp_gpu (a ground power
+slats sp_belt_slats run towards +Y, a baggage cart beyond it), sp_tug (the cart's tug, nose to +Y), sp_case0..5 (suitcases, lying flat), sp_gpu (a ground power
 unit), sp_cone, sp_chocks, sp_flood (a floodlight mast), sp_sign (a
 taxiway sign, its face left blank for the game to paint).
 
@@ -26,7 +25,7 @@ Outside: sp_windsock (the sock turns on sp_windsock_sock, each of its rings
 sp_windsock_ring0..3 swings), sp_radar (its dish sp_radar_dish turns),
 sp_flag (a flag of four strips sp_flag_s0..3 that wave), sp_gaplane (a little
 single-engined plane, its propeller sp_gaplane_prop), sp_clubhouse (the
-flying club's old hangar).
+flying club's old hangar), sp_gull (a gull, for the birds on the apron).
 
 Usage: python art/blender/skyport_kit.py <out.glb> [preview.png]
 """
@@ -222,8 +221,23 @@ for e in (-1, 1):
         p += wheel((X + e * 0.88, y, 0.24), 0.24, 0.16)
 p.append(kit.box((1.9, 0.08, 0.6), (X, CART_Y + 1.26, 0.82), AQUA, bevel=0.03))
 p.append(rod((X, CART_Y + 1.3, 0.45), (X, CART_Y + 1.95, 0.42), 0.05, DARK, verts=8))
-# The tug: a little tractor facing away from the cart, a roof on posts, a beacon.
-TUG_Y = CART_Y + 2.75
+m.mesh(p)
+# Rubber flaps over the hatch, which swing as a case comes through, and the belt's slats.
+for k in range(4):
+    x = X - 0.48 + k * 0.32
+    m.part(f'flap{k}', (x, -0.53, 1.24), [kit.box((0.3, 0.03, 0.96), (x, -0.53, 0.76), '#454b57', bevel=0.0)])
+SLAT = 0.25
+slats = []
+for k in range(9):
+    y = -0.95 + k * SLAT
+    slats.append(kit.box((1.04, SLAT - 0.06, 0.04), (X, y, 0.73), RUBBER, bevel=0.0))
+m.part('slats', (X, 0, 0.73), slats)
+
+# --- The baggage tug: a little tractor, its nose to +Y (the game's -Z), a roof on posts, a beacon. ---
+X = 186.0
+m = Model('sp_tug', X)
+TUG_Y = 0.0
+p = []
 p.append(kit.box((1.4, 1.9, 0.5), (X, TUG_Y, 0.62), SUN, bevel=0.12, segments=2))
 p.append(kit.box((1.3, 0.7, 0.42), (X, TUG_Y + 0.55, 1.05), SUN, bevel=0.1, segments=2))
 p.append(kit.box((1.2, 0.06, 0.28), (X, TUG_Y + 0.93, 0.85), DARK, bevel=0.02))
@@ -240,16 +254,6 @@ for e in (-1, 1):
 p.append(kit.box((1.45, 1.2, 0.08), (X, TUG_Y - 0.2, 2.1), WHITE, bevel=0.04))
 p.append(blob((0.1, 0.1, 0.12), (X, TUG_Y - 0.2, 2.22), AMBER, segments=10))
 m.mesh(p)
-# Rubber flaps over the hatch, which swing as a case comes through, and the belt's slats.
-for k in range(4):
-    x = X - 0.48 + k * 0.32
-    m.part(f'flap{k}', (x, -0.53, 1.24), [kit.box((0.3, 0.03, 0.96), (x, -0.53, 0.76), '#454b57', bevel=0.0)])
-SLAT = 0.25
-slats = []
-for k in range(9):
-    y = -0.95 + k * SLAT
-    slats.append(kit.box((1.04, SLAT - 0.06, 0.04), (X, y, 0.73), RUBBER, bevel=0.0))
-m.part('slats', (X, 0, 0.73), slats)
 
 # --- Suitcases, lying flat: a hard shell with ribs, a handle on top, little wheels at one end, a tag. ---
 CASES = (PINK, AQUA, SUN, ORANGE, PURPLE, MINT)
@@ -664,14 +668,31 @@ for k in range(2):
     p.append(rod((X, 0.1 + k * 0.12, 2.25 + k * 0.1), (X + 3.0, 0.1 + k * 0.12, 2.25 + k * 0.1), 0.01, '#8a95a3', verts=3))
 m.mesh(p)
 
+# --- A gull, standing, its beak to -Y (the birds on the apron, a rush job). ---
+X = 190.0
+m = Model('sp_gull', X)
+p = [blob((0.16, 0.26, 0.15), (X, 0.02, 0.36), WHITE, segments=12)]
+p.append(blob((0.11, 0.12, 0.11), (X, -0.2, 0.5), WHITE, segments=10))
+p.append(kit.cone(0.035, 0.0, 0.14, (X, -0.36, 0.49), SUN, verts=8, rot=(PI / 2 + 0.15, 0, 0)))
+p.append(kit.sphere(0.02, (X - 0.06, -0.27, 0.53), RUBBER, segments=6))
+p.append(kit.sphere(0.02, (X + 0.06, -0.27, 0.53), RUBBER, segments=6))
+for e in (-1, 1):
+    # Folded wings, grey with black tips, crossing over the tail.
+    p.append(blob((0.05, 0.24, 0.07), (X + e * 0.12, 0.08, 0.4), '#b9c3cc', segments=10, rot=(0.18, 0, e * 0.12)))
+    p.append(blob((0.04, 0.09, 0.05), (X + e * 0.08, 0.3, 0.37), RUBBER, segments=8, rot=(0.25, 0, 0)))
+    p.append(rod((X + e * 0.05, 0.03, 0.24), (X + e * 0.06, 0.02, 0.02), 0.012, ORANGE, verts=5))
+    p.append(kit.box((0.05, 0.08, 0.012), (X + e * 0.06, -0.01, 0.008), ORANGE, bevel=0.0))
+p.append(blob((0.08, 0.1, 0.04), (X, 0.28, 0.34), WHITE, segments=8, rot=(0.3, 0, 0)))
+m.mesh(p)
+
 out = Path(sys.argv[1] if len(sys.argv) > 1 else 'skyport.glb')
 # Four files, each well under a Playables file's 512 KiB: the apron's kit, its two big vehicles, the hall's
 # furniture, and what stands round the airfield.
 GROUPS = {
-    '-apron': ['sp_stairs', 'sp_gpu', 'sp_cone', 'sp_chocks', 'sp_sign', 'sp_flood', 'sp_fence'] + [f'sp_case{i}' for i in range(6)],
+    '-apron': ['sp_stairs', 'sp_tug', 'sp_gpu', 'sp_cone', 'sp_chocks', 'sp_sign', 'sp_flood', 'sp_fence'] + [f'sp_case{i}' for i in range(6)],
     '-vehicles': ['sp_fuel', 'sp_belt'],
     '-hall': ['sp_desk', 'sp_queue', 'sp_podium', 'sp_seats_a', 'sp_seats_b', 'sp_barrier', 'sp_board', 'sp_vending', 'sp_plant', 'sp_bin', 'sp_bench', 'sp_lamp', 'sp_planter', 'sp_taxisign'],
-    '-field': ['sp_windsock', 'sp_radar', 'sp_flag', 'sp_gaplane', 'sp_clubhouse'],
+    '-field': ['sp_windsock', 'sp_radar', 'sp_flag', 'sp_gaplane', 'sp_clubhouse', 'sp_gull'],
 }
 named = {b.name: b for b in rig.bases}
 assert sorted(named) == sorted(n for g in GROUPS.values() for n in g), set(named) ^ {n for g in GROUPS.values() for n in g}

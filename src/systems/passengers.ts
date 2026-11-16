@@ -8,6 +8,9 @@ import type { Airfield, Flight } from './airport';
 
 type Rules = Tuning['airport'];
 
+/** How far in front of a seat someone stands to sit down or get up (metres). */
+const SEAT_STEP = 0.62;
+
 /** What draws a passenger: somewhere to stand, a way to face, sitting or not, and a tick. */
 export interface PaxAvatar {
   root: { position: { x: number; y: number; z: number; set(x: number, y: number, z: number): unknown }; rotation: { y: number }; visible: boolean };
@@ -116,7 +119,14 @@ export class Passengers {
     private readonly gates: () => string[],
     private readonly makeAvatar: () => PaxAvatar | null,
     private readonly events: PassengerEvents,
+    /** The way round what's solid, from one place to another (its waypoints, not `from`): straight there by default. */
+    private readonly route: (from: Point, to: Point) => Point[] = (_from, to) => [to],
   ) {}
+
+  /** The way from where `p` is to `to`, round what's solid. */
+  private way(p: Passenger, to: Point): Step[] {
+    return this.route({ x: p.x, z: p.z }, to).map((w) => ({ x: w.x, z: w.z }));
+  }
 
   /** Room for one more in the line. */
   get lineHasRoom(): boolean {
@@ -157,7 +167,7 @@ export class Passengers {
     if (inLine) {
       p.x = spot.x;
       p.z = spot.z;
-    } else p.path = [{ x: spot.x, z: Math.max(spot.z, this.layout.entrance.z + 4.6) }, spot];
+    } else p.path = this.way(p, spot);
     this.place(p);
     return true;
   }
@@ -196,11 +206,20 @@ export class Passengers {
     for (const p of this.all) if (p.state === 'lounge' && p.gate) this.toLounge(p, false);
   }
 
+  /** In front of a seat (where they step in from), or the standing spot itself. */
+  private approach(spot: Point): Point {
+    return this.seats ? { x: spot.x, z: spot.z + SEAT_STEP } : spot;
+  }
+
   private toLounge(p: Passenger, fromDesk: boolean): void {
     const spot = this.spotAt(p.gate!, p.spot);
     p.state = 'toLounge';
+    // Off a seat first, if they were sitting (seats just bought: everyone finds one).
+    const start: Step[] = p.avatar?.seated ? [{ x: p.x, z: p.z + SEAT_STEP }] : [];
     if (p.avatar) p.avatar.seated = false;
-    p.path = [...(fromDesk ? this.layout.desk.leave : []), { x: spot.x, z: Math.max(spot.z, this.layout.gates[p.gate!]!.lounge.maxZ + 0.6) }, spot];
+    const from = start[0] ?? (fromDesk ? this.layout.desk.leave[0]! : { x: p.x, z: p.z });
+    const lead: Step[] = fromDesk ? [this.layout.desk.leave[0]!] : start;
+    p.path = [...lead, ...this.route(from, this.approach(spot)).map((w) => ({ x: w.x, z: w.z })), ...(this.seats ? [spot] : [])];
   }
 
   /**
@@ -250,10 +269,15 @@ export class Passengers {
       next.flight = flight;
       flight.walking += 1;
       if (next.avatar) next.avatar.seated = false;
+      // Out of their seat, through the gate's door and round to the foot of the stairs, then up them.
+      const off: Step[] = next.avatar?.seated || this.seats ? [{ x: next.x, z: next.z + SEAT_STEP }] : [];
+      const from = off[0] ?? { x: next.x, z: next.z };
+      const foot = { x: spot.stairsFoot.x + 0.45, z: spot.stairsFoot.z };
       next.path = [
-        { x: spot.door.x, z: spot.door.z + 0.9 },
+        ...off,
+        ...this.route(from, { x: spot.door.x, z: spot.door.z + 0.9 }).map((w) => ({ x: w.x, z: w.z })),
         { x: spot.door.x, z: spot.door.z - 0.9 },
-        { x: spot.stairsFoot.x + 0.4, z: spot.door.z - 3.2 },
+        ...this.route({ x: spot.door.x, z: spot.door.z - 0.9 }, foot).map((w) => ({ x: w.x, z: w.z })),
         { x: spot.stairsFoot.x + 0.1, z: spot.stairsFoot.z, y: 0 },
         { x: spot.planeDoor.x + 0.5, z: spot.planeDoor.z, y: this.rules.planes.prop.sill },
         { x: spot.planeDoor.x - 0.4, z: spot.planeDoor.z, y: this.rules.planes.prop.sill },
@@ -271,7 +295,7 @@ export class Passengers {
           if (p.patience <= 0) {
             this.line.splice(this.line.indexOf(p), 1);
             p.state = 'leaving';
-            p.path = [{ x: this.layout.entrance.x + 1.8, z: this.layout.entrance.z + 1 }, { x: this.layout.entrance.x + 3, z: this.layout.roadZ - 3.6 }];
+            p.path = this.way(p, { x: this.layout.entrance.x + 3, z: this.layout.roadZ - 3.6 });
             this.events.onGaveUp(p);
           }
         }

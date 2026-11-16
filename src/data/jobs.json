@@ -196,6 +196,46 @@
       "hold": 22,
       "reach": 0.6,
       "signal": "perfect"
+    },
+    {
+      "id": "lostcase",
+      "town": "airport",
+      "pattern": "deliver",
+      "icon": "🧳",
+      "title": "jobLostCase",
+      "needs": [],
+      "from": "lostcase",
+      "to": "owner",
+      "work": 2,
+      "thing": "lostcase",
+      "waiting": "adult"
+    },
+    {
+      "id": "late",
+      "town": "airport",
+      "pattern": "escort",
+      "icon": "🏃",
+      "title": "jobLate",
+      "needs": ["gate1"],
+      "from": "late",
+      "to": "boarding",
+      "work": 2,
+      "who": "adult",
+      "waiting": "none"
+    },
+    {
+      "id": "birds",
+      "town": "airport",
+      "pattern": "collect",
+      "icon": "🐦",
+      "title": "jobBirds",
+      "needs": [],
+      "from": "birds",
+      "count": 5,
+      "spread": 2.6,
+      "wander": 0.5,
+      "work": 1,
+      "thing": "bird"
     }
   ]
 }

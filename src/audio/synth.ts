@@ -2,9 +2,11 @@
 // sponge squeaks, water spray, bubble pops, a car horn, a till bell, fuel
 // glugging into a tank, the pump's beep, the hero's footsteps, and the farm's
 // animals: a cow's moo and a hen's clucking (a voice through the shapes of a
-// mouth, as speech is made).
+// mouth, as speech is made); and the airport's: the chime before an
+// announcement, a tyre's chirp on touchdown, propellers spooling up, a gull's
+// call, and the drone of turboprops (a seamless loop).
 
-export type SynthSound = 'squeak' | 'spray' | 'pop' | 'honk' | 'bell' | 'glug' | 'beep' | 'step' | 'moo' | 'cluck';
+export type SynthSound = 'squeak' | 'spray' | 'pop' | 'honk' | 'bell' | 'glug' | 'beep' | 'step' | 'moo' | 'cluck' | 'chime' | 'screech' | 'spool' | 'caw' | 'drone';
 
 /** Small seeded random generator, so every run sounds the same. */
 function seeded(seed: number): () => number {
@@ -275,6 +277,108 @@ function cluck(sampleRate: number, variant: number): Float32Array {
   );
 }
 
+/** The airport's chime before an announcement: two soft vibraphone-like notes, high then low. */
+function chime(sampleRate: number): Float32Array {
+  const note = (t: number, f: number): number => {
+    if (t < 0) return 0;
+    const env = Math.min(1, t / 0.008) * Math.exp(-t * 2.6);
+    return (Math.sin(2 * Math.PI * f * t) + 0.3 * Math.sin(2 * Math.PI * f * 2 * t) * Math.exp(-t * 6) + 0.12 * Math.sin(2 * Math.PI * f * 3.01 * t) * Math.exp(-t * 9)) * env;
+  };
+  return normalise(
+    render(sampleRate, 1.35, (t) => note(t, 784) + note(t - 0.36, 622)),
+    0.7,
+  );
+}
+
+/** A tyre touching down: a short squeal (a rough, falling whistle in a burst of grit). */
+function screech(sampleRate: number, variant: number): Float32Array {
+  const rand = seeded(61 + variant);
+  let phase = 0;
+  let low = 0;
+  const length = 0.32 + variant * 0.06;
+  return normalise(
+    render(sampleRate, length, (t) => {
+      const u = t / length;
+      const freq = (1500 + variant * 160) * (1 - 0.25 * u) + 120 * (rand() * 2 - 1);
+      phase += (2 * Math.PI * freq) / sampleRate;
+      low += 0.25 * (rand() * 2 - 1 - low);
+      const env = Math.min(1, t / 0.01) * Math.exp(-u * 4);
+      return (Math.tanh(2 * Math.sin(phase)) * 0.5 + low * 0.9) * env;
+    }),
+    0.6,
+  );
+}
+
+/** Propellers spooling up: a low buzz rising in pitch and loudness over a second. */
+function spool(sampleRate: number): Float32Array {
+  const rand = seeded(67);
+  let phase = 0;
+  let low = 0;
+  return normalise(
+    render(sampleRate, 1.3, (t) => {
+      const u = Math.min(1, t / 1.1);
+      const freq = 38 + 62 * ease(u);
+      phase += (2 * Math.PI * freq) / sampleRate;
+      low += 0.04 * (rand() * 2 - 1 - low);
+      // The blades' beat, a buzz under it, the rush of air.
+      const beat = Math.max(0, Math.sin(phase)) ** 3;
+      const env = ease(t / 0.4) * (1 - ease((t - 1.1) / 0.2));
+      return (beat * 0.9 + Math.sin(phase * 2) * 0.3 + low * 2.5 * u) * env;
+    }),
+    0.65,
+  );
+}
+
+/** A gull's call: two or three falling cries ("kyow"), nasal and bright. */
+function caw(sampleRate: number, variant: number): Float32Array {
+  const calls = variant ? [0, 0.22, 0.42] : [0, 0.26];
+  const length = calls[calls.length - 1]! + 0.2;
+  let phase = 0;
+  const mouth = new Formant(sampleRate);
+  mouth.tune(1600, 4);
+  return normalise(
+    render(sampleRate, length, (t) => {
+      let f0 = 0;
+      let env = 0;
+      for (const at of calls) {
+        const v = t - at;
+        if (v < 0 || v > 0.18) continue;
+        f0 = 1250 - 2400 * v + 300 * Math.sin((Math.PI * v) / 0.18);
+        env = Math.min(1, v / 0.01) * (1 - ease((v - 0.12) / 0.06));
+      }
+      if (env > 0) phase = (phase + f0 / sampleRate) % 1;
+      const voice = env > 0 ? Math.tanh(2.4 * Math.sin(2 * Math.PI * phase)) * env : 0;
+      return mouth.next(voice) + voice * 0.4;
+    }),
+    0.6,
+  );
+}
+
+/**
+ * The drone of turboprops, two seconds that loop without a seam (every tone a whole number of cycles in
+ * the loop, and the rush of air faded from its own continuation into the start): a low hum and its
+ * overtones, beating as the blades pass, over a rush of air.
+ */
+function drone(sampleRate: number): Float32Array {
+  const rand = seeded(71);
+  const loop = 2;
+  let low = 0;
+  let lower = 0;
+  const raw = render(sampleRate, loop + 0.25, (t) => {
+    const beat = 0.75 + 0.25 * Math.sin(2 * Math.PI * 17 * t);
+    const hum = Math.sin(2 * Math.PI * 85 * t) + 0.55 * Math.sin(2 * Math.PI * 170 * t) + 0.3 * Math.sin(2 * Math.PI * 255.5 * t) + 0.15 * Math.sin(2 * Math.PI * 340 * t);
+    const noise = rand() * 2 - 1;
+    low += 0.2 * (noise - low);
+    lower += 0.02 * (low - lower);
+    return hum * beat * 0.6 + (low - lower) * 1.6;
+  });
+  const n = Math.round(loop * sampleRate);
+  const fade = raw.length - n;
+  const out = raw.slice(0, n);
+  for (let i = 0; i < fade; i++) out[i] = out[i]! * (i / fade) + raw[n + i]! * (1 - i / fade);
+  return normalise(out, 0.6);
+}
+
 /** Every made-in-code sound, with its variants. */
 export function renderSynth(sampleRate: number): Record<SynthSound, Float32Array[]> {
   return {
@@ -288,5 +392,10 @@ export function renderSynth(sampleRate: number): Record<SynthSound, Float32Array
     step: [0, 1, 2, 3].map((v) => step(sampleRate, v)),
     moo: [0, 1, 2].map((v) => moo(sampleRate, v)),
     cluck: [0, 1, 2].map((v) => cluck(sampleRate, v)),
+    chime: [chime(sampleRate)],
+    screech: [0, 1].map((v) => screech(sampleRate, v)),
+    spool: [spool(sampleRate)],
+    caw: [0, 1].map((v) => caw(sampleRate, v)),
+    drone: [drone(sampleRate)],
   };
 }

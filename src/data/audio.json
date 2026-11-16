@@ -24,6 +24,10 @@
     "step": { "synth": "step", "volume": 0.22, "gap": 0.06 },
     "moo": { "synth": "moo", "volume": 0.5, "gap": 1.5 },
     "cluck": { "synth": "cluck", "volume": 0.42, "gap": 0.7 },
+    "chime": { "synth": "chime", "volume": 0.32, "gap": 0.9 },
+    "screech": { "synth": "screech", "volume": 0.32, "gap": 0.3 },
+    "spool": { "synth": "spool", "volume": 0.3, "gap": 0.8 },
+    "caw": { "synth": "caw", "volume": 0.3, "gap": 1.2 },
     "cheer": { "files": ["park/cheer-1", "park/cheer-2"], "volume": 0.35, "gap": 1.5, "set": "park" },
     "firework": { "files": ["park/firework-1", "park/firework-2", "park/firework-3", "park/firework-4"], "volume": 0.4, "gap": 0.15, "set": "park" },
     "ooh": { "files": ["park/ooh"], "volume": 0.3, "gap": 8, "set": "park" },
@@ -34,6 +38,7 @@
   "tracks": {
     "park": { "file": "park/park-music", "volume": 1, "set": "park" },
     "musicbox": { "file": "park/musicbox", "volume": 0.8, "set": "park" },
-    "rain": { "file": "park/rain", "volume": 0.7, "set": "park" }
+    "rain": { "file": "park/rain", "volume": 0.7, "set": "park" },
+    "engines": { "synth": "drone", "volume": 0.4 }
   }
 }

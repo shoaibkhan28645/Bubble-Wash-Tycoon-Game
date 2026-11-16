@@ -5,6 +5,7 @@
 // buys each pad once it can, buys upgrades as the pacing model's bot does (the cheapest, at most a quarter of the
 // next pad's price), collects cash, claims goals, missions and contracts, and says "not now" to ads and gems.
 //
+// It ends with Skyport's last pad (the ramp dispatcher).
 // Needs the dev server (npx vite --port 5190, or PORT=<port>) and Playwright with Chromium.
 // node scripts/playthrough.cjs <outDir> [maxGameMinutes]   env: START=<checkpoint.json> to begin from a saved game
 //   (ARRIVED=<seconds of play> to time that town from when it was arrived in),
@@ -28,7 +29,7 @@ const log = (...a) => {
 
 // When the design plans each pad bought (pads.json `targetMinute`), in minutes after arriving in its town.
 const MODEL = {};
-for (const town of ['roadside', 'willowbrook', 'starlight']) MODEL[town] = Object.fromEntries(JSON.parse(fs.readFileSync(`${ROOT}${town}/pads.json`, 'utf8')).map((p) => [p.id, p.targetMinute]));
+for (const town of ['roadside', 'willowbrook', 'starlight', 'skyport']) MODEL[town] = Object.fromEntries(JSON.parse(fs.readFileSync(`${ROOT}${town}/pads.json`, 'utf8')).map((p) => [p.id, p.targetMinute]));
 const NAMES = {};
 for (const town of Object.keys(MODEL)) for (const p of JSON.parse(fs.readFileSync(`${ROOT}${town}/pads.json`, 'utf8'))) NAMES[`${town}:${p.id}`] = p.name;
 
@@ -306,8 +307,8 @@ function tapUI() {
       return done;
     }
   }
-  // A card or dialog: claims first, then the way out that costs nothing.
-  const card = document.querySelector('.welcome-card');
+  // A card or dialog (or a full-screen menu: the calendar, missions): claims first, then the way out that costs nothing.
+  const card = document.querySelector('.welcome-card') ?? document.querySelector('.menu-overlay');
   if (card) {
     const all = text(card);
     const buttons = [...card.querySelectorAll('button')];
@@ -317,7 +318,7 @@ function tapUI() {
       claim.click();
       return done;
     }
-    const close = buttons.find((b) => free(b) && /not now|^ok$|collect|back|continue|keep|claim|later|close/i.test(text(b))) ?? buttons.find(free);
+    const close = buttons.find((b) => free(b) && /not now|^ok$|collect|back|continue|keep|claim|get it|grab it|later|close/i.test(text(b))) ?? buttons.find(free);
     if (close) {
       done.push({ card: all.slice(0, 220), button: text(close) });
       close.click();
@@ -384,7 +385,10 @@ function tapUI() {
     window.cancelAnimationFrame = (id) => clearTimeout(id);
   }, STEP_MS);
   if (process.env.START) {
-    const save = fs.readFileSync(process.env.START, 'utf8');
+    // Played on from just where it was saved (not with the offline earnings of however long ago that was), unless OFFLINE=1.
+    const data = JSON.parse(fs.readFileSync(process.env.START, 'utf8'));
+    if (process.env.OFFLINE !== '1') data.savedAt = Date.now();
+    const save = JSON.stringify(data);
     await p.addInitScript((data) => {
       if (!sessionStorage.getItem('bot-started')) {
         localStorage.setItem('bubble-wash-dev-save', data);
@@ -521,7 +525,7 @@ function tapUI() {
     for (const e of events) log('  bot', e);
     if (s.play - lastStatus >= 120) {
       lastStatus = s.play;
-      log(`status ${((s.play - arrived) / 60).toFixed(1)} min in ${s.town} | cash ${s.cash} | next ${s.next} $${s.nextCost} owed ${s.owed} | ${s.why} | stars ${s.stars} goals ${s.goals} jobs ${s.jobs} | wall ${((Date.now() - start) / 60000).toFixed(1)} min`);
+      log(`status ${((s.play - arrived) / 60).toFixed(1)} min in ${s.town} | cash ${s.cash} | next ${s.next} $${s.nextCost} owed ${s.owed} | ${s.why} | stars ${s.stars} goals ${s.goals} jobs ${s.jobs} | own ${s.autoRate}/min | wall ${((Date.now() - start) / 60000).toFixed(1)} min`);
     }
     // The rating falling low: what's going on (every 2 minutes while it lasts), and the save, to look at again.
     if (s.stars < 3 && s.play - (lastLow ?? -1e9) >= 120) {
@@ -557,10 +561,19 @@ function tapUI() {
       await shot('stalled');
       lastBuy = s.play;
     }
-    if (s.unlocked.includes('highway') && town === 'starlight') {
+    // A save from before the next town was in the game, its land already bought: on there from the map, as a player would.
+    const land = { roadside: ['truck', 'willowbrook'], willowbrook: ['road', 'starlight'], starlight: ['highway', 'skyport'] }[town];
+    if (land && s.unlocked.includes(land[0]) && s.play - lastBuy > 20) {
+      log(`land already bought: travelling on to ${land[1]}`);
+      await p.evaluate((to) => window.mogul.travel(to), land[1]);
+      lastBuy = s.play;
+      continue;
+    }
+    // The end of what's built so far: the airport's last pad (the park's highway now travels on to Skyport).
+    if (s.unlocked.includes('dispatcher') && town === 'skyport') {
       await p.clock.runFor(3000);
       await shot('the-end');
-      log('THE END: the last land bought');
+      log('THE END: the last pad bought');
       break;
     }
     if (s.play / 60 > maxMinutes) {

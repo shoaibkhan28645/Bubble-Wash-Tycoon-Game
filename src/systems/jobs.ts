@@ -16,7 +16,7 @@
 import type { Point } from '../core/config';
 
 export type JobPattern = 'collect' | 'deliver' | 'escort' | 'work' | 'signal';
-export type JobTown = 'carWash' | 'farm' | 'park';
+export type JobTown = 'carWash' | 'farm' | 'park' | 'airport';
 
 /** A kind of job (src/data/jobs.json). */
 export interface JobDef {

@@ -470,7 +470,8 @@ export interface AirportLayout extends TownLayout {
   /** Where taxis set passengers down. */
   kerb: Point[];
   /** The baggage belt's end, and where cases are picked up. */
-  belt: { at: Point; pick: Rect };
+  /** The baggage belt's end, where cases are picked up (beside its cart), and the spot beside it the guide points to. */
+  belt: { at: Point; pick: Rect; side: Point };
   gates: Record<string, GateSpot>;
   trees: (Point & { size?: number })[];
 }

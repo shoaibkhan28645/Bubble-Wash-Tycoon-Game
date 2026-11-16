@@ -15,9 +15,10 @@ interface SoundDef {
   set?: string;
 }
 
-/** A recorded loop: a town's music, or a place's sound (the carousel's music box, the rain). */
+/** A loop: a town's music, or a place's sound (the carousel's music box, the rain, the airport's engines; made in code if `synth`). */
 interface TrackDef {
-  file: string;
+  file?: string;
+  synth?: string;
   volume: number;
   set?: string;
 }
@@ -88,7 +89,7 @@ export class SoundManager {
     if (!this.context || this.sets.has(set)) return;
     this.sets.add(set);
     const sounds = Object.values(SOUNDS).flatMap((s) => (s.set === set ? (s.files ?? []) : []));
-    const tracks = Object.values(TRACKS).flatMap((t) => (t.set === set ? [t.file] : []));
+    const tracks = Object.values(TRACKS).flatMap((t) => (t.set === set && t.file ? [t.file] : []));
     await this.loadFiles([...new Set([...sounds, ...tracks])]);
     // The town's music may have been waiting for its file.
     this.apply();
@@ -139,7 +140,7 @@ export class SoundManager {
   loop(track: string, level: number): void {
     const context = this.context;
     const def = TRACKS[track];
-    const buffer = def ? this.files.get(def.file) : undefined;
+    const buffer = !def ? undefined : def.synth ? this.synth[def.synth as SynthSound]?.[0] : def.file ? this.files.get(def.file) : undefined;
     if (!context || !def || !buffer || !this.sfxGain) return;
     let playing = this.loops.get(track);
     if (!playing) {
@@ -247,7 +248,7 @@ export class SoundManager {
   private startMusic(): void {
     if (this.musicSource || !this.context || !this.musicGain) return;
     const track = this.musicTrack ? TRACKS[this.musicTrack] : undefined;
-    const buffer = track ? this.files.get(track.file) : this.music;
+    const buffer = track?.file ? this.files.get(track.file) : this.music;
     if (!buffer) return;
     const source = this.context.createBufferSource();
     source.buffer = buffer;

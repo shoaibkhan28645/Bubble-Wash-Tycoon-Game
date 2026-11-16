@@ -20,6 +20,7 @@ import { createMeta } from './meta';
 import { createTown } from './town';
 import { createPress } from './press';
 import { createHero } from './hero';
+import { createJobs } from './jobs';
 import { createStoryline } from './storyline';
 import { LotView, SIDE_BAR_PX } from './view';
 import * as platform from '../platform/youtube';
@@ -47,11 +48,14 @@ import {
   airStairs,
   checkinDesk,
   entranceSign,
+  footprint,
+  skyModel,
   fuelHose,
   gateBarrier,
   hallWalls,
   loungeSeats,
   podium,
+  loungeSeatSolids,
   seatAt,
   standKit,
   taxiCar,
@@ -62,7 +66,7 @@ import type { CarModel } from '../render/models/actors';
 import { PadModel } from '../render/models/padModel';
 import { PersonAvatar } from '../render/models/person';
 import { TownDecor } from '../render/townDecor';
-import { Airfield, flightPay, ringAt, type Flight } from '../systems/airport';
+import { Airfield, flightPay, podiumFront, ringAt, type Flight } from '../systems/airport';
 import { unlockedSum } from '../systems/arrivals';
 import { perk } from '../systems/career';
 import { CashSystem } from '../systems/cash';
@@ -74,6 +78,7 @@ import { IncomeTracker } from '../systems/offline';
 import { PadSystem } from '../systems/pads';
 import { Passengers, type Passenger } from '../systems/passengers';
 import { Player, pushOut } from '../systems/player';
+import { NavGrid } from '../systems/nav';
 import { insideRect } from '../systems/stations';
 import type { Paid } from '../systems/till';
 import { UpgradePads } from '../systems/upgrades';
@@ -105,6 +110,8 @@ const SHOW_AFTER_SECONDS = 0.6;
 /** Sounds are full within this far of the hero (metres) and die away over the next stretch. */
 const HEAR_NEAR = 16;
 const HEAR_FADE = 60;
+/** Where the baggage tug's parked, out of everyone's way at the east end of the service road. */
+const TUG_AT = { x: -1.55, z: 8.6 };
 /** What the ramp dispatcher's doing. */
 type DispatchJob = 'idle' | 'toGate' | 'toPad' | 'home';
 /** The ramp dispatcher waits this long before stepping in (seconds): the hero's chance to do it. */
@@ -131,8 +138,6 @@ const SKY_LOOK: Look = {
 };
 
 const near = (a: Point, b: Point, reach = SPOT_REACH): boolean => Math.abs(a.x - b.x) < reach && Math.abs(a.z - b.z) < reach;
-/** Where the hero stands to open a gate: in front of its podium. */
-const podiumFront = (spot: GateSpot): Point => ({ x: spot.podium.x - 0.3, z: spot.podium.z + 0.8 });
 const around = (at: Point, hw: number, hd = hw): Rect => ({ minX: at.x - hw, maxX: at.x + hw, minZ: at.z - hd, maxZ: at.z + hd });
 
 /** A taxi on the road in front: it pulls up, sets its passengers down one by one, and drives off. */
@@ -255,12 +260,13 @@ export function createSkyportGame(
   nameSign.root.position.set(nameAt.x, 0, nameAt.z);
   stage.scene.add(nameSign.root);
   const scenery = new SkyportScenery(layout);
+  const windsockAt = { x: layout.apron.minX + 2.5, z: layout.taxiway.z + layout.taxiway.half + 2.6 };
   stage.scene.add(scenery.group);
   const desk = checkinDesk();
   desk.position.set(layout.desk.at.x, 0, layout.desk.at.z);
   stage.scene.add(withShadows(desk));
   const windsock = new Windsock();
-  windsock.root.position.set(layout.apron.minX + 2.5, 0, layout.taxiway.z + layout.taxiway.half + 2.6);
+  windsock.root.position.set(windsockAt.x, 0, windsockAt.z);
   stage.scene.add(windsock.root);
 
   const level = (key: string) => state.levels[key] ?? 0;
@@ -289,9 +295,54 @@ export function createSkyportGame(
   let boost = 1;
 
   // What's solid: the hall's walls, the desk, the trees; then whatever's built.
-  const solids: Rect[] = [...hallWalls(layout), { minX: layout.desk.at.x - 1.55, maxX: layout.desk.at.x + 1.55, minZ: layout.desk.at.z - 0.5, maxZ: layout.desk.at.z + 0.5 }];
-  for (const tree of layout.trees) solids.push(around(tree, 0.32 * (tree.size ?? 1)));
-  solids.push(around(entranceSign(layout), 3.8, 0.3));
+  const { desk: deskSpot } = layout;
+  const solids: Rect[] = [
+    ...hallWalls(layout),
+    ...scenery.solids,
+    // The desk's counter, its scale and bag belt off to the side, its sign's posts.
+    { minX: deskSpot.at.x - 1.58, maxX: deskSpot.at.x + 1.58, minZ: deskSpot.at.z - 0.48, maxZ: deskSpot.at.z + 0.48 },
+    { minX: deskSpot.at.x + 1.6, maxX: deskSpot.at.x + 2.6, minZ: deskSpot.at.z - 2.5, maxZ: deskSpot.at.z + 0.48 },
+    around({ x: deskSpot.at.x - 1.95, z: deskSpot.at.z - 0.55 }, 0.1),
+    // The belt barriers either side of the line.
+    ...[-0.72, 0.72].map((dx) => ({ minX: deskSpot.at.x + dx - 0.06, maxX: deskSpot.at.x + dx + 0.06, minZ: deskSpot.at.z + 1.3, maxZ: deskSpot.at.z + 5.25 })),
+    ...layout.trees.map((tree) => around(tree, 0.45 * (tree.size ?? 1))),
+    around(entranceSign(layout), 3.85, 0.55),
+    around(windsockAt, 0.5),
+  ];
+  // The hedge either side of the hall's door (render/airfield.ts).
+  for (let x = layout.hall.minX + 1.2; x <= layout.hall.maxX - 1; x += 1.5) {
+    if (Math.abs(x - layout.entrance.x) >= 6) solids.push(around({ x, z: layout.hall.maxZ + 0.95 }, 0.7));
+  }
+  // The baggage tug, parked out of the way at the east end of the service road.
+  const tug = skyModel('sp_tug');
+  tug.position.set(TUG_AT.x, 0, TUG_AT.z);
+  tug.rotation.y = Math.PI / 2;
+  stage.scene.add(tug);
+  solids.push(footprint('sp_tug', TUG_AT.x, TUG_AT.z, Math.PI / 2, 0.05));
+
+  // The way round all that for passengers and the crew: a walking grid, made again whenever something's
+  // built (or a barrier goes), with every stand taken as if a plane were parked on it.
+  const standSolids = (spot: GateSpot): Rect[] => {
+    const mid = spot.noseZ - PROP.length / 2;
+    return [
+      { minX: spot.x - PROP_SOLID.half, maxX: spot.x + PROP_SOLID.half, minZ: mid + PROP_SOLID.tail, maxZ: mid + PROP_SOLID.nose },
+      ...[-1, 1].flatMap((side) => [
+        around({ x: spot.x + side * 2.4, z: mid + 0.5 }, 0.35, 0.45),
+        around({ x: spot.x + side * 2.4, z: mid + 2.2 }, 1.0, 0.18),
+      ]),
+    ];
+  };
+  const NAV_AREA: Rect = { ...layout.walk, maxZ: layout.roadZ - 2 };
+  let nav: NavGrid | null = null;
+  const solidsChanged = (): void => void (nav = null);
+  const route = (from: Point, to: Point): Point[] => {
+    nav ??= new NavGrid(NAV_AREA, [...solids, ...Object.values(layout.gates).flatMap(standSolids)], 0.3);
+    return nav.findPath(from, to);
+  };
+  /** Sends one of the crew off along the way round to `to`. */
+  const go = (member: CrewMember, to: Point): void => {
+    member.path = route({ x: member.x, z: member.z }, to);
+  };
   const growing: { mesh: Object3D; age: number }[] = [];
   const show = (mesh: Object3D, animate: boolean, cast = true): Object3D => {
     stage.scene.add(cast ? withShadows(mesh) : mesh);
@@ -309,6 +360,7 @@ export function createSkyportGame(
       // A puff of smoke off each main wheel.
       for (const side of [-1.9, 1.9]) effects.puff(new Vector3(flight.x - 0.5, 0.3, flight.z + side), new Vector3(-1, 0, 0), 5);
       sound.play('whoosh', hearing(flight) * 0.7);
+      sound.play('screech', hearing(flight));
     },
     onParked: (flight) => {
       flight.needsFuel = built('fuel');
@@ -326,7 +378,10 @@ export function createSkyportGame(
         sound.play('sparkle');
       }
     },
-    onPushback: (flight) => sound.play('honk', hearing(flight) * 0.6),
+    onPushback: (flight) => {
+      sound.play('honk', hearing(flight) * 0.6);
+      sound.play('spool', hearing(flight));
+    },
     onAirborne: (flight) => sound.play('whoosh', Math.max(0.35, hearing(flight))),
     onGone: (flight) => {
       const view = views.get(flight);
@@ -393,7 +448,7 @@ export function createSkyportGame(
         sound.play('sparkle');
       }
     },
-  });
+  }, (from, to) => route(from, to));
 
   // The crew: the check-in agent behind the desk, the ground handler out on the apron, the ramp dispatcher
   // who opens the gates and waves the planes off.
@@ -429,10 +484,14 @@ export function createSkyportGame(
   // The gates: what stands at each once it's built, and a barrier across its door until then.
   const gates: GateView[] = [];
   const barriers = new Map<string, Object3D>();
+  const barrierSolids = new Map<string, Rect>();
   for (const [key, spot] of Object.entries(layout.gates)) {
     if (built(key) || current.pads.find((p) => p.id === key)?.cost === 0) continue;
     const barrier = gateBarrier(spot);
     barriers.set(key, barrier);
+    const rect = around(spot.door, 1.65, 0.3);
+    barrierSolids.set(key, rect);
+    solids.push(rect);
     stage.scene.add(withShadows(barrier));
   }
   const spotPad = (at: Point, size: number, tint: number): PadModel => {
@@ -449,19 +508,27 @@ export function createSkyportGame(
     gate.truck.root.position.set(gate.spot.truck.x, 0, gate.spot.truck.z);
     gate.hose = fuelHose();
     stage.scene.add(gate.hose);
-    solids.push({ minX: gate.spot.truck.x - 1.2, maxX: gate.spot.truck.x + 1.2, minZ: gate.spot.truck.z - 3.2, maxZ: gate.spot.truck.z + 3.2 });
+    solids.push(footprint('sp_fuel', gate.spot.truck.x, gate.spot.truck.z, 0, 0.05));
+    solidsChanged();
   };
-  const addSeats = (spot: GateSpot, animate: boolean): void => void show(loungeSeats(spot.lounge), animate);
+  const addSeats = (spot: GateSpot, animate: boolean): void => {
+    show(loungeSeats(spot.lounge), animate);
+    solids.push(...loungeSeatSolids(spot.lounge));
+    solidsChanged();
+  };
   const openGate = (key: string, animate: boolean): void => {
     const spot = layout.gates[key];
     if (!spot || gates.some((g) => g.key === key)) return;
     barriers.get(key)?.removeFromParent();
+    const gone = barrierSolids.get(key);
+    if (gone) solids.splice(solids.indexOf(gone), 1);
+    solidsChanged();
     const stairs = show(airStairs(), animate);
     stairs.position.set(spot.stairsFoot.x, 0, spot.stairsFoot.z);
-    solids.push({ minX: spot.stairsFoot.x - STAIRS.run - 0.1, maxX: spot.stairsFoot.x - 0.2, minZ: spot.stairsFoot.z - 0.75, maxZ: spot.stairsFoot.z + 0.75 });
+    solids.push({ minX: spot.stairsFoot.x - STAIRS.run - 0.12, maxX: spot.stairsFoot.x + 0.02, minZ: spot.stairsFoot.z - 0.8, maxZ: spot.stairsFoot.z + 0.8 });
     const stand = show(podium(), animate);
     stand.position.set(spot.podium.x, 0, spot.podium.z);
-    solids.push(around(spot.podium, 0.7, 0.35));
+    solids.push(around(spot.podium, 0.72, 0.38));
     const pad = new PadModel(2.2, 0x22c3c9);
     pad.group.position.set(spot.marshal.x, 0, spot.marshal.z);
     stage.scene.add(pad.group);
@@ -502,9 +569,11 @@ export function createSkyportGame(
       belt.root.position.set(layout.belt.at.x, 0, layout.belt.at.z);
       casePile.root.position.set(layout.belt.at.x, 0, layout.belt.at.z);
       stage.scene.add(casePile.root);
-      solids.push({ minX: layout.belt.at.x - 0.7, maxX: layout.belt.at.x + 0.7, minZ: layout.belt.at.z - 0.2, maxZ: layout.belt.at.z + 1.2 });
+      solids.push(footprint('sp_belt', layout.belt.at.x, layout.belt.at.z, 0, 0.04));
+      solidsChanged();
     }
     if (effects_?.staff) hire(id);
+    solidsChanged();
     stage.refreshShadows();
   };
   // The check-in desk and Gate 1 come with the airfield: there the moment the hero arrives.
@@ -632,6 +701,13 @@ export function createSkyportGame(
   };
 
   /** A plane's fuselage, as a rectangle on the ground, while it's on or near its stand. */
+  const parkedSolids = (flight: Flight): Rect[] => {
+    if (flight.phase !== 'parked') return [];
+    return [-1, 1].flatMap((side) => [
+      around({ x: flight.x + side * 2.4, z: flight.z + 0.5 }, 0.35, 0.45),
+      around({ x: flight.x + side * 2.4, z: flight.z + 2.2 }, 1.0, 0.18),
+    ]);
+  };
   const hull = (flight: Flight): Rect | null => {
     if (!['taxiIn', 'parked', 'pushback'].includes(flight.phase) || flight.z < layout.taxiway.z + 5) return null;
     return { minX: flight.x - PROP_SOLID.half, maxX: flight.x + PROP_SOLID.half, minZ: flight.z + PROP_SOLID.tail, maxZ: flight.z + PROP_SOLID.nose };
@@ -686,7 +762,7 @@ export function createSkyportGame(
       parked.boarding = true;
       flag(gateFlag);
       floaters.show(`🚪 ${t('gateOpen')}`, new Vector3(spot.door.x, 3.2, spot.door.z), 'star');
-      sound.play('open');
+      sound.play('chime');
     }
     gate.doorLabel.visible = !!parked && !parked.boarding && parked.waiting > 0;
     // Fuel: by the hose (or the ground handler's there).
@@ -767,10 +843,10 @@ export function createSkyportGame(
       if (flight && !flight.cleared && !flight.boarding) {
         flight.boarding = true;
         floaters.show(`🚪 ${t('gateOpen')}`, new Vector3(gate.spot.door.x, 3.2, gate.spot.door.z), 'star');
-        sound.play('open', hearing(gate.spot.door));
+        sound.play('chime', hearing(gate.spot.door));
       }
       d.job = 'idle';
-      d.path = [{ x: gate.spot.door.x, z: gate.spot.door.z + 1.2 }, { x: gate.spot.door.x, z: road }];
+      go(d, { x: gate.spot.door.x, z: road });
       return;
     }
     if (d.job === 'toPad' && gate) {
@@ -780,7 +856,7 @@ export function createSkyportGame(
         d.avatar.wave();
       }
       d.job = 'idle';
-      d.path = [{ x: gate.spot.marshal.x + 1.6, z: road }];
+      go(d, { x: gate.spot.marshal.x + 1.6, z: road });
       return;
     }
     // What's next: a plane that's ready, then a gate to open, else home.
@@ -789,21 +865,20 @@ export function createSkyportGame(
     if (ready) {
       d.job = 'toPad';
       d.gate = ready.g;
-      d.path = [{ x: d.x, z: road }, { x: ready.g.spot.marshal.x + 0.8, z: road }, { x: ready.g.spot.marshal.x, z: ready.g.spot.marshal.z }];
+      go(d, ready.g.spot.marshal);
       return;
     }
     const closed = parked.find((x) => !x.f.boarding && x.f.waiting > 0 && x.f.parkedFor >= DISPATCH_WAIT);
     if (closed) {
-      const door = closed.g.spot.door;
       d.job = 'toGate';
       d.gate = closed.g;
-      d.path = [{ x: d.x, z: road }, { x: door.x, z: road }, { x: door.x, z: door.z + 1.2 }, podiumFront(closed.g.spot)];
+      go(d, podiumFront(closed.g.spot));
       return;
     }
     const home = layout.staffSpots.dispatcher ?? layout.belt.at;
     if (d.job !== 'home' && Math.hypot(d.x - home.x, d.z - home.z) > 0.5) {
       d.job = 'home';
-      d.path = [{ x: d.x, z: road }, { x: home.x, z: road }, home];
+      go(d, home);
     } else if (d.job === 'home') {
       d.job = 'idle';
       d.avatar.root.rotation.y = Math.PI;
@@ -823,14 +898,12 @@ export function createSkyportGame(
       .map((g) => airfield.parkedAt(g.key))
       .filter((f): f is Flight => !!f && !f.cleared)
       .sort((a, b) => a.clock - b.clock);
-    const road = (layout.serviceRoad.minZ + layout.serviceRoad.maxZ) / 2 - 1.9;
-    const lane = (flight: Flight) => flight.spot.x - 3.6;
-    const home = layout.staffSpots.handler ?? layout.belt.at;
+    const home = layout.staffSpots.handler ?? layout.belt.side;
     if (!arrived) return;
     h.wait = Math.max(0, h.wait - dt);
     if (h.wait > 0) return;
     if (h.job === 'toBelt') {
-      const flight = parkedFlights.find((f) => f.cases < f.needsCases);
+      const flight = h.flight && h.flight.phase === 'parked' && !h.flight.cleared && h.flight.cases < h.flight.needsCases ? h.flight : parkedFlights.find((f) => f.cases < f.needsCases);
       while (flight && beltCases > 0 && !h.carrier.full && h.carrier.stack.length < flight.needsCases - flight.cases) {
         h.carrier.push('case');
         beltCases -= 1;
@@ -838,7 +911,7 @@ export function createSkyportGame(
       if (flight && h.carrier.stack.length > 0) {
         h.job = 'toHold';
         h.flight = flight;
-        h.path = [{ x: lane(flight), z: road }, { x: lane(flight), z: -1 }, flight.spot.hold];
+        go(h, flight.spot.hold);
         sound.play('pick', hearing(h));
       } else h.job = 'idle';
       h.wait = 0.4;
@@ -856,7 +929,6 @@ export function createSkyportGame(
       // Anything left over goes back on the cart.
       beltCases += h.carrier.stack.length;
       while (h.carrier.stack.length > 0) h.carrier.remove('case');
-      h.path = flight ? [{ x: lane(flight), z: -1 }, { x: lane(flight), z: road }] : [];
       h.job = 'idle';
       h.wait = 0.3;
       return;
@@ -869,27 +941,29 @@ export function createSkyportGame(
     if (h.job === 'fuelling') {
       const flight = h.flight;
       if (flight && flight.phase === 'parked' && !flight.cleared && flight.fuel < 1) return;
-      h.path = flight ? [{ x: flight.spot.fuelSpot.x, z: road }] : [];
       h.job = 'idle';
       return;
     }
-    // Idle (or home): what's next?
-    const wantsCases = parkedFlights.find((f) => f.cases < f.needsCases);
-    if (wantsCases && beltCases > 0) {
+    // Idle (or home): what's next? One plane at a time, whichever has least time left: its cases, then its fuel.
+    const needsCases = (f: Flight): boolean => f.cases < f.needsCases && beltCases > 0;
+    const needsFuel = (f: Flight): boolean => f.needsFuel && f.fuel < 1 && !near(player.position, f.spot.fuelSpot);
+    const target = parkedFlights.find((f) => needsCases(f) || needsFuel(f));
+    if (target && needsCases(target)) {
       h.job = 'toBelt';
-      h.path = [{ x: h.x, z: road }, { x: (layout.belt.pick.minX + layout.belt.pick.maxX) / 2, z: road }];
+      h.flight = target;
+      go(h, home);
       return;
     }
-    const wantsFuel = parkedFlights.find((f) => f.needsFuel && f.fuel < 1 && !near(player.position, f.spot.fuelSpot));
+    const wantsFuel = target;
     if (wantsFuel) {
       h.job = 'toFuel';
       h.flight = wantsFuel;
-      h.path = [{ x: h.x, z: road }, { x: wantsFuel.spot.fuelSpot.x, z: road }, wantsFuel.spot.fuelSpot];
+      go(h, wantsFuel.spot.fuelSpot);
       return;
     }
     if (h.job !== 'home' && Math.hypot(h.x - home.x, h.z - home.z) > 0.5) {
       h.job = 'home';
-      h.path = [{ x: h.x, z: road }, { x: home.x, z: road }, home];
+      go(h, home);
     } else if (h.job === 'home') {
       h.job = 'idle';
       h.avatar.root.rotation.y = Math.PI;
@@ -986,19 +1060,25 @@ export function createSkyportGame(
   /** Where the guide's hand points this frame (the play-test bot follows it). */
   let hint: GuideStep | null = null;
   const guide = (): GuideStep | null => {
-    if (built(GUIDE_UNTIL)) return null;
+    // Each job's hint stays until someone's hired to do it: the gates and clearance until the ramp dispatcher,
+    // fuel and cases until the ground handler, the rest (the newcomer's tutorial) until the check-in agent.
     const parked = gates.map((g) => ({ gate: g, flight: airfield.parkedAt(g.key) })).filter((x): x is { gate: GateView; flight: Flight } => !!x.flight && !x.flight.cleared);
-    const ready = parked.find((x) => x.flight.ready);
-    if (ready) return { at: ready.gate.spot.marshal, text: 'guideClear' };
-    const closed = parked.find((x) => !x.flight.boarding && x.flight.waiting > 0);
-    if (closed) return { at: podiumFront(closed.gate.spot), text: 'guideGate' };
-    const dry = parked.find((x) => x.flight.needsFuel && x.flight.fuel < 1);
-    if (dry) return { at: dry.gate.spot.fuelSpot, text: 'guideFuelPlane' };
-    const light = parked.find((x) => x.flight.cases < x.flight.needsCases);
-    if (light && !built('handler')) {
-      if (heroCarry.stack.length > 0) return { at: light.gate.spot.hold, text: 'guideHold' };
-      if (beltCases > 0) return { at: { x: (layout.belt.pick.minX + layout.belt.pick.maxX) / 2, z: (layout.belt.pick.minZ + layout.belt.pick.maxZ) / 2 }, text: 'guideBelt' };
+    if (!built('dispatcher')) {
+      const ready = parked.find((x) => x.flight.ready);
+      if (ready) return { at: ready.gate.spot.marshal, text: 'guideClear' };
+      const closed = parked.find((x) => !x.flight.boarding && x.flight.waiting > 0);
+      if (closed) return { at: podiumFront(closed.gate.spot), text: 'guideGate' };
     }
+    if (!built('handler')) {
+      const dry = parked.find((x) => x.flight.needsFuel && x.flight.fuel < 1);
+      if (dry) return { at: dry.gate.spot.fuelSpot, text: 'guideFuelPlane' };
+      const light = parked.find((x) => x.flight.cases < x.flight.needsCases);
+      if (light) {
+        if (heroCarry.stack.length > 0) return { at: light.gate.spot.hold, text: 'guideHold' };
+        if (beltCases > 0) return { at: layout.belt.side, text: 'guideBelt' };
+      }
+    }
+    if (built(GUIDE_UNTIL)) return null;
     // The very first plane: wave it in.
     const inbound = gates.map((g) => ({ gate: g, flight: airfield.at(g.key) })).find((x) => x.flight?.phase === 'taxiIn');
     if (inbound && !state.flags.includes(clearedFlag) && passengers.line.length === 0) return { at: inbound.gate.spot.marshal, text: 'guideMarshal' };
@@ -1038,15 +1118,56 @@ export function createSkyportGame(
     save: () => void saves.saveNow(),
     rewarded: (id) => meta.rewarded(id),
   });
+  // Rush jobs: once there's a check-in agent (before that a job would leave the line to give up), a short job for
+  // the hero now and then: a suitcase left behind, someone running late for their gate, gulls on the apron.
+  let gullsMade = 0;
+  const jobs = createJobs({
+    root,
+    scene: stage.scene,
+    labels,
+    chips,
+    state,
+    layout,
+    town: 'airport',
+    pads,
+    hero: { position: () => player.position, mesh: player.mesh, speed: () => player.topSpeed },
+    effects,
+    floaters,
+    sound,
+    makePerson: () => {
+      if (!peopleReady) return null;
+      const n = state.counts.jobs ?? 0;
+      return new PersonAvatar(CHARACTERS.visitors[(n + 3) % CHARACTERS.visitors.length]!, 'case');
+    },
+    makeThing: (kind) => {
+      if (kind === 'lostcase') return skyModel(`sp_case${(state.counts.jobs ?? 0) % 6}`);
+      if (kind !== 'bird') return null;
+      const gull = skyModel('sp_gull');
+      gull.rotation.y = (gullsMade++ * 2.4) % (Math.PI * 2);
+      return gull;
+    },
+    allowed: () => peopleReady && built(GUIDE_UNTIL),
+    blocked: () => false,
+    solids: () => [...solids, ...Object.values(layout.gates).flatMap(standSolids)],
+    walkable: () => view.walkable,
+    mentor: current.story.mentor,
+    onPaid: (amount, at) => meta.onPaid({ amount, tip: 0, automated: false, at, bonus: true }),
+    onDone: () => meta.count('jobs'),
+    double: (pay) => meta.doubleJob(pay),
+    save: () => void saves.saveNow(),
+  });
+  cleanups.push(() => jobs.dispose());
   const press = createPress(root, sound, () => meta.screenClosed());
   const empireMap = (): void => openEmpireMap({ root, state, sound, town: current, travel: (id) => travelTo(id) });
   const hero = createHero({ root, state, town: current, sound, press, flag, save: () => saves.saveNow(), onChipTap: empireMap });
   const storyline = createStoryline({ state, town: current, press, arrivals, flag });
 
-  if (import.meta.env.DEV) Object.assign(window, { skyport: { airfield, passengers, gates, clear, layout, rig, views } });
+  if (import.meta.env.DEV) Object.assign(window, { skyport: { airfield, passengers, gates, clear, layout, rig, views, solids, standSolids, route, crew: () => [agent, handler, dispatcher] } });
 
   /** Who's near the hall's doors this frame (they slide open for anyone). */
   const doorNear: Point[] = [];
+  /** Till the gulls on the apron call again. */
+  let cawIn = 0;
   let rateTimer = 0;
   let stillFor = 0;
   let showShift = 0;
@@ -1055,7 +1176,7 @@ export function createSkyportGame(
     clock.advance(dt);
     state.playSeconds += dt;
     const hulls = airfield.flights.map(hull).filter((r): r is Rect => !!r);
-    player.update(dt, input.read(), [...solids, ...hulls, ...decor.solids()], view.walkable);
+    player.update(dt, input.read(), [...solids, ...hulls, ...airfield.flights.flatMap(parkedSolids), ...decor.solids(), ...jobs.solids()], view.walkable);
     // A plane rolling onto its stand eases the hero out of its way.
     for (const rect of hulls) pushOut(player.mesh.position, TUNING.player.radius, rect);
     pads.update(dt, player.position);
@@ -1089,6 +1210,15 @@ export function createSkyportGame(
     ambience.update(dt);
     belt?.update(dt, beltCases > 0 && airfield.flights.some((f) => f.phase === 'parked' && f.cases < f.needsCases));
     nameSign.update(dt);
+    let drone = 0;
+    for (const f of airfield.flights) drone = Math.max(drone, f.engines * hearing(f) * (f.y > 25 ? 0.5 : 1));
+    sound.loop('engines', drone);
+    cawIn -= dt;
+    const birds = jobs.board.active?.def.id === 'birds' ? jobs.board.active : null;
+    if (birds && cawIn <= 0) {
+      cawIn = 1.6 + Math.random() * 2.2;
+      sound.play('caw', hearing(birds.from) * 0.8);
+    }
     scenery.update(dt, airfield.flights);
     doorNear.length = 0;
     doorNear.push(player.position);
@@ -1125,6 +1255,8 @@ export function createSkyportGame(
     showShift += ((watching ? 1 : 0) - showShift) * (1 - Math.exp(-dt * 1.8));
     const focusZ = player.position.z + (layout.runway.z + 8 - player.position.z) * (wide ? 0.42 : 0.22) * showShift;
     view.update(dt, { x: player.position.x, z: focusZ });
+    jobs.update(dt, stage.camera, stage.size.width, stage.size.height, { top: view.topInset, right: SIDE_BAR_PX });
+    player.scrubbing = jobs.working;
     blobShadows.update();
     carriedItems.update();
     stage.render();
@@ -1166,6 +1298,7 @@ export function createSkyportGame(
     player,
     traffic: null,
     staff: null,
+    jobs,
     bot: {
       get hint() {
         return hint;
@@ -1174,6 +1307,7 @@ export function createSkyportGame(
       upgrades,
       cash,
       carrying: () => heroCarry.stack.length,
+      solids: () => [...solids, ...Object.values(layout.gates).flatMap(standSolids)],
     },
     welcomeBack: (earned) => meta.welcomeBack(earned),
     get frameMs() {

@@ -7,9 +7,12 @@
 import { describe, expect, it } from 'vitest';
 import { JOBS, TUNING, fixedSolids, type Point, type Rect, type TownLayout } from '../src/core/config';
 import { jobFootprint } from '../src/systems/jobs';
+import { podiumFront } from '../src/systems/airport';
 import { ROADSIDE } from '../src/core/towns';
 import { WILLOWBROOK } from '../src/core/willowbrook';
 import { STARLIGHT } from '../src/core/starlight';
+import { SKYPORT } from '../src/core/skyport';
+import { entranceSign, hallWalls, loungeSeatSolids } from '../src/render/models/airport';
 import { SOLID } from '../src/systems/buildings';
 import { FARM_SOLIDS } from '../src/render/models/farm';
 import { PARK_SOLIDS } from '../src/render/models/park';
@@ -72,6 +75,43 @@ const TOWNS = [
       return rects;
     },
   },
+  {
+    def: SKYPORT,
+    kind: 'airport',
+    solids: () => {
+      const { layout } = SKYPORT;
+      const { desk, hall, belt } = layout;
+      const box = (x: number, z: number, hw: number, hd: number): Rect => ({ minX: x - hw, maxX: x + hw, minZ: z - hd, maxZ: z + hd });
+      const rects: Rect[] = [
+        ...hallWalls(layout),
+        // The desk, its bag belt, the barriers along its line.
+        box(desk.at.x, desk.at.z, 1.58, 0.48),
+        { minX: desk.at.x + 1.6, maxX: desk.at.x + 2.6, minZ: desk.at.z - 2.5, maxZ: desk.at.z + 0.48 },
+        ...[-0.72, 0.72].map((dx) => ({ minX: desk.at.x + dx - 0.06, maxX: desk.at.x + dx + 0.06, minZ: desk.at.z + 1.3, maxZ: desk.at.z + 5.25 })),
+        // The baggage belt and its cart, the tug parked at the end of the service road.
+        { minX: belt.at.x - 1.0, maxX: belt.at.x + 1.0, minZ: belt.at.z - 3.95, maxZ: belt.at.z + 0.95 },
+        box(-1.55, 8.6, 1.05, 0.9),
+        box(entranceSign(layout).x, entranceSign(layout).z, 3.85, 0.55),
+        box(hall.maxX - 4.6, hall.maxZ - 4.2, 1.5, 0.3),
+        ...layout.trees.map((t) => box(t.x, t.z, 0.45 * (t.size ?? 1), 0.45 * (t.size ?? 1))),
+        // Where the line queues.
+        ...desk.queue.map((q) => box(q.x, q.z, 0.35, 0.35)),
+        // The power units at the apron's edges.
+        box(layout.lot.minX + 1.4, -8.5, 0.6, 0.85),
+        box(layout.lot.maxX - 1.2, -8.5, 0.6, 0.85),
+      ];
+      for (const gate of Object.values(layout.gates)) {
+        const mid = gate.noseZ - 4.5;
+        // A parked plane's body, wheels and propellers; its stairs, fuel truck and podium; its lounge's seats.
+        rects.push({ minX: gate.x - 1.05, maxX: gate.x + 1.05, minZ: mid - 4.4, maxZ: mid + 4.5 });
+        for (const side of [-1, 1]) rects.push(box(gate.x + side * 2.4, mid + 0.5, 0.35, 0.45), box(gate.x + side * 2.4, mid + 2.2, 1.0, 0.18));
+        rects.push({ minX: gate.stairsFoot.x - 3.92, maxX: gate.stairsFoot.x + 0.02, minZ: gate.stairsFoot.z - 0.8, maxZ: gate.stairsFoot.z + 0.8 });
+        rects.push(box(gate.truck.x, gate.truck.z, 1.2, 3.3), box(gate.podium.x, gate.podium.z, 0.72, 0.38));
+        rects.push(...loungeSeatSolids(gate.lounge));
+      }
+      return rects;
+    },
+  },
 ] as const;
 
 /** Every pad and upgrade pad, as far as standing on it reaches; but not the pads of what's built for the job (they're gone). */
@@ -81,6 +121,21 @@ const padRects = (layout: TownLayout, built: readonly string[]): Rect[] => [
     .map(([, p]) => around(p, TUNING.pads.radius)),
   ...Object.values(layout.upgradePads).map((p) => around(p, TUNING.pads.upgradeRadius)),
 ];
+
+describe('the airport', () => {
+  it('has room for the hero at every spot they work a gate from (opening it, the ramp pad, the hose, the hold)', () => {
+    const solid = TOWNS.find((t) => t.def.id === SKYPORT.id)!.solids();
+    const bad: string[] = [];
+    for (const [key, gate] of Object.entries(SKYPORT.layout.gates)) {
+      const spots = { open: podiumFront(gate), marshal: gate.marshal, hose: gate.fuelSpot, hold: gate.hold };
+      for (const [name, p] of Object.entries(spots)) {
+        const hit = solid.find((r) => gap(p, r) < TUNING.player.radius);
+        if (hit) bad.push(`${key} ${name} at ${p.x}, ${p.z}: by ${JSON.stringify(hit)}`);
+      }
+    }
+    expect(bad).toEqual([]);
+  });
+});
 
 describe('rush job spots', () => {
   for (const { def, kind, solids } of TOWNS) {

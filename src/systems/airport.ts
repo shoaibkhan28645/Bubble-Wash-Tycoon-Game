@@ -394,7 +394,11 @@ export class Airfield {
       this.gap.set(gate, this.rules.flight.gapSeconds);
     }
     for (const flight of [...this.flights]) {
-      const arriving = this.flights.some((f) => f !== flight && (f.phase === 'rollout' || f.phase === 'taxiIn' || (f.phase === 'approach' && f.approach > 0.25)));
+      // An arrival only gets in the way of a plane backing off a stand it will pass on the taxiway (arrivals come
+      // from the east and turn in at their own stand, so one bound for a stand further east never gets that far).
+      const arriving = this.flights.some(
+        (f) => f !== flight && (f.phase === 'rollout' || f.phase === 'taxiIn' || (f.phase === 'approach' && f.approach > 0.25)) && f.spot.x <= flight.spot.x + 3,
+      );
       // (One at a time out to the runway: the next waits on its stand until the one ahead has lined up and gone.)
       const backing = this.flights.some((f) => f !== flight && (f.phase === 'pushback' || f.phase === 'taxiOut' || f.phase === 'hold' || f.phase === 'lineup'));
       const onRunway = this.flights.some((f) => f !== flight && (f.phase === 'approach' || f.phase === 'rollout' || f.phase === 'lineup' || f.phase === 'takeoff'));
@@ -411,6 +415,15 @@ export class Airfield {
       }
     }
   }
+}
+
+/**
+ * Where the hero (or the ramp dispatcher) stands to open a gate for boarding: beside its podium on the door's
+ * side, clear of the podium, the wall and the lounge's first row of seats (behind the podium there's no room
+ * for the hero once the seats are in).
+ */
+export function podiumFront(spot: GateSpot): Point {
+  return { x: spot.podium.x - 1.2, z: spot.podium.z + 0.05 };
 }
 
 /** The ramp pad's ring: how wide it is `readyFor` seconds after the plane was ready, and whether it's on the pad's edge. */

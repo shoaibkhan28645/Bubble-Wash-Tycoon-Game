@@ -5,6 +5,7 @@
 // the radar and the flags. A model with moving parts is drawn as one skinned mesh (rigid.ts): one draw
 // call, its parts still turned by name. The words on signs are painted here.
 import {
+  Box3,
   CanvasTexture,
   CircleGeometry,
   CylinderGeometry,
@@ -98,6 +99,43 @@ function skyMover(name: string, key = name, paint?: (geometry: BufferGeometry) =
 /** A model's part by its name (an empty stand-in if it's missing, so nothing breaks). */
 function part(model: Object3D, name: string): Object3D {
   return model.getObjectByName(name) ?? new Object3D();
+}
+
+/** Each model's outline on the ground (its own space, the base at the origin), measured once. */
+const outlines = new Map<string, Rect>();
+
+/**
+ * Where a model stands on the ground once placed at (x, z), turned `rot` about y: its outline as a
+ * rectangle (the box round it, if it's turned at an angle), shrunk by `inset` all round (a little, so
+ * the hero can brush past a rounded edge).
+ */
+export function footprint(name: string, x: number, z: number, rot = 0, inset = 0): Rect {
+  let local = outlines.get(name);
+  if (!local) {
+    const base = skyPiece(name);
+    base.updateMatrixWorld(true);
+    const inverse = new Matrix4().copy(base.matrixWorld).invert();
+    const box = new Box3();
+    const part = new Box3();
+    base.traverse((node) => {
+      if (!(node instanceof Mesh)) return;
+      const geometry = node.geometry as BufferGeometry;
+      if (!geometry.boundingBox) geometry.computeBoundingBox();
+      box.union(part.copy(geometry.boundingBox!).applyMatrix4(new Matrix4().multiplyMatrices(inverse, node.matrixWorld)));
+    });
+    local = { minX: box.min.x, maxX: box.max.x, minZ: box.min.z, maxZ: box.max.z };
+    outlines.set(name, local);
+  }
+  const c = Math.cos(rot);
+  const s = Math.sin(rot);
+  const xs: number[] = [];
+  const zs: number[] = [];
+  for (const [lx, lz] of [[local.minX, local.minZ], [local.maxX, local.minZ], [local.minX, local.maxZ], [local.maxX, local.maxZ]] as const) {
+    // A turn about y: (x, z) → (x cos + z sin, -x sin + z cos).
+    xs.push(x + lx * c + lz * s);
+    zs.push(z - lx * s + lz * c);
+  }
+  return { minX: Math.min(...xs) + inset, maxX: Math.max(...xs) - inset, minZ: Math.min(...zs) + inset, maxZ: Math.max(...zs) - inset };
 }
 
 /** One model placed many times, merged into one mesh: lamps, fences, benches. */
@@ -482,22 +520,35 @@ export function podium(): Object3D {
   return skyModel('sp_podium');
 }
 
+/**
+ * A lounge's seats: two beams of four either side of the aisle down from the gate's door (wide enough for the
+ * hero to walk with room to spare), in two rows. Across from the lounge's middle, and in from its front.
+ */
+const SEAT_BEAMS = [-2.75, 2.55] as const;
+const SEAT_ROWS = [1.0, 2.9] as const;
+/** Each beam's footprint (sp_seats_a/b), from its spot. */
+const BEAM = { minX: -1.85, maxX: 1.85, minZ: -0.41, maxZ: 0.34 } as const;
+const beamSpots = (lounge: Rect, row: number): Point[] => {
+  const cx = (lounge.minX + lounge.maxX) / 2;
+  return SEAT_BEAMS.map((dx) => ({ x: cx + dx, z: lounge.minZ + SEAT_ROWS[row]! + 0.08 }));
+};
+
 /** Rows of seats filling a lounge: two beams of four in each row, two rows (the front navy, the back teal). */
 export function loungeSeats(lounge: Rect): Object3D {
-  const cx = (lounge.minX + lounge.maxX) / 2;
   const group = new Group();
-  for (const [row, name] of [[0, 'sp_seats_a'], [1, 'sp_seats_b']] as const) {
-    const z = lounge.minZ + (row ? 2.9 : 1.0) + 0.08;
-    group.add(skyCopies(name, [{ x: cx - 2.6, z }, { x: cx + 2.3, z }]));
-  }
+  for (const [row, name] of [[0, 'sp_seats_a'], [1, 'sp_seats_b']] as const) group.add(skyCopies(name, beamSpots(lounge, row)));
   return group;
+}
+/** The seats' solid footprints in a lounge. */
+export function loungeSeatSolids(lounge: Rect): Rect[] {
+  return [0, 1].flatMap((row) => beamSpots(lounge, row).map((p) => ({ minX: p.x + BEAM.minX, maxX: p.x + BEAM.maxX, minZ: p.z + BEAM.minZ, maxZ: p.z + BEAM.maxZ })));
 }
 /** Where people sit in a lounge with seats: spot `i` of 16. */
 export function seatAt(lounge: Rect, i: number): { x: number; z: number } {
-  const cx = (lounge.minX + lounge.maxX) / 2;
   const row = Math.floor(i / 8) % 2;
   const col = i % 8;
-  return { x: cx + (col < 4 ? -2.6 : 2.3) - 1.35 + (col % 4) * 0.9, z: lounge.minZ + (row ? 2.9 : 1.0) + 0.1 };
+  const beam = beamSpots(lounge, row)[col < 4 ? 0 : 1]!;
+  return { x: beam.x - 1.35 + (col % 4) * 0.9, z: beam.z + 0.02 };
 }
 
 /** The hall's walls as rectangles (solid), with gaps at the entrance and each gate's door. */
@@ -579,6 +630,8 @@ export function gateBarrier(gate: GateSpot): Object3D {
 export function taxiCar(): CarModel {
   const car = new CarModel();
   car.setType({ id: 'taxi', name: 'Taxi', model: 'taxi', scale: 0.92, size: [1.58, 1.38, 3.42], paints: ['#ffd24a'] } as unknown as CarDef);
+  // Sparkling clean (a car's muddy until the car wash cleans it).
+  car.setClean('dusty', 1);
   return car;
 }
 

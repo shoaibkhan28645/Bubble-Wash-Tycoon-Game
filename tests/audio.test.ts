@@ -15,8 +15,21 @@ describe('sound list', () => {
     }
   });
 
-  it("every town's music and loops have a file", () => {
-    for (const [name, track] of Object.entries(AUDIO.tracks)) expect(files, name).toContain(track.file);
+  it("every town's music and loops have a file that exists or a made-in-code loop", () => {
+    for (const [name, track] of Object.entries(AUDIO.tracks) as [string, { file?: string; synth?: string }][]) {
+      expect(track.file || track.synth, name).toBeTruthy();
+      if (track.file) expect(files, name).toContain(track.file);
+      if (track.synth) expect(Object.keys(synth), name).toContain(track.synth);
+    }
+  });
+
+  it('the made-in-code loops loop without a click', () => {
+    for (const name of ['drone'] as const) {
+      const v = synth[name][0]!;
+      const jump = Math.abs(v[v.length - 1]! - v[0]!);
+      const typical = v.slice(100, 4000).reduce((m, s, i, a) => (i ? Math.max(m, Math.abs(s - a[i - 1]!)) : m), 0);
+      expect(jump, name).toBeLessThanOrEqual(typical);
+    }
   });
 
   it('made-in-code sounds are clean (no NaN, no clipping, not silent)', () => {

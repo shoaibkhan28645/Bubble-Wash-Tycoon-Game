@@ -6,7 +6,7 @@
 import { CanvasTexture, Group, Mesh, MeshBasicMaterial, PlaneGeometry, SRGBColorSpace, type Object3D } from 'three';
 import type { AirportLayout, Rect } from '../core/config';
 import type { Flight } from '../systems/airport';
-import { Flag, LightPlane, Radar, signBoard, skyCopies, skyModel } from './models/airport';
+import { Flag, LightPlane, Radar, footprint, signBoard, skyCopies, skyModel } from './models/airport';
 import { scatter, seeded } from './terrain';
 
 const PI = Math.PI;
@@ -79,8 +79,23 @@ class DeparturesScreen {
 const inside = (x: number, z: number, margin: number, rects: readonly Rect[]): boolean =>
   rects.some((r) => x > r.minX - margin && x < r.maxX + margin && z > r.minZ - margin && z < r.maxZ + margin);
 
+/** A rectangle given in a model's own space (x across, z along), placed at (x, z) and turned `rot` about y. */
+function turned(x: number, z: number, rot: number, local: Rect): Rect {
+  const c = Math.cos(rot);
+  const s = Math.sin(rot);
+  const xs: number[] = [];
+  const zs: number[] = [];
+  for (const [lx, lz] of [[local.minX, local.minZ], [local.maxX, local.minZ], [local.minX, local.maxZ], [local.maxX, local.maxZ]] as const) {
+    xs.push(x + lx * c + lz * s);
+    zs.push(z - lx * s + lz * c);
+  }
+  return { minX: Math.min(...xs), maxX: Math.max(...xs), minZ: Math.min(...zs), maxZ: Math.max(...zs) };
+}
+
 export class SkyportScenery {
   readonly group = new Group();
+  /** What's solid of all this (the hero walks round it, and so do the passengers and crew). */
+  readonly solids: Rect[] = [];
   private readonly movers: { update(dt: number): void }[] = [];
   private readonly screen: DeparturesScreen;
   private timer = 0;
@@ -92,6 +107,14 @@ export class SkyportScenery {
       object.rotation.y = rot;
       this.group.add(object);
       return object;
+    };
+    const solid = (r: Rect): number => this.solids.push(r);
+    /** A post, a pot or a pole: solid `r` round its middle. */
+    const pole = (x: number, z: number, r: number): number => solid({ minX: x - r, maxX: x + r, minZ: z - r, maxZ: z + r });
+    /** Copies of a model, each as solid as its own outline. */
+    const copies = (name: string, at: { x: number; z: number; rot?: number }[], inset = 0.03): void => {
+      this.group.add(skyCopies(name, at));
+      for (const p of at) solid(footprint(name, p.x, p.z, p.rot ?? 0, inset));
     };
 
     // Woods round the airfield, clear of the runway, the taxiway and its links, the road and the club.
@@ -121,29 +144,33 @@ export class SkyportScenery {
     for (let z = apron.maxZ - 1; z > taxiway.z + taxiway.half + 3.5; z -= 3) {
       fence.push({ x: lot.minX - 0.6, z, rot: PI / 2 }, { x: lot.maxX + 1.2, z, rot: PI / 2 });
     }
-    this.group.add(skyCopies('sp_fence', fence));
-    this.group.add(
-      skyCopies('sp_flood', [
-        { x: lot.minX - 1.6, z: taxiway.z + taxiway.half + 4.5, rot: -PI / 4 },
-        { x: lot.maxX + 2.2, z: taxiway.z + taxiway.half + 4.5, rot: PI / 4 },
-        { x: lot.minX - 1.6, z: apron.maxZ - 4.5, rot: -PI / 2 },
-        { x: lot.maxX + 2.2, z: apron.maxZ - 4.5, rot: PI / 2 },
-      ]),
-    );
+    copies('sp_fence', fence, 0);
+    const floods = [
+      { x: lot.minX - 1.6, z: taxiway.z + taxiway.half + 4.5, rot: -PI / 4 },
+      { x: lot.maxX + 2.2, z: taxiway.z + taxiway.half + 4.5, rot: PI / 4 },
+      { x: lot.minX - 1.6, z: apron.maxZ - 4.5, rot: -PI / 2 },
+      { x: lot.maxX + 2.2, z: apron.maxZ - 4.5, rot: PI / 2 },
+    ];
+    this.group.add(skyCopies('sp_flood', floods));
+    for (const f of floods) pole(f.x, f.z, 0.45);
     // Taxiway signs either side of where the planes turn off the runway, cones and a power unit by the apron's edges.
     for (const [x, z, text] of [
       [links.exit - 5, taxiway.z + taxiway.half + 1.6, '← A  |  APRON'],
       [links.entry + 5, taxiway.z + taxiway.half + 1.6, 'A →  |  RWY 09'],
     ] as const) {
       const sign = add(skyModel('sp_sign'), x, z);
+      solid(footprint('sp_sign', x, z, 0, 0.02));
       const face = signBoard(text, 1.66, 0.62, '#ffd24a', '#1f2a36');
       face.position.set(0, 0.75, 0.15);
       sign.add(face);
     }
-    this.group.add(skyCopies('sp_gpu', [{ x: lot.minX + 1.4, z: -8.5 }, { x: lot.maxX - 1.2, z: -8.5, rot: PI }]));
+    const gpus = [{ x: lot.minX + 1.4, z: -8.5, rot: 0 }, { x: lot.maxX - 1.2, z: -8.5, rot: PI }];
+    this.group.add(skyCopies('sp_gpu', gpus));
+    for (const g of gpus) solid(turned(g.x, g.z, g.rot, { minX: -0.6, maxX: 0.6, minZ: -0.85, maxZ: 0.85 }));
 
     // The flying club: its old hangar on the grass west of the apron, two light planes, one running.
     const clubhouse = add(skyModel('sp_clubhouse'), -45.5, -4, PI / 2);
+    solid(footprint('sp_clubhouse', -45.5, -4, PI / 2, 0.05));
     const clubSign = signBoard('FLYING CLUB', 3.4, 0.62, '#ffffff', '#e8493f');
     const at = clubhouse.getObjectByName('sp_clubhouse_sign');
     if (at) {
@@ -157,25 +184,33 @@ export class SkyportScenery {
       const plane = new LightPlane(running);
       add(plane.root, x, z, rot);
       this.movers.push(plane);
+      // Its body and wheels (the wing's high enough to walk under).
+      solid(turned(x, z, rot, { minX: -0.6, maxX: 0.6, minZ: -2.6, maxZ: 2.0 }));
+      solid(turned(x, z, rot, { minX: -1.1, maxX: 1.1, minZ: 0.2, maxZ: 0.6 }));
     }
 
     // The radar on its hut, beside the apron.
     const radar = new Radar();
     add(radar.root, apron.minX - 5.2, taxiway.z + taxiway.half + 10);
+    solid(footprint('sp_radar', apron.minX - 5.2, taxiway.z + taxiway.half + 10, 0, 0.15));
     this.movers.push(radar);
 
     // The plaza: lamps along the road, the airport's flags, planters, benches, the taxi rank's sign.
     const lampZ = plaza.maxZ - 0.7;
-    this.group.add(skyCopies('sp_lamp', [entrance.x - 11.9, entrance.x - 6.6, entrance.x + 6.4, entrance.x + 11.6].map((x) => ({ x, z: lampZ, rot: PI }))));
+    const lamps = [entrance.x - 11.9, entrance.x - 6.6, entrance.x + 6.4, entrance.x + 11.6].map((x) => ({ x, z: lampZ, rot: PI }));
+    this.group.add(skyCopies('sp_lamp', lamps));
+    for (const l of lamps) pole(l.x, l.z, 0.24);
     for (const x of [plaza.maxX - 7.0, plaza.maxX - 5.2, plaza.maxX - 3.4]) {
       const flag = new Flag();
       add(flag.root, x, plaza.minZ + 2.2);
+      pole(x, plaza.minZ + 2.2, 0.24);
       this.movers.push(flag);
     }
-    this.group.add(skyCopies('sp_planter', [{ x: entrance.x + 7.2, z: plaza.minZ + 1.0 }, { x: entrance.x - 7.6, z: plaza.maxZ - 2.6 }]));
-    this.group.add(skyCopies('sp_bench', [{ x: plaza.maxX - 4.6, z: plaza.maxZ - 2.3 }, { x: plaza.minX + 4.2, z: plaza.maxZ - 2.6 }]));
-    this.group.add(skyCopies('sp_bin', [{ x: entrance.x - 6.6, z: plaza.maxZ - 1.9 }, { x: plaza.maxX - 1.4, z: plaza.maxZ - 2.6 }, { x: entrance.x + 2.4, z: hall.maxZ - 2.6 }]));
+    copies('sp_planter', [{ x: entrance.x + 7.2, z: plaza.minZ + 1.0 }, { x: entrance.x - 7.6, z: plaza.maxZ - 2.6 }]);
+    copies('sp_bench', [{ x: plaza.maxX - 4.6, z: plaza.maxZ - 2.3 }, { x: plaza.minX + 4.2, z: plaza.maxZ - 2.6 }]);
+    copies('sp_bin', [{ x: entrance.x - 6.6, z: plaza.maxZ - 1.9 }, { x: plaza.maxX - 1.4, z: plaza.maxZ - 2.6 }, { x: entrance.x + 2.4, z: hall.maxZ - 2.6 }]);
     const taxiSign = add(skyModel('sp_taxisign'), entrance.x + 2.6, plaza.maxZ - 0.6);
+    pole(entrance.x + 2.6, plaza.maxZ - 0.6, 0.14);
     const taxiFace = signBoard('TAXI', 0.9, 0.42, '#ffd24a', '#1f2a36');
     const face = taxiSign.getObjectByName('sp_taxisign_face');
     if (face) {
@@ -185,21 +220,22 @@ export class SkyportScenery {
 
     // In the hall: the departures board, a drinks machine, plants in the corners.
     const board = add(skyModel('sp_board'), hall.maxX - 4.6, hall.maxZ - 4.2);
+    solid(footprint('sp_board', hall.maxX - 4.6, hall.maxZ - 4.2, 0, 0.02));
     this.screen = new DeparturesScreen(2.74, 1.28);
     const screenAt = board.getObjectByName('sp_board_screen');
     if (screenAt) this.screen.mesh.position.copy(screenAt.position);
     board.add(this.screen.mesh);
-    this.group.add(skyCopies('sp_vending', [{ x: hall.maxX - 1.2, z: hall.maxZ - 8.6, rot: -PI / 2 }, { x: hall.minX + 1.0, z: hall.maxZ - 5.8, rot: PI / 2 }]));
-    this.group.add(
-      skyCopies('sp_plant', [
-        { x: hall.minX + 0.9, z: hall.maxZ - 0.9 },
-        { x: hall.maxX - 0.9, z: hall.maxZ - 0.9 },
-        { x: hall.minX + 0.9, z: hall.minZ + 6.0 },
-        { x: hall.maxX - 0.9, z: hall.minZ + 6.0 },
-        { x: entrance.x - 3.4, z: hall.maxZ - 0.9 },
-        { x: entrance.x + 3.4, z: hall.maxZ - 0.9 },
-      ]),
-    );
+    copies('sp_vending', [{ x: hall.maxX - 1.2, z: hall.maxZ - 8.6, rot: -PI / 2 }, { x: hall.minX + 1.0, z: hall.maxZ - 5.8, rot: PI / 2 }]);
+    const plants = [
+      { x: hall.minX + 0.9, z: hall.maxZ - 0.9 },
+      { x: hall.maxX - 0.9, z: hall.maxZ - 0.9 },
+      { x: hall.minX + 0.9, z: hall.minZ + 6.0 },
+      { x: hall.maxX - 0.9, z: hall.minZ + 6.0 },
+      { x: entrance.x - 3.4, z: hall.maxZ - 0.9 },
+      { x: entrance.x + 3.4, z: hall.maxZ - 0.9 },
+    ];
+    this.group.add(skyCopies('sp_plant', plants));
+    for (const p of plants) pole(p.x, p.z, 0.46);
   }
 
   /** One frame: the flags, the running light plane, the radar; the board shows the flights every second. */
