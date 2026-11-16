@@ -83,7 +83,9 @@ describe('the second runway', () => {
     const away = new Map<string, number>();
     let closest = Infinity;
     let longest = 0;
+    let standLongest = 0;
     let departed = 0;
+    let gateDeparted = 0;
     let landing = 0;
     let lining = 0;
     for (let t = 0; t < seconds; t += DT) {
@@ -98,7 +100,11 @@ describe('the second runway', () => {
           }
         }
         if (f.phase === 'pushback' && clearedAt.has(f)) {
-          longest = Math.max(longest, t - clearedAt.get(f)!);
+          // (The gates' planes, whose passengers are waiting, and the stands', which give way to them.)
+          if (gates.includes(f.gate) && f.gate !== 'cargo') {
+            longest = Math.max(longest, t - clearedAt.get(f)!);
+            gateDeparted += 1;
+          } else standLongest = Math.max(standLongest, t - clearedAt.get(f)!);
           clearedAt.delete(f);
           departed += 1;
         }
@@ -124,10 +130,10 @@ describe('the second runway', () => {
         expect(onIt).toBeLessThanOrEqual(1);
       }
     }
-    return { departed, longest, closest, landing, lining };
+    return { departed, gateDeparted, longest, standLongest, closest, landing, lining };
   }
 
-  it('keeps every stand busy with nobody in the same place, and lifts how many planes the airport turns round', () => {
+  it('keeps every stand busy with nobody in the same place, and lifts how many planes the airport (and the gates most) turns round', () => {
     const one = day(false);
     const two = day(true);
     for (const d of [one, two]) {
@@ -135,9 +141,44 @@ describe('the second runway', () => {
       expect(d.lining).toBeLessThanOrEqual(1);
       expect(d.closest).toBeGreaterThan(10);
     }
+    // More planes turned round, the gates' most of all; nobody kept waiting long to go (the stands' planes give
+    // way to the gates', but they're not kept waiting for ever).
     expect(two.departed).toBeGreaterThan(one.departed * 1.1);
-    expect(two.longest).toBeLessThan(one.longest);
-    expect(two.longest).toBeLessThan(75);
+    expect(two.gateDeparted).toBeGreaterThan(one.gateDeparted * 1.15);
+    for (const d of [one, two]) {
+      expect(d.longest).toBeLessThan(75);
+      expect(d.standLongest).toBeLessThan(75);
+    }
+  });
+});
+
+describe('who lands first', () => {
+  it('sends a gate’s plane before a stand’s when both are ready (a freighter, or Mogul Air called home)', () => {
+    const airfield = new Airfield(layout, rules, 6, {}, seeded(5));
+    airfield.openGate('cargo');
+    airfield.openGate('mogul', 0, true);
+    airfield.call('mogul');
+    airfield.openGate('gate2');
+    run(airfield, DT * 2);
+    expect(airfield.flights.map((f) => f.gate)).toEqual(['gate2']);
+    // (The stands' turn comes once no gate's waiting.)
+    run(airfield, 40);
+    expect(airfield.flights.length).toBe(3);
+  });
+
+  it('with the second runway taking the departures, starts the next down the approach while the one before rolls out', () => {
+    for (const second of [false, true]) {
+      const airfield = new Airfield(layout, rules, 6, {}, seeded(6));
+      airfield.runway2 = second;
+      for (const gate of ['gate1', 'gate2', 'gate3']) airfield.openGate(gate);
+      let overlap = false;
+      run(airfield, 40, () => {
+        if (airfield.flights.some((f) => f.phase === 'approach') && airfield.flights.some((f) => f.phase === 'rollout')) overlap = true;
+        // (Still never two rolling out at once.)
+        expect(airfield.flights.filter((f) => f.phase === 'rollout').length).toBeLessThanOrEqual(1);
+      });
+      expect(overlap).toBe(second);
+    }
   });
 });
 

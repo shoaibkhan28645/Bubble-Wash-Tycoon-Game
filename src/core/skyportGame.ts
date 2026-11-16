@@ -2750,7 +2750,9 @@ export function createSkyportGame(
         const el = document.createElement('div');
         el.className = 'flight-label';
         const at = new Vector3();
-        const label = labels.add(el, at, true);
+        // (Pinned to the screen's edge while the plane's off it: a gate's clock, a star's patience. The other
+        // stands' labels go off with their planes, so they don't pile up at the edges.)
+        const label = labels.add(el, at, !!layout.gates[flight.gate] || flight.gate === 'vip');
         v = { model, label, at, shown: '', lateSaid: false, last: null };
         views.set(flight, v);
       }
@@ -2995,6 +2997,8 @@ export function createSkyportGame(
   let rateTimer = 0;
   let stillFor = 0;
   let showShift = 0;
+  /** Where the camera looks when it eases back to show a plane: the first runway, or the second. */
+  let watchZ = layout.runway.z + 8;
   let hallFullSaid = 0;
   const loop = new Loop((dt) => {
     clock.advance(dt);
@@ -3119,7 +3123,15 @@ export function createSkyportGame(
     const wide = stage.size.width > stage.size.height * 1.2;
     rig.setZoom(AIRPORT.zoom * (watching ? (wide ? SHOW_ZOOM.wide : SHOW_ZOOM.tall) : 1));
     showShift += ((watching ? 1 : 0) - showShift) * (1 - Math.exp(-dt * 1.8));
-    const focusZ = player.position.z + (layout.runway.z + 8 - player.position.z) * (wide ? 0.42 : 0.22) * showShift;
+    // (Towards the runway the plane's on: a take-off from the second runway, once there is one, and no landing on the first.)
+    const second = layout.runway2;
+    const onTwo =
+      !!second &&
+      airfield.runway2 &&
+      airfield.flights.some((f) => (f.phase === 'lineup' || f.phase === 'takeoff' || (f.phase === 'climb' && f.y < 24)) && Math.abs(f.z - second.z) < 3) &&
+      !airfield.flights.some((f) => (f.phase === 'approach' && f.approach > 0.3) || f.phase === 'rollout');
+    watchZ += ((onTwo ? second.z : layout.runway.z) + 8 - watchZ) * (1 - Math.exp(-dt * 1.2));
+    const focusZ = player.position.z + (watchZ - player.position.z) * (wide ? 0.42 : 0.22) * showShift;
     view.update(dt, { x: player.position.x, z: focusZ });
     jobs.update(dt, stage.camera, stage.size.width, stage.size.height, { top: view.topInset, right: SIDE_BAR_PX });
     player.scrubbing = jobs.working;

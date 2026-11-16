@@ -16,7 +16,7 @@
   "town": [],
   "walkways": [],
   "streetTrees": [],
-  "views": [],
+  "views": [{ "after": "runway2", "minX": -30, "maxX": 156.5, "minZ": -56, "maxZ": 0 }],
   "planters": [],
   "cameraBase": {
     "minX": -29.5,

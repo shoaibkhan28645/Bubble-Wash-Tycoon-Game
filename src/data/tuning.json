@@ -130,7 +130,7 @@
       "wide": { "seats": 36, "fare": 480000, "length": 20, "sill": 3.14, "clock": 110 },
       "private": { "seats": 0, "fare": 0, "length": 11, "sill": 1.05, "clock": 600 }, "freighter": { "seats": 0, "fare": 0, "length": 20, "sill": 3.3, "clock": 600 }
     },
-    "flight": { "gapSeconds": 4, "starveSeconds": 20, "priorityWait": 30, "clearAhead": 60, "firstClock": 90, "approachSeconds": 7, "landSpeed": 17, "taxiSpeed": 7.5, "pushSpeed": 3.2, "takeoffAccel": 5.5, "rotateSpeed": 19, "boardStagger": 0.5, "fullBonus": 0.2, "onTimeBonus": 0.25, "streakStep": 0.05, "streakMax": 10, "perfectTip": 0.15 },
+    "flight": { "gapSeconds": 4, "starveSeconds": 20, "priorityWait": 30, "clearAhead": 60, "standYield": 25, "firstClock": 90, "approachSeconds": 7, "landSpeed": 17, "taxiSpeed": 7.5, "pushSpeed": 3.2, "takeoffAccel": 5.5, "rotateSpeed": 19, "boardStagger": 0.5, "fullBonus": 0.2, "onTimeBonus": 0.25, "streakStep": 0.05, "streakMax": 10, "perfectTip": 0.15 },
     "fuel": { "seconds": 4.5, "clockSeconds": 8 },
     "bags": { "cases": 6, "handSeconds": 0.25, "clockSeconds": 16, "handlerCarry": 3 },
     "marshal": { "bonus": 0.05, "clockSeconds": 6, "reach": 0.9 },
@@ -183,6 +183,6 @@
     "cargo": { "crates": 8, "restock": 1.4, "stack": 10, "fare": 4000000, "wait": 1.5, "carry": 2, "crewSpeed": 1.0 },
     "hangar": { "wear": [0.25, 0.32, 0.4], "serviceAt": 0.7, "wornPenalty": 0.25, "freshTrips": 3, "freshBonus": 0.2, "seconds": 8, "mechanicRate": 0.6 },
     "jetwash": { "first": 25, "every": [80, 130], "fee": 30000000, "seconds": 16, "heroSpeed": 2.2 },
-    "runway2": { "gapSeconds": 3 }
+    "runway2": { "gapSeconds": 3, "rolloutGap": 20 }
   }
 }

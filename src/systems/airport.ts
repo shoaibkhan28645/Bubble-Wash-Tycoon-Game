@@ -140,6 +140,11 @@ export class Flight {
   private along = 0;
   approach = 0;
 
+  /** How far it's come along its way (lining up: from the hold). */
+  get travelled(): number {
+    return this.along;
+  }
+
   constructor(
     readonly id: number,
     readonly gate: string,
@@ -485,17 +490,17 @@ export class Airfield {
 
   /**
    * Whether a plane sent for `gate` now would find its way in clear: nothing backing out east of the stand
-   * (it'd be taxiing past as the arrival came), and the queue for the runway — everything on its way out, each
-   * stopped behind the one ahead, the first at the hold — ending short of the stand's turn.
+   * (it'd be taxiing past as the arrival came), nothing taxiing out that'd still be across its link when it
+   * comes off the runway, and the queue for the runway — everything on its way out, each stopped behind the
+   * one ahead, the first at the hold — ending short of the stand's turn.
    */
   private wayInClear(gate: string): boolean {
     const spot = this.spotOf(gate)!;
     const length = this.rules.planes[planeAt(spot)].length;
     const link = exitFor(this.layout, spot.x);
     const out = this.flights.filter((f) => this.departing(f)).sort((a, b) => a.x - b.x);
-    // (Nothing taxiing out still east of where it'll come off the runway: it'd meet it at the link.)
-    if (out.some((f) => f.phase === 'taxiOut' && f.x - (this.rules.planes[f.kind].length + length) / 2 - 4 < link && f.x + (this.rules.planes[f.kind].length + length) / 2 + 4 > link)) return false;
-    if (out.some((f) => f.phase === 'taxiOut' && f.x > link)) return false;
+    // (How soon it'd be down its link at the taxiway: down the approach, along the runway and up the link.)
+    const eta = this.rules.flight.approachSeconds + 4;
     let at = -Infinity;
     let before = 0;
     for (const f of out) {
@@ -504,6 +509,14 @@ export class Airfield {
       at = at === -Infinity ? Math.min(f.x, this.holdX) : at + (before + own) / 2 + 3;
       before = own;
       if (at + own / 2 > spot.x - 1) return false;
+      // Taxiing out past where it'll come off the runway: it has to be clear of the link by the time the
+      // arrival's there (and not stop across it, queued for the runway).
+      const reach = (own + length) / 2 + 4;
+      const x = f.phase === 'pushback' ? f.spot.x + 6 : f.x;
+      if (f.phase !== 'hold' && x + reach > link) {
+        if (at + reach > link) return false;
+        if (f.phase === 'pushback' || (x + reach - link) / this.rules.flight.taxiSpeed > eta - 3) return false;
+      }
     }
     return true;
   }
@@ -606,29 +619,37 @@ export class Airfield {
   update(dt: number): void {
     // New arrivals: one at a time down the approach, never while a plane's on the runway or waiting to take it
     // (the next arrival waits for it), and only to a stand whose way in is clear (everything on its way out is
-    // west of it, taxiing away). A stand that's been called for comes first, then whichever's waited longest.
+    // west of it, taxiing away, or will be past its link in time). The gates first (their passengers are
+    // waiting), whichever's waited longest; a stand's plane (called for, or a freighter) when no gate's is ready.
     let pick: string | null = null;
     let longest = -Infinity;
     for (const gate of this.open) {
       if ((this.manual.has(gate) && !this.called.has(gate)) || this.paused || this.at(gate)) continue;
       const left = (this.gap.get(gate) ?? 0) - dt;
       this.gap.set(gate, left);
-      const waited = -left + (this.called.has(gate) ? 1e6 : 0);
+      const waited = -left + (this.layout.gates[gate] ? 1e6 : 0);
       if (left <= 0 && waited > longest && this.wayInClear(gate)) {
         pick = gate;
         longest = waited;
       }
     }
-    if (pick && !this.has('approach', 'rollout') && (this.runway2 || !this.has('hold', 'lineup', 'takeoff'))) {
+    // (With the second runway taking the departures, the next may start down the approach as soon as the one
+    // before is well into its rollout: it'll be off the runway before the next touches down.)
+    const landing = this.runway2
+      ? !this.has('approach') && this.flights.every((f) => f.phase !== 'rollout' || f.travelled > this.rules.runway2.rolloutGap)
+      : !this.has('approach', 'rollout', 'hold', 'lineup', 'takeoff');
+    if (pick && landing) {
       this.send(pick);
       this.called.delete(pick);
       this.gap.set(pick, this.rules.flight.gapSeconds);
     }
     // Whichever cleared plane can go first goes, the longest-waiting first; but one that's waited a good while
     // goes before anyone else (nobody's kept on a stand while planes elsewhere come and go).
-    const cleared = this.flights.filter((f) => f.phase === 'parked' && f.cleared).sort((a, b) => b.clearedFor - a.clearedFor);
+    // (Again the gates' planes first: a stand's waits its yield longer before it's at the head of the queue.)
+    const waited = (f: Flight): number => f.clearedFor - (this.layout.gates[f.gate] ? 0 : this.rules.flight.standYield);
+    const cleared = this.flights.filter((f) => f.phase === 'parked' && f.cleared).sort((a, b) => waited(b) - waited(a));
     const head = cleared[0];
-    const queue = head && head.clearedFor > this.rules.flight.priorityWait ? [head] : cleared;
+    const queue = head && waited(head) > this.rules.flight.priorityWait ? [head] : cleared;
     const first = queue.find((f) => this.mayPush(f)) ?? null;
     for (const flight of [...this.flights]) {
       const may = { push: false, lineUp: false, stopAt: -Infinity };
