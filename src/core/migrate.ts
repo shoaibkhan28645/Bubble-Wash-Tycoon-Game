@@ -272,7 +272,7 @@ function townState(save: SaveObject): TownState {
     piles: amountMap(save.piles),
     stars: Math.min(5, Math.max(1, nonNegative(save.stars, fresh.stars))),
     autoRate: nonNegative(save.autoRate, fresh.autoRate),
-    supplies: levelMap(save.supplies),
+    supplies: supplyMap(save.supplies),
     plots: timeMap(save.plots),
     deliveries: deliveriesState(save.deliveries),
     goals: goalsState(save.goals),
@@ -426,6 +426,19 @@ function timeMap(value: unknown): Record<string, number> {
     if (typeof time === 'number' && Number.isFinite(time) && time >= 0) times[id] = Math.round(time);
   }
   return times;
+}
+
+/**
+ * A town's supplies: stock counts, and timers and wear in between whole numbers (a plane's trip, the Sky Queen's
+ * tour, how worn a plane is), every one kept as it was (an empty shelf's 0 too: a shelf not in it is a full one).
+ */
+function supplyMap(value: unknown): Record<string, number> {
+  const supplies: Record<string, number> = {};
+  if (!isObject(value)) return supplies;
+  for (const [id, amount] of Object.entries(value)) {
+    if (typeof amount === 'number' && Number.isFinite(amount) && amount >= 0) supplies[id] = amount;
+  }
+  return supplies;
 }
 
 function amountMap(value: unknown): Record<string, number> {

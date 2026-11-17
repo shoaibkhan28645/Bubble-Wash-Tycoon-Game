@@ -234,6 +234,12 @@ describe('old saves', () => {
     expect(parseSave(JSON.stringify({ version: 9, plots: { a: -5, b: 'x', c: 12.4 } })).state.plots).toEqual({ c: 12 });
   });
 
+  it('keeps supplies between whole numbers (a plane away on its trip, the Sky Queen on her tour, a worn plane)', () => {
+    const { state } = parseSave(fixtures['./fixtures/save-v9.json']!);
+    state.supplies = { 'queen.away': 59.1, 'queen.trip': 1, 'air.wear': 0.25, 'shelf.cola': 0, bad: -3, nan: Number.NaN };
+    expect(parseSave(serialize(state)).state.supplies).toEqual({ 'queen.away': 59.1, 'queen.trip': 1, 'air.wear': 0.25, 'shelf.cola': 0 });
+  });
+
   it('keeps a v10 farm\'s delivery orders and the vans on the road', () => {
     const { state } = parseSave(fixtures['./fixtures/save-v10.json']!);
     expect(state.deliveries.orders).toEqual([{ id: 4, good: 'eggs', qty: 8, pay: 1540, buyer: 'the village café', endsAt: 1793400300000, van: 'van', loaded: 3 }]);

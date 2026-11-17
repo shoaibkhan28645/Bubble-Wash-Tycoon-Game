@@ -2126,8 +2126,12 @@ export function createSkyportGame(
     el.className = 'flight-label';
     queenLabel = labels.add(el, new Vector3(sign.x, 9.6, sign.z));
     queenLabel.visible = false;
-    // Home (or brand new): on her stand. Away on a tour: back when it's done.
-    if ((state.supplies['queen.away'] ?? 0) <= 0) airfield.park('skyqueen');
+    // Home (or brand new): on her stand. Away on a tour: back when it's done. (Her tour over but not yet home when
+    // the game was saved: she lands and taxis in, and her takings come as she parks, as ever, once the game's going.)
+    if ((state.supplies['queen.away'] ?? 0) <= 0) {
+      if ((state.supplies['queen.trip'] ?? 0) > 0) airfield.call('skyqueen');
+      else airfield.park('skyqueen');
+    }
     if (animate) {
       const mid = queenMid();
       floaters.show(`👑 ${t('queenRollout')}`, new Vector3(queenStandAt.x, 9, mid + 4), 'star');
