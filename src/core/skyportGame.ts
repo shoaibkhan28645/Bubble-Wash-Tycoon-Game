@@ -2700,15 +2700,31 @@ export function createSkyportGame(
   /**
    * The ramp dispatcher: opens a gate once its plane has parked and people are waiting, and waves a plane
    * off once it's been ready a moment (the hero has that moment to make it a perfect take-off). Walks the
-   * service road between jobs, through the gate's door to its podium.
+   * service road between jobs, through the gate's door to its podium. A plane that's ready comes first: the
+   * one with least time on its clock, even if that means leaving a gate it was on its way to open (or home).
    */
+  const parkedAtGates = (): { g: GateView; f: Flight }[] =>
+    gates
+      .map((g) => ({ g, f: airfield.parkedAt(g.key) }))
+      .filter((x): x is { g: GateView; f: Flight } => !!x.f && !x.f.cleared)
+      .sort((a, b) => a.f.clock - b.f.clock);
+  const readyToGo = (parked: { g: GateView; f: Flight }[]): { g: GateView; f: Flight } | undefined =>
+    parked.find((x) => x.f.ready && x.f.readyFor >= DISPATCH_WAIT && !near(player.position, x.g.spot.marshal, 2.2));
   const workDispatcher = (dt: number): void => {
     const d = dispatcher;
     if (!d) return;
     const speed = (CREW_SPEED * boost) / levelFactor(UPGRADES.kinds.staffSpeed, level('dispatcher.staffSpeed'));
     const arrived = d.walk(dt, speed);
     d.avatar.update(dt);
-    if (!arrived) return;
+    if (!arrived) {
+      if (d.job === 'toPad') return;
+      const ready = readyToGo(parkedAtGates());
+      if (!ready) return;
+      d.job = 'toPad';
+      d.gate = ready.g;
+      go(d, ready.g.spot.marshal);
+      return;
+    }
     const road = DISPATCH_ROAD_Z;
     const gate = d.gate;
     if (d.job === 'toGate' && gate) {
@@ -2732,9 +2748,9 @@ export function createSkyportGame(
       go(d, { x: gate.spot.marshal.x + 1.6, z: road });
       return;
     }
-    // What's next: a plane that's ready, then a gate to open, else home.
-    const parked = gates.map((g) => ({ g, f: airfield.parkedAt(g.key) })).filter((x): x is { g: GateView; f: Flight } => !!x.f && !x.f.cleared);
-    const ready = parked.find((x) => x.f.ready && x.f.readyFor >= DISPATCH_WAIT && !near(player.position, x.g.spot.marshal, 2.2));
+    // What's next: a plane that's ready, then a gate to open (each the one with least time left), else home.
+    const parked = parkedAtGates();
+    const ready = readyToGo(parked);
     if (ready) {
       d.job = 'toPad';
       d.gate = ready.g;
