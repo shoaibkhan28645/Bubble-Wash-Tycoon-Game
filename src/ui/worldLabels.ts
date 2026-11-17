@@ -51,7 +51,7 @@ const EDGE_PX = 6;
 /** Space kept between a label at the screen's edge and the edge (room for its arrow pointing out). */
 const OUT_PX = 14;
 /** Space kept between two labels at the screen's edge. */
-const GAP_PX = 6;
+const GAP_PX = 10;
 const NO_FRAME: LabelFrame = { top: 0, right: 0, keepOut: [], hero: null };
 
 const overlaps = (a: Box, b: Box): boolean => Math.abs(a.x - b.x) < a.hw + b.hw && Math.abs(a.y - b.y) < a.hh + b.hh;

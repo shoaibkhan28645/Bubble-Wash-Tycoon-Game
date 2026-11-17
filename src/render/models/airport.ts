@@ -11,6 +11,7 @@ import {
   CircleGeometry,
   CylinderGeometry,
   Group,
+  Material,
   Matrix4,
   Mesh,
   MeshBasicMaterial,
@@ -316,6 +317,40 @@ export const PLANES = {
 } as const;
 export type PlaneKindName = keyof typeof PLANES;
 
+/**
+ * Each plane seen from above, as modelled: its wing and its tailplane (span, root chord, tip chord, how far back
+ * the tips are swept), how far forward of its middle each one's leading edge meets the fuselage, and its scale.
+ */
+const PLANE_OUTLINES: Record<PlaneKindName, { wing: [number, number, number, number]; wingZ: number; tail: [number, number, number, number]; tailZ: number; scale: number }> = {
+  prop: { wing: [PROP.span, 1.9, 1.15, 0.28], wingZ: 1.0, tail: [4.3, 1.15, 0.68, 0.45], tailZ: -3.5, scale: 1 },
+  jet: { wing: [JET.span, 3.2, 1.05, 3.15], wingZ: 1.7, tail: [5.8, 1.6, 0.75, 1.25], tailZ: -5.0, scale: 1 },
+  wide: { wing: [JET.span, 3.2, 1.05, 3.15], wingZ: 1.7, tail: [5.8, 1.6, 0.75, 1.25], tailZ: -5.0, scale: S },
+  freighter: { wing: [JET.span, 3.2, 1.05, 3.15], wingZ: 1.7, tail: [5.8, 1.6, 0.75, 1.25], tailZ: -5.0, scale: S },
+  queen: { wing: [12.4, 3.7, 1.1, 3.3], wingZ: 2.0, tail: [6.8, 1.85, 0.85, 1.4], tailZ: -4.95, scale: Q },
+  private: { wing: [PRIVATE.span, 2.3, 0.85, 2.1], wingZ: 0.6, tail: [3.7, 1.05, 0.55, 0.6], tailZ: -4.95, scale: 1 },
+};
+
+/**
+ * A plane's outline from above in convex pieces (its middle at the origin, nose to +z): each half of its wing and
+ * of its tailplane, and its fuselage. (What the tests sweep along its way to see it never touches anything.)
+ */
+export function planeFootprint(kind: PlaneKindName): { part: 'wing' | 'tailplane' | 'body'; points: Point[] }[] {
+  const { wing, wingZ, tail, tailZ, scale } = PLANE_OUTLINES[kind];
+  const halves = ([span, root, tip, sweep]: [number, number, number, number], z0: number): Point[][] =>
+    [1, -1].map((e) => [
+      { x: 0, z: z0 * scale },
+      { x: ((e * span) / 2) * scale, z: (z0 - sweep) * scale },
+      { x: ((e * span) / 2) * scale, z: (z0 - sweep - tip) * scale },
+      { x: 0, z: (z0 - root) * scale },
+    ]);
+  const { half, tail: back, nose } = PLANES[kind].solid;
+  return [
+    ...halves(wing, wingZ).map((points) => ({ part: 'wing' as const, points })),
+    ...halves(tail, tailZ).map((points) => ({ part: 'tailplane' as const, points })),
+    { part: 'body', points: [{ x: -half, z: back }, { x: half, z: back }, { x: half, z: nose }, { x: -half, z: nose }] },
+  ];
+}
+
 /** A wing (or tailplane) seen from above: both sides in one tapered outline, its leading edge's root at the origin. */
 function wingShape(span: number, rootChord: number, tipChord: number, sweep: number): Shape {
   const s = new Shape();
@@ -427,17 +462,9 @@ export class PlaneModel {
 
     // Its shadow on the ground, in its own shape.
     const size = plane.size;
-    const shapes = {
-      prop: [wingShape(PROP.span, 1.9, 1.15, 0.28), 1.0, wingShape(4.3, 1.15, 0.68, 0.45), -3.5, 1],
-      jet: [wingShape(JET.span, 3.2, 1.05, 3.15), 1.7, wingShape(5.8, 1.6, 0.75, 1.25), -5.0, 1],
-      wide: [wingShape(JET.span, 3.2, 1.05, 3.15), 1.7, wingShape(5.8, 1.6, 0.75, 1.25), -5.0, S],
-      freighter: [wingShape(JET.span, 3.2, 1.05, 3.15), 1.7, wingShape(5.8, 1.6, 0.75, 1.25), -5.0, S],
-      queen: [wingShape(12.4, 3.7, 1.1, 3.3), 2.0, wingShape(6.8, 1.85, 0.85, 1.4), -4.95, Q],
-      private: [wingShape(PRIVATE.span, 2.3, 0.85, 2.1), 0.6, wingShape(3.7, 1.05, 0.55, 0.6), -4.95, 1],
-    } as const;
-    const [wingAt, wingZ, tailAt, tailZ, scale] = shapes[kind];
-    const outline = new ShapeGeometry(wingAt).rotateX(PI / 2).translate(0, 0, wingZ).scale(scale, 1, scale);
-    const tail = new ShapeGeometry(tailAt).rotateX(PI / 2).translate(0, 0, tailZ).scale(scale, 1, scale);
+    const { wing, wingZ, tail: tailPlane, tailZ, scale } = PLANE_OUTLINES[kind];
+    const outline = new ShapeGeometry(wingShape(...wing)).rotateX(PI / 2).translate(0, 0, wingZ).scale(scale, 1, scale);
+    const tail = new ShapeGeometry(wingShape(...tailPlane)).rotateX(PI / 2).translate(0, 0, tailZ).scale(scale, 1, scale);
     const trunk = new CircleGeometry(1, 20).rotateX(-PI / 2).scale(size.radius * 0.98, 1, size.length / 2);
     for (const g of [outline, tail, trunk]) for (const name of ['normal', 'uv']) g.deleteAttribute(name);
     const flat = mergeParts([{ geometry: outline.toNonIndexed(), color: '#000000' }, { geometry: tail.toNonIndexed(), color: '#000000' }, { geometry: trunk.toNonIndexed(), color: '#000000' }]);
@@ -866,6 +893,30 @@ export class CateringTruck {
     this.lift += ((up ? height : 0) - this.lift) * Math.min(1, dt * 1.2);
     this.box.position.y = this.boxZ + this.lift;
     this.arms.forEach((arm, i) => (arm.rotation.x = (i ? 1 : -1) * Math.min(0.9, this.lift * 0.75)));
+  }
+  /** Its own copies of its paint, so it can fade as it drives up and away. */
+  private paint: Material[] | null = null;
+  private seen = 1;
+  /** How much of it shows (0 gone, 1 all there). */
+  fade(seen: number): void {
+    if (seen === this.seen) return;
+    this.seen = seen;
+    if (!this.paint) {
+      this.paint = [];
+      this.root.traverse((node) => {
+        if (!(node instanceof Mesh)) return;
+        const from = node.material as Material;
+        const copy = from.clone();
+        copy.onBeforeCompile = from.onBeforeCompile;
+        node.material = copy;
+        this.paint!.push(copy);
+      });
+    }
+    this.root.visible = seen > 0.01;
+    for (const m of this.paint) {
+      m.transparent = seen < 0.999;
+      m.opacity = seen;
+    }
   }
 }
 

@@ -12,6 +12,19 @@ export type { PlaneKind };
 /** The plane a gate (or stand) takes: the propeller airliner unless it says (the jet at Gate 3, the wide-body at Gate 4, the private jet). */
 export const planeAt = (spot: { plane?: PlaneKind }): PlaneKind => spot.plane ?? 'prop';
 
+/**
+ * Where a plane (its middle) waits on the taxiway for the runway: short of the link, and far enough west that
+ * its tail's clear of the westmost stand's turn, wingtips and all, for whatever's turning in there (a long plane
+ * waits further west; out to the second runway, round the first's end, it may wait past the link).
+ */
+export function holdFor(layout: AirportLayout, rules: Tuning['airport'], kind: PlaneKind, second: boolean): number {
+  const spots = [...Object.values(layout.gates), ...Object.values(layout.stands)];
+  const west = spots.reduce((a, b) => (b.x < a.x ? b : a));
+  const clear = west.x - rules.planes[planeAt(west)].span / 2 - rules.flight.wingClear - rules.planes[kind].length / 2;
+  const hold = Math.min(layout.links.entry + 7, clear);
+  return second ? hold : Math.max(layout.links.entry + 2, hold);
+}
+
 /** A stand that isn't a gate's, as a gate's spot (what a gate has that it hasn't is its marshal's spot, or its door's). */
 /** The link a plane bound for a stand at `x` leaves the runway by. */
 export function exitFor(layout: AirportLayout, x: number): number {
@@ -215,18 +228,17 @@ export class Flight {
     return new Route(rounded([{ x: this.spot.x, z: this.standZ }, { x: this.spot.x, z: taxiway.z }, { x: this.spot.x + 6, z: taxiway.z }], 5.5));
   }
 
-  /** Where it waits for the runway: on the taxiway, short of the link. */
-  private get holdX(): number {
-    return this.layout.links.entry + 7;
-  }
+  /** Where it waits for the runway (set as it comes off its stand): see holdFor. */
+  private holdX = 0;
 
-  private wayOut(): Route {
+  private wayOut(second: boolean): Route {
+    this.holdX = holdFor(this.layout, this.rules, this.kind, second);
     return new Route([{ x: this.spot.x + 6, z: this.layout.taxiway.z }, { x: this.holdX, z: this.layout.taxiway.z }]);
   }
 
   private wayOn(): Route {
     const { runway, taxiway, links } = this.layout;
-    return new Route(rounded([{ x: this.holdX, z: taxiway.z }, { x: links.entry, z: taxiway.z }, { x: links.entry, z: runway.z }, { x: links.entry + 9, z: runway.z }], 4.5));
+    return new Route(rounded([{ x: this.holdX, z: taxiway.z }, { x: Math.min(links.entry, this.holdX - 1), z: taxiway.z }, { x: links.entry, z: runway.z }, { x: links.entry + 9, z: runway.z }], 4.5));
   }
 
   /** (Part D) Out to the second runway instead: on west past the first's end, round it and north, onto the second facing east. */
@@ -328,10 +340,11 @@ export class Flight {
           this.readyFor = this.ready ? this.readyFor + dt : 0;
           return null;
         }
-        // Cleared: engines start, and it's off as soon as nothing's in its way.
+        // Cleared: engines start, and it's off as soon as nothing's in its way (once what was at its doors, a jet's
+        // bridge and catering truck, the freighter's loader, has had a moment to pull back).
         this.clearedFor += dt;
         this.engines = Math.min(0.35, this.engines + dt * 0.25 + 0.05);
-        if (!may.push) return null;
+        if (!may.push || this.clearedFor < this.rules.planes[this.kind].pushDelay) return null;
         this.phase = 'pushback';
         this.route = this.wayBack();
         this.along = 0;
@@ -342,7 +355,7 @@ export class Flight {
         const left = this.route!.total - this.along;
         if (!this.follow(dt, f.pushSpeed * Math.min(1, 0.25 + left / 3, 0.3 + this.along / 2), true)) return null;
         this.phase = 'taxiOut';
-        this.route = this.wayOut();
+        this.route = this.wayOut(!!may.runway2);
         this.along = 0;
         return null;
       }
@@ -534,9 +547,10 @@ export class Airfield {
     for (const f of out) {
       const own = this.rules.planes[f.kind].length;
       if (f.phase === 'pushback' && f.spot.x + 6 + (own + length) / 2 + 4 > spot.x) return false;
-      at = at === -Infinity ? Math.min(f.x, this.holdX) : at + (before + own) / 2 + 3;
+      at = at === -Infinity ? Math.min(f.x, holdFor(this.layout, this.rules, f.kind, this.runway2)) : at + (before + own) / 2 + 3;
       before = own;
-      if (at + own / 2 > spot.x - 1) return false;
+      // (Its tail clear of where the arrival turns in, wingtips and all.)
+      if (at + own / 2 > spot.x - this.rules.planes[planeAt(spot)].span / 2 - this.rules.flight.wingClear) return false;
       // Taxiing out past where it'll come off the runway: it has to be clear of the link by the time the
       // arrival's there (and not stop across it, queued for the runway).
       const reach = (own + length) / 2 + 4;
@@ -547,11 +561,6 @@ export class Airfield {
       }
     }
     return true;
-  }
-
-  /** Where planes wait for the runway (as a flight's hold). */
-  private get holdX(): number {
-    return this.layout.links.entry + 7;
   }
 
   /** The open gate (or called stand) that's waited longest for a plane, if it's waited a good while and its way in's blocked. */

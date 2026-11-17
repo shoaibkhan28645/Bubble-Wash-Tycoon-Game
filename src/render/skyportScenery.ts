@@ -122,6 +122,8 @@ export class SkyportScenery {
     const runwayBand: Rect = { minX: runway.minX - 12, maxX: runway.maxX + 12, minZ: runway.z - runway.half - 6, maxZ: runway.z + runway.half + 4 };
     const taxiBand: Rect = { minX: runway.minX - 12, maxX: runway.maxX + 12, minZ: taxiway.z - taxiway.half - 5, maxZ: taxiway.z + taxiway.half + 3 };
     const linkBands: Rect[] = [links.entry, links.exit, links.far].map((x) => ({ minX: x - 6, maxX: x + 6, minZ: runway.z, maxZ: taxiway.z }));
+    // (Nothing grows between the runway and the taxiway: a wide-body's wings reach across most of it.)
+    const between: Rect = { minX: runway.minX - 12, maxX: runway.maxX + 12, minZ: runway.z, maxZ: taxiway.z };
     const road: Rect = { minX: -200, maxX: 200, minZ: roadZ - 6, maxZ: roadZ + 5 };
     const club: Rect = { minX: -55, maxX: -34, minZ: -12, maxZ: 14 };
     // (And clear of where the second runway goes, with the taxiway out round the first's end to it.)
@@ -131,7 +133,7 @@ export class SkyportScenery {
           { minX: (links.around ?? runway.minX) - 9, maxX: runway.minX, minZ: layout.runway2.z, maxZ: taxiway.z + taxiway.half + 3 },
         ]
       : [];
-    const keepOut = [lot, runwayBand, taxiBand, ...linkBands, ...second, road, club, { minX: -38, maxX: -30, minZ: -16, maxZ: -6 }];
+    const keepOut = [lot, runwayBand, taxiBand, between, ...linkBands, ...second, road, club, { minX: -38, maxX: -30, minZ: -16, maxZ: -6 }];
     const woods: { x: number; z: number; s: number; r: number }[] = layout.trees.map((t) => ({ x: t.x, z: t.z, s: 2.4 * (t.size ?? 1), r: rand() * 6 }));
     let tries = 0;
     while (woods.length < 90 && tries++ < 6000) {
@@ -146,16 +148,19 @@ export class SkyportScenery {
       scatter('nature:tree_fat', woods.filter((_, i) => i % 3 === 2)),
     );
 
-    // A fence down each side of the apron, floodlight masts at its corners.
+    // A fence down each side of the apron, floodlight masts at its corners: all well back from the taxiway (a
+    // wide-body's wingtips reach ten metres out from it, a private jet's low ones five, and the Sky Queen's nose
+    // swings out over the corner as she turns off her link).
+    const back = taxiway.z + taxiway.half;
     const fence: { x: number; z: number; rot: number }[] = [];
-    for (let z = apron.maxZ - 1; z > taxiway.z + taxiway.half + 3.5; z -= 3) {
+    for (let z = apron.maxZ - 1; z > back + 11; z -= 3) {
       fence.push({ x: lot.minX - 0.6, z, rot: PI / 2 }, { x: lot.maxX + 1.2, z, rot: PI / 2 });
     }
     copies('sp_fence', fence, 0);
     const floods = [
-      { x: lot.minX - 1.6, z: taxiway.z + taxiway.half + 4.5, rot: -PI / 4 },
+      { x: lot.minX - 1.6, z: back + 12.5, rot: -PI / 4 },
       // (Out of the Sky Queen's way as she turns off her link onto the taxiway.)
-      { x: links.queen !== undefined ? links.queen + 10 : lot.maxX + 2.2, z: taxiway.z + taxiway.half + 4.5, rot: PI / 4 },
+      { x: links.queen !== undefined ? links.queen + 10 : lot.maxX + 2.2, z: back + 12.5, rot: PI / 4 },
       { x: lot.minX - 1.6, z: apron.maxZ - 4.5, rot: -PI / 2 },
       { x: lot.maxX + 2.2, z: apron.maxZ - 4.5, rot: PI / 2 },
     ];
@@ -163,8 +168,8 @@ export class SkyportScenery {
     for (const f of floods) pole(f.x, f.z, 0.45);
     // Taxiway signs either side of where the planes turn off the runway, cones and a power unit by the apron's edges.
     for (const [x, z, text] of [
-      [links.exit - 5, taxiway.z + taxiway.half + 1.6, '← A  |  APRON'],
-      [links.entry + 5, taxiway.z + taxiway.half + 1.6, 'A →  |  RWY 09'],
+      [links.exit - 5, back + 3.5, '← A  |  APRON'],
+      [links.entry + 5, back + 3.5, 'A →  |  RWY 09'],
     ] as const) {
       const sign = add(skyModel('sp_sign'), x, z);
       solid(footprint('sp_sign', x, z, 0, 0.02));

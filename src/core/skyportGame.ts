@@ -145,11 +145,15 @@ const SPOT_REACH = 1.0;
 /** Stood on a ramp pad since before its plane was ready, the hero clears it after this long (no ring, no tip). */
 const STAND_CLEAR_SECONDS = 0.8;
 /** Standing still with a plane landing or taking off, the camera eases back this much further to show it (wide screens need more). */
-const SHOW_ZOOM = { tall: 1.3, wide: 1.75 };
+const SHOW_ZOOM = { tall: 1.55, wide: 2.25 };
 const SHOW_AFTER_SECONDS = 0.6;
 /** Sounds are full within this far of the hero (metres) and die away over the next stretch. */
 const HEAR_NEAR = 16;
 const HEAR_FADE = 60;
+/** How far ahead of a jet's back door its catering truck stands (m): its box clear of the tailplane, still at the door. */
+const CATERING_FORWARD = 0.6;
+/** How long a catering truck takes to drive up to a jet's door, or back out past its wingtip (s). */
+const CATERING_DRIVE_SECONDS = 2.2;
 /** Where the baggage tug's parked, out of everyone's way at the east end of the service road. */
 const TUG_AT = { x: -1.55, z: 8.6 };
 /** What the ramp dispatcher's doing. */
@@ -303,6 +307,11 @@ interface GateView {
   /** The belt loader at its hold, once there's a bag sorter. */
   loader: BeltLoader | null;
   catering: CateringTruck | null;
+  /**
+   * Where the catering truck serves the jet's back door, where it waits clear of the wing (out past the wingtip:
+   * it's only there while the jet's parked), and how far it is between them (0 away and gone, 1 at the door).
+   */
+  cateringRun: { door: Point; away: Point; run: number } | null;
   galleyPad: PadModel | null;
   /** The hero was on the ramp pad last frame, and for how long while the plane's been ready. */
   onPad: boolean;
@@ -352,7 +361,8 @@ export function createSkyportGame(
   nameSign.root.position.set(nameAt.x, 0, nameAt.z);
   stage.scene.add(nameSign.root);
   const scenery = new SkyportScenery(layout);
-  const windsockAt = { x: layout.apron.minX + 2.5, z: layout.taxiway.z + layout.taxiway.half + 2.6 };
+  // (Back from the taxiway, clear of the wingtips of the planes waiting at its end.)
+  const windsockAt = { x: layout.apron.minX + 2.5, z: layout.taxiway.z + layout.taxiway.half + 11 };
   stage.scene.add(scenery.group);
   const desk = checkinDesk();
   desk.position.set(layout.desk.at.x, 0, layout.desk.at.z);
@@ -746,6 +756,21 @@ export function createSkyportGame(
     solidsChanged();
     let bridge: JetBridge | null = null;
     let catering: CateringTruck | null = null;
+    let cateringRun: GateView['cateringRun'] = null;
+    /** The catering truck at a jet's back door (a little ahead of it, clear of the tailplane), coming and going from past its wingtip. */
+    const addCatering = (kind: 'jet' | 'wide', back: number): void => {
+      const size = PLANES[kind].size;
+      const mid = spot.noseZ - size.length / 2;
+      const side = spot.x + size.radius + 0.03;
+      const door = { x: side + 3.55, z: mid - back + CATERING_FORWARD };
+      const away = { x: door.x + spot.x + size.span / 2 + 0.5 - side, z: door.z };
+      catering = new CateringTruck();
+      catering.root.position.set(away.x, 0, away.z);
+      catering.root.rotation.y = Math.PI / 2;
+      stage.scene.add(withShadows(catering.root));
+      catering.fade(0);
+      cateringRun = { door, away, run: 0 };
+    };
     let galleyPad: PadModel | null = null;
     if (spot.bridge) {
       bridge = new JetBridge(spot.bridge);
@@ -757,14 +782,7 @@ export function createSkyportGame(
       solids.push(around({ x: spot.bridge.x + Math.cos(turn) * 1.45 - Math.sin(turn) * 0.3, z: spot.bridge.z - Math.sin(turn) * 1.45 - Math.cos(turn) * 0.3 }, 0.5));
       if (spot.galley) {
         // The catering truck behind the wing, its galley box's platform at the jet's back door.
-        const mid = spot.noseZ - JET.length / 2;
-        const doorX = spot.x + JET.radius + 0.03;
-        const at = { x: doorX + 3.55, z: mid - 4.74 };
-        catering = new CateringTruck();
-        catering.root.position.set(at.x, 0, at.z);
-        catering.root.rotation.y = Math.PI / 2;
-        show(catering.root, animate);
-        solids.push(footprint('sp_catering', at.x, at.z, Math.PI / 2, 0.08));
+        addCatering('jet', 4.74);
         galleyPad = spotPad(spot.galley, 1.5, 0xffb02e);
       }
     } else if (planeAt(spot) === 'wide') {
@@ -773,13 +791,7 @@ export function createSkyportGame(
       steps.position.set(spot.planeDoor.x, 0, spot.planeDoor.z);
       solids.push({ minX: spot.planeDoor.x + 0.1, maxX: spot.stairsFoot.x - 0.35, minZ: spot.stairsFoot.z - 1.1, maxZ: spot.stairsFoot.z + 1.1 });
       if (spot.galley) {
-        const mid = spot.noseZ - WIDE.length / 2;
-        const at = { x: spot.x + WIDE.radius + 0.03 + 3.55, z: mid - 4.74 * (WIDE.length / JET.length) };
-        catering = new CateringTruck();
-        catering.root.position.set(at.x, 0, at.z);
-        catering.root.rotation.y = Math.PI / 2;
-        show(catering.root, animate);
-        solids.push(footprint('sp_catering', at.x, at.z, Math.PI / 2, 0.08));
+        addCatering('wide', 4.74 * (WIDE.length / JET.length));
         galleyPad = spotPad(spot.galley, 1.5, 0xffb02e);
       }
     } else {
@@ -811,7 +823,7 @@ export function createSkyportGame(
     stage.scene.add(kit);
     // (Each gate's hold pad in its cases' colour.)
     const colour = parseInt(GATE_COLOURS[Math.max(0, Object.keys(layout.gates).indexOf(key)) % GATE_COLOURS.length]!.slice(1), 16);
-    const gate: GateView = { key, spot, pad, ring, fuelPad: spotPad(spot.fuelSpot, 1.5, 0xff8a3d), holdPad: spotPad(spot.hold, 1.5, colour), doorLabel, truck: null, hose: null, kit, bridge, loader: null, catering, galleyPad, onPad: false, stood: 0 };
+    const gate: GateView = { key, spot, pad, ring, fuelPad: spotPad(spot.fuelSpot, 1.5, 0xff8a3d), holdPad: spotPad(spot.hold, 1.5, colour), doorLabel, truck: null, hose: null, kit, bridge, loader: null, catering, cateringRun, galleyPad, onPad: false, stood: 0 };
     if (built('sorter')) addLoader(gate, animate);
     night.addStand({ x: spot.x, z: spot.noseZ - 5 });
     gates.push(gate);
@@ -2226,6 +2238,10 @@ export function createSkyportGame(
       const r = layout.jetwash.hall;
       for (const x of [r.minX + 0.9, r.maxX - 0.9]) out.push(around({ x, z: jetWash.gantryAt }, 0.4, 0.65));
     }
+    // The catering trucks while they're at (or on their way to and from) a jet.
+    for (const gate of gates) {
+      if (gate.catering && gate.cateringRun && gate.cateringRun.run > 0.05) out.push(footprint('sp_catering', gate.catering.root.position.x, gate.catering.root.position.z, Math.PI / 2, 0.08));
+    }
     return out;
   };
 
@@ -2616,7 +2632,17 @@ export function createSkyportGame(
         loadMeal(parked, spot);
       }
     }
-    gate.catering?.update(dt, !!flight && flight.phase === 'parked' && flight.needsMeals > 0 && !flight.cleared, (flight?.kind === 'wide' ? WIDE.sill : JET.sill) - 1.12);
+    if (gate.catering && gate.cateringRun) {
+      // The catering truck: up to the back door once the jet's parked and wants meals, its box up at the door
+      // till they're aboard, then away past the wingtip before the jet moves (it's under the wing's way).
+      const drive = gate.cateringRun;
+      const wanted = !!flight && flight.phase === 'parked' && !flight.cleared && flight.meals < flight.needsMeals;
+      drive.run = Math.max(0, Math.min(1, drive.run + ((wanted ? 1 : -1) * dt) / CATERING_DRIVE_SECONDS));
+      const k = drive.run * drive.run * (3 - 2 * drive.run);
+      gate.catering.root.position.set(drive.away.x + (drive.door.x - drive.away.x) * k, 0, drive.away.z + (drive.door.z - drive.away.z) * k);
+      gate.catering.fade(Math.min(1, drive.run / 0.3));
+      gate.catering.update(dt, wanted && drive.run >= 1, (flight?.kind === 'wide' ? WIDE.sill : JET.sill) - 1.12);
+    }
     if (gate.bridge) {
       // To the jet's door once it's parked, back as it's cleared to go.
       const docked = flight?.phase === 'parked' && !flight.cleared;
@@ -3474,7 +3500,7 @@ export function createSkyportGame(
       airfield.flights.some((f) => (f.phase === 'lineup' || f.phase === 'takeoff' || (f.phase === 'climb' && f.y < 24)) && Math.abs(f.z - second.z) < 3) &&
       !airfield.flights.some((f) => (f.phase === 'approach' && f.approach > 0.3) || f.phase === 'rollout');
     watchZ += ((onTwo ? second.z : layout.runway.z) + 8 - watchZ) * (1 - Math.exp(-dt * 1.2));
-    const focusZ = player.position.z + (watchZ - player.position.z) * (wide ? 0.42 : 0.22) * showShift;
+    const focusZ = player.position.z + (watchZ - player.position.z) * (wide ? 0.62 : 0.45) * showShift;
     view.update(dt, { x: player.position.x, z: focusZ });
     jobs.update(dt, stage.camera, stage.size.width, stage.size.height, { top: view.topInset, right: SIDE_BAR_PX });
     player.scrubbing = jobs.working;

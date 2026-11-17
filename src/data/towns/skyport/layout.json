@@ -16,12 +16,12 @@
   "town": [],
   "walkways": [],
   "streetTrees": [],
-  "views": [{ "after": "runway2", "minX": -30, "maxX": 156.5, "minZ": -56, "maxZ": 0 }, { "after": "skyqueen", "minX": 100, "maxX": 191, "minZ": -56, "maxZ": 0 }],
+  "views": [{ "after": "runway2", "minX": -30, "maxX": 156.5, "minZ": -72, "maxZ": 0 }, { "after": "skyqueen", "minX": 100, "maxX": 191, "minZ": -72, "maxZ": 0 }],
   "planters": [],
   "cameraBase": {
     "minX": -29.5,
     "maxX": 0.2,
-    "minZ": -38,
+    "minZ": -54,
     "maxZ": 37
   },
   "playerStart": {
@@ -293,14 +293,14 @@
     "manager": { "x": 73.4, "z": 8.8 }
   },
   "runway": {
-    "z": -35,
+    "z": -51,
     "minX": -47,
     "maxX": 210.0,
     "half": 5
   },
-  "runway2": { "z": -50.0, "minX": -86.0, "maxX": 210.0, "half": 5 },
+  "runway2": { "z": -66.0, "minX": -86.0, "maxX": 210.0, "half": 5 },
   "taxiway": {
-    "z": -22,
+    "z": -28.5,
     "half": 3
   },
   "links": {
@@ -318,7 +318,7 @@
     "maxZ": 10
   },
   "skyqueen": {
-    "apron": { "minX": 157.5, "maxX": 191.5, "minZ": -19, "maxZ": 27.5 },
+    "apron": { "minX": 157.5, "maxX": 191.5, "minZ": -25.5, "maxZ": 27.5 },
     "sign": { "x": 174.0, "z": 26.6 },
     "cranes": [{ "x": 159.6, "z": 24.0 }, { "x": 189.4, "z": -3.0 }],
     "pile": { "x": 166.5, "z": 24.4 },
@@ -552,7 +552,7 @@
       },
       "truck": {
         "x": 16.4,
-        "z": -3.6
+        "z": -2.4
       },
       "fuelSpot": {
         "x": 14.6,
