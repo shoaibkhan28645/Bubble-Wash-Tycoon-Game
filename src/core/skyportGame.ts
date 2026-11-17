@@ -167,6 +167,9 @@ const DISPATCH_ROAD_Z = 9.0;
  * the east, past the jet wash to the west). */
 const TAXI_FROM = 124;
 const TAXI_TO = -126;
+/** How fast a taxi comes in along the far stretch of the road (m/s; 16 nearer the kerb). Only one comes in to each
+ * kerb at a time, so how soon it gets there sets how many passengers arrive. */
+const TAXI_FAR_SPEED = 24;
 /** The crew's walking speed (m/s), and how much slower than the hero the agent checks in. */
 const CREW_SPEED = 3.3;
 const AGENT_RATE = 0.85;
@@ -2456,7 +2459,7 @@ export function createSkyportGame(
       taxi.riders = Math.round(low + Math.random() * (high - low));
       taxi.state = 'in';
       taxi.x = TAXI_FROM;
-      taxi.v = 16;
+      taxi.v = TAXI_FAR_SPEED;
       taxi.swing = 0;
       taxi.car.mesh.visible = true;
       spawnTimer = AIRPORT.passengers.spawnSeconds * taxi.riders;
@@ -2469,7 +2472,9 @@ export function createSkyportGame(
       const limit = x.state === 'stop' ? -Infinity : westLimit(others, self);
       if (x.state === 'in') {
         const left = x.x - Math.max(x.kerb.x, limit);
-        x.v = ease(x.v, left > 0.02 ? Math.max(2.5, Math.min(16, left * 1.7)) : 0, dt, 20);
+        // (Quicker along the far stretch of road, so it's at its kerb as soon as it was when the road was shorter.)
+        const cap = Math.min(TAXI_FAR_SPEED, Math.max(16, left * 0.3));
+        x.v = ease(x.v, left > 0.02 ? Math.max(2.5, Math.min(cap, left * 1.7)) : 0, dt, 20);
         x.x -= Math.min(Math.max(0, left), x.v * dt);
         if (x.x - x.kerb.x < 0.05) {
           x.state = 'stop';
