@@ -42,6 +42,12 @@ describe('the Sky Queen’s stand', () => {
     expect(layout.links.queen!).toBeGreaterThan(stand.x + queen.span / 2 + 3);
     expect(stand.noseZ - queen.length - (layout.taxiway.z + PLANES.wide.size.span / 2)).toBeGreaterThan(4);
     expect(layout.runway.maxX).toBeGreaterThan(layout.links.queen! + 10);
+    // Taxiing past everything on the taxiway, her wingtips stay clear of the hangar's and the jet wash's
+    // fronts and of the control tower.
+    const tip = layout.taxiway.z + queen.span / 2;
+    expect(tip).toBeLessThan(layout.hangar!.hall.minZ - 0.4);
+    expect(tip).toBeLessThan(layout.jetwash!.hall.minZ - 0.4);
+    expect(tip).toBeLessThan(layout.tower.at.z - 2.6);
   });
 
   it('rolls her out parked, sends her off round to the second runway, and brings her home by her own link', () => {

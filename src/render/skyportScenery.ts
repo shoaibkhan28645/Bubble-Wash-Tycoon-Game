@@ -154,7 +154,8 @@ export class SkyportScenery {
     copies('sp_fence', fence, 0);
     const floods = [
       { x: lot.minX - 1.6, z: taxiway.z + taxiway.half + 4.5, rot: -PI / 4 },
-      { x: lot.maxX + 2.2, z: taxiway.z + taxiway.half + 4.5, rot: PI / 4 },
+      // (Out of the Sky Queen's way as she turns off her link onto the taxiway.)
+      { x: links.queen !== undefined ? links.queen + 10 : lot.maxX + 2.2, z: taxiway.z + taxiway.half + 4.5, rot: PI / 4 },
       { x: lot.minX - 1.6, z: apron.maxZ - 4.5, rot: -PI / 2 },
       { x: lot.maxX + 2.2, z: apron.maxZ - 4.5, rot: PI / 2 },
     ];

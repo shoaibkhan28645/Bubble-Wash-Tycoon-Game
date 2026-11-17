@@ -1630,6 +1630,8 @@ export function createSkyportGame(
     onPaid({ amount: pay, tip: 0, automated: crewLoaded, at });
     void saves.saveNow();
   };
+  /** The shed's roller door is up (for the sound as it goes up or down). */
+  let shedOpen = false;
   const workCargo = (dt: number): void => {
     const cg = layout.cargo;
     if (!shed || !kloader || !dockCrates || !dockPad || !dropPad || !cg) return;
@@ -1668,6 +1670,10 @@ export function createSkyportGame(
     if (loading && loading.needsCases > 0 && loading.cases >= loading.needsCases) {
       fullFor += dt;
       if (fullFor >= AIRPORT.cargo.wait) sendFreighter(loading);
+    }
+    if (!!loading !== shedOpen) {
+      shedOpen = !!loading;
+      sound.play('open', hearing(cg.door) * 0.8);
     }
     shed.update(dt, !!loading);
     kloader.update(dt, loading ? AIRPORT.planes.freighter.sill - 1.12 : 0);
@@ -1739,6 +1745,8 @@ export function createSkyportGame(
   let servicePad: PadModel | null = null;
   let engineer: (CrewMember & { job: 'idle' | 'toWork' | 'working' | 'home' }) | null = null;
   let clankIn = 0;
+  /** The hangar's doors are open (for the sound as they slide). */
+  let hangarOpen = false;
   const buildHangar = (animate: boolean): void => {
     const hg = layout.hangar;
     const stand = layout.stands.hangar;
@@ -1810,6 +1818,11 @@ export function createSkyportGame(
     servicePad.update(dt, onPad && servicePad.group.visible);
     // Its doors open for a plane coming in or going, shut while it's being worked on.
     const moving = airfield.flights.some((f) => f.gate === 'hangar' && (f.phase === 'taxiIn' || f.phase === 'pushback' || (f.phase === 'parked' && f.cleared)));
+    if (moving !== hangarOpen) {
+      hangarOpen = moving;
+      sound.play('open', hearing({ x: (hg.hall.minX + hg.hall.maxX) / 2, z: hg.hall.minZ }));
+      sound.play('clank', hearing(hg.service) * 0.5);
+    }
     hangarModel.update(dt, moving, working);
   };
   /** Where the mechanic works: by the plane's engine, beside the hero's pad. */
@@ -1927,7 +1940,10 @@ export function createSkyportGame(
         splashIn = 1.4;
         sound.play('spray', hearing({ x: stand.x, z: stand.noseZ - 5 }) * 0.7);
       }
-      if (w.progress >= 1) finishWash(w.flight);
+      if (w.progress >= 1) {
+        sound.play('splash', hearing({ x: stand.x, z: stand.noseZ - 5 }) * 0.9);
+        finishWash(w.flight);
+      }
     }
     controlPad.group.visible = !!w;
     controlPad.update(dt, atControls && !!w);
@@ -2178,7 +2194,7 @@ export function createSkyportGame(
       queenHose.visible = fuelling;
       if (fuelling && flight) {
         const from = queenFuel.nozzle(new Vector3());
-        const to = new Vector3(flight.x + 7.5, PLANES.queen.size.wingY + 0.5, flight.z + 1.2);
+        const to = new Vector3(flight.x + 6.4, PLANES.queen.size.wingY + 0.4, flight.z + 1.0);
         queenHose.position.copy(from);
         queenHose.lookAt(to);
         queenHose.scale.set(1, 1, from.distanceTo(to));
@@ -2226,7 +2242,10 @@ export function createSkyportGame(
       }
     } else if (flight.gate === 'vip') meetStar(flight);
     else if (flight.gate === 'cargo') freighterParked(flight);
-    else if (flight.gate === 'jetwash') wash = { flight, progress: 0 };
+    else if (flight.gate === 'jetwash') {
+      wash = { flight, progress: 0 };
+      sound.play('splash', hearing(flight) * 0.9);
+    }
     else if (flight.gate === 'skyqueen') {
       queenGround = 0;
       queenReady = 0;

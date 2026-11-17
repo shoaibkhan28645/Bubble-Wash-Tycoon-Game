@@ -873,7 +873,7 @@
       }
     },
     "mogul2": { "x": 84.0, "noseZ": 5.0, "plane": "prop", "marshal": { "x": 84.0, "z": 8.3 } },
-    "cargo": { "x": 103.0, "noseZ": 3.5, "plane": "freighter", "marshal": { "x": 103.0, "z": 6.8 }, "planeDoor": { "x": 105.0, "z": -1.2 } },
+    "cargo": { "x": 103.0, "noseZ": 3.5, "plane": "freighter", "marshal": { "x": 103.0, "z": 6.8 }, "planeDoor": { "x": 105.0, "z": -0.65 } },
     "hangar": { "x": 126.0, "noseZ": 4.5, "plane": "prop", "marshal": { "x": 126.0, "z": 6.2 } },
     "jetwash": { "x": 146.0, "noseZ": 5.0, "plane": "jet", "marshal": { "x": 146.0, "z": 6.6 } },
     "skyqueen": { "x": 174.0, "noseZ": 21.0, "plane": "queen", "marshal": { "x": 174.0, "z": 23.6 } }
@@ -883,17 +883,17 @@
     "door": { "x": 103.0, "z": 12.0 },
     "dock": { "x": 103.0, "z": 9.4 },
     "stack": { "x": 103.0, "z": 11.0 },
-    "loader": { "x": 107.6, "z": -1.2 },
+    "loader": { "x": 107.6, "z": -0.65 },
     "drop": { "x": 108.6, "z": 1.8 },
     "pile": { "x": 95.0, "z": 9.1 }
   },
   "hangar": {
-    "hall": { "minX": 117.0, "maxX": 135.0, "minZ": -12.0, "maxZ": 7.5 },
+    "hall": { "minX": 117.0, "maxX": 135.0, "minZ": -10.6, "maxZ": 7.5 },
     "door": { "x": 131.5, "z": 7.5 },
     "service": { "x": 133.0, "z": 2.4 }
   },
   "jetwash": {
-    "hall": { "minX": 136.5, "maxX": 155.5, "minZ": -13.0, "maxZ": 7.5 },
+    "hall": { "minX": 136.5, "maxX": 155.5, "minZ": -10.6, "maxZ": 7.5 },
     "control": { "x": 140.5, "z": 9.3 },
     "pile": { "x": 150.0, "z": 9.3 }
   },

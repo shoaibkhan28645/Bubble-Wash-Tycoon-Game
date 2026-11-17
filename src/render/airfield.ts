@@ -204,7 +204,7 @@ export function queenStand(layout: AirportLayout): Object3D {
   mark(stand.x, (r.minZ + stand.noseZ) / 2, 0.3, stand.noseZ - r.minZ);
   mark(stand.x, stand.noseZ + 0.4, 3.0, 0.34);
   // The box round her: her span, from her nose back to where her tail stops.
-  const half = 14.4;
+  const half = 11.6;
   const tail = stand.noseZ - 25;
   for (const side of [-1, 1]) for (let z = tail; z < stand.noseZ + 1; z += 2.4) mark(stand.x + side * half, z, 0.18, 1.2, GOLDEN);
   for (let x = stand.x - half; x <= stand.x + half; x += 2.4) mark(x, stand.noseZ + 1.2, 1.2, 0.18, GOLDEN);

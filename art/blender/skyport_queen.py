@@ -233,15 +233,15 @@ for i in range(5):
 
 # --- The wing: long, low and swept, with a big fairing under the fuselage and tip fences in the airline's
 # colour above and below each tip.
-SPAN = 15.6
+SPAN = 12.4
 WING_Z = 1.72
 p.append(blob((1.25, 3.2, 0.62), (0, 0.15, 1.62), BELLY, segments=20))
-w = rig.wing((0.0, -2.0, WING_Z, 3.7, 1.0), (SPAN / 2, 1.75, WING_Z + 0.6, 1.1, 0.85), GREYWING)
+w = rig.wing((0.0, -2.0, WING_Z, 3.7, 1.0), (SPAN / 2, 1.3, WING_Z + 0.6, 1.1, 0.85), GREYWING)
 p.append(w)
 for side in (-1, 1):
     x = side * SPAN / 2
     for up, (z0, z1, c0, c1) in ((1, (WING_Z + 0.6, WING_Z + 1.25, 1.0, 0.45)), (-1, (WING_Z + 0.6, WING_Z + 0.2, 0.7, 0.3))):
-        f = fin((z0, 1.65, c0, 0.8), (z1, 1.65 + (c0 - c1) * 0.9, c1, 0.7), ACCENT)
+        f = fin((z0, 1.2, c0, 0.8), (z1, 1.2 + (c0 - c1) * 0.9, c1, 0.7), ACCENT)
         f.location = (x, 0, 0)
         kit._apply_all(f)
         bpy.ops.object.transform_apply(location=True, rotation=False, scale=False)
@@ -251,7 +251,7 @@ for side in (-1, 1):
 # --- The engines: four big round nacelles on pylons under the wing, the outer pair a little smaller,
 # further out and further back with the wing's sweep.
 FAN_Y = -3.02
-ENGINES = [(3.35, -2.55, 1.16, 1.0, ''), (6.0, -1.35, 1.42, 0.9, '2')]
+ENGINES = [(2.95, -2.4, 1.16, 1.0, ''), (5.0, -1.2, 1.38, 0.85, '2')]
 
 
 def engine(x, fan_y, z, k):
@@ -324,8 +324,8 @@ m.part('hold', hold_pivot, h)
 
 # --- Flaps behind the inner wing.
 for side, name in ((1, 'flapl'), (-1, 'flapr')):
-    x0, x1 = side * 1.45, side * 5.4
-    pivot = (side * 3.4, 1.05, WING_Z + 0.2)
+    x0, x1 = side * 1.45, side * 4.5
+    pivot = (side * 2.95, 0.95, WING_Z + 0.2)
     f = [kit.box((abs(x1 - x0), 0.78, 0.07), ((x0 + x1) / 2, 1.4, WING_Z + 0.18), FLAP, bevel=0.02, rot=(0, side * -0.06, 0))]
     m.part(name, pivot, f)
 
@@ -364,8 +364,8 @@ m.part('wheel_n', (0, NOSE_Y, 0.34), [*bogie(0, NOSE_Y, 0.34, 0.34, 0.14, 0.12, 
 # Lights: the beacon on top, red on the left wingtip, green on the right, a strobe on the tail, a taxi
 # light on the nose leg.
 m.marker('beacon', (0, 1.0, CZ + RZ + 0.1))
-m.marker('navl', (SPAN / 2 + 0.05, 1.9, WING_Z + 0.65))
-m.marker('navr', (-SPAN / 2 - 0.05, 1.9, WING_Z + 0.65))
+m.marker('navl', (SPAN / 2 + 0.05, 1.5, WING_Z + 0.65))
+m.marker('navr', (-SPAN / 2 - 0.05, 1.5, WING_Z + 0.65))
 m.marker('strobe', (0, 7.0, 3.95))
 m.marker('taxi', (0, NOSE_Y - 0.14, 0.8), on='nose')
 

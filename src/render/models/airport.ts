@@ -288,15 +288,15 @@ export const PRIVATE = { length: 11, span: 10.4, radius: 0.9, ride: 1.6, sill: 1
 export const PRIVATE_SOLID: PlaneSolid = { half: 0.95, tail: -5.5, nose: 5.5, parts: [{ x: 1.42, z: -2.75, hx: 0.5, hz: 0.95 }, { x: 1.25, z: -1.0, hx: 0.3, hz: 0.4 }] };
 /** (Part E) The Sky Queen (art/blender/skyport_queen.py): the jet's build at 24 metres, two decks, four engines. */
 const Q = 24 / 14;
-export const QUEEN = { length: 24, span: 15.6 * Q, radius: 1.3 * Q, ride: 3.0 * Q, sill: 2.1 * Q, wingY: 1.72 * Q } as const;
+export const QUEEN = { length: 24, span: 12.4 * Q, radius: 1.3 * Q, ride: 3.0 * Q, sill: 2.1 * Q, wingY: 1.72 * Q } as const;
 export const QUEEN_SOLID: PlaneSolid = {
   half: 1.3 * Q + 0.1,
   tail: -12,
   nose: 12,
   parts: [
     { x: 1.85 * Q, z: -0.55 * Q, hx: 0.5, hz: 1.5 },
-    { x: 3.35 * Q, z: 1.48 * Q, hx: 0.7 * Q, hz: 1.2 * Q },
-    { x: 6.0 * Q, z: 0.33 * Q, hx: 0.63 * Q, hz: 1.0 * Q },
+    { x: 2.95 * Q, z: 1.33 * Q, hx: 0.7 * Q, hz: 1.2 * Q },
+    { x: 5.0 * Q, z: 0.29 * Q, hx: 0.6 * Q, hz: 1.0 * Q },
   ],
 };
 /**
@@ -432,7 +432,7 @@ export class PlaneModel {
       jet: [wingShape(JET.span, 3.2, 1.05, 3.15), 1.7, wingShape(5.8, 1.6, 0.75, 1.25), -5.0, 1],
       wide: [wingShape(JET.span, 3.2, 1.05, 3.15), 1.7, wingShape(5.8, 1.6, 0.75, 1.25), -5.0, S],
       freighter: [wingShape(JET.span, 3.2, 1.05, 3.15), 1.7, wingShape(5.8, 1.6, 0.75, 1.25), -5.0, S],
-      queen: [wingShape(15.6, 3.7, 1.1, 3.75), 2.0, wingShape(6.8, 1.85, 0.85, 1.4), -4.95, Q],
+      queen: [wingShape(12.4, 3.7, 1.1, 3.3), 2.0, wingShape(6.8, 1.85, 0.85, 1.4), -4.95, Q],
       private: [wingShape(PRIVATE.span, 2.3, 0.85, 2.1), 0.6, wingShape(3.7, 1.05, 0.55, 0.6), -4.95, 1],
     } as const;
     const [wingAt, wingZ, tailAt, tailZ, scale] = shapes[kind];
@@ -508,7 +508,7 @@ export function standKit(kind: PlaneKindName = 'prop'): Object3D {
     jet: { wheel: [1.75, -0.55], nose: 5.55, tip: [7.7, -2.0], tail: -7.6 },
     wide: { wheel: [1.75 * S, -0.55 * S], nose: 5.55 * S, tip: [7.7 * S, -2.0 * S], tail: -7.6 * S },
     freighter: { wheel: [1.75 * S, -0.55 * S], nose: 5.55 * S, tip: [7.7 * S, -2.0 * S], tail: -7.6 * S },
-    queen: { wheel: [1.85 * Q, -1.4 * Q], nose: 5.6 * Q, tip: [8.1 * Q, -2.3 * Q], tail: -7.4 * Q },
+    queen: { wheel: [1.85 * Q, -1.4 * Q], nose: 5.6 * Q, tip: [6.6 * Q, -1.9 * Q], tail: -7.4 * Q },
     private: { wheel: [1.25, -1.0], nose: 4.15, tip: [5.7, -2.2], tail: -6.1 },
   };
   const { wheel: [wx, wz], tip: [tx, tz], nose, tail } = at[kind];
