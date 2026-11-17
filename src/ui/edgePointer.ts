@@ -1,5 +1,6 @@
 import { Vector3, type PerspectiveCamera } from 'three';
 import type { Point } from '../core/config';
+import type { Box } from './worldLabels';
 
 /** Keeps clear of the screen edges, the cash bar and the side buttons (CSS pixels). */
 const MARGIN = 34;
@@ -12,6 +13,11 @@ export class EdgePointer {
   private readonly el: HTMLElement;
   private readonly p = new Vector3();
   private shown = '';
+  /** Where it is on the screen while it's shown (the labels at the edges keep clear of it). */
+  readonly box: Box = { x: 0, y: 0, hw: 23, hh: 23 };
+  get showing(): boolean {
+    return this.shown !== 'hidden' && this.shown !== '';
+  }
 
   /** `kind`: a second arrow of another colour (a rush job's), styled `.edge-pointer.is-<kind>`. */
   constructor(root: HTMLElement, kind = '') {
@@ -57,6 +63,8 @@ export class EdgePointer {
     }
     if (key === this.shown) return;
     this.shown = key;
+    this.box.x = x;
+    this.box.y = y;
     this.el.hidden = key === 'hidden';
     if (!this.el.hidden) this.el.style.transform = `translate(${x}px, ${y}px) translate(-50%, -50%) rotate(${angle}deg)`;
   }

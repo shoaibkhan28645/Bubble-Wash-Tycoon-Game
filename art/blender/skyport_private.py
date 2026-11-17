@@ -78,30 +78,8 @@ def on_body(y, angle, out=0.0):
     return ((rx + out) * math.sin(angle), y, cz + (rz + out) * math.cos(angle))
 
 
-def fin(root, tip, col):
-    """A vertical surface: `root` and `tip` are (z, y_leading, chord, thickness scale), standing at x = 0."""
-    bm = rig.bmesh.new()
-
-    def section(z, y0, chord, k):
-        pts = list(rig.AIRFOIL_TOP) + list(rig.AIRFOIL_BOTTOM)
-        return [bm.verts.new((h * chord * k * (1 if i < len(rig.AIRFOIL_TOP) else -2.6), y0 + u * chord, z)) for i, (u, h) in enumerate(pts)]
-
-    s0 = section(*root)
-    s1 = section(*tip)
-    n = len(s0)
-    for i in range(n):
-        j = (i + 1) % n
-        bm.faces.new((s0[i], s0[j], s1[j], s1[i]))
-    bm.faces.new(s0)
-    bm.faces.new(s1)
-    rig.bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
-    mesh = bpy.data.meshes.new('fin')
-    bm.to_mesh(mesh)
-    bm.free()
-    obj = bpy.data.objects.new('fin', mesh)
-    bpy.context.scene.collection.objects.link(obj)
-    kit._paint(obj, col)
-    return obj
+# (The tail fin and winglets: the same either side, from rig.)
+fin = rig.fin
 
 
 def spun(obj, hub, angle):
@@ -208,13 +186,9 @@ for side in (-1, 1):
     p.append(kit.box((0.75, 0.9, 0.16), (side * 0.85, FAN_Y + 0.85, ENG_Z - 0.02), GOLD, bevel=0.04))
 
 # --- The T-tail: a swept gold fin with a star, the tailplane on its top.
-p.append(fin((2.05, 3.65, 2.0, 1.2), (4.3, 5.15, 1.05, 1.0), GOLD))
-for side in (-1, 1):
-    p.append(kit.cylinder(0.36, 0.02, (side * 0.08, 4.65, 3.35), PEARL, verts=24, rot=(0, PI / 2, 0)))
-    star = kit.star_disc(0.28, 0.12, 0.02, (side * 0.095, 4.65, 3.35), GOLD_DARK, points=5, twist=0)
-    star.rotation_euler = (0, PI / 2, 0)
-    kit._apply_all(star)
-    p.append(star)
+FIN = ((2.05, 3.65, 2.0, 1.2), (4.3, 5.15, 1.05, 1.0))
+p.append(fin(*FIN, GOLD))
+p += rig.fin_logo(*FIN, (5.27, 3.35), 0.36, (0.28, 0.12), PEARL, GOLD_DARK)
 tp = rig.wing((0.0, 4.95, 4.3, 1.05, 0.8), (1.85, 5.55, 4.42, 0.55, 0.8), GOLD)
 p.append(tp)
 p.append(blob((0.12, 0.6, 0.12), (0, 5.4, 4.32), GOLD_DARK, segments=10))

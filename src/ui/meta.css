@@ -2057,6 +2057,70 @@
   pointer-events: none;
 }
 
+/* Off the screen, a gate's label is drawn small at the screen's edge towards its plane: the gate's number and its
+   clock, an arrow pointing the way. */
+.flight-tag {
+  display: none;
+}
+
+.flight-label.is-edge {
+  gap: 3px;
+  padding: 3px 4px 3px 7px;
+}
+
+.flight-label.is-edge > :not(.flight-clock, .flight-tag) {
+  display: none;
+}
+
+.flight-label.is-edge .flight-tag {
+  display: block;
+  color: var(--navy);
+  font: 400 15px/1 var(--font-display);
+}
+
+.flight-label.is-edge::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  border: 7px solid transparent;
+}
+
+.flight-label.is-edge[data-side='left']::after {
+  left: auto;
+  right: 100%;
+  margin: -7px 1px 0 0;
+  border-right-color: var(--ink);
+}
+
+.flight-label.is-edge[data-side='right']::after {
+  left: 100%;
+  margin: -7px 0 0 1px;
+  border-left-color: var(--ink);
+}
+
+.flight-label.is-edge[data-side='top']::after {
+  top: auto;
+  bottom: 100%;
+  margin: 0 0 1px -7px;
+  border-bottom-color: var(--ink);
+}
+
+.flight-label.is-edge[data-side='bottom']::after {
+  top: 100%;
+  margin: 1px 0 0 -7px;
+  border-top-color: var(--ink);
+}
+
+/* A plane's label over the hero fades, so it never hides them. */
+.flight-label.is-faded {
+  opacity: 0.28;
+}
+
+.flight-label {
+  transition: opacity 0.2s;
+}
+
 /* The clock: a dial that empties as the departure time comes. */
 .flight-clock {
   display: grid;

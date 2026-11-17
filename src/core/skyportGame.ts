@@ -131,7 +131,7 @@ import { Hud } from '../ui/hud';
 import { rich } from '../ui/icons';
 import { t, type StringKey } from '../ui/strings';
 import { UpgradePanel } from '../ui/upgradePanel';
-import { WorldLabels, type Label } from '../ui/worldLabels';
+import { WorldLabels, type Box, type Label } from '../ui/worldLabels';
 
 const AIRPORT = TUNING.airport;
 /** A new building grows into place over this long. */
@@ -801,6 +801,8 @@ export function createSkyportGame(
     door.innerHTML = rich(`🚪 ${t('gateClosed')}`);
     const doorLabel = labels.add(door, new Vector3(spot.podium.x, 2.6, spot.podium.z));
     doorLabel.visible = false;
+    // (Kept clear of the planes' labels.)
+    doorLabel.avoid = true;
     const kind = planeAt(spot);
     const kit = standKit(kind);
     // (A wide-body's chips sit higher over it.)
@@ -2981,7 +2983,7 @@ export function createSkyportGame(
     if (flight.gate === 'vip') {
       if (!star) return `<span class="flight-chip is-go">${rich('🌟')}</span>`;
       const share = star.celeb.patience / AIRPORT.vip.patience;
-      let html = `<span class="flight-clock ${share < 0.25 ? 'is-low' : ''}" style="--left:${(share * 100).toFixed(0)}%">${Math.ceil(star.celeb.patience)}</span>`;
+      let html = `<span class="flight-tag">${rich('🌟')}</span><span class="flight-clock ${share < 0.25 ? 'is-low' : ''}" style="--left:${(share * 100).toFixed(0)}%">${Math.ceil(star.celeb.patience)}</span>`;
       for (const wish of WISHES) html += `<span class="flight-chip${star.celeb.granted.has(wish) ? ' is-done' : ''}">${rich(`${WISH_ICON[wish]} ${star.celeb.granted.has(wish) ? '✓' : t(`wish_${wish}` as StringKey)}`)}</span>`;
       return html;
     }
@@ -2989,7 +2991,9 @@ export function createSkyportGame(
     const left = Math.ceil(flight.clock);
     const share = flight.clockMax > 0 ? flight.clock / flight.clockMax : 0;
     const clockClass = flight.late ? 'is-late' : share < 0.25 ? 'is-low' : '';
-    let html = `<span class="flight-clock ${clockClass}" style="--left:${(share * 100).toFixed(0)}%">${flight.late ? '!' : left}</span>`;
+    // (Its gate's number, shown only small at the screen's edge.)
+    let html = `<span class="flight-tag">${Object.keys(layout.gates).indexOf(flight.gate) + 1}</span>`;
+    html += `<span class="flight-clock ${clockClass}" style="--left:${(share * 100).toFixed(0)}%">${flight.late ? '!' : left}</span>`;
     html += `<span class="flight-chip${flight.full ? ' is-done' : ''}">${rich(`👥 ${flight.boarded}/${flight.seats}`)}</span>`;
     if (flight.needsFuel) html += `<span class="flight-chip${flight.fuel >= 1 ? ' is-done' : ''}">${rich(flight.fuel >= 1 ? '⛽ ✓' : `⛽ ${Math.floor(flight.fuel * 100)}%`)}</span>`;
     if (flight.needsCases > 0) html += `<span class="flight-chip${flight.cases >= flight.needsCases ? ' is-done' : ''}">${rich(`🧳 ${flight.cases}/${flight.needsCases}`)}</span>`;
@@ -3041,9 +3045,10 @@ export function createSkyportGame(
         const el = document.createElement('div');
         el.className = 'flight-label';
         const at = new Vector3();
-        // (Pinned to the screen's edge while the plane's off it: a gate's clock, a star's patience. The other
-        // stands' labels go off with their planes, so they don't pile up at the edges.)
-        const label = labels.add(el, at, !!layout.gates[flight.gate] || flight.gate === 'vip');
+        const label = labels.add(el, at);
+        // (It fades while it's over the hero, so it never hides them, and keeps clear of the other planes' labels.)
+        label.fade = true;
+        label.avoid = true;
         v = { model, label, at, shown: '', lateSaid: false, last: null };
         views.set(flight, v);
       }
@@ -3055,8 +3060,9 @@ export function createSkyportGame(
       const row = layout.gates[flight.gate] ? Object.keys(layout.gates).indexOf(flight.gate) : (STAND_ROWS[flight.gate] ?? 5);
       v.at.set(flight.x, flight.kind === 'wide' ? 6.4 : flight.kind === 'jet' ? 5.0 : 4.0, flight.z + 0.6 + (row % 4) * 2.6);
       v.label.visible = flight.phase === 'parked';
-      // (A plane off the top of the screen keeps its clock in sight, under the counters.)
-      v.label.minY = view.topInset + 62 + row * 44;
+      // (Off the screen, a gate's clock and a star's patience are kept in sight, small, at the screen's edge
+      // towards them: just the clock and the gate's number. The other stands' labels go off with their planes.)
+      v.label.edge = !flight.cleared && (!!layout.gates[flight.gate] || (flight.gate === 'vip' && !!star));
       if (v.label.visible) {
         const html = describe(flight);
         if (html !== v.shown) {
@@ -3075,6 +3081,30 @@ export function createSkyportGame(
   };
 
   const pointer = new EdgePointer(root);
+  // The labels kept clear of the HUD and the side buttons, fading over the hero; a gate's clock off the screen
+  // kept clear of the arrows at the edges and of the chips under the counters (where they are, looked at now
+  // and then: reading the page's layout every frame is slow on phones).
+  const keepOut: Box[] = [];
+  const chipBoxes: Box[] = [];
+  let chipsLookIn = 0;
+  const placeLabels = (dt: number): void => {
+    chipsLookIn -= dt;
+    if (chipsLookIn <= 0) {
+      chipsLookIn = 0.5;
+      chipBoxes.length = 0;
+      const origin = root.getBoundingClientRect();
+      chips.boxes(origin, chipBoxes);
+      // (The side buttons: below them, the screen's edge is free.)
+      const bar = document.querySelector('.side-bar')?.getBoundingClientRect();
+      if (bar && bar.width > 0) chipBoxes.push({ x: bar.left - origin.left + bar.width / 2, y: bar.top - origin.top + bar.height / 2, hw: bar.width / 2 + 4, hh: bar.height / 2 + 4 });
+    }
+    keepOut.length = 0;
+    keepOut.push(...chipBoxes);
+    if (pointer.showing) keepOut.push(pointer.box);
+    const jobArrow = jobs.pointerBox;
+    if (jobArrow) keepOut.push(jobArrow);
+    labels.update(stage.camera, stage.size.width, stage.size.height, { top: view.topInset, right: 0, keepOut, hero: player.mesh.position });
+  };
   const hand = new GuideHand(labels);
   /** Where the guide's hand points this frame (the play-test bot follows it). */
   let hint: GuideStep | null = null;
@@ -3236,6 +3266,7 @@ export function createSkyportGame(
         views,
         solids,
         standSolids,
+        movingSolids,
         route,
         crew: () => [agent, handler, dispatcher, fueler, runner, barista, clerk, controller, marshal, cargoCrew, engineer, manager],
         terminal: () => ({ hatch: hatchTrays?.stack.length ?? 0, cafe: cafeTrays?.stack.length ?? 0, belt: [...beltCases], dark }),
@@ -3450,13 +3481,13 @@ export function createSkyportGame(
     blobShadows.update();
     carriedItems.update();
     stage.render();
-    labels.update(stage.camera, stage.size.width, stage.size.height);
     const step = guide();
     hint = step;
     hand.point(step);
     const next = pads.next;
     const goal = step?.at ?? (next && state.cash >= next.owed ? next.at : null);
     pointer.update(stage.camera, stage.size.width, stage.size.height, goal, { top: view.topInset, right: SIDE_BAR_PX });
+    placeLabels(dt);
     hud.update(dt, state.cash, state.stars, state.gems);
     for (const ticker of tickers) ticker(dt);
   }, (error) => platform.logError(error));
@@ -3512,7 +3543,7 @@ export function createSkyportGame(
       blobShadows.update();
       carriedItems.update();
       stage.render();
-      labels.update(stage.camera, stage.size.width, stage.size.height);
+      placeLabels(0);
     },
     start() {
       if (!lifecycle.paused) loop.start();

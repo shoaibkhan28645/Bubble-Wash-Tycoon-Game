@@ -27,6 +27,7 @@ import type { Job, JobBoard } from '../systems/jobs';
 import { money } from '../systems/economy';
 import { formatClock } from '../systems/construction';
 import { EdgePointer } from '../ui/edgePointer';
+import type { Box } from '../ui/worldLabels';
 import type { EventChips } from '../ui/eventChips';
 import { t, type StringKey } from '../ui/strings';
 import type { Label, WorldLabels } from '../ui/worldLabels';
@@ -158,6 +159,10 @@ export class JobView {
   private readonly iconAt = new Vector3();
   private readonly hands = new Group();
   private readonly pointer: EdgePointer;
+  /** Its arrow's box on the screen while it's shown, else null. */
+  get pointerBox(): Box | null {
+    return this.pointer.showing ? this.pointer.box : null;
+  }
   private shown: Shown | null = null;
   /** People (and things) that have finished, staying a moment before they go. */
   private readonly leaving: { root: Object3D; bubble: Label | null; left: number; tick: (dt: number) => void }[] = [];

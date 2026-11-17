@@ -180,6 +180,121 @@ def wing(root, tip, col, both=True):
     return obj
 
 
+# A fin's thickness either side of x = 0, over the wing section's (an 11% thick fin at its thickest).
+FIN_THICK = 0.6
+
+
+def _fin_half(u):
+    """The fin section's half thickness over its chord, `u` of the way along the chord from the leading edge."""
+    for (u0, h0), (u1, h1) in zip(AIRFOIL_TOP, AIRFOIL_TOP[1:]):
+        if u <= u1:
+            return h0 + (h1 - h0) * (max(u, u0) - u0) / (u1 - u0)
+    return AIRFOIL_TOP[-1][1]
+
+
+def fin(root, tip, col):
+    """A vertical surface, the same either side of x = 0 (a tail fin, a winglet): `root` and `tip` are
+    (z, y_leading, chord, thickness scale)."""
+    bm = bmesh.new()
+    outline = list(AIRFOIL_TOP) + [(u, -h) for u, h in reversed(AIRFOIL_TOP[1:])]
+
+    def section(z, y0, chord, k):
+        return [bm.verts.new((h * chord * k * FIN_THICK, y0 + u * chord, z)) for u, h in outline]
+
+    s0 = section(*root)
+    s1 = section(*tip)
+    n = len(s0)
+    for i in range(n):
+        j = (i + 1) % n
+        bm.faces.new((s0[i], s0[j], s1[j], s1[i]))
+    bm.faces.new(s0)
+    bm.faces.new(s1)
+    bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
+    mesh = bpy.data.meshes.new('fin')
+    bm.to_mesh(mesh)
+    bm.free()
+    obj = bpy.data.objects.new('fin', mesh)
+    bpy.context.scene.collection.objects.link(obj)
+    kit._paint(obj, col)
+    return obj
+
+
+def fin_side(root, tip, y, z):
+    """How far out from x = 0 the side of the fin (`root`, `tip` as for fin()) is at (y, z)."""
+    z0, y0, c0, k0 = root
+    z1, y1, c1, k1 = tip
+    t = (z - z0) / (z1 - z0)
+    lead = y0 + (y1 - y0) * t
+    chord = c0 + (c1 - c0) * t
+    u = min(max((y - lead) / chord, 0.0), 1.0)
+    return _fin_half(u) * (c0 * k0 + (c1 * k1 - c0 * k0) * t) * FIN_THICK
+
+
+def fin_inside(root, tip, centre, radius):
+    """How far a disc of `radius` at `centre` (y, z) on the fin stays in from its edges (negative: past one)."""
+    z0, y0, c0, _ = root
+    z1, y1, c1, _ = tip
+    room = math.inf
+    for i in range(48):
+        a = 2 * math.pi * i / 48
+        y = centre[0] + radius * math.cos(a)
+        z = centre[1] + radius * math.sin(a)
+        t = (z - z0) / (z1 - z0)
+        lead = y0 + (y1 - y0) * t
+        trail = lead + c0 + (c1 - c0) * t
+        room = min(room, y - lead, trail - y, z - z0, z1 - z)
+    return room
+
+
+def _fin_decal(root, tip, side, rim, centre, lift, col, rings=2):
+    """A flat shape laid on one side of a fin, following its surface `lift` out from it: `rim` its outline
+    ((dy, dz) round its middle, anticlockwise seen from +x), in rings to its middle."""
+    bm = bmesh.new()
+    yc, zc = centre
+
+    def at(dy, dz):
+        y = yc + dy
+        z = zc + dz
+        return bm.verts.new((side * (fin_side(root, tip, y, z) + lift), y, z))
+
+    middle = at(0.0, 0.0)
+    loops = [[at(dy * f, dz * f) for dy, dz in rim] for f in (k / rings for k in range(1, rings + 1))]
+    n = len(rim)
+    order = (lambda q: q) if side > 0 else (lambda q: list(reversed(q)))
+    for i in range(n):
+        j = (i + 1) % n
+        bm.faces.new(order([middle, loops[0][i], loops[0][j]]))
+        for a, b in zip(loops, loops[1:]):
+            bm.faces.new(order([a[i], b[i], b[j], a[j]]))
+    mesh = bpy.data.meshes.new('decal')
+    bm.to_mesh(mesh)
+    bm.free()
+    obj = bpy.data.objects.new('decal', mesh)
+    bpy.context.scene.collection.objects.link(obj)
+    kit._paint(obj, col)
+    return obj
+
+
+def fin_logo(root, tip, centre, radius, star, disc_col, star_col):
+    """An airline's logo on both sides of a fin: a disc of `radius` at `centre` (y, z) with a five-pointed star
+    on it (`star`: its points' and its notches' radii), point up, laid on the fin's surface."""
+    if fin_inside(root, tip, centre, radius) < 0.05:
+        raise ValueError(f'the logo at {centre} runs off its fin')
+    disc = [(radius * math.cos(2 * math.pi * i / 28), radius * math.sin(2 * math.pi * i / 28)) for i in range(28)]
+    outer, inner = star
+    corners = [((outer if i % 2 == 0 else inner) * math.cos(math.pi / 2 + math.pi * i / 5), (outer if i % 2 == 0 else inner) * math.sin(math.pi / 2 + math.pi * i / 5)) for i in range(10)]
+    # (Each edge of the star in two, so it follows the fin's curve: the fin's side bends only a little under it.)
+    points = []
+    for i in range(10):
+        a, b = corners[i], corners[(i + 1) % 10]
+        points += [(a[0] + (b[0] - a[0]) * f, a[1] + (b[1] - a[1]) * f) for f in (0.0, 0.5)]
+    parts = []
+    for side in (-1, 1):
+        parts.append(_fin_decal(root, tip, side, disc, centre, 0.012, disc_col))
+        parts.append(_fin_decal(root, tip, side, points, centre, 0.026, star_col))
+    return parts
+
+
 def paint(obj, rule):
     """Paints each face by `rule(centre)` → colour (corner colours, so the edges stay crisp)."""
     mesh = obj.data

@@ -21,7 +21,7 @@ import { speech } from '../ui/dialog';
 import type { EventChips } from '../ui/eventChips';
 import { money } from '../systems/economy';
 import { t } from '../ui/strings';
-import type { WorldLabels } from '../ui/worldLabels';
+import type { Box, WorldLabels } from '../ui/worldLabels';
 
 /** The hero's earnings are measured over this long (seconds), for how far off the next purchase is. */
 const EARN_WINDOW = 90;
@@ -57,6 +57,8 @@ export interface Jobs {
   readonly board: JobBoard;
   /** The hero's working at a job right now (polishing, pumping): the game shows him busy. */
   readonly working: boolean;
+  /** The job's arrow at the screen's edge, while it's shown (the labels there keep clear of it). */
+  readonly pointerBox: Box | null;
   update(dt: number, camera: PerspectiveCamera, width: number, height: number, insets: { top: number; right: number }): void;
   /** Something happened in town a job may be waiting for (`perfect:carousel`). */
   signal(key: string): void;
@@ -233,6 +235,9 @@ export function createJobs(deps: {
     board,
     get working() {
       return board.active?.working ?? false;
+    },
+    get pointerBox() {
+      return view.pointerBox;
     },
     update(dt, camera, width, height, insets) {
       clock += dt;

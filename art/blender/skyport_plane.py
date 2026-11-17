@@ -132,31 +132,8 @@ def spun(obj, hub, angle):
     return obj
 
 
-def fin(root, tip, col):
-    """A vertical surface: `root` and `tip` are (z, y_leading, chord, thickness scale), standing at x = 0."""
-    bm = rig.bmesh.new()
-
-    def section(z, y0, chord, k):
-        pts = list(rig.AIRFOIL_TOP) + list(rig.AIRFOIL_BOTTOM)
-        # Symmetrical: the top side's thickness either side of the chord.
-        return [bm.verts.new((h * chord * k * (1 if i < len(rig.AIRFOIL_TOP) else -2.6), y0 + u * chord, z)) for i, (u, h) in enumerate(pts)]
-
-    s0 = section(*root)
-    s1 = section(*tip)
-    n = len(s0)
-    for i in range(n):
-        j = (i + 1) % n
-        bm.faces.new((s0[i], s0[j], s1[j], s1[i]))
-    bm.faces.new(s0)
-    bm.faces.new(s1)
-    rig.bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
-    mesh = bpy.data.meshes.new('fin')
-    bm.to_mesh(mesh)
-    bm.free()
-    obj = bpy.data.objects.new('fin', mesh)
-    bpy.context.scene.collection.objects.link(obj)
-    kit._paint(obj, col)
-    return obj
+# (The tail fin and winglets: the same either side, from rig.)
+fin = rig.fin
 
 
 m = Model('sp_plane', 0.0)
@@ -261,13 +238,9 @@ for side in (-1, 1):
 
 # --- The tail: a swept fin in the airline's colour, the logo on it, a tailplane right on top.
 p.append(blob((0.14, 0.9, 0.22), (0, 2.25, 2.62), ACCENT, segments=12))
-p.append(fin((2.55, 2.3, 2.15, 1.25), (4.55, 3.62, 1.08, 1.0), ACCENT))
-for side in (-1, 1):
-    p.append(kit.cylinder(0.42, 0.025, (side * 0.11, 3.42, 3.5), WHITE, verts=24, rot=(0, PI / 2, 0)))
-    star = kit.star_disc(0.32, 0.14, 0.02, (side * 0.13, 3.42, 3.5), ACCENT2, points=5, twist=0)
-    star.rotation_euler = (0, PI / 2, 0)
-    kit._apply_all(star)
-    p.append(star)
+FIN = ((2.55, 2.3, 2.15, 1.25), (4.55, 3.62, 1.08, 1.0))
+p.append(fin(*FIN, ACCENT))
+p += rig.fin_logo(*FIN, (3.79, 3.5), 0.42, (0.32, 0.14), WHITE, ACCENT2)
 tp = rig.wing((0.0, 3.5, 4.5, 1.15, 1.0), (2.15, 3.95, 4.55, 0.68, 0.9), WHITE)
 rig.paint(tp, lambda c: ACCENT if abs(c.x) > 1.75 else WHITE)
 p.append(tp)
