@@ -348,7 +348,7 @@
   {
     "id": "portland",
     "name": "Port & Industrial Park land",
-    "cost": 2400000000,
+    "cost": 8000000000,
     "targetMinute": 116,
     "adds": "Buy the docklands for your next business; offered once every town goal is done",
     "afterGoals": true,
