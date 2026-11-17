@@ -149,6 +149,8 @@ export interface PadEffects {
   runway2?: boolean;
   /** The jet wash: airlines book their jets in for a wash. */
   jetwash?: boolean;
+  /** (Part E) The Sky Queen, the airport's landmark: built over its construction time on its own stand east of the jet wash. */
+  skyqueen?: boolean;
 }
 
 export interface PadDef {
@@ -459,7 +461,7 @@ export interface TrackSpot {
 }
 
 /** The planes that use an airport (tuning.json `airport.planes`). */
-export type PlaneKind = 'prop' | 'jet' | 'wide' | 'private' | 'freighter';
+export type PlaneKind = 'prop' | 'jet' | 'wide' | 'private' | 'freighter' | 'queen';
 
 /** A stand for a plane that isn't a gate's (Mogul Air's own plane, the private jets): where it parks, where it's marshalled in, its door. */
 export interface StandSpot {
@@ -517,7 +519,7 @@ export interface AirportLayout extends TownLayout {
    * end, and (Part D) the link further east for the cargo and hangar stands and the end-around taxiway (`around`,
    * past the runway's west end to the second runway).
    */
-  links: { exit: number; entry: number; far: number; east?: number; around?: number };
+  links: { exit: number; entry: number; far: number; east?: number; around?: number; queen?: number };
   /** Part D: the second runway, north of the first, that departures take off from once it's built. */
   runway2?: { z: number; minX: number; maxX: number; half: number };
   apron: Rect;
@@ -568,6 +570,8 @@ export interface AirportLayout extends TownLayout {
   hangar?: { hall: Rect; door: Point; service: Point };
   jetwash?: { hall: Rect; control: Point; pile: Point };
   managerWalk?: Point[];
+  /** (Part E) The Sky Queen's stand: its apron (paved once she's bought), the gantry over its front, the cranes that build her, her takings' pile, her fuel truck. */
+  skyqueen?: { apron: Rect; sign: Point; cranes: Point[]; pile: Point; fuel: Point };
 }
 
 /** A theme park's map (Chapter 3): the shared map, the ticket booth and stalls, the rides and the paths between them. */

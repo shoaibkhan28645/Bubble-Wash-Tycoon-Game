@@ -221,7 +221,8 @@
     "cargocrew": 30000,
     "hangar": 30000,
     "engineer": 30000,
-    "jetwash": 30000
+    "jetwash": 30000,
+    "skyqueen": 30000
   },
   "heroScale": {
     "roadside": 1.25,
@@ -243,6 +244,7 @@
     "cargo": ["cargo.price", "cargocrew.staffSpeed", "cargocrew.staffCarry"],
     "hangar": ["hangar.speed", "engineer.staffSpeed"],
     "jetwash": ["jetwash.speed", "jetwash.price"],
+    "skyqueen": ["skyqueen.speed", "skyqueen.price"],
     "bay1": [
       "bay1.speed",
       "bay1.quality",

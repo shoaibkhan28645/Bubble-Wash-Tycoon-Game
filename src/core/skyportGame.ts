@@ -7,7 +7,7 @@
 // a row pays a little more than the last.
 // The shared pieces (the player, pads, cash piles, upgrades, the camera, the side bar, the hero's career
 // and the town's story) are the same as in the other towns.
-import { Object3D, Vector3 } from 'three';
+import { Mesh, Object3D, Plane, Vector3, type Material } from 'three';
 import { Loop } from './loop';
 import { GameClock } from './clock';
 import { CHARACTERS, TUNING, UPGRADES, type GateSpot, type Point, type Rect } from './config';
@@ -15,7 +15,7 @@ import type { Game } from './game';
 import type { GameState } from './gameState';
 import type { Lifecycle } from './lifecycle';
 import type { SaveManager } from './save';
-import type { AirportTown } from './towns';
+import { townIds, type AirportTown } from './towns';
 import { createMeta } from './meta';
 import { createTown } from './town';
 import { createPress } from './press';
@@ -29,7 +29,8 @@ import { mixLook, type Look, type Stage } from '../render/stage';
 import { withShadows } from '../render/stage';
 import { CameraRig } from '../render/cameraRig';
 import { Particles } from '../render/effects/particles';
-import { Ambience, airfield as airfieldGround, roomFloor, secondRunway, wingFloor } from '../render/airfield';
+import { Ambience, airfield as airfieldGround, queenStand, roomFloor, secondRunway, wingFloor } from '../render/airfield';
+import { ConstructionSites } from '../render/models/site';
 import { AirportNight } from '../render/airportNight';
 import { nightGlow } from '../render/models/build';
 import { loadPeople } from '../render/assets';
@@ -55,6 +56,8 @@ import {
   HangarModel,
   JetWash,
   KLoader,
+  TowerCrane,
+  queenGantry,
   JET,
   CateringTruck,
   DutyFree,
@@ -98,7 +101,7 @@ import { PersonAvatar } from '../render/models/person';
 import { TownDecor } from '../render/townDecor';
 import { Airfield, flightPay, planeAt, podiumFront, ringAt, type Flight, type PlaneKind } from '../systems/airport';
 import { Airline } from '../systems/airline';
-import { formatClock } from '../systems/construction';
+import { formatClock, secondsLeft, takeFinished } from '../systems/construction';
 import { Fog, Tower } from '../systems/tower';
 import { Celebrity, WISHES, type Wish } from '../systems/vip';
 import { brandColours } from '../render/brand';
@@ -163,6 +166,9 @@ const CREW_SPEED = 3.3;
 const AGENT_RATE = 0.85;
 
 /** A bright day's flying: blue sky, white light, long views. */
+/** After the land for the next town is bought, the hero sets off this long after (the pad's pop first). */
+const TRAVEL_DELAY_MS = 1500;
+
 const SKY_LOOK: Look = {
   sky: 0xbfe6ff,
   fogNear: 110,
@@ -490,6 +496,11 @@ export function createSkyportGame(
         paintBoard();
       }
       if (flight.gate === 'hangar') hangarJob = null;
+      // The Sky Queen's off on a world tour: away for its time, her takings when she's home.
+      if (flight.gate === 'skyqueen') {
+        state.supplies['queen.away'] = queenTour();
+        state.supplies['queen.trip'] = 1;
+      }
       if (wash?.flight === flight) wash = null;
       const view = views.get(flight);
       if (!view) return;
@@ -531,7 +542,7 @@ export function createSkyportGame(
   };
   const passengers = new Passengers(layout, AIRPORT, airfield, gateKeys, makeAvatar, {
     onCheckedIn: (p: Passenger) => {
-      const pay = Math.round(AIRPORT.passengers.ticket * levelFactor(UPGRADES.kinds.price, level('checkin.price')));
+      const pay = Math.round(AIRPORT.passengers.ticket * levelFactor(UPGRADES.kinds.price, level('checkin.price')) * queenBonus());
       const tip = tipFor(pay, p.patience / p.patienceMax, TUNING.customers);
       cash.add('checkin', pay + tip);
       const at = layout.piles.checkin ?? layout.desk.at;
@@ -1191,8 +1202,9 @@ export function createSkyportGame(
       if (airline.update(dt * boost, k)) comeHome(k);
       if (!canSend(k)) continue;
       mogulHome[k] = (mogulHome[k] ?? 0) + dt;
-      // Left alone a while, it flies its last route again (its first: the other plane's, or the nearest city).
-      if (mogulHome[k]! > AIRPORT.airline.waitSeconds) flyRoute(airline.routeOf(k)?.id ?? airline.route?.id ?? AIRPORT.airline.cities[0]!.id, k);
+      // Left alone a while, it's off again by itself.
+      // (Somewhere new, or that's still to send a souvenir home, while there is somewhere; else the best-paying.)
+      if (mogulHome[k]! > AIRPORT.airline.waitSeconds) flyRoute(airline.next(k).id, k);
     }
     const on = boardPad ? near(player.position, layout.mogul.board, 1.0) : false;
     if (on && !boardOn) openRoutes();
@@ -1961,6 +1973,229 @@ export function createSkyportGame(
     m.pause = 2 + Math.random() * 2;
   };
 
+  // ---- Part E: the Sky Queen ------------------------------------------------------------------------------------
+  // Bought, she's put together on her own stand over her construction time: the stand's laid, two tower
+  // cranes swing over her and she takes shape from her nose back to her tail. Built, she rolls out in Mogul
+  // Air's colours; everything at Skyport earns more for her, and now and then she's off on a world tour (the
+  // hero waves her off from the pad at her nose; on the beat of the ring, a perfect send-off).
+  const QUEEN_RULES = AIRPORT.skyqueen;
+  const queenStandAt = layout.stands.skyqueen;
+  /** Her middle, parked (her nose to +z on its stop bar). */
+  const queenMid = (): number => (queenStandAt ? queenStandAt.noseZ - PLANES.queen.size.length / 2 : 0);
+  let queenFloor: Object3D | null = null;
+  let queenBuild: { model: PlaneModel; cut: Plane; cranes: TowerCrane[]; solids: Rect[]; sparkIn: number } | null = null;
+  let queenOn = false;
+  let queenGantryModel: Object3D | null = null;
+  let queenPad: PadModel | null = null;
+  let queenRing: TimingRing | null = null;
+  let queenFuel: FuelTruck | null = null;
+  let queenHose: Object3D | null = null;
+  let queenLabel: Label | null = null;
+  let queenShown = '';
+  /** Seconds she's stood on her stand since she came in, seconds she's been ready to go, the hero on her pad. */
+  let queenGround = 0;
+  let queenReady = 0;
+  let queenOnPad = false;
+  let queenStood = 0;
+  const queenPay = (): number => QUEEN_RULES.fare * levelFactor(UPGRADES.kinds.price, level('skyqueen.price')) * payBonus();
+  const queenTour = (): number => QUEEN_RULES.tour * levelFactor(UPGRADES.kinds.speed, level('skyqueen.speed'));
+  /** The landmark's own bonus on the check-in desk's tickets (everything else has it through payBonus). */
+  const queenBonus = (): number => (built('skyqueen') ? 1 + (current.pads.find((p) => p.id === 'skyqueen')?.effects.payBonus ?? 0) : 1);
+  /** Her stand's paving and paint (laid when she's bought). */
+  const layQueenStand = (): void => {
+    if (queenFloor || !layout.skyqueen) return;
+    queenFloor = queenStand(layout);
+    stage.scene.add(queenFloor);
+  };
+  /** Under construction: her stand laid, the cranes up, her model there to be revealed nose to tail. */
+  const startQueenBuild = (): void => {
+    if (queenBuild || queenOn || !layout.skyqueen || !queenStandAt || !state.building.skyqueen) return;
+    layQueenStand();
+    const model = new PlaneModel(mogulLivery, 'queen');
+    model.root.position.set(queenStandAt.x, 0, queenMid());
+    model.update(0, { engines: 0, door: 0, hold: 0, galley: 0, flaps: 0, gear: 1, steer: 0, roll: 0, taxiLight: false });
+    // (Her own copies of the paint, cut away behind the line that moves back along her as she's built.)
+    const cut = new Plane(new Vector3(0, 0, 1), -queenStandAt.noseZ - 1);
+    model.root.traverse((node) => {
+      if (!(node instanceof Mesh)) return;
+      const from = node.material as Material;
+      const copy = from.clone();
+      copy.onBeforeCompile = from.onBeforeCompile;
+      copy.clippingPlanes = [cut];
+      node.material = copy;
+    });
+    stage.renderer.localClippingEnabled = true;
+    stage.scene.add(model.root);
+    const solidsHere: Rect[] = [];
+    const cranes = layout.skyqueen.cranes.map((at, i) => {
+      const crane = new TowerCrane(Math.atan2(queenStandAt.x - at.x, queenMid() - at.z), i);
+      crane.root.position.set(at.x, 0, at.z);
+      show(crane.root, true);
+      solidsHere.push(around(at, 1.65));
+      return crane;
+    });
+    solids.push(...solidsHere);
+    solidsChanged();
+    queenBuild = { model, cut, cranes, solids: solidsHere, sparkIn: 0 };
+  };
+  const updateQueenBuild = (dt: number): void => {
+    const b = queenBuild;
+    const build = state.building.skyqueen;
+    if (!b || !build || !queenStandAt) return;
+    const total = current.pads.find((p) => p.id === 'skyqueen')?.buildSeconds ?? 1200;
+    const done = Math.max(0, Math.min(1, 1 - secondsLeft(build, Date.now()) / total));
+    const length = PLANES.queen.size.length + 1;
+    const at = queenStandAt.noseZ + 0.5 - done * length;
+    b.cut.constant = -at;
+    for (const crane of b.cranes) crane.update(dt);
+    // Sparks where she's being put together.
+    b.sparkIn -= dt;
+    if (b.sparkIn <= 0) {
+      b.sparkIn = 0.35 + Math.random() * 0.5;
+      effects.burst('sparkle', new Vector3(queenStandAt.x + (Math.random() - 0.5) * 6, 1.5 + Math.random() * 6, at), 4, 2.4, 0.4);
+      if (hearing({ x: queenStandAt.x, z: at }) > 0.5 && Math.random() < 0.3) sound.play('clank', 0.4);
+    }
+  };
+  const endQueenBuild = (): void => {
+    const b = queenBuild;
+    if (!b) return;
+    b.model.dispose();
+    for (const crane of b.cranes) crane.root.removeFromParent();
+    for (const r of b.solids) solids.splice(solids.indexOf(r), 1);
+    solidsChanged();
+    queenBuild = null;
+  };
+  /** Built: she rolls out on her stand (or, saved while she was away on a tour, she's on her way). */
+  const buildQueen = (animate: boolean): void => {
+    if (queenOn || !layout.skyqueen || !queenStandAt) return;
+    queenOn = true;
+    endQueenBuild();
+    layQueenStand();
+    const { sign } = layout.skyqueen;
+    queenGantryModel = show(queenGantry(), animate);
+    queenGantryModel.position.set(sign.x, 0, sign.z);
+    for (const side of [-1, 1]) solids.push(around({ x: sign.x + side * 6, z: sign.z }, 0.5));
+    airfield.openGate('skyqueen', 0, true);
+    queenPad = new PadModel(2.4, 0xffc21a);
+    queenPad.group.position.set(queenStandAt.marshal.x, 0, queenStandAt.marshal.z);
+    stage.scene.add(queenPad.group);
+    queenRing = new TimingRing();
+    queenRing.mesh.position.set(queenStandAt.marshal.x, 0.09, queenStandAt.marshal.z);
+    stage.scene.add(queenRing.mesh);
+    // Her fuel truck by her right wing, and its hose up to it while she's being got ready.
+    const fuelAt = layout.skyqueen.fuel;
+    queenFuel = new FuelTruck();
+    queenFuel.root.position.set(fuelAt.x, 0, fuelAt.z);
+    show(queenFuel.root, animate);
+    solids.push(footprint('sp_fuel', fuelAt.x, fuelAt.z, 0, 0.05));
+    queenHose = fuelHose();
+    queenHose.visible = false;
+    stage.scene.add(queenHose);
+    night.addStand({ x: queenStandAt.x, z: queenMid() });
+    const el = document.createElement('div');
+    el.className = 'flight-label';
+    queenLabel = labels.add(el, new Vector3(sign.x, 9.6, sign.z));
+    queenLabel.visible = false;
+    // Home (or brand new): on her stand. Away on a tour: back when it's done.
+    if ((state.supplies['queen.away'] ?? 0) <= 0) airfield.park('skyqueen');
+    if (animate) {
+      const mid = queenMid();
+      floaters.show(`👑 ${t('queenRollout')}`, new Vector3(queenStandAt.x, 9, mid + 4), 'star');
+      for (let i = 0; i < 5; i++) effects.burst('confetti', new Vector3(queenStandAt.x + (i - 2) * 4, 7, mid + (i % 2 ? 4 : -4)), 30, 5, 1.4);
+      sound.play('cheer');
+      sound.play('reward');
+    }
+    solidsChanged();
+  };
+  /** Home from a world tour: the takings on the pile by her stand. */
+  const queenHome = (flight: Flight): void => {
+    const pay = Math.round(queenPay());
+    const at = layout.piles.skyqueen ?? layout.skyqueen!.pile;
+    cash.add('skyqueen', pay);
+    floaters.show(`+${money(pay)} 👑`, new Vector3(at.x, 1.2, at.z), 'cash');
+    floaters.show(`🌍 ${t('queenHome')}`, new Vector3(flight.x, 9, flight.z + 4), 'star');
+    effects.burst('confetti', new Vector3(flight.x, 6, flight.z + 4), 24, 4, 1.2);
+    sound.play('ching', hearing(at));
+    count('tours');
+    onPaid({ amount: pay, tip: 0, automated: true, at });
+    void saves.saveNow();
+  };
+  /** Off she goes: on the ring's beat a perfect send-off, a tip on the spot. */
+  const sendQueen = (flight: Flight, perfect: boolean): void => {
+    flight.cleared = true;
+    const top = new Vector3(flight.x, 9, flight.z + 4);
+    floaters.show(`👑 ${t('queenOff')}`, top, 'star');
+    if (perfect && queenStandAt) {
+      const tip = Math.round(queenPay() * QUEEN_RULES.perfectTip);
+      const at = layout.piles.skyqueen ?? layout.skyqueen!.pile;
+      cash.add('skyqueen', tip);
+      floaters.show(`⭐ ${t('queenPerfect')} +${money(tip)}`, new Vector3(queenStandAt.marshal.x, 3, queenStandAt.marshal.z), 'tip');
+      effects.burst('sparkle', new Vector3(queenStandAt.marshal.x, 1.2, queenStandAt.marshal.z), 24, 4, 1);
+      sound.play('reward');
+      count('perfectTakeoff');
+      onPaid({ amount: tip, tip, automated: false, at });
+    } else sound.play('chime', hearing(flight));
+    void saves.saveNow();
+  };
+  const workQueen = (dt: number): void => {
+    if (!queenOn || !queenStandAt || !queenPad || !queenRing) return;
+    // Away on a tour: home when it's done.
+    const away = state.supplies['queen.away'] ?? 0;
+    if (away > 0) {
+      const left = Math.max(0, away - dt * boost);
+      state.supplies['queen.away'] = left;
+      if (left === 0) {
+        airfield.call('skyqueen');
+        floaters.show(`👑 ${t('queenComing')}`, new Vector3(queenStandAt.x, 9, queenMid()), 'star');
+      }
+    }
+    const flight = airfield.parkedAt('skyqueen');
+    const onPad = near(player.position, queenStandAt.marshal, AIRPORT.marshal.reach + 0.3);
+    let ready = false;
+    let fuelling = false;
+    if (flight && !flight.cleared) {
+      queenGround += dt * boost;
+      fuelling = queenGround < QUEEN_RULES.ground;
+      if (!fuelling) {
+        ready = true;
+        queenReady += dt;
+        const ring = ringAt(queenReady, AIRPORT.ring);
+        queenRing.show(ring.radius, ring.onTarget);
+        if (onPad && !queenOnPad) sendQueen(flight, ring.onTarget);
+        else if (onPad && (queenStood += dt) >= STAND_CLEAR_SECONDS) sendQueen(flight, false);
+        else if (queenReady >= QUEEN_RULES.sendoff + (onPad ? 2 : 0)) sendQueen(flight, false);
+      }
+    }
+    if (!ready) {
+      queenRing.show(null);
+      queenStood = 0;
+    }
+    queenOnPad = onPad;
+    queenPad.update(dt, onPad || ready);
+    // The fuel truck at her wing while she's got ready.
+    if (queenFuel && queenHose) {
+      queenFuel.update(dt, !!flight && !flight.cleared, fuelling);
+      queenHose.visible = fuelling;
+      if (fuelling && flight) {
+        const from = queenFuel.nozzle(new Vector3());
+        const to = new Vector3(flight.x + 7.5, PLANES.queen.size.wingY + 0.5, flight.z + 1.2);
+        queenHose.position.copy(from);
+        queenHose.lookAt(to);
+        queenHose.scale.set(1, 1, from.distanceTo(to));
+      }
+    }
+    // Over her gantry while she's away: when she's home.
+    if (queenLabel) {
+      const text = away > 0 ? `👑 ${t('queenAway', { time: formatClock(away) })}` : '';
+      queenLabel.visible = text !== '';
+      if (text !== queenShown) {
+        queenShown = text;
+        queenLabel.el.innerHTML = `<span class="flight-chip">${rich(text)}</span>`;
+        labels.remeasure(queenLabel);
+      }
+    }
+  };
+
   /** What of Part D moves and is solid: the hangar's middle door leaves while they're shut, the jet wash's gantry legs. */
   const movingSolids = (): Rect[] => {
     const out: Rect[] = [];
@@ -1992,6 +2227,14 @@ export function createSkyportGame(
     } else if (flight.gate === 'vip') meetStar(flight);
     else if (flight.gate === 'cargo') freighterParked(flight);
     else if (flight.gate === 'jetwash') wash = { flight, progress: 0 };
+    else if (flight.gate === 'skyqueen') {
+      queenGround = 0;
+      queenReady = 0;
+      if ((state.supplies['queen.trip'] ?? 0) > 0) {
+        state.supplies['queen.trip'] = 0;
+        queenHome(flight);
+      }
+    }
   };
 
   const addBuilt = (id: string, animate: boolean): void => {
@@ -2016,6 +2259,7 @@ export function createSkyportGame(
     if (effects_?.fleet) buildFleet();
     if (effects_?.runway2) buildRunway2(animate);
     if (effects_?.jetwash) buildJetwash(animate);
+    if (effects_?.skyqueen) buildQueen(animate);
     if (effects_?.sorter) buildSorter(animate);
     if (effects_?.bags && !belt) {
       belt = new BaggageBelt();
@@ -2054,16 +2298,38 @@ export function createSkyportGame(
       addBuilt(id, true);
       view.refit();
       void saves.saveNow();
-      if (current.pads.find((p) => p.id === id)?.effects.endOfContent) {
+      const done = current.pads.find((p) => p.id === id)?.effects;
+      if (done?.endOfContent) {
         flag(`ended:${current.id}`);
         showEndScreen(root, () => meta.screenClosed(), { title: t('endTitleSkyport'), body: t('endBodySkyport') });
       }
+      // The land for the next town: off the hero goes, once it has popped in. A town this version doesn't have
+      // yet ends the chapter instead.
+      const next = done?.travel;
+      if (next) {
+        flag(`ended:${current.id}`);
+        if (townIds().includes(next)) setTimeout(() => void travelTo(next), TRAVEL_DELAY_MS);
+        else showEndScreen(root, () => meta.screenClosed(), { title: t('endTitleSkyport'), body: t('endBodySkyport') });
+      }
     },
-    () => {
+    (id) => {
+      // Under construction: its site and countdown (the Sky Queen's stand, cranes and all).
+      sites.show(id);
+      if (id === 'skyqueen') startQueenBuild();
+      stage.refreshShadows();
       view.refit();
       void saves.saveNow();
     },
   );
+  const sites = new ConstructionSites(stage.scene, labels, layout);
+  for (const id of Object.keys(state.building)) sites.show(id);
+  startQueenBuild();
+  const finishBuilds = (): void => {
+    for (const id of takeFinished(state, Date.now())) {
+      sites.remove(id);
+      pads.finishConstruction(id);
+    }
+  };
   const panel = new UpgradePanel(root, (key) => upgrades.buy(key), () => {});
   const upgrades = new UpgradePads(
     stage.scene,
@@ -2683,6 +2949,12 @@ export function createSkyportGame(
       if (flight.cleared) return `<span class="flight-chip is-go">${rich(`📦 ${t('cargoLoaded')}`)}</span>`;
       return `<span class="flight-chip">${rich(`✈️ ${t('cargoChip')}`)}</span><span class="flight-chip${flight.cases >= flight.needsCases ? ' is-done' : ''}">${rich(`📦 ${flight.cases}/${flight.needsCases}`)}</span>`;
     }
+    if (flight.gate === 'skyqueen') {
+      if (flight.cleared) return `<span class="flight-chip is-go">${rich(`👑 ${t('queenOff')}`)}</span>`;
+      if (queenGround < QUEEN_RULES.ground) return `<span class="flight-chip">${rich(`👑 ${t('queenChip')}`)}</span><span class="flight-chip">${rich(`⛽ ${t('queenGetReady')} ${Math.floor((queenGround / QUEEN_RULES.ground) * 100)}%`)}</span>`;
+      const share = Math.max(0, 1 - queenReady / QUEEN_RULES.sendoff);
+      return `<span class="flight-clock ${share < 0.3 ? 'is-low' : ''}" style="--left:${(share * 100).toFixed(0)}%">${Math.ceil(share * QUEEN_RULES.sendoff)}</span><span class="flight-chip is-go">${rich(`👑 ${t('queenWave')}`)}</span>`;
+    }
     if (flight.gate === 'jetwash') {
       if (flight.cleared) return `<span class="flight-chip is-go">${rich(`✨ ${t('washDone')}`)}</span>`;
       return `<span class="flight-chip">${rich(`💦 ${t('washChip')} ${Math.floor((wash?.progress ?? 0) * 100)}%`)}</span>`;
@@ -2740,12 +3012,12 @@ export function createSkyportGame(
     };
   };
   /** The stands' labels' rows (Mogul Air's planes and the hangar's, the private jet's and the wash's, the freighter's). */
-  const STAND_ROWS: Record<string, number> = { mogul: 4, mogul2: 4, hangar: 4, vip: 5, jetwash: 5, cargo: 6 };
+  const STAND_ROWS: Record<string, number> = { mogul: 4, mogul2: 4, hangar: 4, vip: 5, jetwash: 5, cargo: 6, skyqueen: 4 };
   const drawFlights = (dt: number): void => {
     for (const flight of airfield.flights) {
       let v = views.get(flight);
       if (!v) {
-        const model = new PlaneModel(planeOf(flight.gate) !== null ? mogulLivery : LIVERIES[flight.livery % LIVERIES.length]!, flight.kind);
+        const model = new PlaneModel(planeOf(flight.gate) !== null || flight.gate === 'skyqueen' ? mogulLivery : LIVERIES[flight.livery % LIVERIES.length]!, flight.kind);
         stage.scene.add(model.root, model.shadow);
         const el = document.createElement('div');
         el.className = 'flight-label';
@@ -2814,6 +3086,9 @@ export function createSkyportGame(
       if (heroCarry.count('cargo') > 0) return { at: layout.cargo.drop, text: 'guideLoad' };
       if (dockCrates && dockCrates.stack.length > 0 && !heroCarry.full) return { at: layout.cargo.dock, text: 'guideCrates' };
     }
+    // The Sky Queen ready to go, the first couple of times: wave her off from her pad.
+    const queenFlight = queenOn && queenStandAt ? airfield.parkedAt('skyqueen') : null;
+    if (queenFlight && queenStandAt && !queenFlight.cleared && queenGround >= QUEEN_RULES.ground && (state.counts.tours ?? 0) < 2) return { at: queenStandAt.marshal, text: 'guideSendOff' };
     // A plane in the hangar (until there's a mechanic): service it.
     if (!built('engineer') && layout.hangar && hangarJob && hangarJob.progress < 1 && airfield.parkedAt('hangar')) return { at: layout.hangar.service, text: 'guideService' };
     // Meals for a jet (until there's a catering runner): to the hatch for trays, then the galley.
@@ -2976,6 +3251,20 @@ export function createSkyportGame(
           };
         },
         washNow: () => void (washTimer = 0),
+        partE: () => ({
+          building: state.building.skyqueen ? Math.round(secondsLeft(state.building.skyqueen, Date.now())) : null,
+          queen: queenOn,
+          away: state.supplies['queen.away'] ?? 0,
+          ground: queenGround,
+          ready: queenReady,
+          tours: state.counts.tours ?? 0,
+          flight: airfield.flights.find((f) => f.gate === 'skyqueen')?.phase ?? null,
+        }),
+        /** Finishes the Sky Queen's build now (or brings her home from her tour). */
+        queenNow: () => {
+          if (state.building.skyqueen) state.building.skyqueen.endsAt = Date.now();
+          else if ((state.supplies['queen.away'] ?? 0) > 0) state.supplies['queen.away'] = 0.01;
+        },
         /** Wears plane `k` out (it comes home to the hangar next). */
         wearOut: (k: number) => void (state.supplies[k ? 'air.wear.2' : 'air.wear'] = 5),
         grantWish: (wish: Wish) => grant(wish),
@@ -3034,6 +3323,10 @@ export function createSkyportGame(
     workEngineer(dt);
     workJetwash(dt);
     workManager(dt);
+    finishBuilds();
+    updateQueenBuild(dt);
+    workQueen(dt);
+    sites.update(state, Date.now());
     updateShuttle(dt);
     towerModel?.update(dt);
     controller?.avatar.update(dt);

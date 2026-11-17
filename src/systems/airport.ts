@@ -16,6 +16,8 @@ export const planeAt = (spot: { plane?: PlaneKind }): PlaneKind => spot.plane ??
 /** The link a plane bound for a stand at `x` leaves the runway by. */
 export function exitFor(layout: AirportLayout, x: number): number {
   const { links } = layout;
+  // (Part E: the Sky Queen's stand, east of the east link, has a link of its own further east still.)
+  if (links.queen !== undefined && links.east !== undefined && x > links.east + 2) return links.queen;
   if (links.east !== undefined && x > links.far - 2) return links.east;
   return x > links.exit - 2 ? links.far : links.exit;
 }
@@ -233,6 +235,20 @@ export class Flight {
     const x = links.around!;
     const z = runway2!.z;
     return new Route(rounded([{ x: this.holdX, z: taxiway.z }, { x, z: taxiway.z }, { x, z }, { x: x + 11, z }], 6));
+  }
+
+  /** Puts it on its stand already, parked (the Sky Queen, rolled out where she was built). */
+  parkNow(): void {
+    this.phase = 'parked';
+    this.approach = 1;
+    this.x = this.spot.x;
+    this.y = 0;
+    this.z = this.standZ;
+    this.heading = 0;
+    this.pitch = 0;
+    this.bank = 0;
+    this.speed = 0;
+    this.engines = 0;
   }
 
   /** Starts it part-way down its approach (the very first plane is nearly down as the hero arrives). */
@@ -479,6 +495,18 @@ export class Airfield {
     flight.startAt(approach);
     this.arrivals += 1;
     this.flights.push(flight);
+    return flight;
+  }
+
+  /** Puts a plane on a stand that's empty, parked there already (no flight in): the Sky Queen as she's rolled out. */
+  park(gate: string): Flight | null {
+    const spot = this.spotOf(gate);
+    if (!spot || this.at(gate) || this.flights.some((f) => f.gate === gate)) return null;
+    const flight = new Flight(this.nextId++, gate, spot, 0, this.layout, this.rules, this.rules.planes[planeAt(spot)].clock);
+    flight.parkNow();
+    this.flights.push(flight);
+    this.called.delete(gate);
+    this.events.onParked?.(flight);
     return flight;
   }
 

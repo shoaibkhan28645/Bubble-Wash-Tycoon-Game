@@ -108,6 +108,11 @@
       "count": "washes",
       "goal": 6,
       "gems": 30
+    },
+    {
+      "id": "skyqueen",
+      "built": "skyqueen",
+      "gems": 50
     }
   ]
 }

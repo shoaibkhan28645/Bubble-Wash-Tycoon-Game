@@ -123,6 +123,22 @@ export class Airline {
     this.store[this.key('air.fresh', k)] = this.hangar.freshTrips;
   }
 
+  /**
+   * Where plane `k` flies when it's left alone at home: somewhere it's never been (of the tiers that are open),
+   * else somewhere it's not brought a souvenir home from yet, else the best-paying city it can fly to (for the
+   * time it takes); never where the other plane's off to, if there's anywhere else.
+   */
+  next(k: number): City {
+    const other = this.routeOf(k ? 0 : 1);
+    const open = this.rules.cities.filter((c) => this.unlocked(c.tier));
+    const pick = (cities: City[]): City | undefined => cities.find((c) => c !== other) ?? cities[0];
+    return (
+      pick(open.filter((c) => !this.opened(c.id))) ??
+      pick(open.filter((c) => !this.hasSouvenir(c.id))) ??
+      [...open].sort((a, b) => b.takings / b.seconds - a.takings / a.seconds)[0]!
+    );
+  }
+
   /** Sets plane `k` off for a city (if its tier's open): the trip's clock starts once the plane's gone. */
   choose(id: string, k = 0): City | null {
     const i = this.rules.cities.findIndex((c) => c.id === id);

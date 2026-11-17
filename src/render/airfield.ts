@@ -112,16 +112,18 @@ export function airfield(layout: AirportLayout): Object3D {
   const { runway, taxiway, links, apron, serviceRoad, hall, plaza, roadZ } = layout;
   const rw = { minX: runway.minX, maxX: runway.maxX, minZ: runway.z - runway.half, maxZ: runway.z + runway.half };
   const tw = { minX: runway.minX, maxX: runway.maxX, minZ: taxiway.z - taxiway.half, maxZ: taxiway.z + taxiway.half };
-  ground('grass', { minX: -160, maxX: 190, minZ: -130, maxZ: 110 }, -0.05);
+  ground('grass', { minX: -160, maxX: 270, minZ: -130, maxZ: 110 }, -0.05);
   ground('runway', rw, 0.01);
   ground('taxi', tw, 0.01);
-  for (const x of [links.entry, links.exit, links.far]) ground('taxi', { minX: x - 3, maxX: x + 3, minZ: rw.maxZ, maxZ: tw.minZ }, 0.012);
+  // (Every link off the runway: Part D's east link for the cargo and hangar stands, Part E's for the Sky Queen's.)
+  const linkXs = [links.entry, links.exit, links.far, ...(links.east !== undefined ? [links.east] : []), ...(links.queen !== undefined ? [links.queen] : [])];
+  for (const x of linkXs) ground('taxi', { minX: x - 3, maxX: x + 3, minZ: rw.maxZ, maxZ: tw.minZ }, 0.012);
   ground('apron', { ...apron, minZ: tw.maxZ }, 0.011);
   ground('taxi', serviceRoad, 0.02);
   ground('floor', hall, 0.03);
   ground('carpet', { minX: hall.minX + 0.4, maxX: hall.maxX - 0.4, minZ: hall.minZ + 0.4, maxZ: hall.minZ + 5.6 }, 0.035);
   ground('plaza', plaza, 0.011);
-  ground('road', { minX: -160, maxX: 190, minZ: roadZ - 3.25, maxZ: roadZ + 3.25 }, 0.012);
+  ground('road', { minX: -160, maxX: 270, minZ: roadZ - 3.25, maxZ: roadZ + 3.25 }, 0.012);
 
   // Paint.
   const marks: Part[] = [];
@@ -139,7 +141,7 @@ export function airfield(layout: AirportLayout): Object3D {
   group.add(painted('09', runway.minX + 8.8, runway.z, 3.4, WHITE, PI / 2), painted('27', runway.maxX - 8.8, runway.z, 3.4, WHITE, -PI / 2));
   // The taxiway's yellow line, up each link, and dashes along its edges.
   mark(mid, taxiway.z, long - 2, 0.26, YELLOW);
-  for (const x of [links.entry, links.exit, links.far]) mark(x, (rw.maxZ + taxiway.z) / 2, 0.26, taxiway.z - rw.maxZ, YELLOW);
+  for (const x of linkXs) mark(x, (rw.maxZ + taxiway.z) / 2, 0.26, taxiway.z - rw.maxZ, YELLOW);
   for (let x = runway.minX + 3; x <= runway.maxX - 3; x += 4) for (const side of [-1, 1]) mark(x, taxiway.z + side * (taxiway.half - 0.3), 1.6, 0.14, YELLOW);
   // Each stand: the line in from the taxiway, the stop bar, its number, and a dashed outline.
   Object.values(layout.gates).forEach((gate, i) => {
@@ -153,7 +155,7 @@ export function airfield(layout: AirportLayout): Object3D {
   const pick = layout.belt.pick;
   for (const z of [pick.minZ, pick.maxZ]) mark((pick.minX + pick.maxX) / 2, z, pick.maxX - pick.minX, 0.14, YELLOW);
   for (const x of [pick.minX, pick.maxX]) mark(x, (pick.minZ + pick.maxZ) / 2, 0.14, pick.maxZ - pick.minZ, YELLOW);
-  for (let x = -158; x <= 188; x += 5) mark(x, roadZ, 2.4, 0.22, YELLOW);
+  for (let x = -158; x <= 268; x += 5) mark(x, roadZ, 2.4, 0.22, YELLOW);
   for (let x = layout.entrance.x - 2.4; x <= layout.entrance.x + 2.4; x += 1.2) mark(x, roadZ, 0.6, 5.6);
   const paint = new Mesh(mergeParts(marks), toyMaterial);
   paint.receiveShadow = true;
@@ -177,6 +179,43 @@ export function airfield(layout: AirportLayout): Object3D {
   plants.castShadow = true;
   plants.receiveShadow = true;
   group.add(plants);
+  return group;
+}
+
+/**
+ * (Part E) The Sky Queen's stand, laid when she's bought: its apron out from the taxiway east of the jet wash,
+ * the line in to her stop bar, a dashed box round her, SKY QUEEN in gold by her nose and a crown on the line.
+ */
+export function queenStand(layout: AirportLayout): Object3D {
+  const group = new Group();
+  group.name = 'queen-stand';
+  const queen = layout.skyqueen!;
+  const stand = layout.stands.skyqueen!;
+  const r = queen.apron;
+  const w = r.maxX - r.minX;
+  const d = r.maxZ - r.minZ;
+  const apron = new Mesh(new PlaneGeometry(w, d, Math.ceil(w / 16), Math.ceil(d / 16)).rotateX(-PI / 2), material('apron', w, d));
+  apron.position.set((r.minX + r.maxX) / 2, 0.011, (r.minZ + r.maxZ) / 2);
+  apron.receiveShadow = true;
+  group.add(apron);
+  const marks: Part[] = [];
+  const mark = (x: number, z: number, mw: number, md: number, color = YELLOW): void => void marks.push({ geometry: box(mw, 0.02, md), color, x, y: 0.035, z });
+  const GOLDEN = '#ffc21a';
+  mark(stand.x, (r.minZ + stand.noseZ) / 2, 0.3, stand.noseZ - r.minZ);
+  mark(stand.x, stand.noseZ + 0.4, 3.0, 0.34);
+  // The box round her: her span, from her nose back to where her tail stops.
+  const half = 14.4;
+  const tail = stand.noseZ - 25;
+  for (const side of [-1, 1]) for (let z = tail; z < stand.noseZ + 1; z += 2.4) mark(stand.x + side * half, z, 0.18, 1.2, GOLDEN);
+  for (let x = stand.x - half; x <= stand.x + half; x += 2.4) mark(x, stand.noseZ + 1.2, 1.2, 0.18, GOLDEN);
+  // A crown on the line, halfway in.
+  const cz = (r.minZ + stand.noseZ) / 2 - 6;
+  mark(stand.x, cz, 2.6, 0.5, GOLDEN);
+  for (let i = -2; i <= 2; i++) marks.push({ geometry: box(0.36, 0.02, 1.1 - Math.abs(i) * 0.25), color: GOLDEN, x: stand.x + i * 0.6, y: 0.036, z: cz - 0.7 + Math.abs(i) * 0.12 });
+  const paint = new Mesh(mergeParts(marks), toyMaterial);
+  paint.receiveShadow = true;
+  group.add(paint);
+  group.add(painted('SKY QUEEN', stand.x + 8.2, stand.noseZ - 2.4, 1.6, GOLDEN, PI / 2));
   return group;
 }
 

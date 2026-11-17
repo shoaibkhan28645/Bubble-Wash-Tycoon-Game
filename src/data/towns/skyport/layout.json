@@ -2,13 +2,13 @@
   "name": "Skyport International",
   "lot": {
     "minX": -31,
-    "maxX": 158.0,
+    "maxX": 192.0,
     "minZ": -19,
     "maxZ": 34
   },
   "walk": {
     "minX": -30,
-    "maxX": 156.5,
+    "maxX": 190.5,
     "minZ": -17.5,
     "maxZ": 33.4
   },
@@ -16,7 +16,7 @@
   "town": [],
   "walkways": [],
   "streetTrees": [],
-  "views": [{ "after": "runway2", "minX": -30, "maxX": 156.5, "minZ": -56, "maxZ": 0 }],
+  "views": [{ "after": "runway2", "minX": -30, "maxX": 156.5, "minZ": -56, "maxZ": 0 }, { "after": "skyqueen", "minX": 100, "maxX": 191, "minZ": -56, "maxZ": 0 }],
   "planters": [],
   "cameraBase": {
     "minX": -29.5,
@@ -28,8 +28,8 @@
     "x": -12.4,
     "z": 28.4
   },
-  "sites": {},
-  "buildAt": {},
+  "sites": { "skyqueen": { "x": 174.0, "z": 9.0, "width": 27, "depth": 25 } },
+  "buildAt": { "skyqueen": { "x": 174.0, "z": 9.0 } },
   "areas": {
     "gate3": {
       "minX": -1.5,
@@ -49,7 +49,8 @@
       "minZ": -19.0,
       "maxZ": 34.0
     },
-    "cargo": { "minX": -1.5, "maxX": 156.5, "minZ": -19, "maxZ": 34 }
+    "cargo": { "minX": -1.5, "maxX": 156.5, "minZ": -19, "maxZ": 34 },
+    "skyqueen": { "minX": -1.5, "maxX": 191.0, "minZ": -19, "maxZ": 34 }
   },
   "piles": {
     "checkin": {
@@ -89,7 +90,8 @@
       "z": 8.8
     },
     "cargo": { "x": 95.0, "z": 9.1 },
-    "jetwash": { "x": 150.0, "z": 9.3 }
+    "jetwash": { "x": 150.0, "z": 9.3 },
+    "skyqueen": { "x": 166.5, "z": 24.4 }
   },
   "pads": {
     "checkin": {
@@ -199,7 +201,9 @@
     "mogul2": { "x": 88.4, "z": 9.2 },
     "runway2": { "x": 78.0, "z": -15.2 },
     "jetwash": { "x": 145.5, "z": 9.3 },
-    "manager": { "x": 75.6, "z": 9.2 }
+    "manager": { "x": 75.6, "z": 9.2 },
+    "skyqueen": { "x": 162.0, "z": 8.6 },
+    "portland": { "x": 152.0, "z": 30.4 }
   },
   "upgradePads": {
     "checkin": {
@@ -244,7 +248,8 @@
     },
     "cargo": { "x": 112.6, "z": 9.2 },
     "hangar": { "x": 128.6, "z": 9.3 },
-    "jetwash": { "x": 154.5, "z": 9.3 }
+    "jetwash": { "x": 154.5, "z": 9.3 },
+    "skyqueen": { "x": 181.5, "z": 24.4 }
   },
   "staffSpots": {
     "agent": {
@@ -290,10 +295,10 @@
   "runway": {
     "z": -35,
     "minX": -47,
-    "maxX": 180.0,
+    "maxX": 210.0,
     "half": 5
   },
-  "runway2": { "z": -50.0, "minX": -86.0, "maxX": 180.0, "half": 5 },
+  "runway2": { "z": -50.0, "minX": -86.0, "maxX": 210.0, "half": 5 },
   "taxiway": {
     "z": -22,
     "half": 3
@@ -303,6 +308,7 @@
     "entry": -40,
     "far": 77.0,
     "east": 166.0,
+    "queen": 194.0,
     "around": -80.0
   },
   "apron": {
@@ -310,6 +316,13 @@
     "maxX": 157.5,
     "minZ": -19,
     "maxZ": 10
+  },
+  "skyqueen": {
+    "apron": { "minX": 157.5, "maxX": 191.5, "minZ": -19, "maxZ": 27.5 },
+    "sign": { "x": 174.0, "z": 26.6 },
+    "cranes": [{ "x": 159.6, "z": 24.0 }, { "x": 189.4, "z": -3.0 }],
+    "pile": { "x": 166.5, "z": 24.4 },
+    "fuel": { "x": 187.0, "z": 12.5 }
   },
   "serviceRoad": {
     "minX": -30.5,
@@ -862,7 +875,8 @@
     "mogul2": { "x": 84.0, "noseZ": 5.0, "plane": "prop", "marshal": { "x": 84.0, "z": 8.3 } },
     "cargo": { "x": 103.0, "noseZ": 3.5, "plane": "freighter", "marshal": { "x": 103.0, "z": 6.8 }, "planeDoor": { "x": 105.0, "z": -1.2 } },
     "hangar": { "x": 126.0, "noseZ": 4.5, "plane": "prop", "marshal": { "x": 126.0, "z": 6.2 } },
-    "jetwash": { "x": 146.0, "noseZ": 5.0, "plane": "jet", "marshal": { "x": 146.0, "z": 6.6 } }
+    "jetwash": { "x": 146.0, "noseZ": 5.0, "plane": "jet", "marshal": { "x": 146.0, "z": 6.6 } },
+    "skyqueen": { "x": 174.0, "noseZ": 21.0, "plane": "queen", "marshal": { "x": 174.0, "z": 23.6 } }
   },
   "cargo": {
     "shed": { "minX": 96.5, "maxX": 109.5, "minZ": 12.0, "maxZ": 20.0 },

@@ -286,6 +286,19 @@ export const WIDE_SOLID: PlaneSolid = {
 /** The golden private jet (art/blender/skyport_private.py): its engines on the back of the fuselage. */
 export const PRIVATE = { length: 11, span: 10.4, radius: 0.9, ride: 1.6, sill: 1.05, wingY: 1.0 } as const;
 export const PRIVATE_SOLID: PlaneSolid = { half: 0.95, tail: -5.5, nose: 5.5, parts: [{ x: 1.42, z: -2.75, hx: 0.5, hz: 0.95 }, { x: 1.25, z: -1.0, hx: 0.3, hz: 0.4 }] };
+/** (Part E) The Sky Queen (art/blender/skyport_queen.py): the jet's build at 24 metres, two decks, four engines. */
+const Q = 24 / 14;
+export const QUEEN = { length: 24, span: 15.6 * Q, radius: 1.3 * Q, ride: 3.0 * Q, sill: 2.1 * Q, wingY: 1.72 * Q } as const;
+export const QUEEN_SOLID: PlaneSolid = {
+  half: 1.3 * Q + 0.1,
+  tail: -12,
+  nose: 12,
+  parts: [
+    { x: 1.85 * Q, z: -0.55 * Q, hx: 0.5, hz: 1.5 },
+    { x: 3.35 * Q, z: 1.48 * Q, hx: 0.7 * Q, hz: 1.2 * Q },
+    { x: 6.0 * Q, z: 0.33 * Q, hx: 0.63 * Q, hz: 1.0 * Q },
+  ],
+};
 /**
  * Each plane's size, its solid outline, its model, its propellers' (or fans') part names (`spinner` + each of
  * `fans`) and their blur discs' radius, its wheels' radii (main, nose), whether the airline's colours are
@@ -298,6 +311,8 @@ export const PLANES = {
   private: { size: PRIVATE, solid: PRIVATE_SOLID, model: 'sp_private', spinner: 'fan', fans: ['l', 'r'], blur: 0.42, wheel: { main: 0.3, nose: 0.22 }, livery: false, airstair: true, cargoDoor: false },
   // (Part D: the wide-body as a freighter, its main-deck door up the left side, hinged along its top.)
   freighter: { size: WIDE, solid: WIDE_SOLID, model: 'sp_freighter', spinner: 'fan', fans: ['l', 'r', 'l2', 'r2'], blur: 0.6 * S, wheel: { main: 0.46 * S, nose: 0.34 * S }, livery: true, airstair: false, cargoDoor: true },
+  // (Part E: the Sky Queen, in Mogul Air's colours.)
+  queen: { size: QUEEN, solid: QUEEN_SOLID, model: 'sp_queen', spinner: 'fan', fans: ['l', 'r', 'l2', 'r2'], blur: 0.64 * Q, wheel: { main: 0.42 * Q, nose: 0.34 * Q }, livery: true, airstair: false, cargoDoor: false },
 } as const;
 export type PlaneKindName = keyof typeof PLANES;
 
@@ -417,6 +432,7 @@ export class PlaneModel {
       jet: [wingShape(JET.span, 3.2, 1.05, 3.15), 1.7, wingShape(5.8, 1.6, 0.75, 1.25), -5.0, 1],
       wide: [wingShape(JET.span, 3.2, 1.05, 3.15), 1.7, wingShape(5.8, 1.6, 0.75, 1.25), -5.0, S],
       freighter: [wingShape(JET.span, 3.2, 1.05, 3.15), 1.7, wingShape(5.8, 1.6, 0.75, 1.25), -5.0, S],
+      queen: [wingShape(15.6, 3.7, 1.1, 3.75), 2.0, wingShape(6.8, 1.85, 0.85, 1.4), -4.95, Q],
       private: [wingShape(PRIVATE.span, 2.3, 0.85, 2.1), 0.6, wingShape(3.7, 1.05, 0.55, 0.6), -4.95, 1],
     } as const;
     const [wingAt, wingZ, tailAt, tailZ, scale] = shapes[kind];
@@ -492,6 +508,7 @@ export function standKit(kind: PlaneKindName = 'prop'): Object3D {
     jet: { wheel: [1.75, -0.55], nose: 5.55, tip: [7.7, -2.0], tail: -7.6 },
     wide: { wheel: [1.75 * S, -0.55 * S], nose: 5.55 * S, tip: [7.7 * S, -2.0 * S], tail: -7.6 * S },
     freighter: { wheel: [1.75 * S, -0.55 * S], nose: 5.55 * S, tip: [7.7 * S, -2.0 * S], tail: -7.6 * S },
+    queen: { wheel: [1.85 * Q, -1.4 * Q], nose: 5.6 * Q, tip: [8.1 * Q, -2.3 * Q], tail: -7.4 * Q },
     private: { wheel: [1.25, -1.0], nose: 4.15, tip: [5.7, -2.2], tail: -6.1 },
   };
   const { wheel: [wx, wz], tip: [tx, tz], nose, tail } = at[kind];
@@ -1296,6 +1313,52 @@ export class JetWash {
     for (const [i, b] of this.brushes.entries()) b.rotation.y += dt * 7 * this.spin * (i ? -1 : 1);
     this.roller.rotation.x += dt * 6 * this.spin;
   }
+}
+
+/**
+ * (Part E) A tower crane by the Sky Queen's stand while she's put together: its jib swings to and fro over
+ * her, the trolley runs out and in along it, the hook goes down on its cable and up again.
+ */
+export class TowerCrane {
+  readonly root: Object3D;
+  private readonly jib: Object3D;
+  private readonly trolley: Object3D;
+  private readonly cable: Object3D;
+  private readonly hook: Object3D;
+  private readonly trolleyZ: number;
+  private readonly hookY: number;
+  private time: number;
+  constructor(
+    /** Which way the jib points at the middle of its swing (about y; 0: out to +z). */
+    private readonly heading: number,
+    seed = 0,
+  ) {
+    this.root = skyMover('sp_towercrane');
+    this.jib = part(this.root, 'sp_towercrane_jib');
+    this.trolley = part(this.root, 'sp_towercrane_trolley');
+    this.cable = part(this.root, 'sp_towercrane_cable');
+    this.hook = part(this.root, 'sp_towercrane_hook');
+    this.trolleyZ = this.trolley.position.z;
+    this.hookY = this.hook.position.y;
+    this.time = seed * 7.3;
+  }
+  update(dt: number): void {
+    this.time += dt;
+    const t = this.time;
+    this.jib.rotation.y = this.heading + 0.55 * Math.sin(t * 0.13);
+    // (Out along the jib is +z in its own space: the trolley sits 8 metres out, and runs from 3 to 12.)
+    this.trolley.position.z = this.trolleyZ - 0.5 + 4.5 * Math.sin(t * 0.21 + 1);
+    const drop = 3 + 5.5 * (0.5 + 0.5 * Math.sin(t * 0.37 + 2));
+    this.cable.scale.y = drop;
+    this.hook.position.y = this.hookY - (drop - 1);
+  }
+}
+
+/** (Part E) The gantry over the front of the Sky Queen's stand: SKY QUEEN on its beam, a crown on top. */
+export function queenGantry(): Object3D {
+  const gantry = skyModel('sp_queensign');
+  signAt(gantry, 'sp_queensign_sign', 'SKY QUEEN', 9.6, 1.25, AIR.navy, '#ffd24a').position.z += 0.02;
+  return gantry;
 }
 
 /** The VIP lounge (built where it stands): VIP over both doorways, the side the camera sees. */

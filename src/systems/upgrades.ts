@@ -39,6 +39,7 @@ const TITLES: Record<string, string> = {
   cargo: 'Cargo apron',
   hangar: 'Maintenance hangar',
   jetwash: 'Jet wash',
+  skyqueen: 'Sky Queen',
 };
 /** Staff targets get their role in front of the upgrade name; the pumps (one panel for both) their number. */
 const STAFF_NAMES: Record<string, string> = {
