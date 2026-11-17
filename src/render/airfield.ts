@@ -46,6 +46,10 @@ const KINDS: Record<string, { tile: number; draw: Draw }> = {
   road: { tile: 6, draw: (g, s) => { g.fillStyle = '#555a65'; g.fillRect(0, 0, s, s); speck(g, s, ['#5f6570', '#4c515b'], 1400, 2); } },
   floor: { tile: 3, draw: (g, s) => { g.fillStyle = '#f6f0e4'; g.fillRect(0, 0, s, s); g.fillStyle = '#efe7d6'; g.fillRect(0, 0, s / 2, s / 2); g.fillRect(s / 2, s / 2, s / 2, s / 2); g.strokeStyle = '#e3d9c4'; g.lineWidth = 2; g.strokeRect(0, 0, s, s); } },
   carpet: { tile: 3, draw: (g, s) => { g.fillStyle = '#c9f5f6'; g.fillRect(0, 0, s, s); speck(g, s, ['#b5ecee', '#d8f9fa'], 500, 3); } },
+  // The terminal's forecourt and the Sky Queen's plaza: pale stone in big squares, a darker band round each.
+  forecourt: { tile: 4, draw: (g, s) => { g.fillStyle = '#e9e6df'; g.fillRect(0, 0, s, s); speck(g, s, ['#f2efe9', '#dedad1'], 900, 2); g.strokeStyle = '#cfc9bd'; g.lineWidth = 4; g.strokeRect(0, 0, s, s); g.lineWidth = 2; g.strokeRect(s * 0.25, s * 0.25, s / 2, s / 2); } },
+  // The car park and the yards' tarmac.
+  asphalt: { tile: 6, draw: (g, s) => { g.fillStyle = '#626873'; g.fillRect(0, 0, s, s); speck(g, s, ['#6c727d', '#585e68'], 1400, 2); } },
 };
 const canvases = new Map<string, HTMLCanvasElement>();
 function material(kind: string, w: number, d: number): MeshLambertMaterial {
@@ -112,7 +116,10 @@ export function airfield(layout: AirportLayout): Object3D {
   const { runway, taxiway, links, apron, serviceRoad, hall, plaza, roadZ } = layout;
   const rw = { minX: runway.minX, maxX: runway.maxX, minZ: runway.z - runway.half, maxZ: runway.z + runway.half };
   const tw = { minX: runway.minX, maxX: runway.maxX, minZ: taxiway.z - taxiway.half, maxZ: taxiway.z + taxiway.half };
-  ground('grass', { minX: -160, maxX: 270, minZ: -130, maxZ: 110 }, -0.05);
+  // (The grass and the road run well past both runways' ends, out to the horizon either side.)
+  const west = Math.min(runway.minX, layout.runway2?.minX ?? runway.minX, links.around ?? runway.minX) - 90;
+  const east = runway.maxX + 80;
+  ground('grass', { minX: west, maxX: east, minZ: -130, maxZ: 110 }, -0.05);
   ground('runway', rw, 0.01);
   ground('taxi', tw, 0.01);
   // (Every link off the runway: Part D's east link for the cargo and hangar stands, Part E's for the Sky Queen's.)
@@ -123,7 +130,18 @@ export function airfield(layout: AirportLayout): Object3D {
   ground('floor', hall, 0.03);
   ground('carpet', { minX: hall.minX + 0.4, maxX: hall.maxX - 0.4, minZ: hall.minZ + 0.4, maxZ: hall.minZ + 5.6 }, 0.035);
   ground('plaza', plaza, 0.011);
-  ground('road', { minX: -160, maxX: 270, minZ: roadZ - 3.25, maxZ: roadZ + 3.25 }, 0.012);
+  ground('road', { minX: west, maxX: east, minZ: roadZ - 3.25, maxZ: roadZ + 3.25 }, 0.012);
+  // The land round the terminal: the forecourt, the yards at either end, the Sky Queen's plaza; across the road
+  // the car park and the hotel's drive (each a little above what it lies on).
+  const land = layout.landside;
+  if (land) {
+    ground('forecourt', land.forecourt, 0.014);
+    ground('forecourt', land.queenPlaza, 0.014);
+    ground('apron', land.yard, 0.013);
+    ground('apron', land.truckYard, 0.015);
+    ground('asphalt', land.carPark, 0.013);
+    ground('forecourt', land.hotelDrive, 0.013);
+  }
 
   // Paint.
   const marks: Part[] = [];
@@ -155,8 +173,24 @@ export function airfield(layout: AirportLayout): Object3D {
   const pick = layout.belt.pick;
   for (const z of [pick.minZ, pick.maxZ]) mark((pick.minX + pick.maxX) / 2, z, pick.maxX - pick.minX, 0.14, YELLOW);
   for (const x of [pick.minX, pick.maxX]) mark(x, (pick.minZ + pick.maxZ) / 2, 0.14, pick.maxZ - pick.minZ, YELLOW);
-  for (let x = -158; x <= 268; x += 5) mark(x, roadZ, 2.4, 0.22, YELLOW);
+  for (let x = west + 2; x <= east - 2; x += 5) mark(x, roadZ, 2.4, 0.22, YELLOW);
   for (let x = layout.entrance.x - 2.4; x <= layout.entrance.x + 2.4; x += 1.2) mark(x, roadZ, 0.6, 5.6);
+  if (land) {
+    // The car park's bays: two rows facing each other across the aisle, a line between each, arrows down the aisle.
+    const park = land.carPark;
+    for (const [z0, z1] of [[park.minZ + 0.3, park.minZ + 4.9], [park.minZ + 9.1, park.minZ + 13.7]] as const) {
+      for (let x = park.minX + 0.2; x <= park.maxX - 0.6; x += 2.6) mark(x, (z0 + z1) / 2, 0.12, z1 - z0);
+      mark((park.minX + park.maxX) / 2, z0 === park.minZ + 0.3 ? z0 : z1, park.maxX - park.minX - 0.6, 0.12);
+    }
+    for (let x = park.minX + 6; x < park.maxX - 4; x += 12) {
+      mark(x, park.minZ + 7.0, 1.6, 0.18);
+      mark(x + 0.7, park.minZ + 6.75, 0.5, 0.14);
+      mark(x + 0.7, park.minZ + 7.25, 0.5, 0.14);
+    }
+    // The truck yard's bays at the cargo shed's back.
+    const yard = land.truckYard;
+    for (let k = 0; k <= 3; k++) mark(yard.minX + 2.0 + k * 4.6, yard.minZ + 4.6, 0.14, 8.4, YELLOW);
+  }
   const paint = new Mesh(mergeParts(marks), toyMaterial);
   paint.receiveShadow = true;
   group.add(paint);

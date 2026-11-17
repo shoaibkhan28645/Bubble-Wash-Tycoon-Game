@@ -73,6 +73,8 @@ export const SKYPORT_FILES = [
   'building:skyport-vip',
   'building:skyport-mogul',
   'building:skyport-shuttle',
+  'building:skyport-landside',
+  'building:skyport-yard',
 ];
 
 /** The named model's node in whichever of the airport's files has it (not a copy). */
@@ -1082,6 +1084,137 @@ export class Flag {
   update(dt: number): void {
     this.time += dt;
     this.strips.forEach((strip, k) => (strip.rotation.y = Math.sin(this.time * 3.4 - k * 1.1) * (0.18 + k * 0.05)));
+  }
+}
+
+// ---- the land round the terminal (the redesign's decoration) --------------------------------------------------
+
+/** A light that blinks: a little ball, `on` for the first `duty` of every `period` seconds. */
+function blinker(colour: number, radius: number): Mesh {
+  const light = new Mesh(new SphereGeometry(radius, 10, 8), new MeshBasicMaterial({ color: colour }));
+  light.name = 'blinker';
+  return light;
+}
+
+/** The forecourt's fountain: the spout leaps and settles, the falls from the bowls shimmer, the arcs rise and fall, ripples spread. */
+export class Fountain {
+  readonly root: Object3D;
+  private readonly jet: Object3D;
+  private readonly spill: Object3D;
+  private readonly arcs: Object3D;
+  private readonly ripples: Object3D[];
+  private time = Math.random() * 10;
+  constructor() {
+    this.root = skyMover('sp_fountain');
+    this.jet = part(this.root, 'sp_fountain_jet');
+    this.spill = part(this.root, 'sp_fountain_spill');
+    this.arcs = part(this.root, 'sp_fountain_arcs');
+    this.ripples = [0, 1].map((k) => part(this.root, `sp_fountain_ripple${k}`));
+  }
+  update(dt: number): void {
+    const t = (this.time += dt);
+    const leap = Math.sin(t * 4.6) * 0.5 + 0.5;
+    this.jet.scale.set(1 - 0.08 * leap, 0.85 + 0.3 * leap + 0.04 * Math.sin(t * 13), 1 - 0.08 * leap);
+    const shimmer = 1 + 0.02 * Math.sin(t * 9);
+    this.spill.scale.set(shimmer, 1, shimmer);
+    this.arcs.scale.set(1, 0.88 + 0.14 * (Math.sin(t * 2.3) * 0.5 + 0.5), 1);
+    // (Each ring grows out from near the middle to the basin's wall, then starts again: one, then the other.)
+    this.ripples.forEach((ring, k) => {
+      const u = (t * 0.42 + k * 0.5) % 1;
+      const s = (0.55 + 0.9 * u) / (k === 0 ? 1 : 1.12);
+      ring.scale.set(s, 1, s);
+    });
+  }
+}
+
+/** The operations building behind the tower: its dish sweeps the sky, the light on its mast blinks red. */
+export class OpsBuilding {
+  readonly root: Object3D;
+  private readonly dish: Object3D;
+  private readonly beacon: Mesh;
+  private time = Math.random() * 5;
+  constructor() {
+    this.root = skyMover('sp_ops');
+    this.dish = part(this.root, 'sp_ops_dish');
+    signAt(this.root, 'sp_ops_sign', 'OPERATIONS', 6.0, 0.86, AIR.navy, '#ffffff').position.z += 0.02;
+    this.beacon = blinker(0xff3b30, 0.16);
+    part(this.root, 'sp_ops_beacon').add(this.beacon);
+  }
+  update(dt: number): void {
+    this.time += dt;
+    this.dish.rotation.y += dt * 0.55;
+    this.beacon.visible = this.time % 1.6 < 0.7;
+  }
+}
+
+/** Mogul Air's crew house beside its office, in the airline's colour. */
+export function crewHouseModel(colour: string): Object3D {
+  const house = skyMover('sp_crewhouse', `sp_crewhouse:${colour}`, (geometry) => familyPainter(geometry, [{ base: AIRLINE_PAINT, test: (r, g, b) => b > 150 && r > 90 && r < 160 && g < 90 }])([colour]));
+  signAt(house, 'sp_crewhouse_sign', 'CREW', 3.4, 0.6, AIR.navy, '#ffffff').position.z += 0.02;
+  return house;
+}
+
+/** A building with its name on the board on its roof (the hotel, the maintenance workshop, the fire station's tower). */
+export function signedModel(name: string, text: string, width: number, height: number, background: string = AIR.navy, colour = '#ffffff'): Object3D {
+  const model = skyModel(name);
+  signAt(model, `${name}_sign`, text, width, height, background, colour).position.z += 0.02;
+  return model;
+}
+
+/** The airport's crash tender: its roof cannon sweeps slowly to and fro, its beacons flash red and blue. */
+export class FireTruck {
+  readonly root: Object3D;
+  private readonly turret: Object3D;
+  private readonly beacons: Mesh[];
+  private time = Math.random() * 10;
+  constructor() {
+    this.root = skyMover('sp_firetruck');
+    this.turret = part(this.root, 'sp_firetruck_turret');
+    this.beacons = [0xff3b30, 0x3b7bff].map((colour, k) => {
+      const light = blinker(colour, 0.13);
+      part(this.root, `sp_firetruck_beacon${k}`).add(light);
+      return light;
+    });
+  }
+  update(dt: number): void {
+    this.time += dt;
+    this.turret.rotation.y = Math.sin(this.time * 0.35) * 0.6;
+    const flash = this.time % 0.8 < 0.4;
+    this.beacons[0]!.visible = flash;
+    this.beacons[1]!.visible = !flash;
+  }
+}
+
+/** A spare jet engine on its cradle in the maintenance yard: the breeze turns its fan, now faster, now slower. */
+export class SpareEngine {
+  readonly root: Object3D;
+  private readonly fan: Object3D;
+  private time = Math.random() * 10;
+  constructor() {
+    this.root = skyMover('sp_engine');
+    this.fan = part(this.root, 'sp_engine_fan');
+  }
+  update(dt: number): void {
+    this.time += dt;
+    this.fan.rotation.z += dt * (1.2 + Math.sin(this.time * 0.4) * 0.8);
+  }
+}
+
+/** The forklift in the yard: it lifts its crate, holds it up a while, lets it down again. */
+export class Forklift {
+  readonly root: Object3D;
+  private readonly forks: Object3D;
+  private time = Math.random() * 10;
+  constructor() {
+    this.root = skyMover('sp_forklift');
+    this.forks = part(this.root, 'sp_forklift_forks');
+  }
+  update(dt: number): void {
+    this.time += dt;
+    const u = (this.time % 12) / 12;
+    // Up over two seconds, held, down over two seconds, rested.
+    const lift = u < 0.17 ? u / 0.17 : u < 0.5 ? 1 : u < 0.67 ? 1 - (u - 0.5) / 0.17 : 0;
+    this.forks.position.y = 0.1 + 1.3 * lift * lift * (3 - 2 * lift);
   }
 }
 

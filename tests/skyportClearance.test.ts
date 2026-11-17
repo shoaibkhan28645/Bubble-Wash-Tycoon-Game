@@ -106,6 +106,10 @@ describe('a busy day on the ground', () => {
     ['wing', corners(layout.wing)],
     ['pier', corners(layout.pier)],
     ['VIP lounge', corners(layout.vip.lounge)],
+    // What stands on the apron's edges (render/skyportScenery.ts): the taxiway sign by the tower, the power unit
+    // by the Sky Queen's stand.
+    ['taxiway sign', corners({ minX: layout.tower.at.x + 4.6 - 0.9, maxX: layout.tower.at.x + 4.6 + 0.9, minZ: layout.taxiway.z + layout.taxiway.half + 9.2, maxZ: layout.taxiway.z + layout.taxiway.half + 9.8 })],
+    ['power unit', corners({ minX: layout.lot.maxX - 1.8, maxX: layout.lot.maxX - 0.6, minZ: -9.35, maxZ: -7.65 })],
   ];
 
   it('never runs a plane into a building or into another plane', () => {

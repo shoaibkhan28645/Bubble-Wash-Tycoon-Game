@@ -42,6 +42,7 @@ import {
   ControlTower,
   GOLDSBY,
   MogulOffice,
+  crewHouseModel,
   RedCarpet,
   RoadVehicle,
   WIDE,
@@ -162,9 +163,10 @@ type DispatchJob = 'idle' | 'toGate' | 'toPad' | 'home';
 const DISPATCH_WAIT = 1.6;
 /** The service road the dispatcher walks along, between the stands and the hall (z). */
 const DISPATCH_ROAD_Z = 9.0;
-/** Where taxis come from and go to along the road (x, off the screen either side). */
-const TAXI_FROM = 90;
-const TAXI_TO = -62;
+/** Where taxis come from and go to along the road (x, off the screen either side: past the Sky Queen's plaza to
+ * the east, past the jet wash to the west). */
+const TAXI_FROM = 124;
+const TAXI_TO = -126;
 /** The crew's walking speed (m/s), and how much slower than the hero the agent checks in. */
 const CREW_SPEED = 3.3;
 const AGENT_RATE = 0.85;
@@ -361,8 +363,8 @@ export function createSkyportGame(
   nameSign.root.position.set(nameAt.x, 0, nameAt.z);
   stage.scene.add(nameSign.root);
   const scenery = new SkyportScenery(layout);
-  // (Back from the taxiway, clear of the wingtips of the planes waiting at its end.)
-  const windsockAt = { x: layout.apron.minX + 2.5, z: layout.taxiway.z + layout.taxiway.half + 11 };
+  // (Out on the grass past the apron's west end, back from the taxiway: clear of the wingtips of a plane holding there.)
+  const windsockAt = { x: layout.links.entry - 8, z: layout.taxiway.z + layout.taxiway.half + 11 };
   stage.scene.add(scenery.group);
   const desk = checkinDesk();
   desk.position.set(layout.desk.at.x, 0, layout.desk.at.z);
@@ -1119,6 +1121,15 @@ export function createSkyportGame(
     office.root.position.set((r.minX + r.maxX) / 2, 0, (r.minZ + r.maxZ) / 2);
     show(office.root, animate);
     solids.push({ minX: r.minX + 0.1, maxX: r.maxX - 0.1, minZ: r.minZ + 0.1, maxZ: r.maxZ - 0.1 });
+    // Its crew's house beside it, in the airline's colour.
+    const crew = layout.landside?.crewHouse;
+    if (crew) {
+      const house = crewHouseModel(mogulColour);
+      house.position.set(crew.x, 0, crew.z);
+      show(house, animate);
+      solids.push(footprint('sp_crewhouse', crew.x, crew.z, 0, 0.05));
+    }
+    solidsChanged();
     AIRPORT.airline.cities.forEach((c, i) => {
       if (airline.hasSouvenir(c.id)) office!.showSouvenir(i);
     });
@@ -1600,6 +1611,13 @@ export function createSkyportGame(
       ...[-1, 1].map((e) => around({ x: door.x + e * 3.6, z: door.z - 2.25 }, 0.12)),
       footprint('sp_kloader', cg.loader.x, cg.loader.z, -Math.PI / 2, 0.05),
     );
+    // Its trucks, backed up to the shed's far side in the truck yard.
+    for (const at of layout.landside?.trucks ?? []) {
+      const truck = skyModel('sp_boxtruck');
+      truck.position.set(at.x, 0, at.z);
+      show(truck, animate);
+      solids.push(footprint('sp_boxtruck', at.x, at.z, 0, 0.05));
+    }
     // The crates waiting on the dock's lip: two rows of five.
     const lip = new Object3D();
     lip.position.set(cg.stack.x, 0, cg.stack.z);
@@ -2105,6 +2123,14 @@ export function createSkyportGame(
     queenGantryModel = show(queenGantry(), animate);
     queenGantryModel.position.set(sign.x, 0, sign.z);
     for (const side of [-1, 1]) solids.push(around({ x: sign.x + side * 6, z: sign.z }, 0.5));
+    // Her viewing stand on the plaza behind the gantry, its seats facing her.
+    const grandstand = layout.landside?.grandstand;
+    if (grandstand) {
+      const seats = skyModel('sp_grandstand');
+      seats.position.set(grandstand.x, 0, grandstand.z);
+      show(seats, animate);
+      solids.push(footprint('sp_grandstand', grandstand.x, grandstand.z, 0, 0.05));
+    }
     airfield.openGate('skyqueen', 0, true);
     queenPad = new PadModel(2.4, 0xffc21a);
     queenPad.group.position.set(queenStandAt.marshal.x, 0, queenStandAt.marshal.z);
@@ -2395,8 +2421,8 @@ export function createSkyportGame(
   });
 
   // Taxis on the road in front.
-  // (Two to each stopping place: the next pulls in as the one before pulls out.)
-  const taxis: Taxi[] = [...layout.kerb, ...layout.kerb].map((kerb) => {
+  // (Three to each stopping place: the next pulls in as the one before pulls out, another on its way.)
+  const taxis: Taxi[] = [...layout.kerb, ...layout.kerb, ...layout.kerb].map((kerb) => {
     const car = taxiCar();
     car.mesh.visible = false;
     // Driving west, nose to -x.

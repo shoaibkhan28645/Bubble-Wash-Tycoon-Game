@@ -572,6 +572,41 @@ export interface AirportLayout extends TownLayout {
   managerWalk?: Point[];
   /** (Part E) The Sky Queen's stand: its apron (paved once she's bought), the gantry over its front, the cranes that build her, her takings' pile, her fuel truck. */
   skyqueen?: { apron: Rect; sign: Point; cranes: Point[]; pile: Point; fuel: Point };
+  /** What stands round the terminal for the look of it (render/skyportScenery.ts). */
+  landside?: SkyLandside;
+}
+
+/**
+ * Skyport's land round the terminal: the forecourt's paving and its fountain; at the west end, behind the jet wash
+ * and the hangar, the fire station, the maintenance workshop and its yard (a spare engine, tyres, pallets, a
+ * forklift, a power unit); Mogul Air's crew house beside its office; the operations building behind the tower; the
+ * truck yard behind the cargo shed and its trucks; the Sky Queen's viewing stand on her plaza; across the road the
+ * car park, the hotel and its drive, the fuel farm; out past the west fence the flying club and the radar.
+ * (Each building's point is its middle.)
+ */
+export interface SkyLandside {
+  forecourt: Rect;
+  fountain: Point;
+  fireStation: Point;
+  workshop: Point;
+  yard: Rect;
+  engine: Point;
+  tyres: Point;
+  pallets: Point;
+  forklift: Point;
+  gpu: Point;
+  crewHouse: Point;
+  ops: Point;
+  truckYard: Rect;
+  trucks: Point[];
+  grandstand: Point;
+  queenPlaza: Rect;
+  carPark: Rect;
+  hotel: Point;
+  hotelDrive: Rect;
+  fuelFarm: Point;
+  club: Point;
+  radar: Point;
 }
 
 /** A theme park's map (Chapter 3): the shared map, the ticket booth and stalls, the rides and the paths between them. */

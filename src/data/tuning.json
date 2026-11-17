@@ -130,7 +130,7 @@
       "wide": { "seats": 36, "fare": 480000, "length": 20, "span": 20.6, "sill": 3.14, "clock": 110, "pushDelay": 2.5 },
       "private": { "seats": 0, "fare": 0, "length": 11, "span": 10.4, "sill": 1.05, "clock": 600, "pushDelay": 0 }, "freighter": { "seats": 0, "fare": 0, "length": 20, "span": 20.6, "sill": 3.3, "clock": 600, "pushDelay": 2.5 }, "queen": { "seats": 0, "fare": 0, "length": 24, "span": 21.3, "sill": 3.7, "clock": 600, "pushDelay": 0 }
     },
-    "flight": { "gapSeconds": 4, "starveSeconds": 20, "priorityWait": 30, "clearAhead": 60, "standYield": 25, "firstClock": 90, "approachSeconds": 7, "landSpeed": 17, "taxiSpeed": 8.5, "pushSpeed": 3.6, "wingClear": 1.2, "takeoffAccel": 5.5, "rotateSpeed": 19, "boardStagger": 0.5, "fullBonus": 0.2, "onTimeBonus": 0.25, "streakStep": 0.05, "streakMax": 10, "perfectTip": 0.15 },
+    "flight": { "gapSeconds": 4, "starveSeconds": 20, "priorityWait": 30, "clearAhead": 60, "standYield": 25, "firstClock": 90, "approachSeconds": 7, "landSpeed": 17, "taxiSpeed": 11, "pushSpeed": 4.5, "wingClear": 1.2, "takeoffAccel": 5.5, "rotateSpeed": 19, "boardStagger": 0.5, "fullBonus": 0.2, "onTimeBonus": 0.25, "streakStep": 0.05, "streakMax": 10, "perfectTip": 0.15 },
     "fuel": { "seconds": 4.5, "clockSeconds": 8 },
     "bags": { "cases": 6, "handSeconds": 0.25, "clockSeconds": 16, "handlerCarry": 3 },
     "marshal": { "bonus": 0.05, "clockSeconds": 6, "reach": 0.9 },
@@ -156,7 +156,7 @@
       "cities": ["Bay City", "Willowbrook", "Starlight", "Sunny Cove", "Maple Falls", "Port Willow", "Snow Peak", "Coral Bay", "Lantern City", "Paradise Isles"]
     },
     "fog": { "first": 100, "every": [220, 330], "seconds": 24, "fade": 2.5 },
-    "shuttle": { "every": 18, "riders": 12, "extra": 24 },
+    "shuttle": { "every": 12.5, "riders": 12, "extra": 24 },
     "airline": {
       "unlock": 2,
       "setBonus": 0.04,

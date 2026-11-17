@@ -31,13 +31,15 @@ describe('the Sky Queen’s stand', () => {
   const stand = layout.stands.skyqueen!;
   const queen = PLANES.queen.size;
 
-  it('is hers alone, east of the jet wash, with a link off the runway of its own', () => {
+  it('is hers alone, east of the cargo stand, with a link off the runway of its own', () => {
     expect(exitFor(layout, stand.x)).toBe(layout.links.queen);
-    // (Everything else east of the tower still leaves by the east link.)
-    for (const id of ['mogul2', 'cargo', 'hangar', 'jetwash']) expect(exitFor(layout, layout.stands[id]!.x)).toBe(layout.links.east);
-    // Her wingtips clear of the jet wash and of the lot's edge; her link east of her wingtip; her tail well clear of
-    // the taxiway (a wide-body passing on it reaches 10 metres to either side).
-    expect(stand.x - queen.span / 2).toBeGreaterThan(layout.jetwash!.hall.maxX + 3);
+    // (Gate 4 and the freighters east of the terminal still leave by the east link; Mogul Air's, the VIP's, the
+    // hangar's and the jet wash's stands, west of it, by the far link and the usual one.)
+    for (const id of ['gate4', 'cargo']) expect(exitFor(layout, (layout.gates[id] ?? layout.stands[id])!.x)).toBe(layout.links.east);
+    for (const id of ['mogul', 'vip', 'mogul2', 'hangar', 'jetwash']) expect(exitFor(layout, layout.stands[id]!.x)).toBeLessThan(layout.links.east!);
+    // Her wingtips clear of the cargo shed and of the lot's edge; her link east of her wingtip; her tail well clear
+    // of the taxiway (a wide-body passing on it reaches 10 metres to either side).
+    expect(stand.x - queen.span / 2).toBeGreaterThan(layout.cargo!.shed.maxX + 3);
     expect(stand.x + queen.span / 2).toBeLessThan(layout.lot.maxX - 2);
     expect(layout.links.queen!).toBeGreaterThan(stand.x + queen.span / 2 + 3);
     expect(stand.noseZ - queen.length - (layout.taxiway.z + PLANES.wide.size.span / 2)).toBeGreaterThan(4);

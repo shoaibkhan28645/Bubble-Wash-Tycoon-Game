@@ -1,6 +1,7 @@
-// Skyport Part D: the stands east of the tower (Mogul Air's second plane, the freighters', the hangars'),
-// reached from runway 1's east link; the second runway that departures take off from once it's built (round
-// the first one's west end); Goldsby Air closing; Mogul Air's two planes, their wear and their servicing.
+// Skyport Part D: the new stands (Mogul Air's second plane and the hangar's and the jet wash's west of the
+// terminal, reached from the far link and the usual one; the freighters' east of the tower, from runway 1's east
+// link); the second runway that departures take off from once it's built (round the first one's west end); Goldsby
+// Air closing; Mogul Air's two planes, their wear and their servicing.
 import { describe, expect, it } from 'vitest';
 import { TUNING } from '../src/core/config';
 import { SKYPORT } from '../src/core/skyport';
