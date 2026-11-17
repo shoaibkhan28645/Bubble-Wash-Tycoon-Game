@@ -149,7 +149,9 @@ export const blobShadows = new BlobShadows();
 export function blobShadow(width: number, length: number, height = 0, shape: BlobShape = 'round'): Object3D {
   const marker = new Object3D();
   marker.scale.set(width, 1, length);
-  marker.position.y = 0.03;
+  // (Above every floor and painted line it can lie on: the terminal's floor is 3 cm up, its carpet 3.5, the
+  // airfield's paint 4.5; level with one of them it flickers in and out of it.)
+  marker.position.y = 0.05;
   // Something tall (a van, a cow) has its shadow fall away from the sun; people's sit under their feet.
   marker.userData.cast = height;
   marker.userData.shape = shape;

@@ -170,6 +170,8 @@ const TAXI_TO = -126;
 /** How fast a taxi comes in along the far stretch of the road (m/s; 16 nearer the kerb). Only one comes in to each
  * kerb at a time, so how soon it gets there sets how many passengers arrive. */
 const TAXI_FAR_SPEED = 24;
+/** How far either side of the check-in line its belt barriers stand (m; art/blender/skyport_kit.py's sp_queue). */
+const QUEUE_HALF = 1.15;
 /** The crew's walking speed (m/s), and how much slower than the hero the agent checks in. */
 const CREW_SPEED = 3.3;
 const AGENT_RATE = 0.85;
@@ -418,7 +420,8 @@ export function createSkyportGame(
     { minX: deskSpot.at.x + 1.6, maxX: deskSpot.at.x + 2.6, minZ: deskSpot.at.z - 2.5, maxZ: deskSpot.at.z + 0.48 },
     around({ x: deskSpot.at.x - 1.95, z: deskSpot.at.z - 0.55 }, 0.1),
     // The belt barriers either side of the line.
-    ...[-0.72, 0.72].map((dx) => ({ minX: deskSpot.at.x + dx - 0.06, maxX: deskSpot.at.x + dx + 0.06, minZ: deskSpot.at.z + 1.3, maxZ: deskSpot.at.z + 5.25 })),
+    // (Far enough apart for the hero to get past a passenger standing in the line.)
+    ...[-QUEUE_HALF, QUEUE_HALF].map((dx) => ({ minX: deskSpot.at.x + dx - 0.1, maxX: deskSpot.at.x + dx + 0.1, minZ: deskSpot.at.z + 1.3, maxZ: deskSpot.at.z + 5.25 })),
     ...layout.trees.map((tree) => around(tree, 0.45 * (tree.size ?? 1))),
     around(entranceSign(layout), 3.85, 0.55),
     around(windsockAt, 0.5),
@@ -818,8 +821,9 @@ export function createSkyportGame(
     door.innerHTML = rich(`🚪 ${t('gateClosed')}`);
     const doorLabel = labels.add(door, new Vector3(spot.podium.x, 2.6, spot.podium.z));
     doorLabel.visible = false;
-    // (Kept clear of the planes' labels.)
+    // (Kept clear of the planes' labels: it moves for them, they don't move for it.)
     doorLabel.avoid = true;
+    doorLabel.rank = 1;
     const kind = planeAt(spot);
     const kit = standKit(kind);
     // (A wide-body's chips sit higher over it.)
@@ -1249,7 +1253,7 @@ export function createSkyportGame(
   const wishPads = new Map<Wish, PadModel>();
   const barSpot = (): Point => ({ x: layout.vip.bar.x + 1.05, z: layout.vip.bar.z });
   const limoSpot = (): Point => ({ x: layout.vip.kerb.x - 2.2, z: laneZ - 2.9 });
-  const WISH_ICON: Record<Wish, string> = { carpet: '🧣', champagne: '🍾', limo: '🚗' };
+  const WISH_ICON: Record<Wish, string> = { carpet: '🧣', juice: '🧃', limo: '🚗' };
   interface StarVisit {
     celeb: Celebrity;
     member: CrewMember | null;
@@ -1287,7 +1291,7 @@ export function createSkyportGame(
     limo.root.visible = false;
     stage.scene.add(withShadows(limo.root));
     wishPads.set('carpet', spotPad(layout.vip.carpet, 1.6, 0xb0213a));
-    wishPads.set('champagne', spotPad(barSpot(), 1.4, 0xd9a62e));
+    wishPads.set('juice', spotPad(barSpot(), 1.4, 0xd9a62e));
     wishPads.set('limo', spotPad(limoSpot(), 1.8, 0x22252d));
     const stand = layout.stands.vip!;
     airfield.openGate('vip', 0, true);
@@ -1422,7 +1426,7 @@ export function createSkyportGame(
     m?.avatar.update(dt);
     for (const p of photographers) p.update(dt);
     if (s.stage === 'waiting') {
-      // The red carpet: the hero on its pad a moment. Champagne: a glass from the bar, carried to the star.
+      // The red carpet: the hero on its pad a moment. Juice: a glass from the juice bar, carried to the star.
       // The limousine: the hero at the kerb a moment.
       const carpetPad = wishPads.get('carpet')!;
       const limoPad = wishPads.get('limo')!;
@@ -1435,16 +1439,16 @@ export function createSkyportGame(
       if (onLimo) limoPad.setProgress(Math.min(1, s.held / AIRPORT.vip.limoSeconds));
       if (onCarpet && s.held >= AIRPORT.vip.carpetSeconds) grant('carpet');
       if (onLimo && s.held >= AIRPORT.vip.limoSeconds) grant('limo');
-      const barPad = wishPads.get('champagne')!;
-      const atBar = !s.celeb.granted.has('champagne') && near(player.position, barSpot(), 1.0);
+      const barPad = wishPads.get('juice')!;
+      const atBar = !s.celeb.granted.has('juice') && near(player.position, barSpot(), 1.0);
       barPad.update(dt, atBar);
-      if (atBar && heroCarry.count('champagne') === 0 && !heroCarry.full) {
-        heroCarry.push('champagne');
+      if (atBar && heroCarry.count('juice') === 0 && !heroCarry.full) {
+        heroCarry.push('juice');
         sound.play('pick');
       }
-      if (m && heroCarry.count('champagne') > 0 && near(player.position, { x: m.x, z: m.z }, 1.6)) {
-        heroCarry.remove('champagne');
-        grant('champagne');
+      if (m && heroCarry.count('juice') > 0 && near(player.position, { x: m.x, z: m.z }, 1.6)) {
+        heroCarry.remove('juice');
+        grant('juice');
       }
       // Out of patience: back aboard, and away.
       if (s.stage === 'waiting' && s.celeb.update(dt)) {
@@ -3202,7 +3206,7 @@ export function createSkyportGame(
     if (star && star.stage === 'waiting') {
       const granted = star.celeb.granted;
       if (!granted.has('carpet')) return { at: layout.vip.carpet, text: 'guideCarpet' };
-      if (!granted.has('champagne')) return heroCarry.count('champagne') > 0 && star.member ? { at: { x: star.member.x + 1.0, z: star.member.z }, text: 'guideStar' } : { at: barSpot(), text: 'guideChampagne' };
+      if (!granted.has('juice')) return heroCarry.count('juice') > 0 && star.member ? { at: { x: star.member.x + 1.0, z: star.member.z }, text: 'guideStar' } : { at: barSpot(), text: 'guideJuice' };
       if (!granted.has('limo')) return { at: limoSpot(), text: 'guideLimo' };
     }
     // Mogul Air's first route (each plane's).

@@ -19,7 +19,7 @@ sp_beltloader: a belt loader for the holds: its belt rising along -X to the hold
 origin, 1.65 m up); the belt's cleats sp_beltloader_belt slide along it.
 
 sp_vip: the VIP lounge, low glass walls trimmed in gold, a doorway north (to the private jet) and south
-(to the limousine), each under a VIP arch (markers sp_vip_sign, sp_vip_sign2); the champagne bar (marker
+(to the limousine), each under a VIP arch (markers sp_vip_sign, sp_vip_sign2); the juice bar (marker
 sp_vip_bar), sofas, palms, velvet ropes, two photographers' lamps outside the south door.
 
 sp_carpet: a red carpet one metre long, running along +Y here (-Z in the game); the game stretches it.
@@ -359,26 +359,45 @@ for e in (-1, 1):
         p.append(kit.sphere(0.08, g(dx + e * 1.0, z, 0.98), GOLD, segments=8))
         p.append(kit.cylinder(0.18, 0.05, g(dx + e * 1.0, z, 0.03), GOLD, verts=12))
     p += rig.tube([g(dx + e * 1.0, north + 1.4 + k * (south - north - 2.8) / 4, 0.86) for k in range(5)], 0.035, VELVET, verts=6)
-# The champagne bar: a gold-topped counter, bottles on a mirrored shelf behind, an ice bucket.
+# The juice bar: a gold-topped counter, jugs of juice and shakes on a mirrored shelf behind, a blender, a bowl
+# of fruit, tall glasses with straws.
 bx, bz = vip['bar']['x'], vip['bar']['z']
+JUICES = (ORANGE, PINK, SUN, MINT)
 p.append(kit.box((0.75, 2.6, 1.05), g(bx, bz, 0.52), NAVY, bevel=0.05))
 p.append(kit.box((0.85, 2.7, 0.08), g(bx, bz, 1.08), GOLD, bevel=0.03))
 p.append(kit.box((0.3, 2.8, 2.0), g(west + 0.35, bz, 1.0), '#dfe9f2', bevel=0.03))
 for row in range(2):
     p.append(kit.box((0.34, 2.6, 0.04), g(west + 0.45, bz, 1.0 + row * 0.55), GOLD, bevel=0.0))
-    for k in range(7):
-        y = bz - 1.1 + k * 0.37
-        col = (GREEN, '#2f5d3a', GOLD, '#7a1f2b')[(k + row) % 4]
-        p.append(kit.cylinder(0.06, 0.32, g(west + 0.45, y, 1.18 + row * 0.55), col, verts=10))
-        p.append(kit.cylinder(0.025, 0.1, g(west + 0.45, y, 1.39 + row * 0.55), GOLD, verts=6))
-p.append(kit.cylinder(0.17, 0.26, g(bx, bz + 0.6, 1.25), CHROME, verts=16))
-p.append(kit.cylinder(0.06, 0.4, g(bx, bz + 0.6, 1.4), '#2f5d3a', verts=10, rot=(0.25, 0, 0)))
+    for k in range(6):
+        y = bz - 1.05 + k * 0.42
+        col = JUICES[(k + row) % 4]
+        # A jug of it (the juice's colour, the glass's pale top), its handle, a white lid.
+        p.append(kit.cylinder(0.075, 0.24, g(west + 0.45, y, 1.14 + row * 0.55), col, verts=12))
+        p.append(kit.cylinder(0.075, 0.06, g(west + 0.45, y, 1.29 + row * 0.55), PANE, verts=12))
+        p.append(kit.cylinder(0.085, 0.04, g(west + 0.45, y, 1.34 + row * 0.55), WHITE, verts=12))
+        p.append(kit.box((0.03, 0.04, 0.16), g(west + 0.45, y + 0.1, 1.2 + row * 0.55), PANE, bevel=0.0))
+# A blender on the counter, half full of pink shake; a bowl of oranges, lemons and a banana bunch.
+p.append(kit.box((0.26, 0.26, 0.16), g(bx, bz + 0.65, 1.2), WHITE, bevel=0.03))
+p.append(kit.cylinder(0.1, 0.16, g(bx, bz + 0.65, 1.36), PINK, verts=12))
+p.append(kit.cylinder(0.1, 0.14, g(bx, bz + 0.65, 1.51), PANE, verts=12))
+p.append(kit.cylinder(0.11, 0.05, g(bx, bz + 0.65, 1.605), DARK, verts=12))
+p.append(kit.cylinder(0.2, 0.07, g(bx, bz - 0.85, 1.16), WHITE, verts=16))
+for k, (ox, oz, col) in enumerate(((-0.07, -0.06, ORANGE), (0.07, -0.05, ORANGE), (0.0, 0.08, SUN), (-0.09, 0.07, ORANGE), (0.09, 0.08, '#9be15d'))):
+    p.append(kit.sphere(0.065, g(bx + ox, bz - 0.85 + oz, 1.25), col, segments=8))
 for k in range(3):
-    p.append(kit.cone(0.05, 0.03, 0.2, g(bx, bz - 0.5 + k * 0.2, 1.22), PANE, verts=8))
+    p.append(blob((0.035, 0.12, 0.035), (bx + 0.02 * k, -(bz - 0.85) - 0.02, 1.32 + 0.03 * k), SUN, segments=6, rot=(0.0, 0.0, 0.3 + 0.25 * k)))
+# Three tall glasses of juice, each with a straw and a slice on its rim.
+for k in range(3):
+    gy = bz - 0.35 + k * 0.28
+    col = JUICES[k]
+    p.append(kit.cylinder(0.045, 0.17, g(bx, gy, 1.205), col, verts=10))
+    p.append(kit.cylinder(0.05, 0.04, g(bx, gy, 1.31), PANE, verts=10))
+    p.append(rod(g(bx + 0.01, gy, 1.24), g(bx + 0.05, gy - 0.02, 1.42), 0.008, (PINK, AQUA, SUN)[k], verts=4))
+    p.append(kit.cylinder(0.035, 0.012, g(bx - 0.05, gy, 1.32), (ORANGE, SUN, '#9be15d')[k], verts=8, rot=(PI / 2, 0, 0.4)))
 m.marker('bar', g(bx, bz, 1.12))
 # Two sofas facing over a low table, palms in the corners, a rug.
 sx, sz = vip['seat']['x'], vip['seat']['z']
-p.append(kit.cylinder(1.6, 0.03, g(sx, sz, 0.015), '#6b2a7a', verts=32))
+p.append(kit.cylinder(1.6, 0.05, g(sx, sz, 0.025), '#6b2a7a', verts=32))
 p.append(kit.cylinder(0.55, 0.42, g(sx, sz, 0.21), GOLD, verts=20))
 p.append(kit.cylinder(0.58, 0.05, g(sx, sz, 0.44), WHITE, verts=20))
 for e in (-1, 1):

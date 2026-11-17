@@ -432,11 +432,11 @@ p.append(kit.box((0.32, 1.48, 0.36), (X, 0, 2.38), NAVY, bevel=0.05))
 p.append(kit.box((0.34, 1.0, 0.08), (X, 0, 2.6), AQUA, bevel=0.02))
 m.marker('lamp', (X, 0, 2.7))
 # Rubber mat through the arch.
-p.append(kit.box((1.8, 1.0, 0.03), (X, 0, 0.015), RUBBER, bevel=0.0))
+p.append(kit.box((1.8, 1.0, 0.05), (X, 0, 0.025), RUBBER, bevel=0.0))
 # The X-ray machine on the -Y side here (+Z in the game): a tunnel over a belt, tables at both ends.
 MY = -1.05
 p.append(kit.box((1.5, 1.0, 1.3), (X - 0.1, MY, 0.95), WHITE, bevel=0.08))
-p.append(kit.box((1.52, 1.02, 0.2), (X - 0.1, MY, 1.5), AQUA, bevel=0.03))
+p.append(kit.box((1.52, 1.02, 0.2), (X - 0.1, MY, 1.44), AQUA, bevel=0.03))
 p.append(kit.box((0.06, 0.66, 0.5), (X - 0.88, MY, 0.98), DARK, bevel=0.0))
 p.append(kit.box((0.06, 0.66, 0.5), (X + 0.68, MY, 0.98), DARK, bevel=0.0))
 p.append(kit.box((3.6, 0.8, 0.12), (X - 0.1, MY, 0.66), GREY, bevel=0.02))

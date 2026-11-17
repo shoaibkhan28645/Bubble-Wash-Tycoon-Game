@@ -93,7 +93,8 @@ function painted(text: string, x: number, z: number, height: number, colour: str
   if (display) void document.fonts?.load('400 64px "Lilita One"').then(draw);
   const geometry = new PlaneGeometry((height * canvas.width) / 200, height).rotateX(-PI / 2);
   const mesh = new Mesh(geometry, new MeshLambertMaterial({ map: texture, transparent: true, depthWrite: false }));
-  mesh.position.set(x, 0.07, z);
+  // (Under a small pad's white edge, which stands 7 cm up.)
+  mesh.position.set(x, 0.06, z);
   mesh.rotation.y = turn;
   mesh.receiveShadow = true;
   mesh.renderOrder = 2;
@@ -229,7 +230,8 @@ export function queenStand(layout: AirportLayout): Object3D {
   const w = r.maxX - r.minX;
   const d = r.maxZ - r.minZ;
   const apron = new Mesh(new PlaneGeometry(w, d, Math.ceil(w / 16), Math.ceil(d / 16)).rotateX(-PI / 2), material('apron', w, d));
-  apron.position.set((r.minX + r.maxX) / 2, 0.011, (r.minZ + r.maxZ) / 2);
+  // (Above the plaza where it reaches over it, by her viewing stand: level with it, the two flicker.)
+  apron.position.set((r.minX + r.maxX) / 2, 0.016, (r.minZ + r.maxZ) / 2);
   apron.receiveShadow = true;
   group.add(apron);
   const marks: Part[] = [];

@@ -159,11 +159,15 @@ X = 0.0
 m = Model('sp_fountain', X)
 R = 2.6
 p = []
-# The basin: a low wall, a wide coping to sit on, a darker plinth; the pool inside.
-p.append(kit.cylinder(R, 0.5, (X, 0, 0.25), STONE, verts=32, bevel=0.03))
-p.append(kit.cylinder(R + 0.12, 0.12, (X, 0, 0.56), STONE_D, verts=32, bevel=0.03))
+# The basin: a ring of wall with a rounded coping to sit on, a darker plinth; the pool inside it, below the rim.
+SEG = 20
+for k in range(SEG):
+    a = (k + 0.5) * 2 * PI / SEG
+    chord = 2 * R * math.sin(PI / SEG) + 0.06
+    p.append(kit.box((chord, 0.3, 0.5), (X + (R - 0.15) * math.cos(a), (R - 0.15) * math.sin(a), 0.25), STONE, bevel=0.0, rot=(0, 0, a + PI / 2)))
+p.append(kit.torus(R - 0.15, 0.17, (X, 0, 0.52), STONE_D, major_segments=32, minor_segments=6))
 p.append(kit.cylinder(R + 0.25, 0.08, (X, 0, 0.04), STONE_D, verts=32))
-p.append(kit.cylinder(R - 0.2, 0.06, (X, 0, 0.47), WATER, verts=32))
+p.append(kit.cylinder(R - 0.25, 0.36, (X, 0, 0.26), WATER, verts=32))
 # Mosaic tiles round the basin's outside: aqua and white.
 for k in range(10):
     a = k * 2 * PI / 10
@@ -180,7 +184,7 @@ p.append(kit.torus(0.62, 0.05, (X, 0, 2.59), STONE_D, major_segments=20, minor_s
 # Little brass nozzles round the rim for the arcs.
 for k in range(6):
     a = k * PI / 3
-    p.append(kit.sphere(0.07, (X + (R - 0.25) * math.cos(a), (R - 0.25) * math.sin(a), 0.55), GOLD, segments=6))
+    p.append(kit.sphere(0.07, (X + (R - 0.32) * math.cos(a), (R - 0.32) * math.sin(a), 0.62), GOLD, segments=6))
 m.mesh(p)
 # The spout from the top bowl.
 jet = [blob((0.09, 0.09, 0.55), (X, 0, 3.1), FOAM, segments=10), blob((0.2, 0.2, 0.14), (X, 0, 3.62), FOAM, segments=10)]
@@ -205,7 +209,7 @@ for k in range(6):
     arcs += [rod(a_, b_, 0.04, FOAM, verts=5) for a_, b_ in zip(pts, pts[1:])]
 m.part('arcs', (X, 0, 0.5), arcs)
 for k in range(2):
-    m.part(f'ripple{k}', (X, 0, 0.51), [kit.torus(0.9 + k * 0.7, 0.03, (X, 0, 0.51), FOAM, major_segments=28, minor_segments=4)])
+    m.part(f'ripple{k}', (X, 0, 0.455), [kit.torus(0.9 + k * 0.7, 0.03, (X, 0, 0.455), FOAM, major_segments=28, minor_segments=4)])
 
 # =========================================================================================================
 # --- The operations building: two storeys behind the tower, the dish on its roof. ---
@@ -232,7 +236,7 @@ p.append(kit.box((W, D, H2 - H1 - 0.55), (X, 0, H1 + 0.55 + (H2 - H1 - 0.55) / 2
 for face in (-1, 1):
     p.append(kit.box((W - 0.8, 0.08, 1.6), (X, face * D / 2 + face * 0.03, H1 + 1.85), PANE, bevel=0.0))
     for k in range(9):
-        p.append(kit.box((0.08, 0.1, 1.6), (X - W / 2 + 0.4 + k * (W - 0.8) / 8, face * D / 2 + face * 0.06, H1 + 1.85), NAVY, bevel=0.0))
+        p.append(kit.box((0.08, 0.1, 1.56), (X - W / 2 + 0.4 + k * (W - 0.8) / 8, face * D / 2 + face * 0.06, H1 + 1.85), NAVY, bevel=0.0))
 for face in (-1, 1):
     p.append(kit.box((0.08, D - 0.8, 1.6), (X + face * W / 2 + face * 0.03, 0, H1 + 1.85), PANE, bevel=0.0))
 p.append(kit.box((W + 0.3, D + 0.3, 0.4), (X, 0, H2 + 0.05), AQUA, bevel=0.05))
@@ -389,7 +393,7 @@ p = [kit.box((W + 1.0, D + 1.0, 0.18), (X, 0, 0.09), CONCRETE, bevel=0.03)]
 p.append(kit.box((W, D, FLOOR), (X, 0, FLOOR / 2 + 0.18), CREAM, bevel=0.05))
 p.append(kit.box((8.0, 0.1, 2.5), (X, D / 2 + 0.04, 1.45), GLASS, bevel=0.0))
 for k in range(9):
-    p.append(kit.box((0.08, 0.14, 2.5), (X - 4.0 + k, D / 2 + 0.08, 1.45), CHROME, bevel=0.0))
+    p.append(kit.box((0.08, 0.14, 2.46), (X - 4.0 + k, D / 2 + 0.08, 1.45), CHROME, bevel=0.0))
 p.append(kit.box((9.0, 2.6, 0.22), (X, D / 2 + 1.3, 2.9), TERRACOTTA, bevel=0.04))
 p.append(kit.box((9.1, 0.12, 0.34), (X, D / 2 + 2.58, 2.85), SUN, bevel=0.02))
 for e in (-1, 1):

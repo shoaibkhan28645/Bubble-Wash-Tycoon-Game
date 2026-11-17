@@ -313,12 +313,14 @@ p.append(blob((0.16, 0.16, 0.18), (X - 1.3, 0.25, 1.38), LEAF, segments=8))
 m.mesh(p)
 m.marker('sign', (X, 0.46, 3.1))
 
-# --- The belt barriers along both sides of the check-in line: 4.5 m from the desk's window. ---
+# --- The belt barriers along both sides of the check-in line: 4.5 m from the desk's window, wide enough for
+# the hero to get past a passenger in it (the game's solids match: core/skyportGame.ts). ---
+QUEUE_HALF = 1.15
 X = 64.0
 m = Model('sp_queue', X)
 p = []
 for e in (-1, 1):
-    posts = [(X + e * 0.72, -0.35 - k * 1.05) for k in range(5)]
+    posts = [(X + e * QUEUE_HALF, -0.35 - k * 1.05) for k in range(5)]
     for (x, y) in posts:
         p.append(kit.cylinder(0.17, 0.05, (x, y, 0.025), STEEL, verts=14))
         p.append(kit.cylinder(0.035, 0.92, (x, y, 0.48), STEEL, verts=8))
@@ -408,8 +410,8 @@ m.mesh(p)
 X = 103.0
 m = Model('sp_plant', X)
 p = [kit.cylinder(0.42, 0.62, (X, 0, 0.31), WHITE, verts=16, bevel=0.03)]
-p.append(kit.cylinder(0.44, 0.1, (X, 0, 0.6), AQUA, verts=16))
-p.append(kit.cylinder(0.38, 0.04, (X, 0, 0.6), '#6b4a2f', verts=16))
+p.append(kit.torus(0.41, 0.05, (X, 0, 0.62), AQUA, major_segments=16, minor_segments=6))
+p.append(kit.cylinder(0.38, 0.04, (X, 0, 0.63), '#6b4a2f', verts=16))
 p.append(rod((X, 0, 0.6), (X + 0.05, 0.02, 1.7), 0.07, '#8f6036', verts=8))
 for k in range(7):
     a = k * 2 * PI / 7

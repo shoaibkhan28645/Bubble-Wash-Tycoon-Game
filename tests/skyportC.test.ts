@@ -144,7 +144,7 @@ describe('a celebrity', () => {
     const star = new Celebrity(rules.vip, 2);
     expect(star.grant('carpet')).toBe(rules.vip.tip * 2);
     expect(star.grant('carpet')).toBe(0);
-    expect(star.grant('champagne')).toBe(rules.vip.tip * 2);
+    expect(star.grant('juice')).toBe(rules.vip.tip * 2);
     expect(star.grant('limo')).toBe((rules.vip.tip + rules.vip.allBonus) * 2);
     expect(star.happy).toBe(true);
     expect(star.done).toBe(true);

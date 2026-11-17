@@ -26,6 +26,14 @@ interface Label {
   faded: boolean;
   /** On the screen, moved up or down as little as it takes to keep clear of the other such labels and of `keepOut`. */
   avoid: boolean;
+  /**
+   * Which of those gives way: a higher rank is placed after (and so moves for) a lower one, whatever their heights
+   * on the screen. (A gate's "Gate closed" moves for its plane's label, never the other way round.)
+   */
+  rank: number;
+  /** How far it's been moved (pixels, down positive): where it was put last, and where it's easing to now. */
+  moved: number;
+  movedTo: number;
 }
 
 /** A box on the screen (CSS pixels, its centre and half sizes). */
@@ -53,6 +61,10 @@ const OUT_PX = 14;
 /** Space kept between two labels at the screen's edge. */
 const GAP_PX = 10;
 const NO_FRAME: LabelFrame = { top: 0, right: 0, keepOut: [], hero: null };
+/** A label that's moved keeps to the same place while that's still clear, unless one this much nearer opens up. */
+const STAY_PX = 28;
+/** How much of the way to its new place a moved label goes each frame (it glides there rather than jumping). */
+const GLIDE = 0.25;
 
 const overlaps = (a: Box, b: Box): boolean => Math.abs(a.x - b.x) < a.hw + b.hw && Math.abs(a.y - b.y) < a.hh + b.hh;
 
@@ -72,7 +84,7 @@ export class WorldLabels {
   }
 
   add(el: HTMLElement, at: Vector3, clamp = false): Label {
-    const label: Label = { el, at, visible: true, shownAs: null, x: NaN, y: NaN, clamp, width: null, height: null, edge: false, edgeSize: null, side: '', fade: false, faded: false, avoid: false };
+    const label: Label = { el, at, visible: true, shownAs: null, x: NaN, y: NaN, clamp, width: null, height: null, edge: false, edgeSize: null, side: '', fade: false, faded: false, avoid: false, rank: 0, moved: 0, movedTo: 0 };
     el.classList.add('world-label');
     this.layer.appendChild(el);
     this.labels.add(label);
@@ -148,15 +160,20 @@ export class WorldLabels {
       this.fadeOver(label, hero, x, y);
       this.place(label, x, y);
     }
-    // The labels that keep clear of each other: from the top down, each as near its point as it can be.
+    // The labels that keep clear of each other: by rank, then from the top down, each as near its point as it can
+    // be (or where it was moved to before, while that's still clear), gliding there.
     this.placed.length = 0;
     for (const k of frame.keepOut) this.placed.push(k);
     if (this.floating.length > 0) {
-      this.floating.sort((a, b) => a.box.y - b.box.y);
+      this.floating.sort((a, b) => a.label.rank - b.label.rank || a.box.y - b.box.y);
       for (const { label, box } of this.floating) {
-        const at = this.settle(box, false, frame.top + box.hh + EDGE_PX, height - box.hh - EDGE_PX, box.y);
-        if (!Number.isNaN(at)) box.y = at;
-        this.placed.push(box);
+        const want = box.y;
+        const at = this.settle(box, false, frame.top + box.hh + EDGE_PX, height - box.hh - EDGE_PX, want, want + label.movedTo);
+        label.movedTo = Number.isNaN(at) ? 0 : at - want;
+        label.moved += (label.movedTo - label.moved) * GLIDE;
+        if (Math.abs(label.movedTo - label.moved) < 0.5) label.moved = label.movedTo;
+        box.y = want + label.moved;
+        this.placed.push({ ...box, y: want + label.movedTo });
         const x = Math.round(box.x * 2) / 2;
         const y = Math.round(box.y * 2) / 2;
         this.fadeOver(label, hero, x, y);
@@ -179,14 +196,15 @@ export class WorldLabels {
    * Where along one way (`sideways`: across; else up and down) `box` is clear of everything placed, as near `want`
    * as it can be between `min` and `max`: there, or just past one of them; NaN if nowhere.
    */
-  private settle(box: Box, sideways: boolean, min: number, max: number, want: number): number {
+  private settle(box: Box, sideways: boolean, min: number, max: number, want: number, stay = want): number {
     const half = sideways ? box.hw : box.hh;
     let best = NaN;
     let bestCost = Infinity;
     const test: Box = { x: box.x, y: box.y, hw: box.hw, hh: box.hh };
     const tryAt = (at: number): void => {
       if (at < min || at > max) return;
-      const cost = Math.abs(at - want);
+      // (Staying put counts as nearer by STAY_PX, so a label doesn't hop between above and below.)
+      const cost = Math.abs(at - want) - (at === stay && stay !== want ? STAY_PX : 0);
       if (cost >= bestCost) return;
       if (sideways) {
         test.x = at;
@@ -200,6 +218,7 @@ export class WorldLabels {
       bestCost = cost;
     };
     tryAt(want);
+    if (stay !== want) tryAt(stay);
     for (const o of this.placed) {
       const c = sideways ? o.x : o.y;
       const r = (sideways ? o.hw : o.hh) + half + GAP_PX;

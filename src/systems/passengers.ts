@@ -468,6 +468,11 @@ export class Passengers {
         ];
         continue;
       }
+      // Up the stairs to the plane's own door height (a wide-body's stair truck climbs three times as high as a
+      // prop's air stairs, to its landing 1.2 m from the door), then in.
+      const kind = planeAt(spot);
+      const sill = this.rules.planes[kind].sill;
+      const landing = kind === 'wide' ? 1.25 : 0.5;
       const foot = { x: spot.stairsFoot.x + 0.45, z: spot.stairsFoot.z };
       next.path = [
         ...off,
@@ -475,8 +480,9 @@ export class Passengers {
         { x: spot.door.x, z: spot.door.z - 0.9 },
         ...this.route({ x: spot.door.x, z: spot.door.z - 0.9 }, foot).map((w) => ({ x: w.x, z: w.z })),
         { x: spot.stairsFoot.x + 0.1, z: spot.stairsFoot.z, y: 0 },
-        { x: spot.planeDoor.x + 0.5, z: spot.planeDoor.z, y: this.rules.planes.prop.sill },
-        { x: spot.planeDoor.x - 0.4, z: spot.planeDoor.z, y: this.rules.planes.prop.sill },
+        { x: spot.planeDoor.x + landing, z: spot.planeDoor.z, y: sill },
+        ...(landing > 0.5 ? [{ x: spot.planeDoor.x + 0.5, z: spot.planeDoor.z, y: sill }] : []),
+        { x: spot.planeDoor.x - 0.4, z: spot.planeDoor.z, y: sill },
       ];
     }
 

@@ -1,13 +1,13 @@
 // A celebrity's visit (Chapter 4, Part C): a golden private jet lands at the VIP stand and its star wants
-// three things — the red carpet rolled out to the jet, a glass of champagne from the lounge's bar, and the
+// three things — the red carpet rolled out to the jet, a fresh juice from the lounge's juice bar, and the
 // limousine brought round to the kerb. Each granted tips the hero; all three, and the photographers have their
 // picture and the tip's doubled. Patience runs out, and the star goes with what they got. Greeting them stays
 // the hero's own job (no crew does it). Pure logic: the game walks the star and pays.
 import type { Tuning } from '../core/config';
 
 type Rules = Tuning['airport']['vip'];
-export type Wish = 'carpet' | 'champagne' | 'limo';
-export const WISHES: readonly Wish[] = ['carpet', 'champagne', 'limo'];
+export type Wish = 'carpet' | 'juice' | 'limo';
+export const WISHES: readonly Wish[] = ['carpet', 'juice', 'limo'];
 
 export class Celebrity {
   readonly granted = new Set<Wish>();

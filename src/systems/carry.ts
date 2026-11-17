@@ -5,7 +5,7 @@ import type { Point } from '../core/config';
 /** Supply items: soap bottles, folded towels, wax tins. */
 export type SupplyType = 'soap' | 'towel' | 'wax';
 /** Anything carried: supplies, or a farm's goods (crates of produce by crop id, cartons of eggs, crates of milk bottles). */
-export type CarryItem = SupplyType | 'veg' | 'corn' | 'apple' | 'eggs' | 'milk' | 'bread' | 'pie' | 'sugar' | 'buns' | 'prizes' | 'case' | CaseItem | 'tray' | 'champagne' | 'cargo';
+export type CarryItem = SupplyType | 'veg' | 'corn' | 'apple' | 'eggs' | 'milk' | 'bread' | 'pie' | 'sugar' | 'buns' | 'prizes' | 'case' | CaseItem | 'tray' | 'juice' | 'cargo';
 /** An airport's cases, in their gate's colour (Gate 1 pink, 2 blue, 3 green), and the rare golden one (any hold takes it). */
 export type CaseItem = 'case1' | 'case2' | 'case3' | 'case4' | 'caseGold';
 
@@ -82,12 +82,12 @@ const itemGeometries: Record<CarryItem, BufferGeometry> = (() => {
     case2: make(suitcase('#2c62d6')),
     case3: make(suitcase('#3fb84a')),
     case4: make(suitcase('#ff8a3d')),
-    // A bottle of champagne for a star: green glass, a gold foil top, a white label.
-    champagne: make([
-      { geometry: cylinder(0.07, 0.24, 10), color: '#2f5d3a', y: 0.12 },
-      { geometry: cylinder(0.035, 0.12, 8), color: '#2f5d3a', y: 0.29 },
-      { geometry: cylinder(0.04, 0.07, 8), color: '#d9a62e', y: 0.35 },
-      { geometry: box(0.1, 0.07, 0.02), color: '#fff6dc', y: 0.13, z: 0.07 },
+    // A tall glass of fresh orange juice for a star: a pale rim, a pink straw, a slice of orange on the side.
+    juice: make([
+      { geometry: cylinder(0.065, 0.22, 10), color: '#ff8a3d', y: 0.11 },
+      { geometry: cylinder(0.072, 0.05, 10), color: '#d8f6f8', y: 0.245 },
+      { geometry: cylinder(0.012, 0.22, 6), color: '#ff5fa8', x: 0.025, y: 0.32 },
+      { geometry: cylinder(0.05, 0.018, 8), color: '#ffd24a', x: -0.065, y: 0.25 },
     ]),
     caseGold: make(suitcase('#ffd24a', '#fff6c8')),
     // A cargo crate for a freighter (Part D): a blue box with yellow straps and a white label.
