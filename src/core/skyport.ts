@@ -33,6 +33,8 @@ export const SKYPORT: AirportTown = {
     'building:skyport-cargo': 'models/buildings/skyport-cargo.glb',
     'building:skyport-hangar': 'models/buildings/skyport-hangar.glb',
     'building:skyport-jetwash': 'models/buildings/skyport-jetwash.glb',
+    'building:skyport-queen': 'models/buildings/skyport-queen.glb',
+    'building:skyport-queenstand': 'models/buildings/skyport-queenstand.glb',
     'building:skyport-apron': 'models/buildings/skyport-apron.glb',
     'building:skyport-vehicles': 'models/buildings/skyport-vehicles.glb',
     'building:skyport-hall': 'models/buildings/skyport-hall.glb',

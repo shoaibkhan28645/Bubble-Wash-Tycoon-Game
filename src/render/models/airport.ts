@@ -64,6 +64,8 @@ export const SKYPORT_FILES = [
   'building:skyport-cargo',
   'building:skyport-hangar',
   'building:skyport-jetwash',
+  'building:skyport-queen',
+  'building:skyport-queenstand',
   'building:skyport-private',
   'building:skyport-tower',
   'building:skyport-pier',
