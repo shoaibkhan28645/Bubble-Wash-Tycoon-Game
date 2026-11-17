@@ -160,7 +160,7 @@
     "airline": {
       "unlock": 2,
       "setBonus": 0.04,
-      "firstSouvenir": 0.5,
+      "firstSouvenir": 0.6,
       "souvenirChance": 0.35,
       "waitSeconds": 20,
       "cities": [
@@ -181,7 +181,7 @@
     "vip": { "first": 25, "every": [140, 200], "patience": 75, "tip": 6000000, "allBonus": 12000000, "carpetSeconds": 1.4, "limoSeconds": 0.8 },
     "sorter": { "perSecond": 2.5 },
     "cargo": { "crates": 8, "restock": 1.4, "stack": 10, "fare": 4000000, "wait": 1.5, "carry": 2, "crewSpeed": 1.0 },
-    "hangar": { "wear": [0.25, 0.32, 0.4], "serviceAt": 0.7, "wornPenalty": 0.25, "freshTrips": 3, "freshBonus": 0.2, "seconds": 8, "mechanicRate": 0.6 },
+    "hangar": { "wear": [0.25, 0.32, 0.4], "serviceAt": 0.55, "wornPenalty": 0.25, "freshTrips": 3, "freshBonus": 0.2, "seconds": 8, "mechanicRate": 0.6 },
     "jetwash": { "first": 25, "every": [80, 130], "fee": 30000000, "seconds": 16, "heroSpeed": 2.2 },
     "skyqueen": { "fare": 150000000, "tour": 150, "ground": 30, "sendoff": 14, "perfectTip": 0.15 },
     "runway2": { "gapSeconds": 3, "rolloutGap": 20 }
