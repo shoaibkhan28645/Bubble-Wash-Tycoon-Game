@@ -420,6 +420,7 @@ function tapUI() {
         gems: s.gems,
         stars: Math.round(s.stars * 100) / 100,
         unlocked: [...s.unlocked],
+        ended: s.flags.includes('ended:skyport'),
         building: Object.keys(s.building ?? {}),
         goals: (s.goals?.done ?? []).length,
         jobs: s.counts.jobs ?? 0,
@@ -569,12 +570,11 @@ function tapUI() {
       lastBuy = s.play;
       continue;
     }
-    // The end of what's built so far: the airport's last pad, the land for the docks (the park's highway
-    // travels on to Skyport).
-    if (s.unlocked.includes('portland') && town === 'skyport') {
-      await p.clock.runFor(3000);
+    // The end of the journey: the Sky Queen built at Skyport, the last town (the park's highway travels on to it).
+    if (s.ended && town === 'skyport') {
+      await p.clock.runFor(6000);
       await shot('the-end');
-      log('THE END: the last pad bought');
+      log('THE END: the Sky Queen built');
       break;
     }
     if (s.play / 60 > maxMinutes) {

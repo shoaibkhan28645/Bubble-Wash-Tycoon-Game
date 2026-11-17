@@ -2,7 +2,5 @@
   { "id": "roadside", "name": "Dusty Roadside Lot", "chapter": 1, "icon": "🧽", "teaser": "A car wash, fuel pumps and a Mini-Mart" },
   { "id": "willowbrook", "name": "Willowbrook", "chapter": 2, "icon": "🚜", "teaser": "Crops, a dairy, a poultry farm and farm vehicles" },
   { "id": "starlight", "name": "Starlight Fun Park", "chapter": 3, "icon": "🎡", "teaser": "Rides, a roller coaster, fireworks and a big wheel" },
-  { "id": "skyport", "name": "Skyport International", "chapter": 4, "icon": "✈️", "teaser": "An airport, an airline and the giant Sky Queen" },
-  { "id": "port", "name": "Port & Industrial Park", "chapter": 5, "icon": "🏭", "teaser": "A factory, a truck fleet and a cargo port" },
-  { "id": "skyline", "name": "Skyline HQ", "chapter": 6, "icon": "🌆", "teaser": "A research campus, a space centre and your own tower" }
+  { "id": "skyport", "name": "Skyport International", "chapter": 4, "icon": "✈️", "teaser": "An airport, an airline and the giant Sky Queen" }
 ]

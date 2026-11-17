@@ -1,4 +1,4 @@
-// The hero's journey across the six towns (strategy doc, section 4): which
+// The hero's journey across the four towns (strategy doc, section 4): which
 // towns he owns, which he can open next, and which are still to come.
 import journeyJson from '../data/journey.json';
 import type { GameState } from '../core/gameState';

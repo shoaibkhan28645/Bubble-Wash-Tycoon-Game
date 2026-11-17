@@ -343,15 +343,6 @@
     "targetMinute": 96,
     "buildSeconds": 1200,
     "adds": "The airport's landmark and the biggest plane there is, built on her own stand: +20% on every fare, ticket and sale at Skyport, and a world tour now and then",
-    "effects": { "skyqueen": true, "payBonus": 0.2 }
-  },
-  {
-    "id": "portland",
-    "name": "Port & Industrial Park land",
-    "cost": 8000000000,
-    "targetMinute": 116,
-    "adds": "Buy the docklands for your next business; offered once every town goal is done",
-    "afterGoals": true,
-    "effects": { "travel": "port" }
+    "effects": { "skyqueen": true, "payBonus": 0.2, "endOfContent": true }
   }
 ]

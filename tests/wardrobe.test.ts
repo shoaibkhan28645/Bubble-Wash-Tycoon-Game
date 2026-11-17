@@ -72,7 +72,7 @@ describe('shop.json', () => {
 
   it('paints every brand but the classic in real colours, and has four decorations a town, each with a model', () => {
     for (const b of SHOP.brands.slice(1)) for (const c of [b.main, b.vehicle]) expect(c).toMatch(HEX);
-    const towns = ['roadside', 'willowbrook', 'starlight'];
+    const towns = ['roadside', 'willowbrook', 'starlight', 'skyport'];
     for (const town of towns) expect(SHOP.decor.filter((d) => d.town === town && !d.earn)).toHaveLength(4);
     expect(SHOP.decor.every((d) => towns.includes(d.town))).toBe(true);
     expect([...DECOR_MODELS].sort()).toEqual(SHOP.decor.map((d) => d.id).sort());

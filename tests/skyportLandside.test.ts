@@ -2,9 +2,11 @@
 // the tower, cargo and the Sky Queen to the east. What stands round them for the look of it (the landside) keeps
 // clear of everything the hero and the crew work at, and of the planes; each part's camera area shows its own
 // pads, piles and crew as it's built; and the walk from the check-in desk to each place is shorter than it was.
+// The boutique's decorations for Skyport stand clear on the plazas too.
 import { describe, expect, it } from 'vitest';
-import type { Point, Rect } from '../src/core/config';
+import { SHOP, type Point, type Rect } from '../src/core/config';
 import { SKYPORT } from '../src/core/skyport';
+import { footprint } from '../src/render/townDecor';
 
 const layout = SKYPORT.layout;
 const land = layout.landside!;
@@ -140,5 +142,55 @@ describe('the map growing part by part', () => {
     const walks = places.map(walk);
     expect(Math.max(...walks)).toBeLessThan(130);
     expect(walks.reduce((a, b) => a + b, 0) / walks.length).toBeLessThan(80);
+  });
+});
+
+describe("the boutique's decorations at Skyport", () => {
+  const decor = SHOP.decor.filter((d) => d.town === 'skyport');
+  const ground = decor.filter((d) => !d.y).map((d): [string, Rect] => [d.id, footprint(d, d.solid!)]);
+  // What stands on the forecourt and the plazas (render/skyportScenery.ts): the fountain, the bus shelter, the
+  // flags, the trees, the Sky Queen's grandstand and sign.
+  const plazaFlags = land.forecourt.maxX - 5.4;
+  const props: [string, Rect][] = [
+    ['fountain', box(land.fountain, 2.8, 2.8)],
+    ['bus shelter', box(layout.shuttle.stop, 2.45, 1.0)],
+    ['flags', { minX: plazaFlags - 0.3, maxX: plazaFlags + 3.9, minZ: layout.plaza.minZ + 1.9, maxZ: layout.plaza.minZ + 2.5 }],
+    ['grandstand', box(land.grandstand, 7.4, 2.6)],
+    ['queen sign', box(layout.skyqueen!.sign, 3, 0.6)],
+    ...layout.trees.map((t, i): [string, Rect] => [`tree ${i}`, box(t, 0.45 * (t.size ?? 1), 0.45 * (t.size ?? 1))]),
+  ];
+  /** The ways people walk across the plazas: kerbs to the doors, the doors to the bus and to the pier's security, the VIP to the car. */
+  const ways: [string, Point, Point][] = [
+    ...layout.kerb.map((k, i): [string, Point, Point] => [`kerb ${i} to the doors`, k, layout.entrance]),
+    ['doors to the bus', layout.entrance, layout.shuttle.stop],
+    ['doors to the pier', layout.entrance, layout.pierSecurity!.queue.at(-1)!],
+    ['VIP to the car', layout.vip.south, layout.vip.kerb],
+  ];
+  const near = (r: Rect, a: Point, b: Point): number => {
+    let best = Infinity;
+    for (let i = 0; i <= 40; i++) {
+      const p = { x: a.x + ((b.x - a.x) * i) / 40, z: a.z + ((b.z - a.z) * i) / 40 };
+      best = Math.min(best, Math.hypot(Math.max(r.minX - p.x, 0, p.x - r.maxX), Math.max(r.minZ - p.z, 0, p.z - r.maxZ)));
+    }
+    return best;
+  };
+
+  it('has four to buy and one the journey earns, each standing on the ground it takes up', () => {
+    expect(decor.filter((d) => !d.earn)).toHaveLength(4);
+    expect(decor.find((d) => d.earn)?.earn).toEqual({ flag: 'ended:skyport', town: 'skyport' });
+    for (const d of decor) expect(d.solid, d.id).toBeDefined();
+  });
+
+  it('keeps them on the walkable plazas, clear of everything there and of the ways people go', () => {
+    const hits: string[] = [];
+    for (const [id, r] of ground) {
+      const { walk } = layout;
+      if (r.minX < walk.minX || r.maxX > walk.maxX || r.minZ < Math.max(walk.minZ, layout.plaza.minZ) || r.maxZ > walk.maxZ) hits.push(`${id} off the plaza`);
+      for (const [name, b] of [...pieces, ...buildings, ...props]) if (overlaps(box({ x: (r.minX + r.maxX) / 2, z: (r.minZ + r.maxZ) / 2 }, (r.maxX - r.minX) / 2 + 0.5, (r.maxZ - r.minZ) / 2 + 0.5), b)) hits.push(`${id} by the ${name}`);
+      for (const [what, p] of spots) if (inside(p, r, 1.5)) hits.push(`${id} on ${what}`);
+      for (const [name, a, b] of ways) if (near(r, a, b) < 0.8) hits.push(`${id} on the way from ${name}`);
+      for (const [other, b] of ground) if (other !== id && overlaps(r, b)) hits.push(`${id} into the ${other}`);
+    }
+    expect(hits).toEqual([]);
   });
 });

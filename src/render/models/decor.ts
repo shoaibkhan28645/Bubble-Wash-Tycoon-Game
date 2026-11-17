@@ -1,7 +1,7 @@
 // The boutique's decorations (shop.json `decor`), built from simple shapes in the towns' toy style. Each
 // is made facing +z (the camera) at its spot; some move a little (a tube dancer flails, bees buzz round
-// their hives, a balloon bobs over the lake) and some puff particles (bubbles, sparkles, spray).
-import { AnimationMixer, BufferGeometry, Color, ConeGeometry, CylinderGeometry, Group, Mesh, MeshBasicMaterial, MeshLambertMaterial, SphereGeometry, TorusGeometry, Vector3, type Object3D } from 'three';
+// their hives, a balloon bobs over the lake, a globe turns) and some puff particles (bubbles, sparkles, spray).
+import { AnimationMixer, BufferGeometry, Color, ConeGeometry, CylinderGeometry, ExtrudeGeometry, Group, Mesh, MeshBasicMaterial, MeshLambertMaterial, Shape, SphereGeometry, TorusGeometry, Vector3, type Object3D } from 'three';
 import { clone as cloneSkinned } from 'three/addons/utils/SkeletonUtils.js';
 import { CHARACTERS } from '../../core/config';
 import type { ParticleKind } from '../effects/particles';
@@ -420,6 +420,282 @@ function trophy(): BuiltDecor {
   };
 }
 
+// Skyport's: a plane-spotter's scope by the Sky Queen, a globe with a plane flying round it, a vintage biplane,
+// a golden jumbo, and the monument the whole journey earns.
+const AQUA = '#22c3c9';
+
+/** A coin-op viewer on a post, looking out at the airfield (to -z), slowly sweeping the sky for planes. */
+function telescope(): BuiltDecor {
+  const object = new Group();
+  object.add(mesh([
+    { geometry: cylinder(0.32, 0.08, 16), color: '#9aa3ae', y: 0.04 },
+    { geometry: cylinder(0.07, 1.0, 10), color: '#3b4a5e', y: 0.58 },
+    { geometry: rbox(0.5, 0.12, 0.3, 0.04), color: '#d9dde2', y: 0.06, z: 0.42 },
+  ]));
+  const head = new Group();
+  head.position.y = 1.12;
+  head.add(mesh([
+    { geometry: rbox(0.42, 0.26, 0.34, 0.08), color: AQUA },
+    ...[-1, 1].flatMap((side): Part[] => [
+      { geometry: new CylinderGeometry(0.085, 0.07, 0.36, 12), color: AQUA, x: side * 0.1, y: 0.03, z: -0.26, rx: Math.PI / 2 },
+      { geometry: cylinder(0.07, 0.02, 12), color: '#8fd3ff', x: side * 0.1, y: 0.03, z: -0.45, rx: Math.PI / 2 },
+      { geometry: cylinder(0.045, 0.1, 10), color: '#1c1c22', x: side * 0.1, y: 0.03, z: 0.2, rx: Math.PI / 2 },
+    ]),
+    { geometry: rbox(0.36, 0.05, 0.12, 0.02), color: '#1c8f94', y: 0.14, z: 0.18 },
+    { geometry: rbox(0.14, 0.14, 0.1, 0.03), color: GOLD, y: -0.2, z: 0.08 },
+    { geometry: box(0.06, 0.012, 0.012), color: '#1c1c22', y: -0.16, z: 0.135 },
+    ...[-1, 1].map((side): Part => ({ geometry: cylinder(0.025, 0.24, 8), color: '#3b4a5e', x: side * 0.25, y: -0.04, z: 0.12, rz: Math.PI / 2 })),
+  ]));
+  head.rotation.x = 0.18;
+  object.add(head);
+  return {
+    object,
+    update: (_dt, t) => {
+      head.rotation.y = Math.sin(t * 0.45) * 0.7 + Math.sin(t * 1.3) * 0.08;
+      head.rotation.x = 0.16 + Math.sin(t * 0.7) * 0.06;
+    },
+  };
+}
+
+/** A world globe on a marble pedestal, tilted on its axis and turning, with a little plane flying round it. */
+function globe(): BuiltDecor {
+  const object = new Group();
+  object.add(mesh([
+    ...plinth(1.2, 0.5, 1.2),
+    { geometry: new CylinderGeometry(0.1, 0.22, 0.42, 12), color: GOLD_DARK, y: 0.71 },
+    { geometry: cylinder(0.26, 0.05, 16), color: GOLD, y: 0.93 },
+  ]));
+  const tilt = new Group();
+  tilt.position.y = 1.72;
+  tilt.rotation.z = 0.41;
+  object.add(tilt);
+  tilt.add(mesh([
+    { geometry: new TorusGeometry(0.88, 0.035, 6, 36, Math.PI * 1.5), color: GOLD, rz: Math.PI * 0.75 },
+    ...[-1, 1].map((side): Part => ({ geometry: sphere(0.05, 8), color: GOLD, y: side * 0.88 })),
+  ]));
+  const earth = new Group();
+  tilt.add(earth);
+  const land: Part[] = [];
+  // Blobs of land poking out of the sea, and the ice caps (latitude, longitude, size, colour).
+  const blobs: [number, number, number, string][] = [
+    [0.5, 0.2, 0.28, '#5fb84f'], [0.35, 0.8, 0.24, '#5fb84f'], [0.15, 0.55, 0.2, '#e8d48a'], [-0.35, 0.9, 0.22, '#5fb84f'],
+    [0.55, 2.3, 0.3, '#5fb84f'], [0.2, 2.7, 0.22, '#4aa344'], [-0.4, 2.6, 0.2, '#5fb84f'], [0.6, 3.9, 0.32, '#5fb84f'],
+    [0.25, 4.2, 0.22, '#e8d48a'], [-0.2, 4.0, 0.2, '#4aa344'], [-0.5, 5.3, 0.22, '#5fb84f'], [0.4, 5.6, 0.2, '#4aa344'],
+  ];
+  for (const [lat, lon, size, colour] of blobs) {
+    const d = 0.62;
+    land.push({ geometry: sphere(size, 10), color: colour, x: Math.cos(lat) * Math.sin(lon) * d, y: Math.sin(lat) * d, z: Math.cos(lat) * Math.cos(lon) * d });
+  }
+  earth.add(mesh([
+    { geometry: sphere(0.78, 22), color: '#3a8fd8' },
+    ...land,
+    ...[-1, 1].map((side): Part => ({ geometry: sphere(0.3, 12), color: '#f4f6f8', y: side * 0.6 })),
+  ]));
+  // The little plane, round the globe's middle, nose first.
+  const orbit = new Group();
+  object.add(orbit);
+  orbit.position.y = 1.72;
+  const plane = mesh([
+    { geometry: new CylinderGeometry(0.035, 0.055, 0.34, 10), color: '#f4f6f8', rx: Math.PI / 2 },
+    { geometry: cone(0.055, 0.1, 10), color: '#f4f6f8', z: -0.22, rx: -Math.PI / 2 },
+    { geometry: box(0.42, 0.015, 0.09), color: '#ff5fa8', z: -0.02 },
+    { geometry: box(0.15, 0.012, 0.05), color: '#ff5fa8', z: 0.15 },
+    { geometry: box(0.012, 0.09, 0.07), color: '#ff5fa8', y: 0.05, z: 0.15 },
+  ]);
+  plane.position.x = 1.08;
+  orbit.add(plane);
+  return {
+    object,
+    update: (_dt, t) => {
+      earth.rotation.y = t * 0.35;
+      orbit.rotation.y = t * 0.9;
+      orbit.rotation.x = Math.sin(t * 0.9) * 0.12;
+      plane.rotation.z = -0.35;
+    },
+  };
+}
+
+/** A red and cream biplane on a low plinth, nose up a little, its propeller turning over in the breeze. */
+function biplane(): BuiltDecor {
+  const RED = '#d8352a';
+  const CREAM = '#f4f1e8';
+  const object = new Group();
+  object.add(mesh([
+    { geometry: rbox(2.5, 0.3, 1.5, 0.08), color: MARBLE, y: 0.15 },
+    { geometry: rbox(2.56, 0.05, 1.56, 0.02), color: GOLD, y: 0.28 },
+    { geometry: box(0.7, 0.14, 0.02), color: GOLD, y: 0.15, z: 0.76 },
+  ]));
+  const plane = new Group();
+  plane.position.y = 0.3;
+  plane.rotation.z = 0.07;
+  object.add(plane);
+  const Y = 0.78;
+  plane.add(mesh([
+    // The fuselage, its cowling, the cockpit and the tail.
+    { geometry: new CylinderGeometry(0.11, 0.24, 1.9, 14), color: RED, y: Y, rz: Math.PI / 2 },
+    { geometry: cylinder(0.25, 0.26, 16), color: CREAM, x: 1.02, y: Y, rz: Math.PI / 2 },
+    { geometry: box(0.36, 0.06, 0.26), color: '#2d2a26', x: 0.1, y: Y + 0.2 },
+    { geometry: box(0.03, 0.14, 0.24), color: '#bfe9ff', x: 0.3, y: Y + 0.27, rz: -0.3 },
+    { geometry: rbox(0.36, 0.04, 0.95, 0.02), color: CREAM, x: -0.88, y: Y + 0.04 },
+    { geometry: rbox(0.4, 0.44, 0.04, 0.02), color: RED, x: -0.9, y: Y + 0.24, rz: -0.25 },
+    // The two wings, their struts and the yellow stripes near the tips.
+    { geometry: rbox(0.56, 0.06, 2.7, 0.03), color: CREAM, x: 0.4, y: Y - 0.16 },
+    { geometry: rbox(0.56, 0.06, 2.7, 0.03), color: RED, x: 0.48, y: Y + 0.52 },
+    ...[-1, 1].flatMap((side): Part[] => [
+      { geometry: box(0.57, 0.065, 0.12), color: '#ffd24a', x: 0.4, y: Y - 0.16, z: side * 1.12 },
+      { geometry: box(0.57, 0.065, 0.12), color: '#ffd24a', x: 0.48, y: Y + 0.52, z: side * 1.12 },
+      { geometry: cylinder(0.022, 0.66, 6), color: '#5a3a1e', x: 0.3, y: Y + 0.18, z: side * 0.95 },
+      { geometry: cylinder(0.022, 0.66, 6), color: '#5a3a1e', x: 0.62, y: Y + 0.18, z: side * 0.95 },
+      { geometry: cylinder(0.018, 0.42, 6), color: '#5a3a1e', x: 0.5, y: Y + 0.32, z: side * 0.2, rx: side * -0.3 },
+      // The wheels and their legs, and the tail skid.
+      { geometry: cylinder(0.16, 0.08, 14), color: '#1f2026', x: 0.62, y: 0.16, z: side * 0.36, rx: Math.PI / 2 },
+      { geometry: cylinder(0.06, 0.09, 10), color: CREAM, x: 0.62, y: 0.16, z: side * 0.36, rx: Math.PI / 2 },
+      { geometry: cylinder(0.022, 0.5, 6), color: '#3b3f4a', x: 0.6, y: 0.4, z: side * 0.22, rx: side * 0.45 },
+    ]),
+    { geometry: cylinder(0.02, 0.4, 6), color: '#3b3f4a', x: -0.85, y: 0.45, rz: 0.6 },
+    { geometry: cone(0.08, 0.18, 10), color: CREAM, x: 1.2, y: Y, rz: -Math.PI / 2 },
+  ]));
+  const prop = new Group();
+  prop.position.set(1.22, Y, 0);
+  prop.add(mesh([{ geometry: rbox(0.04, 1.05, 0.1, 0.02), color: '#6b4a2f' }]));
+  plane.add(prop);
+  return {
+    object,
+    update: (dt, t) => {
+      prop.rotation.x += dt * (3 + Math.sin(t * 0.4) * 2.5);
+    },
+  };
+}
+
+/** An airliner in gold on a pylon over a marble plinth, climbing away, glinting. */
+function goldenJumbo(): BuiltDecor {
+  const object = new Group();
+  object.add(mesh([
+    ...plinth(1.7, 0.6, 1.1),
+    { geometry: cylinder(0.09, 0.95, 10), color: GOLD_DARK, x: -0.1, y: 1.05, rz: 0.12 },
+    { geometry: sphere(0.13, 10), color: GOLD_DARK, x: -0.16, y: 1.52 },
+  ]));
+  const plane = new Group();
+  plane.position.set(-0.05, 1.74, 0);
+  plane.rotation.z = 0.2;
+  object.add(plane);
+  /** Where a point `d` metres out along a wing swept back by `sweep` lies (from a root `root` out from the middle). */
+  const along = (d: number, sweep: number, root: number, side: number): { x: number; z: number } => ({ x: -d * Math.sin(sweep), z: side * (root + d * Math.cos(sweep)) });
+  const SWEEP = 0.45;
+  plane.add(mesh([
+    { geometry: cylinder(0.22, 2.2, 16), color: GOLD, rz: Math.PI / 2 },
+    { geometry: ball(0.22, 1.6, 1, 1, 14), color: GOLD, x: 1.1 },
+    { geometry: ball(0.13, 1.5, 0.85, 1.2, 12), color: '#f7d25a', x: 0.75, y: 0.13 },
+    { geometry: new CylinderGeometry(0.22, 0.06, 0.75, 14), color: GOLD, x: -1.47, y: 0.06, rz: Math.PI / 2 - 0.12 },
+    { geometry: box(0.12, 0.06, 0.34), color: '#fff3c4', x: 1.33, y: 0.09 },
+    ...[-1, 1].flatMap((side): Part[] => {
+      const wing = along(0.62, SWEEP, 0.18, side);
+      const inner = along(0.36, SWEEP, 0.18, side);
+      const outer = along(0.8, SWEEP, 0.18, side);
+      const tail = along(0.26, SWEEP + 0.1, 0.06, side);
+      return [
+        { geometry: box(0.58, 0.05, 1.25), color: GOLD_DARK, x: wing.x - 0.05, y: -0.08, z: wing.z, ry: -side * SWEEP },
+        { geometry: cylinder(0.085, 0.34, 12), color: GOLD_DARK, x: inner.x + 0.1, y: -0.2, z: inner.z, rz: Math.PI / 2 },
+        { geometry: cylinder(0.07, 0.3, 12), color: GOLD_DARK, x: outer.x + 0.08, y: -0.18, z: outer.z, rz: Math.PI / 2 },
+        { geometry: box(0.3, 0.04, 0.52), color: GOLD_DARK, x: -1.45 + tail.x, y: 0.1, z: tail.z, ry: -side * (SWEEP + 0.1) },
+      ];
+    }),
+    { geometry: box(0.48, 0.62, 0.05), color: GOLD_DARK, x: -1.45, y: 0.42, rz: -0.42 },
+  ]));
+  const at = new Vector3();
+  let next = 1;
+  return {
+    object,
+    update: (_dt, t, puff) => {
+      if (t < next) return;
+      next = t + 1.5;
+      object.localToWorld(at.set((Math.random() - 0.5) * 2, 2.0, (Math.random() - 0.5) * 1.2));
+      puff('sparkle', at, 2, 1.2, 0.5);
+    },
+  };
+}
+
+/** A five-pointed star, flat across x and y, `depth` thick. */
+function star(outer: number, inner: number, depth: number): BufferGeometry {
+  const shape = new Shape();
+  for (let i = 0; i < 10; i++) {
+    const r = i % 2 ? inner : outer;
+    const a = (i / 10) * Math.PI * 2;
+    if (i === 0) shape.moveTo(Math.sin(a) * r, Math.cos(a) * r);
+    else shape.lineTo(Math.sin(a) * r, Math.cos(a) * r);
+  }
+  shape.closePath();
+  return new ExtrudeGeometry(shape, { depth, bevelEnabled: true, bevelThickness: 0.03, bevelSize: 0.03, bevelSegments: 1 }).translate(0, 0, -depth / 2);
+}
+
+/**
+ * Earned by finishing the whole journey: a marble column on a stepped base, a gold emblem on each side for the
+ * four towns (a soap bubble, a barn, a big wheel, a plane) and a gold star turning on top.
+ */
+function monument(): BuiltDecor {
+  const object = new Group();
+  /** Parts made for the front (+z), turned round to another side: each turned on its own first, then about the column. */
+  const side = (angle: number, parts: Part[]): Part[] =>
+    parts.map(({ geometry, rx, ry, rz, x = 0, z = 0, ...rest }) => {
+      if (rx) geometry.rotateX(rx);
+      if (ry) geometry.rotateY(ry);
+      if (rz) geometry.rotateZ(rz);
+      geometry.rotateY(angle);
+      return { ...rest, geometry, x: x * Math.cos(angle) + z * Math.sin(angle), z: -x * Math.sin(angle) + z * Math.cos(angle) };
+    });
+  const FACE = 0.79;
+  object.add(mesh([
+    { geometry: rbox(1.6, 0.42, 1.6, 0.06), color: MARBLE, y: 0.21 },
+    { geometry: rbox(1.66, 0.06, 1.66, 0.02), color: GOLD, y: 0.42 },
+    { geometry: rbox(1.15, 0.36, 1.15, 0.05), color: MARBLE, y: 0.63 },
+    { geometry: new CylinderGeometry(0.3, 0.42, 2.0, 8), color: MARBLE, y: 1.81 },
+    { geometry: cylinder(0.45, 0.08, 16), color: GOLD, y: 0.84 },
+    { geometry: cylinder(0.34, 0.1, 16), color: GOLD, y: 2.82 },
+    // The car wash: a soap bubble.
+    ...side(0, [
+      { geometry: cylinder(0.24, 0.03, 18), color: GOLD, y: 0.21, z: FACE, rx: Math.PI / 2 },
+      { geometry: sphere(0.13, 12), color: AQUA, y: 0.21, z: FACE + 0.04 },
+      { geometry: sphere(0.04, 8), color: '#ffffff', x: 0.05, y: 0.26, z: FACE + 0.14 },
+    ]),
+    // Willowbrook: a red barn.
+    ...side(Math.PI / 2, [
+      { geometry: cylinder(0.24, 0.03, 18), color: GOLD, y: 0.21, z: FACE, rx: Math.PI / 2 },
+      { geometry: box(0.2, 0.14, 0.06), color: '#c8452e', y: 0.17, z: FACE + 0.03 },
+      { geometry: cone(0.15, 0.1, 4), color: '#7a3020', y: 0.29, z: FACE + 0.03, ry: Math.PI / 4 },
+    ]),
+    // Starlight: the big wheel.
+    ...side(Math.PI, [
+      { geometry: cylinder(0.24, 0.03, 18), color: GOLD, y: 0.21, z: FACE, rx: Math.PI / 2 },
+      { geometry: new TorusGeometry(0.12, 0.02, 6, 18), color: '#ff5fa8', y: 0.23, z: FACE + 0.03 },
+      { geometry: box(0.02, 0.24, 0.02), color: '#ff5fa8', y: 0.23, z: FACE + 0.03 },
+      { geometry: box(0.24, 0.02, 0.02), color: '#ff5fa8', y: 0.23, z: FACE + 0.03 },
+    ]),
+    // Skyport: a plane.
+    ...side(-Math.PI / 2, [
+      { geometry: cylinder(0.24, 0.03, 18), color: GOLD, y: 0.21, z: FACE, rx: Math.PI / 2 },
+      { geometry: cylinder(0.03, 0.26, 8), color: '#f4f6f8', y: 0.21, z: FACE + 0.04, rz: Math.PI / 2 },
+      { geometry: box(0.06, 0.24, 0.02), color: '#f4f6f8', y: 0.21, z: FACE + 0.04 },
+      { geometry: box(0.03, 0.1, 0.02), color: '#f4f6f8', x: -0.11, y: 0.21, z: FACE + 0.04 },
+    ]),
+  ]));
+  const top = mesh([{ geometry: star(0.42, 0.18, 0.12), color: GOLD }]);
+  top.position.y = 3.35;
+  object.add(top);
+  const at = new Vector3();
+  let next = 0.8;
+  return {
+    object,
+    update: (_dt, t, puff) => {
+      top.rotation.y = t * 0.8;
+      top.position.y = 3.35 + Math.sin(t * 1.6) * 0.06;
+      if (t < next) return;
+      next = t + 1.2;
+      object.localToWorld(at.set(0, 3.4, 0));
+      puff('sparkle', at, 3, 1.5, 0.4);
+    },
+  };
+}
+
 const BUILDERS: Record<string, (context: DecorContext) => BuiltDecor> = {
   trophy,
   bunting,
@@ -434,6 +710,11 @@ const BUILDERS: Record<string, (context: DecorContext) => BuiltDecor> = {
   airballoon: airBalloon,
   fountain,
   statue,
+  telescope,
+  globe,
+  biplane,
+  goldjet: goldenJumbo,
+  monument,
 };
 
 /** Builds a decoration (null for an id with no model). */

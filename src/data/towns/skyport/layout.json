@@ -75,8 +75,7 @@
     "runway2": { "x": 15.9, "z": -15.2 },
     "jetwash": { "x": -98.5, "z": 9.3 },
     "manager": { "x": 47.6, "z": 9.2 },
-    "skyqueen": { "x": 74.0, "z": 8.6 },
-    "portland": { "x": 96.0, "z": 30.4 }
+    "skyqueen": { "x": 74.0, "z": 8.6 }
   },
   "upgradePads": {
     "checkin": { "x": -11.2, "z": 18.3 },

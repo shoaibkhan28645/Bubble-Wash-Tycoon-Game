@@ -15,7 +15,7 @@ import type { Game } from './game';
 import type { GameState } from './gameState';
 import type { Lifecycle } from './lifecycle';
 import type { SaveManager } from './save';
-import { townIds, type AirportTown } from './towns';
+import type { AirportTown } from './towns';
 import { createMeta } from './meta';
 import { createTown } from './town';
 import { createPress } from './press';
@@ -177,8 +177,8 @@ const CREW_SPEED = 3.3;
 const AGENT_RATE = 0.85;
 
 /** A bright day's flying: blue sky, white light, long views. */
-/** After the land for the next town is bought, the hero sets off this long after (the pad's pop first). */
-const TRAVEL_DELAY_MS = 1500;
+/** The journey's end comes this long after the Sky Queen is built (her own celebration first). */
+const FINALE_DELAY = 2.5;
 
 const SKY_LOOK: Look = {
   sky: 0xbfe6ff,
@@ -2360,6 +2360,11 @@ export function createSkyportGame(
     for (let i = 0; i < AIRPORT.passengers.opening; i++) passengers.spawn(layout.desk.window, 0, true);
   });
 
+  /**
+   * Skyport is the last town: once the Sky Queen is built the whole journey is done. Seconds until its finale
+   * shows (-1: not due), waiting for her own celebration card to come and go first.
+   */
+  let finaleIn = -1;
   const pads = new PadSystem(
     stage.scene,
     layout,
@@ -2373,17 +2378,9 @@ export function createSkyportGame(
       view.refit();
       void saves.saveNow();
       const done = current.pads.find((p) => p.id === id)?.effects;
-      if (done?.endOfContent) {
+      if (done?.endOfContent && !state.flags.includes(`ended:${current.id}`)) {
         flag(`ended:${current.id}`);
-        showEndScreen(root, () => meta.screenClosed(), { title: t('endTitleSkyport'), body: t('endBodySkyport') });
-      }
-      // The land for the next town: off the hero goes, once it has popped in. A town this version doesn't have
-      // yet ends the chapter instead.
-      const next = done?.travel;
-      if (next) {
-        flag(`ended:${current.id}`);
-        if (townIds().includes(next)) setTimeout(() => void travelTo(next), TRAVEL_DELAY_MS);
-        else showEndScreen(root, () => meta.screenClosed(), { title: t('endTitleSkyport'), body: t('endBodySkyport') });
+        finaleIn = FINALE_DELAY;
       }
     },
     (id) => {
@@ -2398,6 +2395,11 @@ export function createSkyportGame(
   const sites = new ConstructionSites(stage.scene, labels, layout);
   for (const id of Object.keys(state.building)) sites.show(id);
   startQueenBuild();
+  // (A Sky Queen built before the journey ended here: its finale, once.)
+  if (current.pads.some((p) => p.effects.endOfContent && built(p.id)) && !state.flags.includes(`ended:${current.id}`)) {
+    flag(`ended:${current.id}`);
+    finaleIn = FINALE_DELAY;
+  }
   const finishBuilds = (): void => {
     for (const id of takeFinished(state, Date.now())) {
       sites.remove(id);
@@ -3331,6 +3333,19 @@ export function createSkyportGame(
   });
   cleanups.push(() => jobs.dispose());
   const press = createPress(root, sound, () => meta.screenClosed());
+  /** The end of the journey: a cheer, confetti and fireworks round the hero, and the card that says so (play goes on). */
+  const showFinale = (): void => {
+    const at = new Vector3(player.position.x, 0, player.position.z);
+    for (let i = 0; i < 4; i++) {
+      setTimeout(() => {
+        effects.burst('confetti', at.clone().add(new Vector3((Math.random() - 0.5) * 4, 2.5, (Math.random() - 0.5) * 3)), 30, 6, 0.8);
+        effects.burst('sparkle', at.clone().add(new Vector3(0, 3, 0)), 12, 5, 1.2);
+        sound.play('firework', 0.7);
+      }, i * 450);
+    }
+    sound.play('cheer');
+    showEndScreen(root, () => meta.screenClosed(), { title: t('endTitleSkyport'), body: t('endBodySkyport') });
+  };
   const empireMap = (): void => openEmpireMap({ root, state, sound, town: current, travel: (id) => travelTo(id) });
   const hero = createHero({ root, state, town: current, sound, press, flag, save: () => saves.saveNow(), onChipTap: empireMap });
   const storyline = createStoryline({ state, town: current, press, arrivals, flag });
@@ -3539,6 +3554,11 @@ export function createSkyportGame(
     storyline.update(dt);
     hero.update(dt);
     press.update(dt);
+    if (finaleIn >= 0 && (finaleIn -= dt) < 0) {
+      // Not over another card or panel: after them.
+      if (press.busy || root.querySelector('.welcome-overlay')) finaleIn = 0.5;
+      else showFinale();
+    }
     town.update(dt, player.position);
     // Standing still out on the apron while a plane lands or takes off, the camera eases back to show it.
     stillFor = player.isMoving ? 0 : stillFor + dt;

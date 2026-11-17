@@ -48,6 +48,18 @@ const HAT_PARTS: Record<string, () => Part[]> = {
     { geometry: cylinder(0.17, 0.3, 18), color: '#1f2026', y: 0.49 },
     { geometry: cylinder(0.173, 0.055, 18), color: '#c8282f', y: 0.38 },
   ],
+  // A leather flying helmet with its ear flaps, a fleece rim and brass goggles pushed up on the forehead.
+  goggles: () => [
+    { geometry: dome(0.218, 0.95), color: '#7a4a2a', y: 0.2 },
+    { geometry: new TorusGeometry(0.205, 0.026, 6, 20), color: '#f4f1e8', y: 0.205, rx: Math.PI / 2 },
+    ...[-1, 1].map((side): Part => ({ geometry: rbox(0.05, 0.17, 0.13, 0.02), color: '#5a3a1e', x: side * 0.225, y: 0.14 })),
+    { geometry: band(0.222, 0.045), color: '#3b2a1e', y: 0.33 },
+    ...[-1, 1].flatMap((side): Part[] => [
+      { geometry: cylinder(0.062, 0.05, 14), color: '#c9971c', x: side * 0.078, y: 0.34, z: 0.2, rx: Math.PI / 2 },
+      { geometry: cylinder(0.046, 0.02, 14), color: '#8fd3ff', x: side * 0.078, y: 0.34, z: 0.228, rx: Math.PI / 2 },
+    ]),
+    { geometry: box(0.04, 0.022, 0.022), color: '#c9971c', y: 0.34, z: 0.215 },
+  ],
   wizard: () => [
     { geometry: cylinder(0.3, 0.02, 20), color: '#3b47b8', y: 0.325 },
     { geometry: cone(0.2, 0.56), color: '#3b47b8', y: 0.61, rx: -0.12 },
@@ -111,6 +123,20 @@ const EARNED_HATS: Record<string, () => Part[]> = {
     { geometry: cylinder(0.173, 0.05, 18), color: '#ffc24a', y: 0.38 },
     { geometry: cylinder(0.173, 0.02, 18), color: '#ffc24a', y: 0.6 },
     { geometry: cylinder(0.175, 0.025, 18), color: '#1f2026', y: 0.645 },
+  ],
+  // A pilot's cap for the Jet Set: a navy crown flaring to its top, a black peak with gold braid, and gold wings at the front.
+  skycap: () => [
+    { geometry: rbox(0.36, 0.09, 0.36, 0.03), color: '#1f2a4a', y: 0.33 },
+    { geometry: new CylinderGeometry(0.245, 0.2, 0.1, 20), color: '#1f2a4a', y: 0.42 },
+    { geometry: cylinder(0.246, 0.02, 20), color: '#2a3866', y: 0.475 },
+    { geometry: rbox(0.3, 0.022, 0.16, 0.01), color: '#111318', y: 0.3, z: 0.22, rx: 0.15 },
+    { geometry: box(0.24, 0.012, 0.035), color: '#ffc24a', y: 0.314, z: 0.27, rx: 0.15 },
+    { geometry: box(0.32, 0.02, 0.02), color: '#ffc24a', y: 0.36, z: 0.19 },
+    { geometry: sphere(0.036, 8), color: '#ffc24a', y: 0.425, z: 0.235 },
+    ...[-1, 1].flatMap((side): Part[] => [
+      { geometry: box(0.13, 0.03, 0.015), color: '#ffc24a', x: side * 0.09, y: 0.44, z: 0.23, rz: side * 0.22 },
+      { geometry: box(0.1, 0.022, 0.015), color: '#f2c230', x: side * 0.08, y: 0.415, z: 0.23, rz: side * 0.12 },
+    ]),
   ],
   // A gold band round the head with upright leaves either side, open at the front.
   laurels: () => [

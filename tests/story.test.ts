@@ -96,9 +96,10 @@ describe('a rush', () => {
 describe('the journey', () => {
   const exists = (id: string) => id === 'roadside';
 
-  it('has six towns in order, starting with the car wash', () => {
-    expect(JOURNEY.map((s) => s.chapter)).toEqual([1, 2, 3, 4, 5, 6]);
+  it('has four towns in order, starting with the car wash and ending at the airport', () => {
+    expect(JOURNEY.map((s) => s.chapter)).toEqual([1, 2, 3, 4]);
     expect(JOURNEY[0]!.id).toBe('roadside');
+    expect(JOURNEY.at(-1)!.id).toBe('skyport');
     expect(previousStop(JOURNEY[2]!)?.id).toBe('willowbrook');
     expect(previousStop(JOURNEY[0]!)).toBeUndefined();
   });
