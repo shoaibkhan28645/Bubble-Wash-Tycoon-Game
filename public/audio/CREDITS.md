@@ -1,25 +1,40 @@
 # Sound credits
 
-The sound effects in this folder are by **Kenney** (https://kenney.nl),
-released under **Creative Commons Zero (CC0 1.0)**: free for any use, no
-attribution required. Downloaded from Kenney's official OpenGameArt uploads,
-converted to mono MP3 and level-matched.
+## Music: written for Main Street Mogul
+
+All of the game's music was written for it. Each piece is a score in
+`art/music/compose.py`, played with the **FluidR3 GM** instruments
+(© 2000–2002, 2008 Frank Wen; MIT licence) through FluidSynth and cut into a
+seamless loop. Each town's music loads when the hero arrives there.
+
+| Files | What |
+|---|---|
+| `roadside/roadside-music` | Roadside: the car wash's ukulele tune |
+| `farm/farm-music` | Willowbrook: a hoedown with banjo and fiddles |
+| `park/park-music` | Starlight Fun Park: a carnival waltz with a calliope |
+| `park/musicbox` | The carousel's music box: a lullaby waltz |
+| `skyport/skyport-music` | Skyport: a lounge bossa nova |
+| `jingle-build`, `jingle-reward`, `jingle-vip`, `jingle-mission` | The short fanfares for building, rewards, VIPs and goals |
+
+## Sound effects
+
+These sound effects are by **Kenney** (https://kenney.nl), released under
+**Creative Commons Zero (CC0 1.0)**: free for any use, no attribution
+required. Downloaded from Kenney's official OpenGameArt uploads, converted to
+mono MP3 and level-matched.
 
 | Files | Pack | Source |
 |---|---|---|
 | `coins-*` | RPG Sound Effects (handleCoins) | https://opengameart.org/content/50-rpg-sound-effects |
 | `chip-*`, `register` | Casino Audio | https://opengameart.org/content/54-casino-sound-effects-cards-dice-chips |
 | `sparkle`, `pick`, `drop`, `click`, `open`, `upgrade` | Interface Sounds | https://opengameart.org/content/interface-sounds |
-| `jingle-*` | Short Music Jingles (steel drum, pizza) | https://opengameart.org/content/85-short-music-jingles |
 
-Starlight Fun Park's sounds (`park/`) are also released under **CC0 1.0**
+Starlight Fun Park's other sounds (`park/`) are also released under **CC0 1.0**
 on OpenGameArt, cut, converted to mono MP3 and level-matched. They load
 when the hero arrives at the park.
 
 | Files | Original | By | Source |
 |---|---|---|---|
-| `park/park-music` | Carnival Rides | Écrivain | https://opengameart.org/content/carnival-rides |
-| `park/musicbox` | Music box: happy polka (4 Music Box Tracks) | aureolusomicron | https://opengameart.org/content/4-music-box-tracks |
 | `park/firework-*` | 25 CC0 bang / firework SFX | rubberduck | https://opengameart.org/content/25-cc0-bang-firework-sfx |
 | `park/splash-*`, `park/rain` | 40 CC0 water / splash / slime SFX | rubberduck | https://opengameart.org/content/40-cc0-water-splash-slime-sfx |
 | `park/cheer-*` | Applause in a large hall or church | eXpl0it3r | https://opengameart.org/content/applause-in-a-large-hall-or-church |
@@ -40,10 +55,6 @@ the farm.
 | `farm/moo-3` | Cow moos #6 | https://bigsoundbank.com/cow-moos-6-s2386.html |
 | `farm/cluck-*` | Annoyed hen | https://bigsoundbank.com/annoyed-hen-s0453.html |
 
-Willowbrook's music (`farm/farm-music`) and Skyport's (`skyport/skyport-music`)
-were written for Main Street Mogul: each is a score in `art/music/compose.py`,
-played with the **FluidR3 GM** instruments (© 2000–2002, 2008 Frank Wen; MIT
-licence) through FluidSynth and cut into a seamless loop.
-
-Roadside's music, the sponge squeaks, water spray, bubble pops, horn and till
-bell are made in code (`src/audio/music.ts`, `src/audio/synth.ts`).
+The sponge squeaks, water spray, bubble pops, horn, till bell, footsteps and
+the airport's chime, tyre chirp, propellers, gulls and engine drone are made
+in code (`src/audio/synth.ts`).

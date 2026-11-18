@@ -1,6 +1,5 @@
 import { FileLoader } from 'three';
 import AUDIO from '../data/audio.json';
-import { renderMusic } from './music';
 import { renderSynth, type SynthSound } from './synth';
 
 export type Sfx = keyof typeof AUDIO.sounds;
@@ -31,7 +30,7 @@ const VARIETY = 0.08;
 const SOUNDS = AUDIO.sounds as Record<Sfx, SoundDef>;
 
 /**
- * Web Audio: CC0 samples (public/audio), effects and music made in code.
+ * Web Audio: the game's sounds and music (public/audio) and effects made in code.
  * Silent whenever YouTube mutes or pauses the game: the AudioContext is
  * suspended, so nothing can leak through.
  */
@@ -41,8 +40,7 @@ export class SoundManager {
   private musicGain: GainNode | null = null;
   private readonly files = new Map<string, AudioBuffer>();
   private synth: Partial<Record<SynthSound, AudioBuffer[]>> = {};
-  private music: AudioBuffer | null = null;
-  /** The music playing (its own gain, to fade it out when the town changes), and which: a recorded track, or null for the made-in-code loop. */
+  /** The music playing (its own gain, to fade it out when the town changes), and which town's track (null: none). */
   private musicSource: { source: AudioBufferSourceNode; gain: GainNode } | null = null;
   private musicTrack: string | null = null;
   /** Recorded loops playing now, each at its own level. */
@@ -55,8 +53,8 @@ export class SoundManager {
   private unlocked = false;
 
   /**
-   * Loads and decodes every sound during the loading screen (the music is
-   * made later, by prepareMusic). The context stays suspended until the first tap. Never throws:
+   * Loads and decodes every sound during the loading screen (each town's
+   * music and own sounds load with it, loadSet). The context stays suspended until the first tap. Never throws:
    * the game simply plays silently if audio isn't available.
    */
   async load(onProgress: (fraction: number) => void = () => {}): Promise<void> {
@@ -116,8 +114,8 @@ export class SoundManager {
   }
 
   /**
-   * Which music plays: a recorded track (audio.json `tracks`, once loaded), or
-   * null for the made-in-code loop. The old music fades out as the new starts.
+   * Which music plays: a town's track (audio.json `tracks`, once loaded), or
+   * null for none. The old music fades out as the new starts.
    */
   useMusic(track: string | null): void {
     if (track === this.musicTrack) return;
@@ -165,14 +163,6 @@ export class SoundManager {
       gain.disconnect();
     }
     this.loops.clear();
-  }
-
-  /** Renders the music loop; called just after the game is playable so it doesn't delay the start. */
-  prepareMusic(): void {
-    if (this.music || !this.context) return;
-    const rate = AUDIO.music.sampleRate;
-    this.music = this.toBuffer(renderMusic(rate), rate);
-    this.apply();
   }
 
   /** Follows ytgame.system.isAudioEnabled / onAudioEnabledChange. */
@@ -248,7 +238,7 @@ export class SoundManager {
   private startMusic(): void {
     if (this.musicSource || !this.context || !this.musicGain) return;
     const track = this.musicTrack ? TRACKS[this.musicTrack] : undefined;
-    const buffer = track?.file ? this.files.get(track.file) : this.music;
+    const buffer = track?.file ? this.files.get(track.file) : undefined;
     if (!buffer) return;
     const source = this.context.createBufferSource();
     source.buffer = buffer;

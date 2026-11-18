@@ -1,5 +1,5 @@
 {
-  "music": { "volume": 0.2, "duckVolume": 0.07, "sampleRate": 22050 },
+  "music": { "volume": 0.2, "duckVolume": 0.07 },
   "sfxVolume": 0.8,
   "sounds": {
     "coins": { "files": ["coins-1", "coins-2"], "volume": 0.55, "gap": 0.12 },
@@ -39,6 +39,7 @@
     "splash": { "files": ["park/splash-1", "park/splash-2"], "volume": 0.45, "gap": 0.4, "set": "park" }
   },
   "tracks": {
+    "roadside": { "file": "roadside/roadside-music", "volume": 1, "set": "roadside" },
     "park": { "file": "park/park-music", "volume": 1, "set": "park" },
     "farm": { "file": "farm/farm-music", "volume": 1, "set": "farm" },
     "skyport": { "file": "skyport/skyport-music", "volume": 1, "set": "skyport" },

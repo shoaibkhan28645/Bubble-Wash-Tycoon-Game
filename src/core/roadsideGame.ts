@@ -95,6 +95,9 @@ export function createRoadsideGame(
   const decor = new TownDecor(stage.scene, effects);
   CarModel.exhaust = (at, back) => effects.puff(at, back);
   blobShadows.attach(stage.scene);
+  // The car wash's music loads as the hero arrives.
+  void sound.loadSet('roadside');
+  sound.useMusic('roadside');
   carriedItems.attach(stage.scene);
 
   const bayIds = current.pads.filter((pad) => pad.effects.bay).map((pad) => pad.effects.bay!);
@@ -445,6 +448,7 @@ export function createRoadsideGame(
     addTicker: (ticker) => void tickers.push(ticker),
     dispose() {
       loop.stop();
+      sound.useMusic(null);
       for (const cleanup of cleanups) cleanup();
       input.dispose();
       panel.dispose();

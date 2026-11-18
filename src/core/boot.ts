@@ -118,8 +118,6 @@ export async function boot(root: HTMLElement): Promise<void> {
   game!.start();
   platform.gameReady();
   readyMs = performance.now();
-  // The music isn't needed to play: make it now, after the start.
-  setTimeout(() => sound.prepareMusic(), 300);
   if (offline.cash > 0) game!.welcomeBack(offline);
 
   // A long pause inside YouTube counts as time away too.
