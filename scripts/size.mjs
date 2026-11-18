@@ -70,6 +70,13 @@ for (const [name, { raw }] of sizes) {
     process.exitCode = 1;
   }
 }
+// YouTube Playables: the game saves only through YouTube, never in the browser. The dev server and the
+// tester build do (src/platform/tester.ts); this build, the one for YouTube, mustn't.
+const storage = all.filter((f) => /\.(js|html)$/.test(f) && /localStorage|sessionStorage|indexedDB|document\.cookie/.test(readFileSync(join(DIST, f), 'utf8')));
+if (storage.length) {
+  console.log(`Browser storage in the build for YouTube: ${storage.join(', ')}`);
+  process.exitCode = 1;
+}
 if (sum(initial, 'gz') > INITIAL_BUDGET) {
   console.log('Initial download is over the 15 MiB budget');
   process.exitCode = 1;

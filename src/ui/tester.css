@@ -1,0 +1,117 @@
+/* The tester build's tab and panel (src/ui/testerPanel.ts): plain and compact, clearly not part of the game. */
+.tester-tab {
+  position: absolute;
+  left: calc(env(safe-area-inset-left) + 8px);
+  bottom: calc(env(safe-area-inset-bottom) + 8px);
+  z-index: 120;
+  min-height: 28px;
+  padding: 0 10px;
+  border: 2px solid #fff;
+  border-radius: 999px;
+  background: rgba(23, 50, 77, 0.82);
+  color: #fff;
+  font: 900 12px/1 var(--font-body);
+  letter-spacing: 0.06em;
+  cursor: pointer;
+}
+
+.tester-panel {
+  position: absolute;
+  left: calc(env(safe-area-inset-left) + 8px);
+  bottom: calc(env(safe-area-inset-bottom) + 44px);
+  z-index: 121;
+  width: min(340px, calc(100% - 16px - env(safe-area-inset-left) - env(safe-area-inset-right)));
+  max-height: calc(100% - 64px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+  overflow-y: auto;
+  padding: 12px 14px;
+  border: 3px solid var(--navy);
+  border-radius: 16px;
+  background: #fff;
+  color: var(--navy);
+  font: 800 14px/1.35 var(--font-body);
+  box-shadow: 0 4px 0 var(--navy);
+}
+
+.tester-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.tester-head strong {
+  font: 400 20px/1.1 var(--font-display);
+}
+
+.tester-close {
+  width: 34px;
+  height: 34px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--grey);
+  color: var(--navy);
+  font: 900 22px/1 var(--font-body);
+  cursor: pointer;
+}
+
+.tester-build {
+  margin: 4px 0 0;
+  color: var(--soft);
+  font-size: 13px;
+}
+
+.tester-section {
+  margin: 12px 0 6px;
+  color: var(--soft);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.tester-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.tester-row button {
+  min-height: 38px;
+  padding: 0 12px;
+  border: 2px solid var(--navy);
+  border-radius: 12px;
+  background: var(--sun);
+  color: var(--navy);
+  font: 900 14px var(--font-body);
+  cursor: pointer;
+}
+
+.tester-row button:disabled {
+  background: var(--grey);
+  border-color: var(--grey);
+  color: var(--soft);
+  cursor: default;
+}
+
+.tester-row button.tester-danger {
+  background: var(--pink);
+  color: #fff;
+}
+
+.tester-note {
+  min-height: 1.35em;
+  margin: 10px 0 0;
+  color: var(--ink);
+  font-size: 13px;
+}
+
+.tester-tab:focus-visible,
+.tester-row button:focus-visible,
+.tester-close:focus-visible {
+  outline: 3px solid var(--aqua);
+  outline-offset: 2px;
+}
+
+/* The performance stats (the ?debug panel's) sit above the TEST tab, not under it. */
+.debug-overlay {
+  bottom: calc(env(safe-area-inset-bottom) + 44px);
+}

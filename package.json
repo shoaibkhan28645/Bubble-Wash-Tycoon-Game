@@ -10,6 +10,8 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "zip": "vite build && node scripts/zip.mjs",
+    "build:test": "node scripts/build-test.mjs",
+    "zip:test": "node scripts/build-test.mjs && node scripts/zip.mjs dist-test main-street-mogul-test.zip",
     "size": "node scripts/size.mjs",
     "pacing": "PACING_REPORT=1 vitest run tests/pacing.test.ts tests/farmPacing.test.ts tests/parkPacing.test.ts tests/journey.test.ts --silent=false"
   },

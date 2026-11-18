@@ -1,12 +1,13 @@
 // Packs dist/ into main-street-mogul.zip with index.html at the root, ready for
 // the Playables Developer Portal. Pure JavaScript (fflate), so it works in
 // Termux without the zip binary. Fails on file names YouTube rejects.
+// `node scripts/zip.mjs <folder> <zip>` packs another build (the tester build: dist-test).
 import { readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import { zipSync } from 'fflate';
 
-const DIST = 'dist';
-const OUT = 'main-street-mogul.zip';
+const DIST = process.argv[2] ?? 'dist';
+const OUT = process.argv[3] ?? 'main-street-mogul.zip';
 const SAFE_NAME = /^[A-Za-z0-9_.-]+$/;
 const MAX_FILES = 8000;
 
@@ -24,7 +25,7 @@ if (bad.length) {
   process.exit(1);
 }
 if (!files.includes(join(DIST, 'index.html'))) {
-  console.error('dist/index.html missing; run the build first.');
+  console.error(`${DIST}/index.html missing; run the build first.`);
   process.exit(1);
 }
 if (files.length > MAX_FILES) {

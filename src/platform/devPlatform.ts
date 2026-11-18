@@ -1,16 +1,19 @@
 import { Emitter } from '../core/events';
+import { TESTER, TESTER_SAVE_KEY } from './tester';
 import type { DevControls, PlatformBackend } from './types';
 
-// Kept from the game's first name so existing dev saves still load.
-const SAVE_KEY = 'bubble-wash-dev-save';
+// Kept from the game's first name so existing dev saves still load; the tester build keeps its own.
+const SAVE_KEY = TESTER ? TESTER_SAVE_KEY : 'bubble-wash-dev-save';
+/** Saves kept in the browser: on the dev server and in the tester build. */
+const KEEP = import.meta.env.DEV || TESTER;
 const FAKE_AD_MS = 1500;
 
 const wait = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
 /**
- * Stand-in for the SDK outside YouTube. In `npm run dev` saves go to
- * localStorage so progress survives a reload; in production builds that
- * code is stripped and saves only live in memory.
+ * Stand-in for the SDK outside YouTube. In `npm run dev` and the tester
+ * build saves go to localStorage so progress survives a reload; in the build
+ * for YouTube that code is stripped and saves only live in memory.
  */
 export function createDevPlatform(): { backend: PlatformBackend; controls: DevControls } {
   let memorySave = '';
@@ -21,7 +24,7 @@ export function createDevPlatform(): { backend: PlatformBackend; controls: DevCo
   const resumeEvents = new Emitter();
 
   const readSave = (): string => {
-    if (import.meta.env.DEV) {
+    if (KEEP) {
       try {
         return window.localStorage.getItem(SAVE_KEY) ?? '';
       } catch {
@@ -33,7 +36,7 @@ export function createDevPlatform(): { backend: PlatformBackend; controls: DevCo
 
   const writeSave = (data: string): void => {
     memorySave = data;
-    if (import.meta.env.DEV) {
+    if (KEEP) {
       try {
         window.localStorage.setItem(SAVE_KEY, data);
       } catch {
@@ -101,7 +104,7 @@ export function createDevPlatform(): { backend: PlatformBackend; controls: DevCo
     isAudioEnabled: () => audioEnabled,
     clearSave() {
       memorySave = '';
-      if (import.meta.env.DEV) {
+      if (KEEP) {
         try {
           window.localStorage.removeItem(SAVE_KEY);
         } catch {

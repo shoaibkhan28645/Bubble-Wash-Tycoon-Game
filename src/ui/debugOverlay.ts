@@ -22,13 +22,15 @@ interface DebugDeps {
   readyMs: () => number;
   /** Takes the hero to another town. */
   travel: (id: string) => Promise<void>;
+  /** The stats alone, no buttons (the tester build: its own panel has the testers' buttons). */
+  statsOnly?: boolean;
 }
 
 /** A copy of the first town under another id: somewhere to travel to until Town 2 exists. */
 const TEST_TOWN = 'testville';
 
 /** `?debug` overlay: stats, +$1,000, and (outside YouTube) fake pause/mute. Off by default. */
-export function createDebugOverlay({ root, game, state, saves, lifecycle, dev, readyMs, travel }: DebugDeps): (dt: number) => void {
+export function createDebugOverlay({ root, game, state, saves, lifecycle, dev, readyMs, travel, statsOnly = false }: DebugDeps): (dt: number) => void {
   const panel = document.createElement('div');
   panel.className = 'debug-overlay';
   const stats = document.createElement('div');
@@ -36,7 +38,8 @@ export function createDebugOverlay({ root, game, state, saves, lifecycle, dev, r
   gpu.className = 'debug-gpu';
   const buttons = document.createElement('div');
   buttons.className = 'debug-buttons';
-  panel.append(stats, gpu, buttons);
+  panel.append(stats, gpu);
+  if (!statsOnly) panel.append(buttons);
   root.appendChild(panel);
   // Taps on the panel must not reach the game.
   panel.addEventListener('pointerdown', (event) => event.stopPropagation());
@@ -62,8 +65,8 @@ export function createDebugOverlay({ root, game, state, saves, lifecycle, dev, r
   });
   const shadowButton = buttons.lastElementChild as HTMLButtonElement;
 
-  // Travel test: back and forth between the first town and a fresh copy of it.
-  registerTown(TEST_TOWN, async () => ({ ...ROADSIDE, id: TEST_TOWN }));
+  // Travel test: back and forth between the first town and a fresh copy of it (not for testers: not a real town).
+  if (!statsOnly) registerTown(TEST_TOWN, async () => ({ ...ROADSIDE, id: TEST_TOWN }));
   const travelLabel = () => (state.currentTown === TEST_TOWN ? `Travel to ${ROADSIDE.id}` : 'Travel to test town');
   addButton(travelLabel(), (button) => {
     button.disabled = true;

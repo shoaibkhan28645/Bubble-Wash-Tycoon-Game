@@ -12,6 +12,7 @@ import { TUNING, setTown, town } from './config';
 import { START_TOWN_ID, loadTown, townIds } from './towns';
 import type { GameState } from './gameState';
 import { backgroundEarner, empireOfflineEarnings, switchTown } from './empire';
+import { TESTER, takeAwayShift } from '../platform/tester';
 
 /** Boot sequence from the Tech Guide. gameReady() only once the game is playable. */
 export async function boot(root: HTMLElement): Promise<void> {
@@ -102,16 +103,25 @@ export async function boot(root: HTMLElement): Promise<void> {
   };
 
   // When the game was last saved: taken now, before the town opens (opening it can save: a story beat, a goal).
-  const lastSaved = state.savedAt;
+  // (The tester build's "an hour away" dates it back.)
+  const away = TESTER && state.savedAt > 0 ? takeAwayShift() : 0;
+  const lastSaved = state.savedAt - away;
   await openTown();
   // Offline earnings since the last save (Tech Guide boot sequence).
   const offline = applyOffline(state, lastSaved);
   loading.setProgress(1);
 
-  if (debug) {
+  /** The stats panel (?debug, or the tester panel's "Show performance"); the tester build's has no dev buttons. */
+  const showDebug = async (): Promise<void> => {
+    if (debugTicker) return;
     const { createDebugOverlay } = await import('../ui/debugOverlay');
-    debugTicker = createDebugOverlay({ root, game: () => game, state, saves, lifecycle, dev: platform.devControls, readyMs: () => readyMs, travel });
-    game!.addTicker(debugTicker);
+    debugTicker = createDebugOverlay({ root, game: () => game, state, saves, lifecycle, dev: platform.devControls, readyMs: () => readyMs, travel, statsOnly: TESTER });
+    game.addTicker(debugTicker);
+  };
+  if (debug) await showDebug();
+  if (TESTER) {
+    const { createTesterPanel } = await import('../ui/testerPanel');
+    createTesterPanel({ root, state, saves, travel, showStats: showDebug, dev: platform.devControls });
   }
 
   await loading.hide();
