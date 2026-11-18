@@ -27,6 +27,18 @@ when the hero arrives at the park.
 | `park/clank-*` | Chain winch sounds | bart | https://opengameart.org/content/chain-winch-sounds |
 | `park/whoosh` | Air whoosh | pyranostudios | https://opengameart.org/content/air-whoosh |
 
-The other towns' music, sponge squeaks, water spray, bubble pops, horn,
-till bell and Willowbrook's mooing cows and clucking hens are made in code
-(`src/audio/music.ts`, `src/audio/synth.ts`).
+Willowbrook's animals (`farm/`) are by **Joseph Sardin** on BigSoundBank
+(https://bigsoundbank.com), released under **CC0 1.0**: free for any use, no
+attribution required. Single calls were cut from the recordings, filtered,
+converted to mono MP3 and level-matched. They load when the hero arrives at
+the farm.
+
+| Files | Original | Source |
+|---|---|---|
+| `farm/moo-1` | Cow moos #2 | https://bigsoundbank.com/cow-moos-2-s2382.html |
+| `farm/moo-2` | Cow moos #5 | https://bigsoundbank.com/cow-moos-5-s2385.html |
+| `farm/moo-3` | Cow moos #6 | https://bigsoundbank.com/cow-moos-6-s2386.html |
+| `farm/cluck-*` | Annoyed hen | https://bigsoundbank.com/annoyed-hen-s0453.html |
+
+The other towns' music, sponge squeaks, water spray, bubble pops, horn and
+till bell are made in code (`src/audio/music.ts`, `src/audio/synth.ts`).
