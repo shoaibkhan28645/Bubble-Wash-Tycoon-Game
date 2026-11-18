@@ -56,6 +56,8 @@ export class Player {
     private readonly speedBonus: () => number = () => 1,
   ) {
     this.mesh = this.avatar.root;
+    // (Seen through buildings and anything else in front of them, as a glowing outline.)
+    this.avatar.seeThrough();
     this.mesh.position.set(start.x, 0, start.z);
     scene.add(this.mesh);
   }

@@ -1,5 +1,6 @@
 import { Group, InstancedMesh, Object3D, Scene, type BufferGeometry } from 'three';
 import { box, cylinder, instancedToyMaterial, mergeParts, sphere } from '../render/models/build';
+import { OVER_OUTLINE_ORDER } from '../render/models/seeThrough';
 import type { Point } from '../core/config';
 
 /** Supply items: soap bottles, folded towels, wax tins. */
@@ -143,6 +144,8 @@ class CarriedItems {
       mesh.count = 0;
       mesh.visible = false;
       mesh.frustumCulled = false;
+      // (After the hero's see-through outline, so a pile on their back never has it showing over it.)
+      mesh.renderOrder = OVER_OUTLINE_ORDER;
       scene.add(mesh);
       this.meshes.set(type, mesh);
     }

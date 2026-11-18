@@ -9,6 +9,7 @@ import { onScreen } from '../onScreen';
 import { blobShadow } from './actors';
 import { box, cylinder, mergeParts, rbox, sphere, toyMaterial, type Part } from './build';
 import { footfalls, pickGait, type GaitPose, type Gaits } from './gait';
+import { OUTLINE_ORDER, OVER_OUTLINE_ORDER, seeThroughMaterial } from './seeThrough';
 
 /** Mini Characters are 0.8 units tall; this makes them about car-roof height. */
 const PERSON_SCALE = 2;
@@ -153,6 +154,9 @@ export class PersonAvatar {
   private tucked: Object3D | null = null;
   /** Something worn on the head (the hero's hat from the boutique). */
   private hat: Mesh | null = null;
+  /** Shown through whatever's in front of them (the hero): the hat's outline, once there's a hat. */
+  private seen = false;
+  private hatOutline: Mesh | null = null;
 
   constructor(character: string, tool: Tool | null = null) {
     const { scene, animations } = asset(`person:${character}`);
@@ -208,6 +212,7 @@ export class PersonAvatar {
   wear(geometry: BufferGeometry | null): void {
     if (!geometry) {
       if (this.hat) this.hat.visible = false;
+      if (this.hatOutline) this.hatOutline.visible = false;
       return;
     }
     if (!this.hat) {
@@ -215,9 +220,51 @@ export class PersonAvatar {
       if (!head) return;
       this.hat = new Mesh(geometry, toyMaterial);
       head.add(this.hat);
+      if (this.seen) this.outlineHat();
     }
     this.hat.geometry = geometry;
     this.hat.visible = true;
+    if (this.hatOutline) {
+      this.hatOutline.geometry = geometry;
+      this.hatOutline.visible = true;
+    }
+  }
+
+  /**
+   * Shows this person (the hero) through whatever stands in front of them, as a glowing see-through outline
+   * (render/models/seeThrough.ts): a copy of the body on the same skeleton, and of the hat.
+   */
+  seeThrough(): void {
+    if (this.seen) return;
+    this.seen = true;
+    const bodies: SkinnedMesh[] = [];
+    this.model.traverse((node) => {
+      if (node instanceof SkinnedMesh) bodies.push(node);
+    });
+    for (const body of bodies) {
+      body.renderOrder = OVER_OUTLINE_ORDER;
+      const outline = new SkinnedMesh(body.geometry, seeThroughMaterial);
+      outline.name = 'see-through';
+      outline.position.copy(body.position);
+      outline.quaternion.copy(body.quaternion);
+      outline.scale.copy(body.scale);
+      outline.bindMode = body.bindMode;
+      outline.bind(body.skeleton, body.bindMatrix);
+      outline.frustumCulled = body.frustumCulled;
+      outline.renderOrder = OUTLINE_ORDER;
+      body.parent?.add(outline);
+    }
+    if (this.tool) this.tool.renderOrder = OVER_OUTLINE_ORDER;
+    if (this.hat) this.outlineHat();
+  }
+
+  private outlineHat(): void {
+    if (!this.hat || this.hatOutline) return;
+    this.hat.renderOrder = OVER_OUTLINE_ORDER;
+    this.hatOutline = new Mesh(this.hat.geometry, seeThroughMaterial);
+    this.hatOutline.renderOrder = OUTLINE_ORDER;
+    this.hatOutline.visible = this.hat.visible;
+    this.hat.parent?.add(this.hatOutline);
   }
 
   /** Puts `tool` in the right hand (shown while working, or while `holding`): a visitor's candy floss, then a prize. */
@@ -233,6 +280,7 @@ export class PersonAvatar {
       return;
     }
     this.tool = new Mesh(geometry, toyMaterial);
+    if (this.seen) this.tool.renderOrder = OVER_OUTLINE_ORDER;
     this.tool.position.set(0, HAND_TOOL[0], HAND_TOOL[1]);
     this.tool.visible = false;
     this.hand.add(this.tool);

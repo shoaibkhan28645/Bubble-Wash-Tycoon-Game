@@ -123,7 +123,8 @@ export interface Stage {
 }
 
 export function createStage(container: HTMLElement): Stage {
-  const renderer = new WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+  // (A stencil buffer for the hero's outline through buildings: render/models/seeThrough.ts.)
+  const renderer = new WebGLRenderer({ antialias: true, powerPreference: 'high-performance', stencil: true });
   renderer.setClearColor(BACKGROUND);
   container.appendChild(renderer.domElement);
 
