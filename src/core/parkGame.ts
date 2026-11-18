@@ -675,6 +675,9 @@ export function createParkGame(
     pad.group.position.set(ride.spot.lever.x, 0, ride.spot.lever.z);
     stage.scene.add(pad.group);
     stage.scene.add(withShadows(ropes(ride.spot.ropes)));
+    // (The sign pulses when the ride's full inside a box that's placed on the screen: a pulse on the placed box
+    // itself would take over its placing, flinging it to the screen's corner and back.)
+    const placed = document.createElement('div');
     const el = document.createElement('div');
     el.className = 'shelf-stock ride-sign';
     const words = document.createElement('span');
@@ -683,7 +686,8 @@ export function createParkGame(
     const fill = document.createElement('i');
     gauge.appendChild(fill);
     el.append(words, gauge);
-    const label = labels.add(el, overRide(ride, RIDE_LABEL_Y));
+    placed.appendChild(el);
+    const label = labels.add(placed, overRide(ride, RIDE_LABEL_Y));
     rideViews.push({ ride, view, pad, sign: { el, words, fill, label, shown: '', worn: -1 } });
     solid(id, ride.spot.at);
     solids.push(...view.solids);

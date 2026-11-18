@@ -816,9 +816,13 @@ export function createSkyportGame(
     const ring = new TimingRing();
     ring.mesh.position.set(spot.marshal.x, 0.09, spot.marshal.z);
     stage.scene.add(ring.mesh);
+    // (The sign pulses inside a box that's placed on the screen: a pulse on the placed box itself would take over
+    // its placing, flinging it to the screen's corner and back.)
     const door = document.createElement('div');
-    door.className = 'upgrade-icon flight-door';
-    door.innerHTML = rich(`🚪 ${t('gateClosed')}`);
+    const doorSign = document.createElement('div');
+    doorSign.className = 'upgrade-icon flight-door';
+    doorSign.innerHTML = rich(`🚪 ${t('gateClosed')}`);
+    door.appendChild(doorSign);
     const doorLabel = labels.add(door, new Vector3(spot.podium.x, 2.6, spot.podium.z));
     doorLabel.visible = false;
     // (Kept clear of the planes' labels: it moves for them, they don't move for it.)
@@ -3354,6 +3358,7 @@ export function createSkyportGame(
     Object.assign(window, {
       skyport: {
         airfield,
+        labels,
         passengers,
         gates,
         clear,

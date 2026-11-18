@@ -93,8 +93,8 @@ function painted(text: string, x: number, z: number, height: number, colour: str
   if (display) void document.fonts?.load('400 64px "Lilita One"').then(draw);
   const geometry = new PlaneGeometry((height * canvas.width) / 200, height).rotateX(-PI / 2);
   const mesh = new Mesh(geometry, new MeshLambertMaterial({ map: texture, transparent: true, depthWrite: false }));
-  // (Under a small pad's white edge, which stands 7 cm up.)
-  mesh.position.set(x, 0.06, z);
+  // (Under a small pad's white edge, which stands 7 cm up, and clear of anything lying flat at 6 cm.)
+  mesh.position.set(x, 0.065, z);
   mesh.rotation.y = turn;
   mesh.receiveShadow = true;
   mesh.renderOrder = 2;
@@ -166,7 +166,15 @@ export function airfield(layout: AirportLayout): Object3D {
   Object.values(layout.gates).forEach((gate, i) => {
     mark(gate.x, (tw.maxZ + gate.noseZ) / 2, 0.26, gate.noseZ - tw.maxZ, YELLOW);
     mark(gate.x, gate.noseZ + 0.4, 2.2, 0.3, YELLOW);
-    for (const side of [-1, 1]) for (let z = tw.maxZ + 2; z < gate.noseZ + 1; z += 2.4) mark(gate.x + side * 6.3, z, 0.16, 1.2, '#ff8a3d');
+    for (const side of [-1, 1]) {
+      for (let z = tw.maxZ + 2; z < gate.noseZ + 1; z += 2.4) {
+        // (Not across the yellow box where cases are picked up: the two paints would fight.)
+        const x = gate.x + side * 6.3;
+        const pick = layout.belt.pick;
+        if (x > pick.minX - 0.3 && x < pick.maxX + 0.3 && z + 0.6 > pick.minZ - 0.3 && z - 0.6 < pick.maxZ + 0.3) continue;
+        mark(x, z, 0.16, 1.2, '#ff8a3d');
+      }
+    }
     group.add(painted(String(i + 1), gate.x - 4.7, gate.noseZ + 0.2, 2.4, YELLOW));
   });
   // The service road's dashes; a yellow box where cases are picked up; the road's centre line and a crossing.
@@ -246,8 +254,9 @@ export function queenStand(layout: AirportLayout): Object3D {
   for (let x = stand.x - half; x <= stand.x + half; x += 2.4) mark(x, stand.noseZ + 1.2, 1.2, 0.18, GOLDEN);
   // A crown on the line, halfway in.
   const cz = (r.minZ + stand.noseZ) / 2 - 6;
-  mark(stand.x, cz, 2.6, 0.5, GOLDEN);
-  for (let i = -2; i <= 2; i++) marks.push({ geometry: box(0.36, 0.02, 1.1 - Math.abs(i) * 0.25), color: GOLDEN, x: stand.x + i * 0.6, y: 0.036, z: cz - 0.7 + Math.abs(i) * 0.12 });
+  // (A few millimetres over the line it's painted on, so the two don't fight.)
+  marks.push({ geometry: box(2.6, 0.02, 0.5), color: GOLDEN, x: stand.x, y: 0.039, z: cz });
+  for (let i = -2; i <= 2; i++) marks.push({ geometry: box(0.36, 0.02, 1.1 - Math.abs(i) * 0.25), color: GOLDEN, x: stand.x + i * 0.6, y: 0.039, z: cz - 0.7 + Math.abs(i) * 0.12 });
   const paint = new Mesh(mergeParts(marks), toyMaterial);
   paint.receiveShadow = true;
   group.add(paint);
