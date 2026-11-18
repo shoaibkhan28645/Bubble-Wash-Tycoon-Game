@@ -1,5 +1,5 @@
-"""Main Street Mogul's music, written for the game (all but Starlight Fun
-Park's, "Carnival Rides" by Écrivain, CC0): each tune is a score in this file, played by FluidSynth with the FluidR3 GM instruments (MIT) and
+"""Main Street Mogul's music, all written for the game: each tune is a score
+in this file, played by FluidSynth with the FluidR3 GM instruments (MIT) and
 cut into a seamless loop.
 
 Town music (loops):
@@ -9,10 +9,15 @@ Town music (loops):
 - farm:      Willowbrook. A hoedown in G: banjo rolls and boom-chick guitar,
              then the fiddle's tune, its bridge, and the tune again with a
              second fiddle in harmony.
+- park:      Starlight Fun Park. A circus galop in E minor at a quick
+             two-step: a calliope's chromatic tune with slides, oom-pah tuba and
+             reed organ, glockenspiel, bass drum, snare and cymbal; a brighter
+             middle in G major.
 - skyport:   Skyport. A light bossa nova in F for the departure lounge:
              electric piano, warm pad, finger bass and brushes; the
              vibraphone's tune, a flute's, then both together.
-- musicbox:  Starlight Fun Park's carousel: a music box's slow lullaby waltz in C.
+- musicbox:  The carousel's music box: a slow lullaby waltz in G (the park
+             galop's notes, so the two sit together by the carousel).
 
 Jingles (mono, short): build, reward, vip, mission.
 
@@ -53,6 +58,7 @@ class Score:
         self.beats_per_bar = beats_per_bar
         self.bars = bars
         self.notes: list[tuple[float, float, int, int, int]] = []  # start, length, channel, pitch, velocity
+        self.bends: list[tuple[float, int, int]] = []  # when (beats), channel, pitch-wheel value
         self.setup: dict[int, dict] = {}
         self.rand = random.Random(seed)
         self.room = room
@@ -69,8 +75,9 @@ class Score:
     def seconds(self) -> float:
         return self.beats * 60 / self.bpm
 
-    def instrument(self, channel: int, program: int, volume: int, pan: int = 64, reverb: int = 40, chorus: int = 0):
-        self.setup[channel] = dict(program=program, volume=volume, pan=pan, reverb=reverb, chorus=chorus)
+    def instrument(self, channel: int, program: int, volume: int, pan: int = 64, reverb: int = 40, chorus: int = 0, bend: int = 2):
+        """A channel's instrument; `bend` is how far (semitones) its pitch wheel reaches, for slides."""
+        self.setup[channel] = dict(program=program, volume=volume, pan=pan, reverb=reverb, chorus=chorus, bend=bend)
 
     def note(self, bar: float, beat: float, pitch: int, length: float, velocity: int, channel: int, loose: float = 0.012):
         """One note; `loose` (beats) lets it land a touch early or late, as a player would."""
@@ -90,6 +97,17 @@ class Score:
         for i, p in enumerate(order):
             self.note(bar, beat + i * strum, p, length - i * strum, velocity - i * 3, channel, loose=0.004)
 
+    def slide(self, bar: float, beat: float, start: int, pitch: int, glide: float, length: float, velocity: int, channel: int):
+        """A note that slides up (or down) into its pitch from `start` over `glide` beats, like a steam whistle."""
+        at = bar * self.beats_per_bar + beat
+        reach = self.setup[channel]['bend']
+        steps = max(2, round(glide * 24))
+        for i in range(steps + 1):
+            k = i / steps
+            off = (start - pitch) * (1 - k) ** 1.5
+            self.bends.append((at + glide * k, channel, round(max(-8192, min(8191, off / reach * 8192)))))
+        self.notes.append((at, length, channel, pitch, velocity))
+
     def tune(self, notes, channel: int, accent: int, soft: int, legato: float = 0.95, shift: float = 0, transpose: int = 0):
         """A melody: (bar, beat, pitch, beats) each, louder on the strong beats."""
         strong = (0, 2) if self.beats_per_bar == 4 else (0,)
@@ -106,6 +124,10 @@ class Score:
                 events.append((0, 0, mido.Message('program_change', channel=channel, program=s['program'])))
             for cc, value in ((7, s['volume']), (10, s['pan']), (91, s['reverb']), (93, s['chorus'])):
                 events.append((0, 0, mido.Message('control_change', channel=channel, control=cc, value=value)))
+            if s['bend'] != 2:
+                # The pitch wheel's reach (registered parameter 0), then the parameter closed again.
+                for cc, value in ((101, 0), (100, 0), (6, s['bend']), (38, 0), (101, 127), (100, 127)):
+                    events.append((0, 0, mido.Message('control_change', channel=channel, control=cc, value=value)))
         for t in range(times):
             offset = t * self.beats
             for start, length, channel, pitch, velocity in self.notes:
@@ -113,6 +135,8 @@ class Score:
                 off = round((start + offset + max(0.05, length)) * PPQ)
                 events.append((on, 2, mido.Message('note_on', channel=channel, note=pitch, velocity=velocity)))
                 events.append((off, 1, mido.Message('note_off', channel=channel, note=pitch, velocity=0)))
+            for at, channel, value in self.bends:
+                events.append((round((at + offset) * PPQ), 1, mido.Message('pitchwheel', channel=channel, pitch=value)))
         # Two quiet bars at the end, for the last echoes.
         end = round((times * self.beats + self.beats_per_bar * 2) * PPQ)
         events.append((end, 3, mido.MetaMessage('marker', text='end')))
@@ -319,8 +343,91 @@ def farm() -> Score:
 
 # ---------------------------------------------------------------- Starlight Fun Park
 
+def park() -> Score:
+    s = Score(bpm=160, beats_per_bar=4, bars=32, seed=17, room=0.5, wet=0.55)
+    TUBA, ORGAN, CALLIOPE, GLOCK = 0, 1, 2, 3
+    s.instrument(TUBA, 58, 70, reverb=25)                  # tuba, light: a band organ has little deep bass
+    s.instrument(ORGAN, 20, 104, pan=48, reverb=35)        # reed organ, low and full like a band organ's
+    s.instrument(CALLIOPE, 82, 76, pan=64, reverb=45, bend=12)  # calliope (its pitch wheel reaches an octave, for slides)
+    s.instrument(GLOCK, 9, 58, pan=84, reverb=50)          # glockenspiel
+    s.instrument(DRUMS, 0, 70, reverb=35)
+    s.fold = {CALLIOPE}
+    chords = ['Em', 'Em', 'D', 'D', 'Em', 'Em', 'B7', 'B7',     # the tune
+              'Em', 'Em', 'D', 'D', 'C', 'Am', 'B7', 'Em',      # again, closing at home
+              'G', 'G', 'D7', 'D7', 'G', 'E7', 'Am', 'B7',      # the brighter middle, in G
+              'Em', 'Em', 'D', 'D', 'C', 'B7', 'Em', 'B7']      # the tune once more, round to the top
+    s.chords = chords
+    root = {'Em': 52, 'D': 50, 'B7': 47, 'C': 48, 'Am': 45, 'G': 43, 'E7': 52, 'D7': 50}
+    fifth = {'Em': 47, 'D': 45, 'B7': 54, 'C': 43, 'Am': 52, 'G': 50, 'E7': 47, 'D7': 45}
+    pah = {'Em': [55, 59, 64], 'D': [54, 57, 62], 'B7': [54, 57, 59, 63], 'C': [55, 60, 64], 'Am': [57, 60, 64],
+           'G': [55, 59, 62], 'E7': [56, 59, 62, 64], 'D7': [54, 57, 60, 62]}
+    for bar, c in enumerate(chords):
+        middle = 16 <= bar < 24
+        # Oom on 1 and 3 (root, then fifth), pah on 2 and 4: the organ's short chords.
+        s.note(bar, 0, root[c], 0.8, 94, TUBA)
+        s.note(bar, 2, fifth[c], 0.8, 84, TUBA)
+        for beat in (1, 3):
+            s.chord(bar, beat, pah[c], 0.4, 80 if beat == 1 else 76, ORGAN, strum=0.006)
+        # Band-organ drums: bass drum on 1 and 3, snare on 2 and 4, a cymbal at each section; woodblock ticks in the middle.
+        for beat in (0, 2):
+            s.note(bar, beat, 36, 0.2, 66, DRUMS)
+        for beat in (1, 3):
+            s.note(bar, beat, 38, 0.15, 50, DRUMS)
+        if bar in (0, 16, 24):
+            s.note(bar, 0, 49, 0.5, 52, DRUMS)
+        if middle:
+            for i in range(4):
+                s.note(bar, i + 0.5, 77, 0.1, 34, DRUMS)
+        # A snare roll into the middle and into the last section.
+        if bar in (15, 23):
+            for i in range(8):
+                s.note(bar, 2 + i * 0.25, 38, 0.1, 30 + i * 5, DRUMS)
+    a = [  # the tune: bars 0-3, played three times
+        (0, 0, 76, 0.5), (0, 0.5, 75, 0.5), (0, 1, 76, 0.5), (0, 1.5, 79, 0.5), (0, 2, 83, 1), (0, 3, 79, 0.5), (0, 3.5, 76, 0.5),
+        (1, 0, 71, 0.5), (1, 0.5, 72, 0.5), (1, 1, 71, 0.5), (1, 1.5, 70, 0.5), (1, 2, 71, 1), (1, 3, 76, 1),
+        (2, 0, 74, 0.5), (2, 0.5, 73, 0.5), (2, 1, 74, 0.5), (2, 1.5, 78, 0.5), (2, 2, 81, 1), (2, 3, 78, 0.5), (2, 3.5, 74, 0.5),
+        (3, 0, 69, 0.5), (3, 0.5, 71, 0.5), (3, 1, 72, 0.5), (3, 1.5, 73, 0.5), (3, 2, 74, 2),
+    ]
+    tune = [
+        *a,
+        (4, 0, 76, 0.5), (4, 0.5, 75, 0.5), (4, 1, 76, 0.5), (4, 1.5, 79, 0.5), (4, 2, 83, 0.5), (4, 2.5, 84, 0.5), (4, 3, 83, 0.5), (4, 3.5, 79, 0.5),
+        (5, 0, 88, 1.5), (5, 1.5, 86, 0.5), (5, 2, 83, 1), (5, 3, 79, 1),
+        (6, 0, 78, 0.5), (6, 0.5, 77, 0.5), (6, 1, 76, 0.5), (6, 1.5, 75, 0.5), (6, 2, 78, 1), (6, 3, 81, 1),
+        (7, 0, 83, 2), (7, 2, 75, 0.5), (7, 2.5, 78, 0.5), (7, 3, 81, 0.5), (7, 3.5, 78, 0.5),
+        *[(bar + 8, beat, p, n) for bar, beat, p, n in a],
+        (12, 0, 79, 0.5), (12, 0.5, 78, 0.5), (12, 1, 79, 0.5), (12, 1.5, 84, 0.5), (12, 2, 88, 1), (12, 3, 84, 1),
+        (13, 0, 81, 0.5), (13, 0.5, 80, 0.5), (13, 1, 81, 0.5), (13, 1.5, 84, 0.5), (13, 2, 88, 1), (13, 3, 84, 1),
+        (14, 0, 83, 1), (14, 1, 81, 0.5), (14, 1.5, 78, 0.5), (14, 2, 75, 1), (14, 3, 71, 1),
+        (15, 0, 76, 2), (15, 2, 79, 0.5), (15, 2.5, 78, 0.5), (15, 3, 79, 0.5), (15, 3.5, 81, 0.5),
+        # The middle (its slides below).
+        (16, 1.5, 81, 0.5), (16, 2, 79, 1), (16, 3, 74, 1),
+        (17, 0, 71, 0.5), (17, 0.5, 74, 0.5), (17, 1, 79, 0.5), (17, 1.5, 83, 0.5), (17, 2, 86, 2),
+        (18, 1.5, 79, 0.5), (18, 2, 78, 1), (18, 3, 72, 1),
+        (19, 0, 74, 0.5), (19, 0.5, 78, 0.5), (19, 1, 81, 0.5), (19, 1.5, 84, 0.5), (19, 2, 86, 1), (19, 3, 84, 1),
+        (20, 1.5, 81, 0.5), (20, 2, 79, 1), (20, 3, 83, 1),
+        (21, 0, 80, 1), (21, 1, 83, 0.5), (21, 1.5, 86, 0.5), (21, 2, 88, 1.5), (21, 3.5, 86, 0.5),
+        (22, 0, 84, 1), (22, 1, 81, 0.5), (22, 1.5, 76, 0.5), (22, 2, 72, 1), (22, 3, 76, 1),
+        (23, 0, 75, 0.5), (23, 0.5, 78, 0.5), (23, 1, 81, 0.5), (23, 1.5, 83, 0.5), (23, 2, 87, 1), (23, 3, 83, 1),
+        *[(bar + 24, beat, p, n) for bar, beat, p, n in a],
+        (28, 0, 79, 0.5), (28, 0.5, 78, 0.5), (28, 1, 79, 0.5), (28, 1.5, 84, 0.5), (28, 2, 88, 1), (28, 3, 84, 1),
+        (29, 0, 83, 1), (29, 1, 81, 0.5), (29, 1.5, 78, 0.5), (29, 2, 75, 1), (29, 3, 71, 1),
+        (30, 0, 76, 0.5), (30, 0.5, 79, 0.5), (30, 1, 83, 0.5), (30, 1.5, 88, 1.5), (30, 3, 83, 1),
+        (31, 0, 83, 0.5), (31, 0.5, 81, 0.5), (31, 1, 78, 0.5), (31, 1.5, 75, 0.5), (31, 2, 71, 0.5), (31, 2.5, 75, 0.5), (31, 3, 78, 0.5), (31, 3.5, 75, 0.5),
+    ]
+    # Short and bouncy, as a calliope's pipes speak.
+    s.tune(tune, CALLIOPE, 90, 80, legato=0.82)
+    # The middle's slides: up into each bar's first note, a fourth or fifth below.
+    for bar, start, pitch in ((16, 76, 83), (18, 74, 81), (20, 76, 83)):
+        s.slide(bar, 0, start, pitch, 0.35, 1.4, 92, CALLIOPE)
+    # The glockenspiel sparkles on each bar's first note in the middle and the last section.
+    s.tune([(b, beat, p, n) for b, beat, p, n in tune if beat == 0 and b >= 16], GLOCK, 60, 60, legato=0.4, transpose=12)
+    for bar, pitch in ((16, 83), (18, 81), (20, 83)):
+        s.note(bar, 0.35, pitch + 12, 0.5, 60, GLOCK)
+    return s
+
+
 def musicbox() -> Score:
-    s = Score(bpm=76, beats_per_bar=3, bars=16, seed=13, room=0.7, wet=0.7)
+    s = Score(bpm=80, beats_per_bar=3, bars=16, seed=13, room=0.7, wet=0.7)
     BOX = 0
     s.instrument(BOX, 10, 100, reverb=60)                  # music box
     chords = ['C', 'Am', 'F', 'G', 'C', 'Am', 'Dm', 'G',
@@ -343,6 +450,8 @@ def musicbox() -> Score:
         (14, 0, 76, 2), (14, 2, 72, 1), (15, 0, 74, 2), (15, 2, 71, 1),
     ]
     s.tune(tune, BOX, 92, 82, legato=1.0)
+    # Written in C, played in G: down a fourth, into the park galop's key (E minor shares G major's notes).
+    s.notes = [(at, length, ch, pitch - 5, velocity) for at, length, ch, pitch, velocity in s.notes]
     return s
 
 
@@ -491,7 +600,7 @@ def jingle_mission() -> Score:
     return s
 
 
-LOOPS = {'roadside': roadside, 'farm': farm, 'skyport': skyport, 'musicbox': musicbox}
+LOOPS = {'roadside': roadside, 'farm': farm, 'park': park, 'skyport': skyport, 'musicbox': musicbox}
 JINGLES = {'build': jingle_build, 'reward': jingle_reward, 'vip': jingle_vip, 'mission': jingle_mission}
 
 
