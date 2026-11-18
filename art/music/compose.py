@@ -1,5 +1,5 @@
-"""Main Street Mogul's music, all written for the game: each tune is a score
-in this file, played by FluidSynth with the FluidR3 GM instruments (MIT) and
+"""Main Street Mogul's music, written for the game (all but Starlight Fun
+Park's, "Carnival Rides" by Écrivain, CC0): each tune is a score in this file, played by FluidSynth with the FluidR3 GM instruments (MIT) and
 cut into a seamless loop.
 
 Town music (loops):
@@ -9,13 +9,10 @@ Town music (loops):
 - farm:      Willowbrook. A hoedown in G: banjo rolls and boom-chick guitar,
              then the fiddle's tune, its bridge, and the tune again with a
              second fiddle in harmony.
-- park:      Starlight Fun Park. A carnival waltz in C: calliope and
-             glockenspiel over oom-pah tuba and accordion, and a gentler trio
-             in F.
 - skyport:   Skyport. A light bossa nova in F for the departure lounge:
              electric piano, warm pad, finger bass and brushes; the
              vibraphone's tune, a flute's, then both together.
-- musicbox:  The carousel's music box: a slow lullaby waltz in C.
+- musicbox:  Starlight Fun Park's carousel: a music box's slow lullaby waltz in C.
 
 Jingles (mono, short): build, reward, vip, mission.
 
@@ -322,71 +319,6 @@ def farm() -> Score:
 
 # ---------------------------------------------------------------- Starlight Fun Park
 
-def park() -> Score:
-    s = Score(bpm=152, beats_per_bar=3, bars=48, seed=5, room=0.6, wet=0.6)
-    TUBA, ORGAN, CALLIOPE, GLOCK = 0, 1, 2, 3
-    s.instrument(TUBA, 58, 96, reverb=30)                  # tuba
-    s.instrument(ORGAN, 21, 64, pan=46, reverb=40)         # accordion
-    s.instrument(CALLIOPE, 82, 90, pan=64, reverb=50)      # calliope
-    s.instrument(GLOCK, 9, 56, pan=86, reverb=55)          # glockenspiel
-    s.instrument(DRUMS, 0, 68, reverb=40)
-    s.fold = {CALLIOPE}
-    chords = ['C', 'C', 'G7', 'G7', 'G7', 'G7', 'C', 'C',
-              'C', 'C', 'F', 'F', 'C', 'G7', 'C', 'C',
-              'F', 'F', 'C', 'C', 'G7', 'G7', 'C', 'C',
-              'F', 'F', 'C', 'A7', 'Dm', 'G7', 'C', 'C7',
-              # The trio, in F, gentler; back to C by way of D7 and G7.
-              'F', 'F', 'C7', 'C7', 'C7', 'C7', 'F', 'F',
-              'Bb', 'Bb', 'F', 'F', 'D7', 'D7', 'G7', 'G7']
-    root = {'C': 48, 'G7': 43, 'F': 41, 'A7': 45, 'Dm': 50, 'C7': 48, 'Bb': 46, 'D7': 50}
-    alt = {'C': 43, 'G7': 50, 'F': 48, 'A7': 52, 'Dm': 45, 'C7': 43, 'Bb': 41, 'D7': 45}
-    pah = {'C': [60, 64, 67], 'G7': [59, 65, 67], 'F': [60, 65, 69], 'A7': [61, 64, 67], 'Dm': [62, 65, 69],
-           'C7': [60, 64, 70], 'Bb': [62, 65, 70], 'D7': [60, 66, 69]}
-    s.chords = chords
-    for bar, c in enumerate(chords):
-        trio = bar >= 32
-        same = bar > 0 and chords[bar - 1] == c
-        s.note(bar, 0, alt[c] if same else root[c], 0.9, 86 if trio else 92, TUBA)
-        for beat in (1, 2):
-            s.chord(bar, beat, pah[c], 0.45, 54 if trio else 62, ORGAN, strum=0.008)
-        s.note(bar, 0, 36, 0.2, 56 if trio else 64, DRUMS)
-        for beat in (1, 2):
-            s.note(bar, beat, 38, 0.15, 24 if trio else 30, DRUMS)
-        if bar % 4 == 0:
-            s.note(bar, 0, 81, 0.5, 42, DRUMS)
-    tune = [
-        (0, 0, 67, 1), (0, 1, 72, 1), (0, 2, 76, 1), (1, 0, 79, 2), (1, 2, 76, 1),
-        (2, 0, 77, 1), (2, 1, 74, 1), (2, 2, 71, 1), (3, 0, 79, 2), (3, 2, 77, 1),
-        (4, 0, 77, 1), (4, 1, 76, 1), (4, 2, 74, 1), (5, 0, 71, 2), (5, 2, 74, 1),
-        (6, 0, 76, 1), (6, 1, 74, 1), (6, 2, 72, 1), (7, 0, 72, 2), (7, 2, 67, 1),
-        (8, 0, 72, 1), (8, 1, 76, 1), (8, 2, 79, 1), (9, 0, 84, 2), (9, 2, 79, 1),
-        (10, 0, 81, 1), (10, 1, 77, 1), (10, 2, 72, 1), (11, 0, 81, 2), (11, 2, 79, 1),
-        (12, 0, 79, 1), (12, 1, 76, 1), (12, 2, 72, 1), (13, 0, 74, 1), (13, 1, 77, 1), (13, 2, 71, 1),
-        (14, 0, 72, 3), (15, 0, 67, 1), (15, 1, 69, 1), (15, 2, 71, 1),
-        (16, 0, 72, 1), (16, 1, 77, 1), (16, 2, 81, 1), (17, 0, 84, 2), (17, 2, 81, 1),
-        (18, 0, 79, 1), (18, 1, 76, 1), (18, 2, 72, 1), (19, 0, 79, 2), (19, 2, 76, 1),
-        (20, 0, 77, 1), (20, 1, 79, 1), (20, 2, 77, 1), (21, 0, 74, 2), (21, 2, 71, 1),
-        (22, 0, 72, 1), (22, 1, 76, 1), (22, 2, 79, 1), (23, 0, 84, 3),
-        (24, 0, 81, 1), (24, 1, 84, 1), (24, 2, 81, 1), (25, 0, 77, 2), (25, 2, 72, 1),
-        (26, 0, 76, 1), (26, 1, 79, 1), (26, 2, 84, 1), (27, 0, 85, 2), (27, 2, 81, 1),
-        (28, 0, 86, 1), (28, 1, 81, 1), (28, 2, 77, 1), (29, 0, 79, 1), (29, 1, 77, 1), (29, 2, 74, 1),
-        (30, 0, 72, 2), (30, 2, 76, 1), (31, 0, 76, 1), (31, 1, 72, 1), (31, 2, 70, 1),
-        # The trio.
-        (32, 0, 77, 2), (32, 2, 81, 1), (33, 0, 84, 3),
-        (34, 0, 82, 2), (34, 2, 79, 1), (35, 0, 76, 3),
-        (36, 0, 79, 1), (36, 1, 82, 1), (36, 2, 84, 1), (37, 0, 88, 2), (37, 2, 84, 1),
-        (38, 0, 81, 3), (39, 0, 77, 1), (39, 1, 79, 1), (39, 2, 81, 1),
-        (40, 0, 82, 2), (40, 2, 86, 1), (41, 0, 86, 3),
-        (42, 0, 84, 2), (42, 2, 81, 1), (43, 0, 77, 3),
-        (44, 0, 78, 2), (44, 2, 81, 1), (45, 0, 84, 2), (45, 2, 81, 1),
-        (46, 0, 79, 2), (46, 2, 77, 1), (47, 0, 74, 1), (47, 1, 71, 1), (47, 2, 67, 1),
-    ]
-    s.tune(tune, CALLIOPE, 86, 76, legato=0.9)
-    # The glockenspiel doubles the tune an octave up on the first beat of each bar.
-    s.tune([n for n in tune if n[1] == 0], GLOCK, 60, 60, legato=0.4, transpose=12)
-    return s
-
-
 def musicbox() -> Score:
     s = Score(bpm=76, beats_per_bar=3, bars=16, seed=13, room=0.7, wet=0.7)
     BOX = 0
@@ -559,7 +491,7 @@ def jingle_mission() -> Score:
     return s
 
 
-LOOPS = {'roadside': roadside, 'farm': farm, 'park': park, 'skyport': skyport, 'musicbox': musicbox}
+LOOPS = {'roadside': roadside, 'farm': farm, 'skyport': skyport, 'musicbox': musicbox}
 JINGLES = {'build': jingle_build, 'reward': jingle_reward, 'vip': jingle_vip, 'mission': jingle_mission}
 
 

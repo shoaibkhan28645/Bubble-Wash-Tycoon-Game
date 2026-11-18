@@ -2,16 +2,16 @@
 
 ## Music: written for Main Street Mogul
 
-All of the game's music was written for it. Each piece is a score in
-`art/music/compose.py`, played with the **FluidR3 GM** instruments
-(© 2000–2002, 2008 Frank Wen; MIT licence) through FluidSynth and cut into a
-seamless loop. Each town's music loads when the hero arrives there.
+The game's music was written for it, all but Starlight Fun Park's (below).
+Each piece is a score in `art/music/compose.py`, played with the **FluidR3
+GM** instruments (© 2000–2002, 2008 Frank Wen; MIT licence) through
+FluidSynth and cut into a seamless loop. Each town's music loads when the
+hero arrives there.
 
 | Files | What |
 |---|---|
 | `roadside/roadside-music` | Roadside: the car wash's ukulele tune |
 | `farm/farm-music` | Willowbrook: a hoedown with banjo and fiddles |
-| `park/park-music` | Starlight Fun Park: a carnival waltz with a calliope |
 | `park/musicbox` | The carousel's music box: a lullaby waltz |
 | `skyport/skyport-music` | Skyport: a lounge bossa nova |
 | `jingle-build`, `jingle-reward`, `jingle-vip`, `jingle-mission` | The short fanfares for building, rewards, VIPs and goals |
@@ -29,12 +29,13 @@ mono MP3 and level-matched.
 | `chip-*`, `register` | Casino Audio | https://opengameart.org/content/54-casino-sound-effects-cards-dice-chips |
 | `sparkle`, `pick`, `drop`, `click`, `open`, `upgrade` | Interface Sounds | https://opengameart.org/content/interface-sounds |
 
-Starlight Fun Park's other sounds (`park/`) are also released under **CC0 1.0**
-on OpenGameArt, cut, converted to mono MP3 and level-matched. They load
-when the hero arrives at the park.
+Starlight Fun Park's music and its other sounds (`park/`, all but the music
+box) are also released under **CC0 1.0** on OpenGameArt, cut, converted to
+mono MP3 and level-matched. They load when the hero arrives at the park.
 
 | Files | Original | By | Source |
 |---|---|---|---|
+| `park/park-music` | Carnival Rides | Écrivain | https://opengameart.org/content/carnival-rides |
 | `park/firework-*` | 25 CC0 bang / firework SFX | rubberduck | https://opengameart.org/content/25-cc0-bang-firework-sfx |
 | `park/splash-*`, `park/rain` | 40 CC0 water / splash / slime SFX | rubberduck | https://opengameart.org/content/40-cc0-water-splash-slime-sfx |
 | `park/cheer-*` | Applause in a large hall or church | eXpl0it3r | https://opengameart.org/content/applause-in-a-large-hall-or-church |
