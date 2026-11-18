@@ -145,8 +145,18 @@ const GUIDE_UNTIL = 'agent';
 const SPOT_REACH = 1.0;
 /** Stood on a ramp pad since before its plane was ready, the hero clears it after this long (no ring, no tip). */
 const STAND_CLEAR_SECONDS = 0.8;
-/** Standing still with a plane landing or taking off, the camera eases back this much further to show it (wide screens need more). */
-const SHOW_ZOOM = { tall: 1.55, wide: 2.25 };
+/** Standing still with a plane landing or taking off, the camera eases back this far to show it (wide screens need more). */
+const SHOW_ZOOM = { tall: 2.3, wide: 3.4 };
+/**
+ * Out through a gate's door the view widens over this many metres; and by a big plane on the ground (from its
+ * middle, less half its length) it's widest this near, and as usual from this far.
+ */
+const APRON_BLEND = 3;
+const BIG_NEAR = 6;
+const BIG_FAR = 15;
+const clamp01 = (v: number): number => Math.min(1, Math.max(0, v));
+/** The planes the camera stands further back for, so they fit on the screen. */
+const BIG_PLANES: ReadonlySet<PlaneKind> = new Set<PlaneKind>(['wide', 'freighter', 'queen']);
 const SHOW_AFTER_SECONDS = 0.6;
 /** Sounds are full within this far of the hero (metres) and die away over the next stretch. */
 const HEAR_NEAR = 16;
@@ -170,8 +180,14 @@ const TAXI_TO = -126;
 /** How fast a taxi comes in along the far stretch of the road (m/s; 16 nearer the kerb). Only one comes in to each
  * kerb at a time, so how soon it gets there sets how many passengers arrive. */
 const TAXI_FAR_SPEED = 24;
+/** A parked plane's label shows while the hero's this near it (m, from its fuselage), and goes once they're this far off. */
+const LABEL_NEAR = 10;
+const LABEL_KEEP = 11.5;
 /** How far either side of the check-in line its belt barriers stand (m; art/blender/skyport_kit.py's sp_queue). */
 const QUEUE_HALF = 1.15;
+/** How far in front of the desk they start and end (m): their first post, and their last post's foot. */
+const QUEUE_FROM = 1.3;
+const QUEUE_TO = 4.4;
 /** The crew's walking speed (m/s), and how much slower than the hero the agent checks in. */
 const CREW_SPEED = 3.3;
 const AGENT_RATE = 0.85;
@@ -294,6 +310,8 @@ interface FlightView {
   at: Vector3;
   shown: string;
   lateSaid: boolean;
+  /** The hero's near enough (its label shows). */
+  near: boolean;
 }
 
 /** What stands at a gate once it's built. */
@@ -346,7 +364,7 @@ export function createSkyportGame(
   const clock = new GameClock();
   const tickers: ((dt: number) => void)[] = [];
   const rig = new CameraRig(stage.camera);
-  rig.setZoom(AIRPORT.zoom, true);
+  rig.setZoom(AIRPORT.zoom.inside, true);
   const labels = new WorldLabels(root);
   const hud = new Hud(root, state.cash);
   const input = new Input(root, lifecycle);
@@ -420,8 +438,9 @@ export function createSkyportGame(
     { minX: deskSpot.at.x + 1.6, maxX: deskSpot.at.x + 2.6, minZ: deskSpot.at.z - 2.5, maxZ: deskSpot.at.z + 0.48 },
     around({ x: deskSpot.at.x - 1.95, z: deskSpot.at.z - 0.55 }, 0.1),
     // The belt barriers either side of the line.
-    // (Far enough apart for the hero to get past a passenger standing in the line.)
-    ...[-QUEUE_HALF, QUEUE_HALF].map((dx) => ({ minX: deskSpot.at.x + dx - 0.1, maxX: deskSpot.at.x + dx + 0.1, minZ: deskSpot.at.z + 1.3, maxZ: deskSpot.at.z + 5.25 })),
+    // (Far enough apart for the hero to get past a passenger standing in the line, and ending well short of the
+    // door, so there's room to walk round their ends.)
+    ...[-QUEUE_HALF, QUEUE_HALF].map((dx) => ({ minX: deskSpot.at.x + dx - 0.1, maxX: deskSpot.at.x + dx + 0.1, minZ: deskSpot.at.z + QUEUE_FROM, maxZ: deskSpot.at.z + QUEUE_TO })),
     ...layout.trees.map((tree) => around(tree, 0.45 * (tree.size ?? 1))),
     around(entranceSign(layout), 3.85, 0.55),
     around(windsockAt, 0.5),
@@ -3070,7 +3089,7 @@ export function createSkyportGame(
     if (flight.gate === 'vip') {
       if (!star) return `<span class="flight-chip is-go">${rich('🌟')}</span>`;
       const share = star.celeb.patience / AIRPORT.vip.patience;
-      let html = `<span class="flight-tag">${rich('🌟')}</span><span class="flight-clock ${share < 0.25 ? 'is-low' : ''}" style="--left:${(share * 100).toFixed(0)}%">${Math.ceil(star.celeb.patience)}</span>`;
+      let html = `<span class="flight-clock ${share < 0.25 ? 'is-low' : ''}" style="--left:${(share * 100).toFixed(0)}%">${Math.ceil(star.celeb.patience)}</span>`;
       for (const wish of WISHES) html += `<span class="flight-chip${star.celeb.granted.has(wish) ? ' is-done' : ''}">${rich(`${WISH_ICON[wish]} ${star.celeb.granted.has(wish) ? '✓' : t(`wish_${wish}` as StringKey)}`)}</span>`;
       return html;
     }
@@ -3078,9 +3097,7 @@ export function createSkyportGame(
     const left = Math.ceil(flight.clock);
     const share = flight.clockMax > 0 ? flight.clock / flight.clockMax : 0;
     const clockClass = flight.late ? 'is-late' : share < 0.25 ? 'is-low' : '';
-    // (Its gate's number, shown only small at the screen's edge.)
-    let html = `<span class="flight-tag">${Object.keys(layout.gates).indexOf(flight.gate) + 1}</span>`;
-    html += `<span class="flight-clock ${clockClass}" style="--left:${(share * 100).toFixed(0)}%">${flight.late ? '!' : left}</span>`;
+    let html = `<span class="flight-clock ${clockClass}" style="--left:${(share * 100).toFixed(0)}%">${flight.late ? '!' : left}</span>`;
     html += `<span class="flight-chip${flight.full ? ' is-done' : ''}">${rich(`👥 ${flight.boarded}/${flight.seats}`)}</span>`;
     if (flight.needsFuel) html += `<span class="flight-chip${flight.fuel >= 1 ? ' is-done' : ''}">${rich(flight.fuel >= 1 ? '⛽ ✓' : `⛽ ${Math.floor(flight.fuel * 100)}%`)}</span>`;
     if (flight.needsCases > 0) html += `<span class="flight-chip${flight.cases >= flight.needsCases ? ' is-done' : ''}">${rich(`🧳 ${flight.cases}/${flight.needsCases}`)}</span>`;
@@ -3121,6 +3138,20 @@ export function createSkyportGame(
       taxiLight: onGround && !parked && flight.engines > 0.1,
     };
   };
+  /**
+   * The hero's within LABEL_NEAR of a parked plane (from its fuselage), or in its lounge: its label shows.
+   * (It goes again a little further off, so it doesn't flicker on and off at the edge.)
+   */
+  const heroNear = (flight: Flight, v: FlightView): boolean => {
+    const p = player.position;
+    const solid = PLANES[flight.kind].solid;
+    const dx = Math.max(flight.x - solid.half - p.x, 0, p.x - flight.x - solid.half);
+    const dz = Math.max(flight.z + solid.tail - p.z, 0, p.z - flight.z - solid.nose);
+    // (A gate's lounge, or the VIP lounge where the star waits, counts as near its plane.)
+    const lounge = layout.gates[flight.gate]?.lounge ?? (flight.gate === 'vip' ? layout.vip?.lounge : undefined);
+    v.near = Math.hypot(dx, dz) < (v.near ? LABEL_KEEP : LABEL_NEAR) || (!!lounge && insideRect(p, lounge));
+    return v.near;
+  };
   /** The stands' labels' rows (Mogul Air's planes and the hangar's, the private jet's and the wash's, the freighter's). */
   const STAND_ROWS: Record<string, number> = { mogul: 4, mogul2: 4, hangar: 4, vip: 5, jetwash: 5, cargo: 6, skyqueen: 4 };
   const drawFlights = (dt: number): void => {
@@ -3136,7 +3167,7 @@ export function createSkyportGame(
         // (It fades while it's over the hero, so it never hides them, and keeps clear of the other planes' labels.)
         label.fade = true;
         label.avoid = true;
-        v = { model, label, at, shown: '', lateSaid: false, last: null };
+        v = { model, label, at, shown: '', lateSaid: false, last: null, near: false };
         views.set(flight, v);
       }
       v.model.root.position.set(flight.x, flight.y, flight.z);
@@ -3146,10 +3177,8 @@ export function createSkyportGame(
       // (Each gate's a row lower than the one before, so two side by side never overlap.)
       const row = layout.gates[flight.gate] ? Object.keys(layout.gates).indexOf(flight.gate) : (STAND_ROWS[flight.gate] ?? 5);
       v.at.set(flight.x, flight.kind === 'wide' ? 6.4 : flight.kind === 'jet' ? 5.0 : 4.0, flight.z + 0.6 + (row % 4) * 2.6);
-      v.label.visible = flight.phase === 'parked';
-      // (Off the screen, a gate's clock and a star's patience are kept in sight, small, at the screen's edge
-      // towards them: just the clock and the gate's number. The other stands' labels go off with their planes.)
-      v.label.edge = !flight.cleared && (!!layout.gates[flight.gate] || (flight.gate === 'vip' && !!star));
+      // (Only while the hero's near it: the screen isn't covered with every plane's label all the time.)
+      v.label.visible = flight.phase === 'parked' && heroNear(flight, v);
       if (v.label.visible) {
         const html = describe(flight);
         if (html !== v.shown) {
@@ -3430,6 +3459,25 @@ export function createSkyportGame(
       },
     });
 
+  /**
+   * How far back the camera stands at `p`: as close as in the other towns indoors and landside; further back out
+   * on the apron, and further still by a big plane on the ground (a wide-body, the freighter, the Sky Queen), so
+   * it fits on the screen. (The camera eases from one to the next.)
+   */
+  const zoomAt = (p: Point): number => {
+    const { inside, apron, big } = AIRPORT.zoom;
+    const queenApron = layout.skyqueen?.apron;
+    const out = queenApron && insideRect(p, queenApron) ? 1 : clamp01((layout.apron.maxZ + APRON_BLEND / 2 - p.z) / APRON_BLEND);
+    if (out <= 0) return inside;
+    let near = 0;
+    for (const f of airfield.flights) {
+      if (!BIG_PLANES.has(f.kind) || f.y > 1) continue;
+      const gap = Math.hypot(p.x - f.x, p.z - f.z) - PLANES[f.kind].size.length / 2;
+      near = Math.max(near, clamp01((BIG_FAR - gap) / (BIG_FAR - BIG_NEAR)));
+    }
+    const open = inside + (apron - inside) * out;
+    return open + (big - apron) * near * out;
+  };
   /** Who's near the hall's doors this frame (they slide open for anyone). */
   const doorNear: Point[] = [];
   /** Till the gulls on the apron call again. */
@@ -3570,7 +3618,7 @@ export function createSkyportGame(
     const flying = airfield.flights.some((f) => (f.phase === 'approach' && f.approach > 0.3) || f.phase === 'rollout' || f.phase === 'takeoff' || (f.phase === 'climb' && f.y < 24));
     const watching = flying && stillFor > SHOW_AFTER_SECONDS && player.position.z < layout.hall.minZ + 2;
     const wide = stage.size.width > stage.size.height * 1.2;
-    rig.setZoom(AIRPORT.zoom * (watching ? (wide ? SHOW_ZOOM.wide : SHOW_ZOOM.tall) : 1));
+    rig.setZoom(watching ? Math.max(zoomAt(player.position), wide ? SHOW_ZOOM.wide : SHOW_ZOOM.tall) : zoomAt(player.position));
     showShift += ((watching ? 1 : 0) - showShift) * (1 - Math.exp(-dt * 1.8));
     // (Towards the runway the plane's on: a take-off from the second runway, once there is one, and no landing on the first.)
     const second = layout.runway2;

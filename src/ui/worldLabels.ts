@@ -128,7 +128,8 @@ export class WorldLabels {
       let y = Math.round((1 - this.p.y) * height) / 2;
       const off = behind || x < 0 || x > right || y < frame.top || y > height;
       const edge = label.edge && label.visible && off;
-      const show = label.visible && (edge || !behind);
+      // (One that keeps clear of the others isn't brought onto the screen from off it: it'd be nowhere near its point.)
+      const show = label.visible && (edge || !behind) && !(label.avoid && !label.edge && off);
       if (show !== label.shownAs) {
         label.el.style.display = show ? '' : 'none';
         label.shownAs = show;

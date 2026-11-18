@@ -87,7 +87,7 @@ const TOWNS = [
         // The desk, its bag belt, the barriers along its line.
         box(desk.at.x, desk.at.z, 1.58, 0.48),
         { minX: desk.at.x + 1.6, maxX: desk.at.x + 2.6, minZ: desk.at.z - 2.5, maxZ: desk.at.z + 0.48 },
-        ...[-0.72, 0.72].map((dx) => ({ minX: desk.at.x + dx - 0.06, maxX: desk.at.x + dx + 0.06, minZ: desk.at.z + 1.3, maxZ: desk.at.z + 5.25 })),
+        ...[-0.72, 0.72].map((dx) => ({ minX: desk.at.x + dx - 0.06, maxX: desk.at.x + dx + 0.06, minZ: desk.at.z + 1.3, maxZ: desk.at.z + 4.4 })),
         // The baggage belt and its cart, the tug parked at the end of the service road.
         { minX: belt.at.x - 1.0, maxX: belt.at.x + 1.0, minZ: belt.at.z - 3.95, maxZ: belt.at.z + 0.95 },
         box(-1.55, 8.6, 1.05, 0.9),

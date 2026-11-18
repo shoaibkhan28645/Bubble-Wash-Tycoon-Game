@@ -121,7 +121,7 @@
   },
   "airport": {
     "pileCap": 120000000,
-    "zoom": 1.5,
+    "zoom": { "inside": 1.0, "apron": 1.3, "big": 1.55 },
     "passengers": { "spawnSeconds": 2.4, "patience": 55, "walkSpeed": 2.7, "ticket": 100000, "max": 46, "group": [1, 3], "opening": 6 },
     "checkinSeconds": 1.0,
     "planes": {

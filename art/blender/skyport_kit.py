@@ -15,7 +15,7 @@ taxiway sign, its face left blank for the game to paint).
 
 Hall: sp_desk (the check-in desk, passengers' side to -Y: counter, screens,
 scale and bag belt, the sign board on two posts, left blank), sp_queue (the
-belt barriers either side of the check-in line, 4.5 m of it from the
+belt barriers either side of the check-in line, 3 m of it from the
 desk's window), sp_podium (a gate's podium, its screen to -Y), sp_seats_a /
 sp_seats_b (a beam of four seats facing -Y), sp_barrier (across a gate's
 door until the gate's bought), sp_board (a departures board, its screen left
@@ -313,14 +313,17 @@ p.append(blob((0.16, 0.16, 0.18), (X - 1.3, 0.25, 1.38), LEAF, segments=8))
 m.mesh(p)
 m.marker('sign', (X, 0.46, 3.1))
 
-# --- The belt barriers along both sides of the check-in line: 4.5 m from the desk's window, wide enough for
-# the hero to get past a passenger in it (the game's solids match: core/skyportGame.ts). ---
+# --- The belt barriers along both sides of the check-in line: four posts, 3 m of it from the desk's window
+# (ending well short of the hall's door, so the hero walks round their ends with room to spare), wide enough
+# for the hero to get past a passenger in it (the game's solids match: core/skyportGame.ts). ---
 QUEUE_HALF = 1.15
+QUEUE_POSTS = 4
+QUEUE_STEP = 0.95
 X = 64.0
 m = Model('sp_queue', X)
 p = []
 for e in (-1, 1):
-    posts = [(X + e * QUEUE_HALF, -0.35 - k * 1.05) for k in range(5)]
+    posts = [(X + e * QUEUE_HALF, -0.35 - k * QUEUE_STEP) for k in range(QUEUE_POSTS)]
     for (x, y) in posts:
         p.append(kit.cylinder(0.17, 0.05, (x, y, 0.025), STEEL, verts=14))
         p.append(kit.cylinder(0.035, 0.92, (x, y, 0.48), STEEL, verts=8))

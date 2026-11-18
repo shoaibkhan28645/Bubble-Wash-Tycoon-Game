@@ -745,6 +745,9 @@ export function entranceSign(layout: AirportLayout): Point {
   return { x: layout.entrance.x - 9.4, z: layout.hall.maxZ + 3.4 };
 }
 
+/** How far each of the entrance's doors slides open (m): a whole leaf's width (art/blender/skyport_terminal.py), and a little, so it's tucked behind the frame's post. */
+const DOOR_SLIDE = 2.6;
+
 /**
  * The check-in hall (built where it stands): glass walls, lamp columns, a portal with its sign over each
  * gate's door, the entrance with its sliding doors (they open as anyone comes near), the hoarding where the
@@ -770,12 +773,12 @@ export class Hall {
     ];
     for (const door of this.doors) door.x = door.node.position.x;
   }
-  /** The doors slide open while anyone's within a step or two of them. */
+  /** The doors slide open while anyone's within a step or two of them: all the way, behind the frame's posts. */
   update(dt: number, near: readonly Point[]): void {
     const { entrance, hall } = this.layout;
-    const someone = near.some((p) => Math.abs(p.x - entrance.x) < 3.2 && Math.abs(p.z - hall.maxZ) < 2.4);
+    const someone = near.some((p) => Math.abs(p.x - entrance.x) < 3.4 && Math.abs(p.z - hall.maxZ) < 2.8);
     this.open += ((someone ? 1 : 0) - this.open) * Math.min(1, dt * 5);
-    for (const door of this.doors) door.node.position.x = door.x + door.side * 1.2 * this.open;
+    for (const door of this.doors) door.node.position.x = door.x + door.side * DOOR_SLIDE * this.open;
   }
 }
 
