@@ -23,7 +23,10 @@ export interface GuideView {
   waiting: { at: Point; kind: string } | null;
   /** The car at the first fuel pump, if it's waiting to be filled up. */
   fuelCar: Point | null;
-  /** The first bay's upgrade pad, once there's a second bay and its first upgrade is affordable. */
+  /**
+   * The first bay's upgrade pad, once there's a second bay, its first upgrade is affordable and the next
+   * pad is a long way off (so it never holds up the first builds).
+   */
   upgrade: Point | null;
 }
 
@@ -33,7 +36,7 @@ export interface GuideStep {
   text: StringKey;
 }
 
-/** The tutorial ends once the first washer is hired (GDD minute 6: "automation, the hook"). */
+/** The tutorial ends once the first washer is hired (about minute 2.5: "automation, the hook"). */
 export function tutorialActive(state: GameState): boolean {
   // (Hired in the car wash: for a hero who's moved on, that's among the towns left behind.)
   return !state.unlocked.includes('washer') && !Object.values(state.towns).some((town) => town.unlocked.includes('washer'));
@@ -57,8 +60,8 @@ export function sideButtonOpen(state: GameState, action: string): boolean {
  * Where the pointing hand should go, and what it says (GDD Onboarding: a
  * hand, an arrow and a few words are the only tutorial). Wash the first
  * car, collect the cash, keep the first bay stocked with soap, fill up the
- * first car at the pump, buy the first upgrade, then build each pad once
- * it's affordable.
+ * first car at the pump, then build each pad once it's affordable. (The
+ * first upgrade is shown after the tutorial: the first builds come quick.)
  */
 export function guideTarget(state: GameState, view: GuideView): GuideStep | null {
   if (!tutorialActive(state)) return null;
@@ -68,7 +71,6 @@ export function guideTarget(state: GameState, view: GuideView): GuideStep | null
   if (!has('collected')) return step(view.pile, 'guideCash');
   if (!has('supplied') && view.lowStation) return view.carrying ? step(view.lowStation, 'guideSoapBay') : step(view.shelf, 'guideShelf');
   if (!has('fueled') && view.fuelCar) return step(view.fuelCar, 'guideFuel');
-  if (!has('upgraded') && view.upgrade) return step(view.upgrade, 'guideUpgrade');
   if (view.pad && state.cash >= view.pad.owed) return step(view.pad.at, 'guideBuild');
   return null;
 }
@@ -87,6 +89,8 @@ export function helpTarget(state: GameState, view: GuideView): GuideStep | null 
   // A pad that can be bought: the arrow shows it (buying takes a moment; else in a busy lot the hand would keep
   // the hero serving however much cash there was).
   if (view.pad && state.cash >= view.pad.owed) return null;
+  // Once, while saving for something big: the first upgrade (a new thing to try, just after the tutorial).
+  if (!state.flags.includes('upgraded') && view.upgrade) return { at: view.upgrade, text: 'guideUpgrade' };
   if (view.waiting) return { at: view.waiting.at, text: WAITING_TEXT[view.waiting.kind] ?? 'guideWork' };
   if (!state.unlocked.includes('runner') && view.lowStation) {
     if (view.carrying) return { at: view.lowStation, text: view.lowOnSoap ? 'guideSoapBay' : 'guideSupplyDrop' };

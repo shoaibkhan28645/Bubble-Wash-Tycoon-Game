@@ -328,7 +328,22 @@ export function createRoadsideGame(
   const press = createPress(root, sound, () => meta.screenClosed());
   const empireMap = (): void => openEmpireMap({ root, state, sound, town: current, travel: (id) => travelTo(id) });
   const hero = createHero({ root, state, town: current, sound, press, flag, save: () => saves.saveNow(), onChipTap: empireMap });
-  const storyline = createStoryline({ state, town: current, press, arrivals: traffic.arrivals, flag });
+  const storyline = createStoryline({
+    state,
+    town: current,
+    press,
+    arrivals: traffic.arrivals,
+    flag,
+    effects: {
+      // Mabel's gift: double-speed washing (the ad boost's), shown on the side bar while it lasts.
+      boost: (seconds) => {
+        state.boostSeconds = Math.max(state.boostSeconds, seconds);
+        void saves.saveNow();
+      },
+      map: empireMap,
+    },
+    busy: () => jobs.board.active !== null,
+  });
 
   let rateTimer = 0;
   let buildTimer = 0;

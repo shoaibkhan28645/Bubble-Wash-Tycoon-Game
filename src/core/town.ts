@@ -7,12 +7,11 @@ import type { SoundManager } from '../audio/sound';
 import { PadModel } from '../render/models/padModel';
 import { canDouble, claimContract, contractDone, countTask, readyCount, refreshBoard, tasksFor } from '../systems/contracts';
 import { localDate } from '../systems/daily';
-import { tutorialActive } from '../systems/guide';
 import type { Paid } from '../systems/till';
 import { allGoalsDone, checkGoals, claimGoal, goalsSummary } from '../systems/townGoals';
 import { showContracts } from '../ui/contractsPanel';
 import { toast } from '../ui/dialog';
-import { GoalsBar, showGoals } from '../ui/goalsBar';
+import { GoalsBar, goalText, showGoals } from '../ui/goalsBar';
 import { t } from '../ui/strings';
 import { town as currentTown } from './config';
 import type { WorldLabels } from '../ui/worldLabels';
@@ -94,8 +93,10 @@ export function createTown(deps: {
 
   const check = (): void => {
     if (refreshBoard(state, Date.now())) save();
-    if (checkGoals(state).length > 0) {
-      toast(root, `🏁 ${t('goalDone')}`);
+    const reached = checkGoals(state);
+    if (reached.length > 0) {
+      const goal = currentTown().goals.goals.find((g) => g.id === reached[0]);
+      toast(root, `🏁 ${goal ? t('goalDoneNamed', { goal: goalText(goal) }) : t('goalDone')}`);
       sound.play('mission');
       save();
     }
@@ -110,7 +111,8 @@ export function createTown(deps: {
       board.badge.textContent = String(ready);
     }
     const summary = goalsSummary(state);
-    bar.update({ visible: !tutorialActive(state), ...summary });
+    // From the first cash collected: the first goals are the tutorial's own small steps.
+    bar.update({ visible: state.flags.includes('collected'), ...summary });
   };
   check();
 
@@ -137,6 +139,8 @@ export function createTown(deps: {
       const car = paid.car;
       const tasks = car ? tasksFor(car) : [];
       if (tasks.includes('combo')) state.counts.combo = (state.counts.combo ?? 0) + 1;
+      // Cars washed (not "washes": that's Skyport's jet washes, and counts are kept for the whole game).
+      if (tasks.includes('wash')) state.counts.carWashes = (state.counts.carWashes ?? 0) + 1;
       const now = Date.now();
       const finished = tasks.flatMap((task) => countTask(state, task, now));
       if (finished.length > 0) {

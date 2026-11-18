@@ -52,7 +52,7 @@ export interface FarmPacingOptions {
 export const FARM_PACING: FarmPacingOptions = {
   stars: 4,
   heroPerMinute: 16,
-  startCash: 730,
+  startCash: 120,
   background: 1500,
   step: 1,
   maxMinutes: 240,

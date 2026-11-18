@@ -8,8 +8,11 @@ import type { Announcement } from '../ui/celebration';
 
 export interface StoryBeat {
   id: string;
-  /** All of these must hold: a flag set, a pad built, another beat told, the rush over. */
-  when: { flag?: string; built?: string; beat?: string; rushOver?: boolean };
+  /**
+   * All of these must hold: a flag set, a pad built, another beat told, the rush over, this many seconds
+   * played, a pad not built yet (a beginner's beat, never told to someone already done with the town).
+   */
+  when: { flag?: string; built?: string; beat?: string; rushOver?: boolean; playSeconds?: number; notBuilt?: string };
   /** A word or two shouted over the card: "Ta-da!", "Uh-oh!". */
   shout: string;
   icon: string;
@@ -18,11 +21,17 @@ export interface StoryBeat {
   /** Who adds a few words under the story. */
   speaker?: 'mentor' | 'rival';
   words?: string;
+  /** The card's button ("Let's go!" if not given). */
+  button?: string;
   effect?: {
     /** A rival opens: customers come this much as often until the `until` pad is built. */
     rival?: { arrivalFactor: number; until: string };
     /** A rush: for `seconds`, every car comes this dirty and pays this much more. */
     rush?: { seconds: number; dirt: Dirt; payMultiplier: number };
+    /** A gift: this many seconds of double-speed washing, from when the card's closed. */
+    boost?: number;
+    /** The empire map opens when the card's closed (a first look at the towns to come). */
+    map?: boolean;
   };
 }
 
@@ -49,6 +58,8 @@ export function beatReady(town: string, beat: StoryBeat, state: GameState, rushA
   if (w.built && !state.unlocked.includes(w.built)) return false;
   if (w.beat && !state.flags.includes(beatFlag(town, w.beat))) return false;
   if (w.rushOver && rushActive) return false;
+  if (w.playSeconds !== undefined && state.playSeconds < w.playSeconds) return false;
+  if (w.notBuilt && state.unlocked.includes(w.notBuilt)) return false;
   return true;
 }
 
@@ -97,5 +108,6 @@ export function newsFor(story: StoryData, beat: StoryBeat): Announcement {
     headline: beat.headline,
     body: beat.body,
     ...(who && beat.words ? { quote: { who: who.name, icon: who.icon, words: beat.words } } : {}),
+    ...(beat.button ? { button: beat.button } : {}),
   };
 }

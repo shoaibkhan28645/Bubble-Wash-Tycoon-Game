@@ -18,6 +18,7 @@ describe('the roadside story', () => {
     for (const beat of story.beats) {
       if (beat.when.built) expect(pads.has(beat.when.built), beat.id).toBe(true);
       if (beat.when.beat) expect(beats.has(beat.when.beat), beat.id).toBe(true);
+      if (beat.when.notBuilt) expect(pads.has(beat.when.notBuilt), beat.id).toBe(true);
       if (beat.effect?.rival) expect(pads.has(beat.effect.rival.until), beat.id).toBe(true);
       if (beat.speaker) expect(beat.words, beat.id).toBeTruthy();
     }
@@ -74,6 +75,39 @@ describe('the roadside story', () => {
     state.flags = [storyStartFlag(TOWN), ...told('arrival')];
     state.unlocked = ['bay1'];
     expect(catchUpFlags('willowbrook', story, state)).toEqual([storyStartFlag('willowbrook')]);
+  });
+
+  it("gives Mabel's gift (a minute of double speed) after the first hire, then a first look at the map", () => {
+    const state = newGame();
+    state.flags = [storyStartFlag(TOWN), 'collected', ...told('arrival')];
+    state.unlocked = ['bay1', 'washer'];
+    state.playSeconds = 150;
+    expect(ids(dueBeats(TOWN, story, state, false))).toEqual(['firstHire']);
+    state.flags.push(...told('firstHire'));
+    expect(dueBeats(TOWN, story, state, false)).toEqual([]);
+    // About minute 3: the gift.
+    state.playSeconds = 200;
+    const gift = dueBeats(TOWN, story, state, false);
+    expect(ids(gift)).toEqual(['gift']);
+    expect(gift[0]!.effect?.boost).toBe(60);
+    expect(newsFor(story, gift[0]!).button).toBe(gift[0]!.button);
+    state.flags.push(...told('gift'));
+    expect(dueBeats(TOWN, story, state, false)).toEqual([]);
+    // Before minute 5: the empire map.
+    state.playSeconds = 245;
+    const dream = dueBeats(TOWN, story, state, false);
+    expect(ids(dream)).toEqual(['dream']);
+    expect(dream[0]!.effect?.map).toBe(true);
+  });
+
+  it("keeps the beginner's cards from someone who's already bought the farmland", () => {
+    const state = newGame();
+    state.flags = [storyStartFlag(TOWN), 'collected', ...told('arrival', 'firstHire')];
+    state.unlocked = ROADSIDE.pads.map((p) => p.id);
+    state.playSeconds = 5000;
+    expect(ids(dueBeats(TOWN, story, state, false))).not.toContain('gift');
+    state.flags.push(...told('gift'));
+    expect(ids(dueBeats(TOWN, story, state, false))).not.toContain('dream');
   });
 
   it('puts the speaker under the story', () => {

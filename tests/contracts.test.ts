@@ -133,7 +133,7 @@ describe('town goals', () => {
   it('counts goals up from what was done, and opens the road when all are reached', () => {
     const state = lotWith(...ROADSIDE.goals.goals.flatMap((g) => (g.built ? [g.built] : [])));
     state.stars = 5;
-    state.counts = { combo: 39, contract: 3 };
+    state.counts = { carWashes: 3, jobs: 1, combo: 39, contract: 3 };
     checkGoals(state);
     expect(allGoalsDone(state)).toBe(false);
     expect(goalsSummary(state).next?.id).toBe('combos');

@@ -8,26 +8,27 @@ import { showCelebration, type Announcement } from '../ui/celebration';
 const GAP_SECONDS = 1.5;
 
 export interface Press {
-  publish(item: Announcement): void;
+  /** Queues a card; `then` runs once it's been closed. */
+  publish(item: Announcement, then?: () => void): void;
   update(dt: number): void;
   /** A card is open or waiting. */
   readonly busy: boolean;
 }
 
 export function createPress(root: HTMLElement, sound: SoundManager, onClosed: () => void): Press {
-  const waiting: Announcement[] = [];
+  const waiting: { item: Announcement; then?: () => void }[] = [];
   let open = false;
   let gap = 0;
   return {
-    publish(item) {
-      waiting.push(item);
+    publish(item, then) {
+      waiting.push({ item, then });
     },
     update(dt) {
       gap = Math.max(0, gap - dt);
       if (open || gap > 0 || waiting.length === 0) return;
       // Never over another card or dialog (welcome back, the calendar, an ad offer).
       if (root.querySelector('.welcome-overlay')) return;
-      const item = waiting.shift()!;
+      const { item, then } = waiting.shift()!;
       open = true;
       sound.play('open');
       showCelebration(root, item, () => {
@@ -35,6 +36,7 @@ export function createPress(root: HTMLElement, sound: SoundManager, onClosed: ()
         gap = GAP_SECONDS;
         sound.play('click');
         onClosed();
+        then?.();
       });
     },
     get busy() {

@@ -130,13 +130,20 @@ describe('contracts.json and goals.json', () => {
     expect(early.length).toBeGreaterThanOrEqual(CONTRACTS.slots);
   });
 
-  it('has five to eight town goals, each with text, on real pads and counts', () => {
+  it('has a few first steps, then five to eight town goals, each with text, on real pads and counts', () => {
     expect(ROADSIDE.goals.goals.length).toBeGreaterThanOrEqual(5);
-    expect(ROADSIDE.goals.goals.length).toBeLessThanOrEqual(8);
+    expect(ROADSIDE.goals.goals.length).toBeLessThanOrEqual(12);
     for (const goal of ROADSIDE.goals.goals) {
       expect(t(`goal_${goal.id}` as StringKey)).not.toContain('goal_');
       if (goal.built) expect(padIds).toContain(goal.built);
-      if (goal.count) expect(['combo', 'contract']).toContain(goal.count);
+      // Cars washed and rush jobs done (both offered all through the town, so neither can hold up the land), combos, contracts.
+      if (goal.count) expect(['carWashes', 'jobs', 'combo', 'contract']).toContain(goal.count);
+    }
+    // The first steps are tiny, each done in the first few minutes: three washes, the pump, the first washer, a rush job.
+    expect(ROADSIDE.goals.goals.slice(0, 4).map((g) => g.id)).toEqual(['firstWashes', 'fuel', 'crew', 'rushJob']);
+    for (const goal of ROADSIDE.goals.goals.slice(0, 4)) {
+      if (goal.built) expect(padById(goal.built)!.targetMinute).toBeLessThan(3);
+      expect(goal.goal ?? 1).toBeLessThanOrEqual(3);
     }
     // The last goal is the landmark, and the truck waits for every goal.
     expect(ROADSIDE.goals.goals.at(-1)?.built).toBe('landmark');

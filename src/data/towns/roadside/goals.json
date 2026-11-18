@@ -1,7 +1,10 @@
 {
   "franchiseStars": 1,
   "goals": [
+    { "id": "firstWashes", "count": "carWashes", "goal": 3, "gems": 3 },
     { "id": "fuel", "built": "pump1", "gems": 5 },
+    { "id": "crew", "built": "washer", "gems": 5 },
+    { "id": "rushJob", "count": "jobs", "goal": 1, "gems": 5 },
     { "id": "mart", "built": "mart", "gems": 10 },
     { "id": "contracts", "count": "contract", "goal": 3, "gems": 10 },
     { "id": "stars", "stars": 4.5, "gems": 10 },

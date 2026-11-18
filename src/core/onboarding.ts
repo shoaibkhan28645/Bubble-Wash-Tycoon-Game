@@ -78,7 +78,10 @@ export function createOnboarding(deps: {
     const pumpCar = traffic.forecourt.pumps[0]?.customer;
     if (pumpCar?.manual && pumpCar.served.includes('fuel')) flag('fueled');
     const upgradeAt = layout.upgradePads.bay1;
-    const upgrade = state.unlocked.includes('bay2') && upgradeAt && state.cash >= costOf('bay1.speed', state.levels['bay1.speed'] ?? 0);
+    const upgradeCost = costOf('bay1.speed', state.levels['bay1.speed'] ?? 0);
+    // Shown while the next pad is at least four upgrades away: the first builds aren't held up by it.
+    const saving = !pads.next || pads.next.owed >= 4 * upgradeCost;
+    const upgrade = state.unlocked.includes('bay2') && upgradeAt && saving && state.cash >= upgradeCost;
     return {
       firstCar: first && (first.state === 'waiting' || first.state === 'entering') ? first.position : null,
       pile: cash.fullestPile()?.at ?? null,

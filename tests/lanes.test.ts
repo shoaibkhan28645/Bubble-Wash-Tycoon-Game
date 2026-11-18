@@ -249,13 +249,21 @@ describe('tutorial hand', () => {
     expect(where(state, { ...view, fuelCar: at(6) })).toEqual(at(3));
   });
 
-  it('shows the first upgrade once it is offered, until one is bought', () => {
+  it('leaves the first upgrade out of the tutorial, so the first builds come quick', () => {
     const state = newGame();
     state.flags.push('washed', 'collected', 'supplied', 'fueled');
     state.cash = 50;
-    expect(guideTarget(state, { ...view, upgrade: at(7) })).toEqual({ at: at(7), text: 'guideUpgrade' });
+    expect(guideTarget(state, { ...view, upgrade: at(7) })).toEqual({ at: at(3), text: 'guideBuild' });
+  });
+
+  it('shows the first upgrade after the tutorial, while saving for the next pad, until one is bought', () => {
+    const state = newGame();
+    state.flags.push('washed', 'collected', 'supplied', 'fueled');
+    state.unlocked.push('washer');
+    state.cash = 30;
+    expect(helpTarget(state, { ...view, upgrade: at(7), waiting: { at: at(8), kind: 'bay' } })).toEqual({ at: at(7), text: 'guideUpgrade' });
     state.flags.push('upgraded');
-    expect(where(state, { ...view, upgrade: at(7) })).toEqual(at(3));
+    expect(helpTarget(state, { ...view, upgrade: at(7), waiting: { at: at(8), kind: 'bay' } })).toEqual({ at: at(8), text: 'guideWash' });
   });
 
   it('says at most eight words at each step', () => {

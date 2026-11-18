@@ -23,8 +23,12 @@ export function createStoryline(deps: {
   arrivals: { rateFactor: number; rush: { dirt: Dirt; payMultiplier: number } | null };
   /** Records a flag and saves. */
   flag: (name: string) => void;
+  /** What some beats do once their card's closed: a speed boost (seconds), the empire map. */
+  effects?: { boost?: (seconds: number) => void; map?: () => void };
+  /** The hero's in the middle of something (a rush job): beats told by the clock alone wait till it's over. */
+  busy?: () => boolean;
 }): Storyline {
-  const { state, town, press, arrivals, flag } = deps;
+  const { state, town, press, arrivals, flag, effects, busy } = deps;
   const { story } = town;
   for (const name of catchUpFlags(town.id, story, state)) flag(name);
   let rushLeft = 0;
@@ -33,8 +37,13 @@ export function createStoryline(deps: {
   const check = (): void => {
     arrivals.rateFactor = storyArrivalFactor(town.id, story, state);
     for (const beat of dueBeats(town.id, story, state, rushLeft > 0)) {
+      if (beat.when.playSeconds !== undefined && busy?.()) continue;
       flag(beatFlag(town.id, beat.id));
-      press.publish(newsFor(story, beat));
+      const { boost, map } = beat.effect ?? {};
+      press.publish(newsFor(story, beat), boost || map ? () => {
+        if (boost) effects?.boost?.(boost);
+        if (map) effects?.map?.();
+      } : undefined);
       const rush = beat.effect?.rush;
       if (rush) {
         rushLeft = rush.seconds;

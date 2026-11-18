@@ -34,6 +34,42 @@
       "words": "Now you're an owner, not just a washer. Let your crew scrub; you keep the cash moving."
     },
     {
+      "id": "gift",
+      "when": {
+        "beat": "firstHire",
+        "playSeconds": 200,
+        "notBuilt": "truck"
+      },
+      "shout": "A gift!",
+      "icon": "🎁",
+      "headline": "Mabel’s lucky sponge",
+      "body": "Mabel brought her old lucky sponge. For one minute your whole lot washes twice as fast. Watch the cash roll in!",
+      "speaker": "mentor",
+      "words": "I used this sponge on my very first day. Go on, make it count!",
+      "button": "Go, go, go!",
+      "effect": {
+        "boost": 60
+      }
+    },
+    {
+      "id": "dream",
+      "when": {
+        "beat": "gift",
+        "playSeconds": 245,
+        "notBuilt": "truck"
+      },
+      "shout": "Dream big!",
+      "icon": "🗺️",
+      "headline": "This is only the beginning",
+      "body": "One day you could own a farm, a theme park and even an airport. Tap your badge at the top any time to see your empire map.",
+      "speaker": "mentor",
+      "words": "Every big business starts with one bucket. Here's where yours could go.",
+      "button": "Show me!",
+      "effect": {
+        "map": true
+      }
+    },
+    {
       "id": "rival",
       "when": {
         "built": "board"
