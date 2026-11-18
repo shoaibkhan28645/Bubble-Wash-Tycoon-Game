@@ -40,5 +40,10 @@ the farm.
 | `farm/moo-3` | Cow moos #6 | https://bigsoundbank.com/cow-moos-6-s2386.html |
 | `farm/cluck-*` | Annoyed hen | https://bigsoundbank.com/annoyed-hen-s0453.html |
 
-The other towns' music, sponge squeaks, water spray, bubble pops, horn and
-till bell are made in code (`src/audio/music.ts`, `src/audio/synth.ts`).
+Willowbrook's music (`farm/farm-music`) and Skyport's (`skyport/skyport-music`)
+were written for Main Street Mogul: each is a score in `art/music/compose.py`,
+played with the **FluidR3 GM** instruments (© 2000–2002, 2008 Frank Wen; MIT
+licence) through FluidSynth and cut into a seamless loop.
+
+Roadside's music, the sponge squeaks, water spray, bubble pops, horn and till
+bell are made in code (`src/audio/music.ts`, `src/audio/synth.ts`).

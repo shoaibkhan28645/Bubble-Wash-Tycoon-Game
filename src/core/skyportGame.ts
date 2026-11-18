@@ -374,6 +374,9 @@ export function createSkyportGame(
   carriedItems.attach(stage.scene);
   // The whoosh of a plane going over and the crowd's cheer are among the park's sounds.
   void sound.loadSet('park');
+  // The airport's own music (a lounge bossa nova) loads as the hero arrives.
+  void sound.loadSet('skyport');
+  sound.useMusic('skyport');
 
   // The ground, the hall, and what's always there.
   stage.scene.add(airfieldGround(layout));
@@ -3719,6 +3722,7 @@ export function createSkyportGame(
     dispose() {
       loop.stop();
       sound.stopLoops();
+      sound.useMusic(null);
       for (const cleanup of cleanups) cleanup();
       input.dispose();
       panel.dispose();

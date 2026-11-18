@@ -40,6 +40,8 @@
   },
   "tracks": {
     "park": { "file": "park/park-music", "volume": 1, "set": "park" },
+    "farm": { "file": "farm/farm-music", "volume": 1, "set": "farm" },
+    "skyport": { "file": "skyport/skyport-music", "volume": 1, "set": "skyport" },
     "musicbox": { "file": "park/musicbox", "volume": 0.8, "set": "park" },
     "rain": { "file": "park/rain", "volume": 0.7, "set": "park" },
     "engines": { "synth": "drone", "volume": 0.4 }

@@ -158,8 +158,9 @@ export function createFarmGame(
   blobShadows.attach(stage.scene);
   carriedItems.attach(stage.scene);
   warmRigidSkin(stage.scene, skinnedToyMaterial);
-  // The cows' moos and the hens' clucks (recordings) load as the hero arrives.
+  // The farm's music (a hoedown), the cows' moos and the hens' clucks load as the hero arrives.
   void sound.loadSet('farm');
+  sound.useMusic('farm');
   const ground = farmland(layout);
   stage.scene.add(withShadows(ground.group, false, true));
   // Weathervanes, the chapel bell, chimney smoke and the vehicles' wheels.
@@ -1172,6 +1173,7 @@ export function createFarmGame(
     addTicker: (ticker) => void tickers.push(ticker),
     dispose() {
       loop.stop();
+      sound.useMusic(null);
       for (const cleanup of cleanups) cleanup();
       input.dispose();
       panel.dispose();
