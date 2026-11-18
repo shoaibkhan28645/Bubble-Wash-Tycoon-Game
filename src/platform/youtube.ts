@@ -1,6 +1,7 @@
 // The only file that talks to YouTube (`ytgame`). Everything else uses these
 // typed functions, which never throw. Outside YouTube a dev fallback is used.
 import { createDevPlatform } from './devPlatform';
+import { TESTER } from './tester';
 import type { DevControls, PlatformBackend } from './types';
 
 const LOAD_ATTEMPTS = 3;
@@ -29,7 +30,9 @@ function youtubeBackend(yt: typeof ytgame): PlatformBackend {
   };
 }
 
-const sdk = window.ytgame?.IN_PLAYABLES_ENV ? window.ytgame : undefined;
+// The tester build always uses the stand-in: on itch.io the game runs inside a frame, YouTube's SDK takes any
+// frame for YouTube, and loadData then waits for a YouTube that isn't there (the build leaves the SDK out too).
+const sdk = !TESTER && window.ytgame?.IN_PLAYABLES_ENV ? window.ytgame : undefined;
 const dev = sdk ? null : createDevPlatform();
 const backend: PlatformBackend = sdk ? youtubeBackend(sdk) : dev!.backend;
 
