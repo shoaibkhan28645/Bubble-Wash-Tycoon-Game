@@ -12,16 +12,16 @@
     { "model": "shop_books", "x": -20.5, "z": -22.8, "sign": "BOOKS", "signColor": "#b79cff" },
     { "model": "shop_flowers", "x": -26.5, "z": -22.8, "sign": "FLOWERS", "signColor": "#3fae5a" },
     { "model": "shop_pizza", "x": 28, "z": -7.5, "rot": -1.5708, "sign": "PIZZA", "signColor": "#ff5c6c" },
-    { "model": "house_a", "x": -14.4, "z": -5.5 },
-    { "model": "house_b", "x": -21, "z": -5.5 },
-    { "model": "house_c", "x": -14.4, "z": 3 },
-    { "model": "house_d", "x": -21, "z": 3 },
-    { "model": "house_a", "x": -14.4, "z": 11.5 },
-    { "model": "house_b", "x": -21, "z": 11.5 },
-    { "model": "house_c", "x": -14.4, "z": 20 },
-    { "model": "house_d", "x": -21, "z": 20 },
-    { "model": "house_a", "x": -14.4, "z": 28.5 },
-    { "model": "house_b", "x": -21, "z": 28.5 },
+    { "model": "house_a", "x": -16.8, "z": -5.5, "rot": 1.5708 },
+    { "model": "house_b", "x": -22.1, "z": -5.5, "rot": -1.5708 },
+    { "model": "house_c", "x": -16.8, "z": 3, "rot": 1.5708 },
+    { "model": "house_d", "x": -22.1, "z": 3, "rot": -1.5708 },
+    { "model": "house_a", "x": -16.8, "z": 11.5, "rot": 1.5708 },
+    { "model": "house_b", "x": -22.1, "z": 11.5, "rot": -1.5708 },
+    { "model": "house_c", "x": -16.8, "z": 20, "rot": 1.5708 },
+    { "model": "house_d", "x": -22.1, "z": 20, "rot": -1.5708 },
+    { "model": "house_a", "x": -16.8, "z": 28.5, "rot": 1.5708 },
+    { "model": "house_b", "x": -22.1, "z": 28.5, "rot": -1.5708 },
     { "model": "house_c", "x": 28, "z": 1.5, "rot": -1.5708 },
     { "model": "house_d", "x": 28, "z": 10, "rot": -1.5708 },
     { "model": "house_a", "x": 28, "z": 18.5, "rot": -1.5708 },
@@ -180,6 +180,13 @@
   "benchVisits": [
     { "from": { "x": -12.2, "z": 16.35 }, "via": [{ "x": -9.6, "z": 16.35 }, { "x": 6.4, "z": 16.4 }], "bench": { "x": 7.3, "z": 16.4 } },
     { "from": { "x": -12.2, "z": 16.35 }, "via": [{ "x": -9.6, "z": 16.35 }, { "x": -3.0, "z": 18.2 }, { "x": 0.8, "z": 23.5 }], "bench": { "x": 3.8, "z": 22.6 } }
+  ],
+  "footpaths": [
+    { "minX": -12.95, "maxX": -11.35, "minZ": -12.2, "maxZ": 34.35 },
+    { "minX": -27.65, "maxX": -26.05, "minZ": -12.2, "maxZ": 34.35 },
+    { "minX": -46, "maxX": -12.95, "minZ": 6.05, "maxZ": 8.45 },
+    { "minX": -46, "maxX": -12.95, "minZ": 14.55, "maxZ": 16.95 },
+    { "minX": -27.65, "maxX": 17.6, "minZ": 32.35, "maxZ": 34.35 }
   ],
   "jobSpots": {
     "spill": [

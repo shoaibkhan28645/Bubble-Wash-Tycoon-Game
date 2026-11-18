@@ -80,7 +80,8 @@ export function createJobs(deps: {
   layout: TownLayout;
   town: JobTown;
   pads: PadSystem;
-  hero: { position: () => Point; mesh: Object3D; speed: () => number };
+  /** The hero: where they are, their model, how fast they walk, and the top of the pile on their back (a job's things go there). */
+  hero: { position: () => Point; mesh: Object3D; speed: () => number; back: Object3D };
   effects: Particles;
   floaters: Floaters;
   sound: SoundManager;
@@ -112,7 +113,7 @@ export function createJobs(deps: {
   const { root, state, layout, pads, hero, effects, floaters, sound } = deps;
   const tuning = JOBS.tuning;
   const board = new JobBoard(JOBS.jobs, tuning);
-  const view = new JobView(deps.scene, deps.labels, root, deps.chips, hero.mesh, deps.makePerson, deps.makeThing);
+  const view = new JobView(deps.scene, deps.labels, root, deps.chips, hero.back, deps.makePerson, deps.makeThing);
   const spots = layout.jobSpots ?? {};
   // What the hero earns a minute, all told (by hand too): cash coming in, job pay left out.
   const earned: { at: number; amount: number }[] = [];

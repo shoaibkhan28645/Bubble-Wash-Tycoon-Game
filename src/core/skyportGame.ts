@@ -3303,6 +3303,18 @@ export function createSkyportGame(
     return pile && inPile > 0 ? { at: pile.at, text: 'guideCash' } : null;
   };
 
+  /**
+   * Everything on the hero's back put down: cases back on the baggage cart (their flights still need them), crates
+   * back on the cargo dock and trays back at the kitchen's hatch while there's room; a star's juice is just gone.
+   */
+  const putDown = (): void => {
+    for (const item of heroCarry.clear()) {
+      if (isCase(item)) beltCases.push(item);
+      else if (item === 'cargo' && dockCrates && !dockCrates.full) dockCrates.push('cargo');
+      else if (item === 'tray' && hatchTrays && !hatchTrays.full) hatchTrays.push('tray');
+    }
+    showCart();
+  };
   const meta = createMeta({
     root,
     state,
@@ -3313,6 +3325,7 @@ export function createSkyportGame(
     supplies: null,
     setBoost: (m) => (boost = m),
     tower: { badge: () => (built('tower') ? (fog.down ? '🌫️' : '') : null), open: () => openTower() },
+    discard: { count: () => heroCarry.stack.length, drop: () => putDown() },
     town: 'airport',
     hero: { player, hud, stage, effects, decor, labels },
   });
@@ -3338,7 +3351,7 @@ export function createSkyportGame(
     layout,
     town: 'airport',
     pads,
-    hero: { position: () => player.position, mesh: player.mesh, speed: () => player.topSpeed },
+    hero: { position: () => player.position, mesh: player.mesh, speed: () => player.topSpeed, back: heroCarry.top },
     effects,
     floaters,
     sound,

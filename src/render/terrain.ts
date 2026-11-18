@@ -22,6 +22,13 @@ const GRASS_B = new Color('#6fc35a');
 const KERB = '#cdd2d9';
 const GROUND_SIZE = 140;
 const GROUND_SEGMENTS = 32;
+/**
+ * The ground's bumps rise from one point of its grid to the next, so it's flat a whole cell (and a little) beyond
+ * anything paved or built: else a bump's slope comes up through the paving, a garden or a path, in jagged green.
+ */
+const FLAT = GROUND_SIZE / GROUND_SEGMENTS + 0.5;
+/** How far round a building or a home's garden counts as built on (m). */
+const PIECE_REACH = 4.6;
 
 /** Small seeded random generator so the scenery is the same every time. */
 export function seeded(seed: number): () => number {
@@ -47,13 +54,20 @@ function ground(layout: LocationLayout): Mesh {
   const c = new Color();
   const { lot, roadZ } = layout;
   const areas = Object.values(layout.areas);
+  const paths = layout.footpaths ?? [];
   for (let i = 0; i < pos.count; i++) {
     const x = pos.getX(i);
     const z = pos.getZ(i);
     const n = wobble(x, z);
     c.copy(GRASS_A).lerp(GRASS_B, 0.5 + n * 0.5);
     colors.set([c.r, c.g, c.b], i * 3);
-    const flat = inside(x, z, lot, 1.5) || Math.abs(z - roadZ) < 4 || inside(x, z, sideStreet(layout), 1) || areas.some((a) => inside(x, z, a, 1.5));
+    const flat =
+      inside(x, z, lot, FLAT) ||
+      Math.abs(z - roadZ) < STREET + 1.4 + FLAT ||
+      inside(x, z, sideStreet(layout), FLAT) ||
+      areas.some((a) => inside(x, z, a, FLAT)) ||
+      paths.some((r) => inside(x, z, r, FLAT)) ||
+      layout.town.some((p) => Math.hypot(x - p.x, z - p.z) < PIECE_REACH + FLAT);
     pos.setY(i, flat ? -0.02 : Math.max(0, n) * 0.25 - 0.02);
   }
   geometry.setAttribute('color', new Float32BufferAttribute(colors, 3));
@@ -119,6 +133,8 @@ function roads(layout: LocationLayout): Mesh {
   // Zebra crossings: over Main Street between the bay lanes, over Bubble Lane by the corner.
   for (let z = roadZ - STREET + 0.35; z < roadZ + STREET - 0.2; z += 0.75) parts.push(flat(2.4, 0.38, '#ffffff', CROSSING_X, z, 0.032));
   for (let x = sx - SIDE + 0.35; x < sx + SIDE - 0.2; x += 0.75) parts.push(flat(0.38, 2.4, '#ffffff', x, roadZ + STREET + 2.6, 0.032));
+  // Footpaths through the town, between the gardens.
+  for (const r of layout.footpaths ?? []) parts.push(flat(r.maxX - r.minX, r.maxZ - r.minZ, PAVEMENT, (r.minX + r.maxX) / 2, (r.minZ + r.maxZ) / 2, 0.024));
   // Kerbs round the lot on the two sides away from the streets.
   box(lot.minX, lot.maxZ - 0.15, lot.maxX, lot.maxZ + 0.15, KERB);
   box(lot.minX - 0.15, lot.minZ + 0.2, lot.minX + 0.15, lot.maxZ, KERB);
@@ -145,8 +161,8 @@ export function scatter(id: string, items: { x: number; z: number; s: number; r:
   return mesh;
 }
 
-/** Half the width of the gap in the hedge where a garden path leads onto the lot (to its benches). */
-const GATE_HALF = 0.8;
+/** Half the width of the gap in the hedge where a footpath leads onto the lot (to its benches): the path's, and a little. */
+const GATE_HALF = 1.05;
 
 /** Trimmed hedges round the lot (not on the street side), open where cars drive out and where a path leads in; bumpy tops. */
 function hedges(layout: LocationLayout): Mesh {
@@ -163,8 +179,9 @@ function hedges(layout: LocationLayout): Mesh {
     }
   };
   const inset = 0.45;
-  // Along the side: open where a garden path comes up to it.
-  const gates = [...new Set((layout.benchVisits ?? []).map((v) => v.from.z))].sort((a, b) => a - b);
+  // Along the side: open where a garden path or a footpath across the town comes up to it.
+  const paths = (layout.footpaths ?? []).filter((r) => r.maxX - r.minX > r.maxZ - r.minZ && r.maxX >= lot.minX - inset - 0.6 && r.minZ > lot.minZ && r.maxZ < lot.maxZ);
+  const gates = [...new Set([...(layout.benchVisits ?? []).map((v) => v.from.z), ...paths.map((r) => (r.minZ + r.maxZ) / 2)])].sort((a, b) => a - b);
   let along = lot.minZ + 1.6;
   for (const z of [...gates, lot.maxZ + inset + GATE_HALF]) {
     if (z - GATE_HALF > along) run(lot.minX - inset, along, lot.minX - inset, z - GATE_HALF);
@@ -231,6 +248,7 @@ function scenery(layout: LocationLayout): Group {
   const town = layout.town.filter((p) => !p.solid);
   const blocked = (x: number, z: number, margin: number) =>
     inside(x, z, lot, margin + 0.8) ||
+    (layout.footpaths ?? []).some((r) => inside(x, z, r, margin + 0.3)) ||
     town.some((p) => Math.hypot(x - p.x, z - p.z) < (p.model.startsWith('lamp') ? 1 : 4.6) + margin) ||
     Math.abs(z - roadZ) < 3.6 + margin ||
     inside(x, z, sideStreet(layout), margin) ||

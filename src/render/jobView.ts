@@ -1,6 +1,6 @@
 // What a rush job looks like (systems/jobs.ts has what it is): a glowing ring
 // and beam of light where to go next, the things to pick up lying on the
-// ground (or wandering off), what the hero's carrying held in front of them,
+// ground (or wandering off), what the hero's carrying on their back (on top of whatever else is there),
 // the person (or calf) waiting and following once found, someone waiting at
 // the other end, and what there is to work at (a dusty VIP car, the pump).
 // The chip under the cash bar says what the job is, how long's left and what
@@ -23,6 +23,7 @@ import {
 import type { Point } from '../core/config';
 import { box, cylinder, mergeParts, sphere, toyMaterial } from './models/build';
 import type { PersonAvatar } from './models/person';
+import { OVER_OUTLINE_ORDER } from './models/seeThrough';
 import type { Job, JobBoard } from '../systems/jobs';
 import { money } from '../systems/economy';
 import { formatClock } from '../systems/construction';
@@ -174,8 +175,8 @@ export class JobView {
     private readonly labels: WorldLabels,
     root: HTMLElement,
     private readonly chips: EventChips,
-    /** The hero's model: what they carry is held in front of them. */
-    hero: Object3D,
+    /** Where what the hero carries for a job goes: on their back, on top of whatever else they're carrying. */
+    back: Object3D,
     private readonly makePerson: MakePerson,
     private readonly makeThing: MakeThing = () => null,
   ) {
@@ -193,10 +194,9 @@ export class JobView {
     icon.className = 'job-icon';
     this.icon = labels.add(icon, this.iconAt);
     this.icon.visible = false;
-    // Held in front, at the chest.
-    this.hands.position.set(0, 0.95, 0.42);
+    // On their back (in front, it hid them, and showed their see-through outline over it).
     this.hands.scale.setScalar(1.4);
-    hero.add(this.hands);
+    back.add(this.hands);
     this.pointer = new EdgePointer(root, 'job');
   }
 
@@ -245,6 +245,8 @@ export class JobView {
     mesh.scale.multiplyScalar(scale);
     mesh.position.set(0, shown.held.length * 0.3 * Math.max(scale, 0.8), 0);
     mesh.rotation.set(0, (shown.held.length % 2) * 0.4, 0);
+    // (Drawn after the hero's see-through outline, so it never shows over it.)
+    mesh.traverse((node) => void (node.renderOrder = OVER_OUTLINE_ORDER));
     this.hands.add(mesh);
     shown.held.push(mesh);
   }

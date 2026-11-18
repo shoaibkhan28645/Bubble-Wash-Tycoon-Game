@@ -113,6 +113,12 @@ export class Supplies implements SupplyCheck {
     for (const s of this.stations()) if (s.supply) this.state.supplies[`${s.id}.${s.supply}`] = this.maxUses();
   }
 
+  /** One of its items back on the shelf (put back, or put down by the hero), as far as there's room. */
+  putBack(type: SupplyType): void {
+    const key = `shelf.${type}`;
+    this.state.supplies[key] = Math.min(this.shelfCapacity(), (this.state.supplies[key] ?? this.shelfCapacity()) + 1);
+  }
+
   shelfCapacity(): number {
     return TUNING.supplies.shelfCapacity + levelStep(UPGRADES.kinds.storage, this.state.levels[`${SHELF}.storage`] ?? 0);
   }
@@ -146,8 +152,7 @@ export class Supplies implements SupplyCheck {
     for (const type of new Set(carrier.stack)) {
       if (this.need(type, [carrier]) >= 0) continue;
       carrier.remove(type);
-      const key = `shelf.${type}`;
-      this.state.supplies[key] = Math.min(this.shelfCapacity(), (this.state.supplies[key] ?? this.shelfCapacity()) + 1);
+      this.putBack(type);
       this.sound.play('drop');
       return true;
     }

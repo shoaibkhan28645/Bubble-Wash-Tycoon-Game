@@ -24,11 +24,13 @@ export interface SideView {
   shop: boolean;
   /** Seconds left on the building going up soonest (0 = nothing being built). */
   build: number;
+  /** How many things the hero has on their back that they could put down (0: no button). */
+  discard: number;
   /** Whether the player has got far enough for this button (GDD Onboarding: they appear one by one). */
   available: (action: SideAction) => boolean;
 }
 
-export type SideAction = 'calendar' | 'shop' | 'missions' | 'speed' | 'convoy' | 'refill' | 'finish' | 'build' | 'fix' | 'shelf' | 'tower';
+export type SideAction = 'calendar' | 'shop' | 'missions' | 'speed' | 'convoy' | 'refill' | 'finish' | 'build' | 'fix' | 'shelf' | 'tower' | 'discard';
 
 interface SideButton {
   el: HTMLButtonElement;
@@ -40,9 +42,9 @@ interface SideButton {
 /** A button that has just appeared glows this long. */
 const NEW_GLOW_MS = 4000;
 
-const ICONS: Record<SideAction, IconName> = { calendar: 'gift', shop: 'bag', missions: 'clipboard', speed: 'bolt', convoy: 'crown', refill: 'bottle', finish: 'crane', build: 'cone', fix: 'wrench', shelf: 'teddy', tower: 'tower' };
+const ICONS: Record<SideAction, IconName> = { calendar: 'gift', shop: 'bag', missions: 'clipboard', speed: 'bolt', convoy: 'crown', refill: 'bottle', finish: 'crane', build: 'cone', fix: 'wrench', shelf: 'teddy', tower: 'tower', discard: 'drop' };
 /** What each button is, for screen readers. */
-const NAMES: Record<SideAction, string> = { calendar: 'Daily gift', shop: 'Boutique', missions: 'Missions', speed: 'Speed boost', convoy: 'VIP convoy', refill: 'Instant delivery', finish: 'Finish it now', build: 'Building', fix: 'Fix every ride', shelf: 'Prize shelf', tower: 'Control tower' };
+const NAMES: Record<SideAction, string> = { calendar: 'Daily gift', shop: 'Boutique', missions: 'Missions', speed: 'Speed boost', convoy: 'VIP convoy', refill: 'Instant delivery', finish: 'Finish it now', build: 'Building', fix: 'Fix every ride', shelf: 'Prize shelf', tower: 'Control tower', discard: 'Put down what you carry' };
 
 const clock = (seconds: number) =>
   seconds >= 3600 ? `${Math.floor(seconds / 3600)}h${String(Math.floor((seconds % 3600) / 60)).padStart(2, '0')}` : `${Math.floor(seconds / 60)}:${String(Math.floor(seconds % 60)).padStart(2, '0')}`;
@@ -91,6 +93,7 @@ export class SideBar {
     this.set('fix', view.fix && open('fix'), '📺', false);
     this.set('shelf', view.shelf >= 0 && open('shelf'), view.shelf >= 0 ? String(view.shelf) : '', false);
     this.set('tower', view.tower !== null && open('tower'), view.tower ?? '', !!view.tower);
+    this.set('discard', view.discard > 0 && open('discard'), String(view.discard), false);
     this.started = true;
   }
 
@@ -102,7 +105,7 @@ export class SideBar {
     b.shown = key;
     b.el.hidden = !visible;
     // Newly unlocked (not just a pop-up offer like refill): it glows for a moment.
-    if (visible && !b.visible && this.started && action !== 'refill' && action !== 'finish' && action !== 'build') {
+    if (visible && !b.visible && this.started && action !== 'refill' && action !== 'finish' && action !== 'build' && action !== 'discard') {
       b.el.classList.add('side-new');
       setTimeout(() => b.el.classList.remove('side-new'), NEW_GLOW_MS);
     }

@@ -33,12 +33,15 @@ const mesh = (parts: Part[]): Mesh => new Mesh(mergeParts(parts), toyMaterial);
 const cone = (radius: number, height: number, segments = 10): BufferGeometry => new ConeGeometry(radius, height, segments);
 const ball = (radius: number, sx: number, sy: number, sz: number, segments = 12): BufferGeometry => new SphereGeometry(radius, segments, Math.ceil(segments * 0.75)).scale(sx, sy, sz);
 
+/** A gold band round a plinth's top sits this far below it (m): level with the marble's top, the two flickered. */
+const TRIM_DROP = 0.025;
+
 /** A marble plinth with a gold trim round its top and a gold plaque at the front. */
 function plinth(w: number, h: number, d: number): Part[] {
   return [
     { geometry: rbox(w, h, d, 0.06), color: MARBLE, y: h / 2 },
-    { geometry: rbox(w + 0.06, 0.06, d + 0.06, 0.02), color: GOLD, y: h - 0.03 },
-    { geometry: box(Math.min(0.7, w * 0.5), h * 0.4, 0.02), color: GOLD, y: h * 0.5, z: d / 2 + 0.01 },
+    { geometry: rbox(w + 0.06, 0.06, d + 0.06, 0.02), color: GOLD, y: h - 0.03 - TRIM_DROP },
+    { geometry: box(Math.min(0.7, w * 0.5), h * 0.4, 0.02), color: GOLD, y: h * 0.5, z: d / 2 + 0.012 },
   ];
 }
 
@@ -62,7 +65,8 @@ function bunting(context: DecorContext): BuiltDecor {
     const a = height(x);
     const b = height(next);
     parts.push({ geometry: box(Math.hypot(next - x, b - a), 0.02, 0.02), color: '#3b3f4a', x: (x + next) / 2, y: (a + b) / 2, rz: Math.atan2(b - a, next - x) });
-    if (x > 0.3) parts.push({ geometry: cone(0.17, 0.36, 3).scale(1, 1, 0.2), color: colours[Math.round(x / step) % colours.length]!, x, y: a - 0.2, rx: Math.PI });
+    // (Hung just under the string and along it, not with their tops in it.)
+    if (x > 0.3) parts.push({ geometry: cone(0.17, 0.36, 3).scale(1, 1, 0.2), color: colours[Math.round(x / step) % colours.length]!, x, y: a - 0.22, rx: Math.PI, rz: Math.atan2(b - a, next - x) });
   }
   const object = new Group();
   object.add(mesh(parts));
@@ -521,9 +525,7 @@ function biplane(): BuiltDecor {
   const CREAM = '#f4f1e8';
   const object = new Group();
   object.add(mesh([
-    { geometry: rbox(2.5, 0.3, 1.5, 0.08), color: MARBLE, y: 0.15 },
-    { geometry: rbox(2.56, 0.05, 1.56, 0.02), color: GOLD, y: 0.28 },
-    { geometry: box(0.7, 0.14, 0.02), color: GOLD, y: 0.15, z: 0.76 },
+    ...plinth(2.5, 0.3, 1.5),
   ]));
   const plane = new Group();
   plane.position.y = 0.3;
@@ -538,12 +540,12 @@ function biplane(): BuiltDecor {
     { geometry: box(0.03, 0.14, 0.24), color: '#bfe9ff', x: 0.3, y: Y + 0.27, rz: -0.3 },
     { geometry: rbox(0.36, 0.04, 0.95, 0.02), color: CREAM, x: -0.88, y: Y + 0.04 },
     { geometry: rbox(0.4, 0.44, 0.04, 0.02), color: RED, x: -0.9, y: Y + 0.24, rz: -0.25 },
-    // The two wings, their struts and the yellow stripes near the tips.
+    // The two wings, their struts and the yellow stripes near the tips (wrapped round them, a centimetre proud).
     { geometry: rbox(0.56, 0.06, 2.7, 0.03), color: CREAM, x: 0.4, y: Y - 0.16 },
     { geometry: rbox(0.56, 0.06, 2.7, 0.03), color: RED, x: 0.48, y: Y + 0.52 },
     ...[-1, 1].flatMap((side): Part[] => [
-      { geometry: box(0.57, 0.065, 0.12), color: '#ffd24a', x: 0.4, y: Y - 0.16, z: side * 1.12 },
-      { geometry: box(0.57, 0.065, 0.12), color: '#ffd24a', x: 0.48, y: Y + 0.52, z: side * 1.12 },
+      { geometry: box(0.6, 0.085, 0.12), color: '#ffd24a', x: 0.4, y: Y - 0.16, z: side * 1.12 },
+      { geometry: box(0.6, 0.085, 0.12), color: '#ffd24a', x: 0.48, y: Y + 0.52, z: side * 1.12 },
       { geometry: cylinder(0.022, 0.66, 6), color: '#5a3a1e', x: 0.3, y: Y + 0.18, z: side * 0.95 },
       { geometry: cylinder(0.022, 0.66, 6), color: '#5a3a1e', x: 0.62, y: Y + 0.18, z: side * 0.95 },
       { geometry: cylinder(0.018, 0.42, 6), color: '#5a3a1e', x: 0.5, y: Y + 0.32, z: side * 0.2, rx: side * -0.3 },
@@ -643,7 +645,8 @@ function monument(): BuiltDecor {
       geometry.rotateY(angle);
       return { ...rest, geometry, x: x * Math.cos(angle) + z * Math.sin(angle), z: -x * Math.sin(angle) + z * Math.cos(angle) };
     });
-  const FACE = 0.79;
+  /** The emblems stand proud of the base's faces (0.8 out), not all but level with them (which flickered). */
+  const FACE = 0.815;
   object.add(mesh([
     { geometry: rbox(1.6, 0.42, 1.6, 0.06), color: MARBLE, y: 0.21 },
     { geometry: rbox(1.66, 0.06, 1.66, 0.02), color: GOLD, y: 0.42 },

@@ -42,6 +42,8 @@ const SHAPES = {
   pump: `<rect x="4" y="3" width="10" height="18" rx="2" fill="#ff8a3d" ${o}/><rect x="6" y="5.5" width="6" height="4.5" rx="1" fill="#ffffff" stroke="${INK}" stroke-width="1.2"/><path d="M14 9h3l2.5 2.5V17a1.6 1.6 0 01-3.2 0v-3H14" fill="none" stroke="${INK}" stroke-width="1.8" stroke-linejoin="round"/><path d="M3 21h12" stroke="${INK}" stroke-width="2" stroke-linecap="round"/>`,
   suitcase: `<rect x="3" y="8" width="18" height="12.5" rx="2.6" fill="#ff5fa8" ${o}/><path d="M9 8V5.6a1.6 1.6 0 011.6-1.6h2.8A1.6 1.6 0 0115 5.6V8" fill="none" stroke="${INK}" stroke-width="1.8"/><path d="M8 8v12.5M16 8v12.5" stroke="#ffffff" stroke-width="2"/>`,
   plane: `<path d="M21.5 4.5c1-1.8-.6-3.2-2.3-2L14.5 6 5 3.8 3 5.6l7.4 4.6-3.6 3.6-3-.5-1.3 1.3 4 2 2 4 1.3-1.3-.5-3 3.6-3.6 4.6 7.4 1.8-2L16 9.5z" fill="#ffffff" ${o}/><path d="M14.5 6L16 9.5" stroke="#22c3c9" stroke-width="2.2" stroke-linecap="round"/>`,
+  // Putting down what's carried: a box over an arrow pointing down to the ground.
+  drop: `<rect x="5.5" y="2.5" width="13" height="9" rx="1.8" fill="#c08a55" ${o}/><path d="M5.5 6h13" stroke="${INK}" stroke-width="1.2"/><path d="M12 13v5.5" stroke="#ff5fa8" stroke-width="2.6" stroke-linecap="round"/><path d="M8.5 16l3.5 3.8 3.5-3.8" fill="none" stroke="#ff5fa8" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/><path d="M4 22h16" stroke="${INK}" stroke-width="1.8" stroke-linecap="round"/>`,
   door: `<rect x="5" y="3" width="14" height="18" rx="2" fill="#7ee0c3" ${o}/><path d="M9 3v18" stroke="${INK}" stroke-width="1.3"/><circle cx="15.5" cy="12.5" r="1.4" fill="#ffd24a" stroke="${INK}" stroke-width="1"/>`,
 } as const;
 

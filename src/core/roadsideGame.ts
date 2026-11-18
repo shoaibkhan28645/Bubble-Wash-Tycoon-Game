@@ -246,7 +246,19 @@ export function createRoadsideGame(
   const pointer = new EdgePointer(root);
   const hoses = new FuelHoses(stage.scene, layout);
   const washSounds = new WashSounds(sound);
-  const meta = createMeta({ root, state, saves, sound, traffic, pads, supplies, setBoost: (m) => (traffic.boost = m), hero: { player, hud, stage, effects, decor, labels } });
+  const meta = createMeta({
+    root,
+    state,
+    saves,
+    sound,
+    traffic,
+    pads,
+    supplies,
+    setBoost: (m) => (traffic.boost = m),
+    hero: { player, hud, stage, effects, decor, labels },
+    // (What the hero puts down goes back on the shelf.)
+    discard: { count: () => playerCarry.stack.length, drop: () => playerCarry.clear().forEach((item) => supplies.putBack(item)) },
+  });
   const town = createTown({
     root,
     scene: stage.scene,
@@ -280,7 +292,7 @@ export function createRoadsideGame(
     layout,
     town: 'carWash',
     pads,
-    hero: { position: () => player.position, mesh: player.mesh, speed: () => player.topSpeed },
+    hero: { position: () => player.position, mesh: player.mesh, speed: () => player.topSpeed, back: playerCarry.top },
     effects,
     floaters,
     sound,

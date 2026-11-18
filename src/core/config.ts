@@ -300,6 +300,8 @@ export interface TownLayout {
    * a gap), along `via`, to a bench (one of the town's `prop_bench` pieces) to sit on for a while.
    */
   benchVisits?: { from: Point; via: Point[]; bench: Point }[];
+  /** Paved footpaths through the town (between the rows of gardens, out to the lot's hedge, where there's a gap in it). */
+  footpaths?: Rect[];
 }
 
 /** A walk-up counter (a farm stand, a market stall): where customers are served, where they line up, and where its worker stands. */

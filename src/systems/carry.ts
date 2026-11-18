@@ -19,6 +19,8 @@ const suitcase = (body: string, straps = '#ffffff'): Parameters<typeof mergePart
 ];
 
 const ITEM_HEIGHT = 0.24;
+/** How much larger than life a pile on someone's back is drawn (so it reads on a phone). */
+const PILE_SCALE = 1.6;
 
 /** A wooden crate heaped with produce in these colours (corn cobs lie across it). */
 const crate = (colors: string[], cobs: boolean): Parameters<typeof mergeParts>[0] => [
@@ -198,7 +200,11 @@ export class Carrier<T extends CarryItem = SupplyType> {
   timer = 0;
   /** Where the i-th item sits (x, y, z in the pile), if not one on top of another (a trailer's rows). */
   arrange: ((i: number) => [number, number, number]) | null = null;
+  /** On top of the pile, at life size: whatever else rides there (a rush job's things), wobbling with it. */
+  readonly top = new Group();
   private readonly pile = new Group();
+  /** One empty marker per item, in the stack's order. */
+  private readonly markers = new Group();
   private sway = 0;
 
   constructor(
@@ -208,7 +214,9 @@ export class Carrier<T extends CarryItem = SupplyType> {
   ) {
     // On the back, above the waist; items are drawn large enough to read on a phone.
     this.pile.position.set(0, 1.0, -0.5);
-    this.pile.scale.setScalar(1.6);
+    this.pile.scale.setScalar(PILE_SCALE);
+    this.top.scale.setScalar(1 / PILE_SCALE);
+    this.pile.add(this.markers, this.top);
     attachTo.add(this.pile);
     carriedItems.track(this as Carrier<CarryItem>);
   }
@@ -232,7 +240,8 @@ export class Carrier<T extends CarryItem = SupplyType> {
     this.put(marker, this.stack.length - 1);
     // A pile on someone's back is a little higgledy-piggledy; rows (a vehicle's bed) stand square.
     marker.rotation.y = this.arrange ? 0 : (this.stack.length % 2) * 0.3;
-    this.pile.add(marker);
+    this.markers.add(marker);
+    this.raiseTop();
   }
 
   /** Adds this carrier's items, where they are now, to the meshes of their kinds (if it's on show). */
@@ -240,7 +249,7 @@ export class Carrier<T extends CarryItem = SupplyType> {
     if (this.stack.length === 0 || !shown(this.pile)) return;
     this.pile.updateWorldMatrix(true, false);
     this.stack.forEach((type, i) => {
-      const marker = this.pile.children[i];
+      const marker = this.markers.children[i];
       const mesh = meshes.get(type);
       const n = counts.get(type) ?? 0;
       if (!marker || !mesh || n >= MAX_ITEMS) return;
@@ -256,9 +265,23 @@ export class Carrier<T extends CarryItem = SupplyType> {
     const index = this.stack.lastIndexOf(type);
     if (index < 0) return false;
     this.stack.splice(index, 1);
-    this.pile.remove(this.pile.children[index]!);
-    this.pile.children.forEach((child, i) => this.put(child, i));
+    this.markers.remove(this.markers.children[index]!);
+    this.markers.children.forEach((child, i) => this.put(child, i));
+    this.raiseTop();
     return true;
+  }
+
+  /** Puts everything down at once (what the hero throws away): what there was, bottom first. */
+  clear(): T[] {
+    const gone = this.stack.splice(0);
+    this.markers.clear();
+    this.raiseTop();
+    return gone;
+  }
+
+  /** Whatever rides on top of the pile sits on its top item. */
+  private raiseTop(): void {
+    this.top.position.y = this.arrange ? 0 : this.stack.length * ITEM_HEIGHT;
   }
 
   private put(item: Object3D, i: number): void {

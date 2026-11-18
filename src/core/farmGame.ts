@@ -945,7 +945,20 @@ export function createFarmGame(
     const next = pads.next;
     return next && state.cash >= next.owed ? { at: next.at, text: 'guideBuild' } : null;
   };
-  const meta = createMeta({ root, state, saves, sound, traffic: null, pads, supplies: null, setBoost: (m) => (walkups.boost = m), town: 'farm', hero: { player, hud, stage, effects, decor, labels } });
+  const meta = createMeta({
+    root,
+    state,
+    saves,
+    sound,
+    traffic: null,
+    pads,
+    supplies: null,
+    setBoost: (m) => (walkups.boost = m),
+    town: 'farm',
+    hero: { player, hud, stage, effects, decor, labels },
+    // (The farm grows more: what the hero puts down is simply gone.)
+    discard: { count: () => playerCarry.stack.length, drop: () => void playerCarry.clear() },
+  });
   const town = createTown({
     root,
     scene: stage.scene,
@@ -968,7 +981,7 @@ export function createFarmGame(
     layout,
     town: 'farm',
     pads,
-    hero: { position: () => player.position, mesh: player.mesh, speed: () => player.topSpeed },
+    hero: { position: () => player.position, mesh: player.mesh, speed: () => player.topSpeed, back: playerCarry.top },
     effects,
     floaters,
     sound,

@@ -82,6 +82,11 @@ export function createMeta(deps: {
   /** The airport's control tower (once it's built): its button's badge, and opening its flight cards. */
   tower?: { badge: () => string | null; open: () => void };
   /**
+   * What the hero's carrying on their back (not a rush job's things): how many, and putting it all down (back
+   * where it came from, where that matters).
+   */
+  discard?: { count: () => number; drop: () => void };
+  /**
    * The boutique's things: the hero (dressed from it), the HUD (its gem counter opens it), the stage (it
    * draws the close-up), the effects (the trail) and the town's decorations.
    */
@@ -119,7 +124,7 @@ export function createMeta(deps: {
     return ok ? 'ad' : null;
   };
 
-  const rewards: Record<Exclude<SideAction, 'calendar' | 'missions' | 'shelf' | 'shop' | 'tower'>, () => Promise<void>> = {
+  const rewards: Record<Exclude<SideAction, 'calendar' | 'missions' | 'shelf' | 'shop' | 'tower' | 'discard'>, () => Promise<void>> = {
     fix: async () => {
       const rides = deps.rides;
       if (!rides || rides.broken() === 0) return;
@@ -276,7 +281,7 @@ export function createMeta(deps: {
   /** The gem boosts this town has, each with why it can't be used right now. */
   const boosts = (): BoostView[] => {
     const list: BoostView[] = [];
-    const add = (action: Exclude<SideAction, 'calendar' | 'missions' | 'shelf' | 'shop' | 'tower'>, view: Omit<BoostView, 'use'>): void => {
+    const add = (action: Exclude<SideAction, 'calendar' | 'missions' | 'shelf' | 'shop' | 'tower' | 'discard'>, view: Omit<BoostView, 'use'>): void => {
       if (available(action)) list.push({ ...view, use: () => void rewards[action]() });
     };
     add('speed', { icon: '⚡', title: t('speedTitle'), body: t('speedBody'), gems: ADS.speedBoost.gems, status: state.boostSeconds > 0 ? t('boostOn', { time: formatClock(state.boostSeconds) }) : '' });
@@ -371,6 +376,13 @@ export function createMeta(deps: {
       });
     } else if (action === 'shelf') deps.shelf?.open();
     else if (action === 'tower') deps.tower?.open();
+    else if (action === 'discard') {
+      deps.discard?.drop();
+      // (A little puff where they were, as it all goes.)
+      const at = deps.hero.player.mesh.position;
+      deps.hero.effects.burst('smoke', new Vector3(at.x, 1.3, at.z), 8, 1.6, 0.5);
+      sound.play('drop');
+    }
     else void rewards[action]();
   });
 
@@ -413,7 +425,8 @@ export function createMeta(deps: {
     (action !== 'missions' || state.daily.missions.length > 0) &&
     (action !== 'fix' || !!deps.rides) &&
     (action !== 'shelf' || !!deps.shelf) &&
-    (action !== 'tower' || !!deps.tower);
+    (action !== 'tower' || !!deps.tower) &&
+    (action !== 'discard' || !!deps.discard);
 
   const progress = (kind: Parameters<typeof addProgress>[1], amount = 1): void => {
     // Missions open with the Mini-Mart; until then they count quietly.
@@ -473,6 +486,7 @@ export function createMeta(deps: {
         fix: (deps.rides?.broken() ?? 0) > 0,
         shelf: deps.shelf?.count() ?? -1,
         tower: deps.tower ? (deps.tower.badge() ?? '') : null,
+        discard: deps.discard?.count() ?? 0,
         shop: fresh,
         available,
         build: (() => {

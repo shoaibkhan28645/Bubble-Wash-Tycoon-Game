@@ -971,6 +971,8 @@ export function createParkGame(
     setBoost: (m) => (crowd.boost = m),
     town: 'park',
     hero: { player, hud, stage, effects, decor, labels },
+    // (What the hero puts down goes back in the shed.)
+    discard: { count: () => heroCarry.stack.length, drop: () => heroCarry.clear().forEach((item) => supplies.putBack(item)) },
     // The rewarded fix: every broken-down ride runs again at once.
     rides: {
       broken: () => crowd.rides.filter((r) => r.broken).length,
@@ -1014,7 +1016,7 @@ export function createParkGame(
     layout,
     town: 'park',
     pads,
-    hero: { position: () => player.position, mesh: player.mesh, speed: () => player.topSpeed },
+    hero: { position: () => player.position, mesh: player.mesh, speed: () => player.topSpeed, back: heroCarry.top },
     effects,
     floaters,
     sound,

@@ -37,6 +37,11 @@ export class ParkSupplies {
     return this.state.supplies[`shed.${item}`] ?? 0;
   }
 
+  /** A box the hero's put down: back in the shed, as far as there's room. */
+  putBack(item: ParkSupply): void {
+    this.state.supplies[`shed.${item}`] = Math.min(RULES.shed, this.shed(item) + 1);
+  }
+
   /** What a stall has left to sell. */
   stock(stallId: string): number {
     return this.state.supplies[`${stallId}.stock`] ?? 0;
