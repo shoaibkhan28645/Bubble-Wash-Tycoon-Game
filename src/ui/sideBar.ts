@@ -1,4 +1,5 @@
 import { icon, setRich, type IconName } from './icons';
+import { rewardedAdsAvailable } from '../platform/youtube';
 
 /** What the side buttons show this frame. */
 export interface SideView {
@@ -85,12 +86,14 @@ export class SideBar {
     this.set('calendar', open('calendar'), view.calendar ? '!' : '', view.calendar);
     this.set('shop', open('shop'), view.shop ? '!' : '', false);
     this.set('missions', open('missions'), view.missions ? String(view.missions) : '', view.missions > 0);
-    this.set('speed', open('speed') || view.speedLeft > 0, view.speedLeft > 0 ? clock(view.speedLeft) : '📺', view.speedLeft > 0);
-    this.set('convoy', open('convoy'), view.convoyWait > 0 ? clock(view.convoyWait) : '📺', false, view.convoyWait > 0);
-    this.set('refill', view.refill && open('refill'), '📺', false);
-    this.set('finish', view.finish && open('finish'), '📺', false);
+    // The boosts' sign: an ad, or gems where the platform has no rewarded ads.
+    const ad = rewardedAdsAvailable() ? '📺' : '💎';
+    this.set('speed', open('speed') || view.speedLeft > 0, view.speedLeft > 0 ? clock(view.speedLeft) : ad, view.speedLeft > 0);
+    this.set('convoy', open('convoy'), view.convoyWait > 0 ? clock(view.convoyWait) : ad, false, view.convoyWait > 0);
+    this.set('refill', view.refill && open('refill'), ad, false);
+    this.set('finish', view.finish && open('finish'), ad, false);
     this.set('build', view.build > 0 && open('build'), clock(view.build), false);
-    this.set('fix', view.fix && open('fix'), '📺', false);
+    this.set('fix', view.fix && open('fix'), ad, false);
     this.set('shelf', view.shelf >= 0 && open('shelf'), view.shelf >= 0 ? String(view.shelf) : '', false);
     this.set('tower', view.tower !== null && open('tower'), view.tower ?? '', !!view.tower);
     this.set('discard', view.discard > 0 && open('discard'), String(view.discard), false);

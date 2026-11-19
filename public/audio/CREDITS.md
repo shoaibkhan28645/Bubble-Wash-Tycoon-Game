@@ -55,6 +55,7 @@ the farm.
 | `farm/moo-3` | Cow moos #6 | https://bigsoundbank.com/cow-moos-6-s2386.html |
 | `farm/cluck-*` | Annoyed hen | https://bigsoundbank.com/annoyed-hen-s0453.html |
 
-The sponge squeaks, water spray, bubble pops, horn, till bell, footsteps and
-the airport's chime, tyre chirp, propellers, gulls and engine drone are made
-in code (`src/audio/synth.ts`).
+The sponge squeaks, water spray, bubble pops, horn, till bell, fuel glug, pump
+beep, footsteps and the airport's chime, tyre chirp, propellers, gulls, camera
+shutter and engine drone were designed for the game (`art/sfx/synth.ts`) and
+rendered to the audio files in `sfx/` (`art/sfx/render.mjs`).

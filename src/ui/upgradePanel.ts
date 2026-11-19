@@ -1,5 +1,6 @@
 import { icon } from './icons';
 import { formatCash } from '../systems/economy';
+import { isEscape } from './keys';
 
 export interface UpgradeRow {
   key: string;
@@ -56,7 +57,7 @@ export class UpgradePanel {
   }
 
   private readonly onKey = (e: KeyboardEvent): void => {
-    if (e.key === 'Escape' && this.openId) this.close();
+    if (isEscape(e) && this.openId) this.close();
   };
 
   /** Stops listening for Escape (leaving a town). */

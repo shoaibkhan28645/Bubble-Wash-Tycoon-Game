@@ -1,12 +1,12 @@
 import { FileLoader } from 'three';
 import AUDIO from '../data/audio.json';
-import { renderSynth, type SynthSound } from './synth';
 
 export type Sfx = keyof typeof AUDIO.sounds;
 
 interface SoundDef {
   files?: string[];
-  synth?: string;
+  /** Played at the same time as one of `files` (the till: a clack and a bell). */
+  layer?: string[];
   volume: number;
   gap: number;
   duck?: boolean;
@@ -14,10 +14,9 @@ interface SoundDef {
   set?: string;
 }
 
-/** A loop: a town's music, or a place's sound (the carousel's music box, the rain, the airport's engines; made in code if `synth`). */
+/** A loop: a town's music, or a place's sound (the carousel's music box, the rain, the airport's engines). */
 interface TrackDef {
   file?: string;
-  synth?: string;
   volume: number;
   set?: string;
 }
@@ -29,8 +28,11 @@ const MAX_VOICES = 16;
 const VARIETY = 0.08;
 const SOUNDS = AUDIO.sounds as Record<Sfx, SoundDef>;
 
+/** A sound's files: one of `files`, and its layer. */
+const soundFiles = (s: SoundDef): string[] => [...(s.files ?? []), ...(s.layer ?? [])];
+
 /**
- * Web Audio: the game's sounds and music (public/audio) and effects made in code.
+ * Web Audio: the game's sounds and music, all of them recorded or rendered audio files (public/audio).
  * Silent whenever YouTube mutes or pauses the game: the AudioContext is
  * suspended, so nothing can leak through.
  */
@@ -39,7 +41,6 @@ export class SoundManager {
   private sfxGain: GainNode | null = null;
   private musicGain: GainNode | null = null;
   private readonly files = new Map<string, AudioBuffer>();
-  private synth: Partial<Record<SynthSound, AudioBuffer[]>> = {};
   /** The music playing (its own gain, to fade it out when the town changes), and which town's track (null: none). */
   private musicSource: { source: AudioBufferSourceNode; gain: GainNode } | null = null;
   private musicTrack: string | null = null;
@@ -72,12 +73,9 @@ export class SoundManager {
     this.musicGain.gain.value = AUDIO.music.volume;
     this.musicGain.connect(context.destination);
 
-    const names = [...new Set(Object.values(SOUNDS).flatMap((s) => (s.set ? [] : (s.files ?? []))))];
+    const names = [...new Set(Object.values(SOUNDS).flatMap((s) => (s.set ? [] : soundFiles(s))))];
     let done = 0;
-    await this.loadFiles(names, () => onProgress(++done / (names.length + 1)));
-    for (const [name, variants] of Object.entries(renderSynth(context.sampleRate))) {
-      this.synth[name as SynthSound] = variants.map((samples) => this.toBuffer(samples, context.sampleRate));
-    }
+    await this.loadFiles(names, () => onProgress(++done / names.length));
     onProgress(1);
     this.apply();
   }
@@ -86,7 +84,7 @@ export class SoundManager {
   async loadSet(set: string): Promise<void> {
     if (!this.context || this.sets.has(set)) return;
     this.sets.add(set);
-    const sounds = Object.values(SOUNDS).flatMap((s) => (s.set === set ? (s.files ?? []) : []));
+    const sounds = Object.values(SOUNDS).flatMap((s) => (s.set === set ? soundFiles(s) : []));
     const tracks = Object.values(TRACKS).flatMap((t) => (t.set === set && t.file ? [t.file] : []));
     await this.loadFiles([...new Set([...sounds, ...tracks])]);
     // The town's music may have been waiting for its file.
@@ -138,7 +136,7 @@ export class SoundManager {
   loop(track: string, level: number): void {
     const context = this.context;
     const def = TRACKS[track];
-    const buffer = !def ? undefined : def.synth ? this.synth[def.synth as SynthSound]?.[0] : def.file ? this.files.get(def.file) : undefined;
+    const buffer = def?.file ? this.files.get(def.file) : undefined;
     if (!context || !def || !buffer || !this.sfxGain) return;
     let playing = this.loops.get(track);
     if (!playing) {
@@ -192,13 +190,13 @@ export class SoundManager {
     if (now - (this.lastPlayed.get(name) ?? -Infinity) < def.gap) return;
     this.lastPlayed.set(name, now);
 
-    // Samples and made-in-code layers both play (the till: a clack and a bell).
-    const layers: AudioBuffer[] = [];
-    const file = def.files?.[Math.floor(Math.random() * def.files.length)];
-    const fileBuffer = file ? this.files.get(file) : undefined;
-    if (fileBuffer) layers.push(fileBuffer);
-    const variants = def.synth ? this.synth[def.synth as SynthSound] : undefined;
-    if (variants?.length) layers.push(variants[Math.floor(Math.random() * variants.length)]!);
+    // One of the files, and its layer with it (the till: a clack and a bell).
+    const pick = (list: string[] | undefined): AudioBuffer | undefined => {
+      const name = list?.[Math.floor(Math.random() * list.length)];
+      return name ? this.files.get(name) : undefined;
+    };
+    const fileBuffer = pick(def.files);
+    const layers = [fileBuffer, pick(def.layer)].filter((b): b is AudioBuffer => b !== undefined);
     const rate = def.duck ? 1 : 1 + (Math.random() - 0.5) * VARIETY;
     for (const buffer of layers) {
       const source = context.createBufferSource();
@@ -226,12 +224,6 @@ export class SoundManager {
   /** How many sound files decoded (for the dev console and tests). */
   get loadedFiles(): number {
     return this.files.size;
-  }
-
-  private toBuffer(samples: Float32Array, sampleRate: number): AudioBuffer {
-    const buffer = this.context!.createBuffer(1, samples.length, sampleRate);
-    buffer.copyToChannel(samples as Float32Array<ArrayBuffer>, 0);
-    return buffer;
   }
 
   /** The music starts with the first tap and then just loops (the town's track once it has loaded). */

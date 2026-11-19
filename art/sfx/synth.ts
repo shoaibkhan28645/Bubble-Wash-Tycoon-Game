@@ -1,4 +1,7 @@
-// Sound effects made in code where the CC0 packs have nothing that fits:
+// The sound effects designed in code where the CC0 packs have nothing that fits,
+// rendered to mp3 files by art/sfx/render.mjs (public/audio/sfx): the game plays
+// those files, never this code. (Playgama, rule 3.3.2: sound ships as audio files.)
+// They are:
 // sponge squeaks, water spray, bubble pops, a car horn, a till bell, fuel
 // glugging into a tank, the pump's beep, the hero's footsteps; and the
 // airport's: the chime before an announcement, a tyre's chirp on touchdown,

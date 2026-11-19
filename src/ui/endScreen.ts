@@ -1,5 +1,6 @@
 import { icon } from './icons';
 import { t } from './strings';
+import { isEscape } from './keys';
 
 /**
  * End of content (YouTube requires telling the player when there's no more):
@@ -34,7 +35,7 @@ export function showEndScreen(root: HTMLElement, onClose: () => void, text: { ti
     onClose();
   };
   const onKey = (e: KeyboardEvent) => {
-    if (e.key === 'Escape' || e.key === 'Enter') close();
+    if (isEscape(e) || e.key === 'Enter') close();
   };
   keep.addEventListener('click', close);
   window.addEventListener('keydown', onKey);

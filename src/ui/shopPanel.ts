@@ -31,6 +31,8 @@ import {
 } from '../systems/wardrobe';
 import { icon as drawn, iconFor, rich, setRich, type IconName } from './icons';
 import { t, type StringKey } from './strings';
+import { isEscape } from './keys';
+import { rewardedAdsAvailable } from '../platform/youtube';
 
 export type ShopTab = Slot | 'today' | 'sets' | 'boosts';
 
@@ -446,20 +448,22 @@ export function openShop(deps: ShopDeps, firstTab: ShopTab = 'today'): { close: 
     }
     if (picks.length) blocks.push(grid);
     else blocks.push(heading(t('shopAllOwned')));
-    // Gems for a short ad, a few times a day.
-    const left = adGemsLeft(state, deps.today);
-    const watch = document.createElement('button');
-    watch.type = 'button';
-    watch.className = 'shop-use';
-    setRich(watch, `📺 +${ADS.gemAd.gems} 💎`);
-    watch.disabled = left <= 0;
-    watch.addEventListener('click', async () => {
-      deps.click();
-      watch.disabled = true;
-      await deps.watchForGems();
-      render();
-    });
-    blocks.push(card('📺', t('shopAdTitle', { gems: ADS.gemAd.gems }), left > 0 ? t('shopAdLeft', { n: left }) : t('shopAdDone'), watch));
+    // Gems for a short ad, a few times a day (where the platform has rewarded ads).
+    if (rewardedAdsAvailable()) {
+      const left = adGemsLeft(state, deps.today);
+      const watch = document.createElement('button');
+      watch.type = 'button';
+      watch.className = 'shop-use';
+      setRich(watch, `📺 +${ADS.gemAd.gems} 💎`);
+      watch.disabled = left <= 0;
+      watch.addEventListener('click', async () => {
+        deps.click();
+        watch.disabled = true;
+        await deps.watchForGems();
+        render();
+      });
+      blocks.push(card('📺', t('shopAdTitle', { gems: ADS.gemAd.gems }), left > 0 ? t('shopAdLeft', { n: left }) : t('shopAdDone'), watch));
+    }
     // The weekly gift: the calendar's 7th day.
     const gift = nextGift(state);
     if (gift) blocks.push(card('🎁', t('shopGiftTitle'), t('shopGiftBody', { name: gift.name, day: deps.calendarDay + 1 })));
@@ -567,7 +571,8 @@ export function openShop(deps: ShopDeps, firstTab: ShopTab = 'today'): { close: 
       use.type = 'button';
       use.className = 'shop-use';
       // Nothing to price yet (nothing being built): just the ad's sign.
-      setRich(use, boost.gems <= 0 ? '📺' : boost.noAd ? `💎 ${boost.gems}` : `📺 / 💎 ${boost.gems}`);
+      const ad = !boost.noAd && rewardedAdsAvailable();
+      setRich(use, boost.gems <= 0 ? (ad ? '📺' : '💎') : ad ? `📺 / 💎 ${boost.gems}` : `💎 ${boost.gems}`);
       use.disabled = !!boost.status;
       use.addEventListener('click', () => {
         deps.click();
@@ -621,7 +626,7 @@ export function openShop(deps: ShopDeps, firstTab: ShopTab = 'today'): { close: 
     root.classList.remove('shop-open');
   };
   const onKey = (e: KeyboardEvent): void => {
-    if (e.key === 'Escape') close();
+    if (isEscape(e)) close();
   };
   closeButton.addEventListener('click', () => {
     deps.click();

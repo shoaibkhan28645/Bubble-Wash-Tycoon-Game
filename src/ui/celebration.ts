@@ -1,5 +1,6 @@
 import { iconFor, setRich } from './icons';
 import { t } from './strings';
+import { isEscape } from './keys';
 
 /** One big moment told to the player: a story beat or a new rank. */
 export interface Announcement {
@@ -101,7 +102,7 @@ export function showCelebration(root: HTMLElement, item: Announcement, onClose: 
     onClose();
   };
   const onKey = (e: KeyboardEvent): void => {
-    if (e.key === 'Escape' || e.key === 'Enter') close();
+    if (isEscape(e) || e.key === 'Enter') close();
   };
   button.addEventListener('click', close);
   window.addEventListener('keydown', onKey);

@@ -1,6 +1,8 @@
-// The only file that talks to YouTube (`ytgame`). Everything else uses these
-// typed functions, which never throw. Outside YouTube a dev fallback is used.
+// The only file that talks to the platform: YouTube (`ytgame`), or Playgama
+// Bridge in the Playgama build. Everything else uses these typed functions,
+// which never throw. Outside both a dev fallback is used.
 import { createDevPlatform } from './devPlatform';
+import { PLAYGAMA, bridgeBackend, initBridge } from './playgama';
 import { TESTER } from './tester';
 import type { DevControls, PlatformBackend } from './types';
 
@@ -22,6 +24,8 @@ function youtubeBackend(yt: typeof ytgame): PlatformBackend {
     onPause: (callback) => void yt.system.onPause(callback),
     onResume: (callback) => void yt.system.onResume(callback),
     getLanguage: () => yt.system.getLanguage(),
+    rewardedSupported: () => true,
+    muteButton: () => false,
     requestRewardedAd: (rewardId) => yt.ads.requestRewardedAd(rewardId),
     requestInterstitialAd: () => yt.ads.requestInterstitialAd(),
     sendScore: (value) => yt.engagement.sendScore({ value }),
@@ -32,14 +36,27 @@ function youtubeBackend(yt: typeof ytgame): PlatformBackend {
 
 // The tester build always uses the stand-in: on itch.io the game runs inside a frame, YouTube's SDK takes any
 // frame for YouTube, and loadData then waits for a YouTube that isn't there (the build leaves the SDK out too).
-const sdk = !TESTER && window.ytgame?.IN_PLAYABLES_ENV ? window.ytgame : undefined;
-const dev = sdk ? null : createDevPlatform();
-const backend: PlatformBackend = sdk ? youtubeBackend(sdk) : dev!.backend;
+// (No window in the unit tests: they get the stand-in.)
+const sdk = !TESTER && !PLAYGAMA && typeof window !== 'undefined' && window.ytgame?.IN_PLAYABLES_ENV ? window.ytgame : undefined;
+// The Playgama build: Bridge's script is the page's first, so it's there whenever this runs.
+const bridge = PLAYGAMA ? window.bridge : undefined;
+const dev = sdk || bridge ? null : createDevPlatform();
+const backend: PlatformBackend = sdk ? youtubeBackend(sdk) : bridge ? bridgeBackend(bridge) : dev!.backend;
 
 /** True inside YouTube (including the Playables Test Suite). */
 export const inYouTube = sdk !== undefined;
-/** Fake pause/mute controls for the debug overlay; null inside YouTube. */
+/** Fake pause/mute controls for the debug overlay; null on a real platform. */
 export const devControls: DevControls | null = dev?.controls ?? null;
+/** The platform decides when interstitials are shown (Bridge): the game just asks at each natural pause. */
+export const managesAdTiming = backend.managesAdTiming === true;
+
+/**
+ * Gets the platform ready: Playgama Bridge must finish starting before the game
+ * loads anything or calls it (its Required step 2). Call first. Never throws.
+ */
+export async function init(): Promise<void> {
+  if (bridge && !(await initBridge(bridge))) logError(new Error('Playgama Bridge failed to start'));
+}
 
 export function logError(error: unknown): void {
   console.error(error);
@@ -138,6 +155,24 @@ export async function getLanguage(): Promise<string> {
   } catch (error) {
     logWarning(error);
     return 'en';
+  }
+}
+
+/** Rewarded ads can be shown here; when not, every "watch an ad" button is hidden (gems still work). */
+export function rewardedAdsAvailable(): boolean {
+  try {
+    return backend.rewardedSupported();
+  } catch {
+    return false;
+  }
+}
+
+/** The game shows its own mute button (the Playgama build, off YouTube). */
+export function showsMuteButton(): boolean {
+  try {
+    return backend.muteButton();
+  } catch {
+    return false;
   }
 }
 

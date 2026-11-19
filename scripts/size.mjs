@@ -5,7 +5,8 @@ import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import { gzipSync } from 'node:zlib';
 
-const DIST = 'dist';
+// `node scripts/size.mjs dist-playgama` checks another build.
+const DIST = process.argv[2] ?? 'dist';
 const FILE_TARGET = 512 * 1024;
 const kib = (n) => `${(n / 1024).toFixed(1)} KiB`;
 
@@ -72,7 +73,8 @@ for (const [name, { raw }] of sizes) {
 }
 // YouTube Playables: the game saves only through YouTube, never in the browser. The dev server and the
 // tester build do (src/platform/tester.ts); this build, the one for YouTube, mustn't.
-const storage = all.filter((f) => /\.(js|html)$/.test(f) && /localStorage|sessionStorage|indexedDB|document\.cookie/.test(readFileSync(join(DIST, f), 'utf8')));
+// (Playgama Bridge keeps the Playgama build's save itself, in its own file; the game's code mustn't.)
+const storage = all.filter((f) => /\.(js|html)$/.test(f) && f !== 'playgama-bridge.js' && /localStorage|sessionStorage|indexedDB|document\.cookie/.test(readFileSync(join(DIST, f), 'utf8')));
 if (storage.length) {
   console.log(`Browser storage in the build for YouTube: ${storage.join(', ')}`);
   process.exitCode = 1;

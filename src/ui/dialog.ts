@@ -1,5 +1,7 @@
 import { icon, iconFor, setRich } from './icons';
 import { t } from './strings';
+import { isEscape } from './keys';
+import { rewardedAdsAvailable } from '../platform/youtube';
 
 /** Button clicks and dialogs opening make a sound; the game sets who plays it. */
 let uiSound: (name: 'click' | 'open') => void = () => {};
@@ -53,7 +55,7 @@ export function openDialog(root: HTMLElement, options: DialogOptions): { close: 
     options.onClose?.();
   };
   const onKey = (e: KeyboardEvent): void => {
-    if (e.key === 'Escape') close();
+    if (isEscape(e)) close();
   };
 
   if (page) {
@@ -145,7 +147,7 @@ export function offer(
       title: options.title,
       body: options.body,
       buttons: [
-        ...(options.noAd ? [] : [{ label: `📺 ${t('watchAd')}`, kind: 'ad' as const, onTap: () => void (choice = 'ad') }]),
+        ...(options.noAd || !rewardedAdsAvailable() ? [] : [{ label: `📺 ${t('watchAd')}`, kind: 'ad' as const, onTap: () => void (choice = 'ad') }]),
         { label: `💎 ${options.gems}`, kind: 'gems', disabled: options.haveGems < options.gems, onTap: () => void (choice = 'gems') },
         { label: t('notNow'), kind: 'plain', onTap: () => {} },
       ],

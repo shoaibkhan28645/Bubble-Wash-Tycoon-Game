@@ -8,6 +8,7 @@ import { money } from '../systems/economy';
 import { openDialog } from './dialog';
 import { icon as drawn, setRich } from './icons';
 import { t, type StringKey } from './strings';
+import { rewardedAdsAvailable } from '../platform/youtube';
 
 export interface BoardView {
   slots: readonly Contract[];
@@ -77,7 +78,7 @@ function card(c: Contract, view: BoardView, onClaim: (double: boolean) => void):
   claim.disabled = !done;
   claim.addEventListener('click', () => onClaim(false));
   buttons.appendChild(claim);
-  if (done && view.canDouble) {
+  if (done && view.canDouble && rewardedAdsAvailable()) {
     const double = document.createElement('button');
     double.type = 'button';
     double.className = 'mission-claim contract-double';

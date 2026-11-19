@@ -74,6 +74,8 @@ export function createDevPlatform(): { backend: PlatformBackend; controls: DevCo
     onPause: (callback) => void pauseEvents.on(callback),
     onResume: (callback) => void resumeEvents.on(callback),
     getLanguage: async () => 'en',
+    rewardedSupported: () => true,
+    muteButton: () => false,
     requestRewardedAd: async () => {
       await fakeAd('Rewarded ad');
       return true;

@@ -13,11 +13,17 @@ import { START_TOWN_ID, loadTown, townIds } from './towns';
 import type { GameState } from './gameState';
 import { backgroundEarner, empireOfflineEarnings, switchTown } from './empire';
 import { TESTER, takeAwayShift } from '../platform/tester';
+import { createMuteButton } from '../ui/muteButton';
+
+/** In the save's flags while the player has turned the sound off (the mute button). */
+const MUTED_FLAG = 'muted';
 
 /** Boot sequence from the Tech Guide. gameReady() only once the game is playable. */
 export async function boot(root: HTMLElement): Promise<void> {
   /** Milliseconds from page load to playable (shown in the debug panel; budget: under 5 s). */
   let readyMs = 0;
+  // Playgama Bridge has to be ready before anything loads (a no-op elsewhere).
+  await platform.init();
   platform.installErrorReporting();
   const loading = getLoadingScreen();
   platform.firstFrameReady();
@@ -33,8 +39,14 @@ export async function boot(root: HTMLElement): Promise<void> {
   loading.setProgress(0.4);
 
   const sound = new SoundManager();
-  sound.setEnabled(platform.isAudioEnabled());
-  platform.onAudioEnabledChange((enabled) => sound.setEnabled(enabled));
+  // Sound plays when the platform allows it and the player hasn't turned it off (the Playgama build's mute button).
+  let platformAudio = platform.isAudioEnabled();
+  const applyAudio = (): void => sound.setEnabled(platformAudio && !state.flags.includes(MUTED_FLAG));
+  applyAudio();
+  platform.onAudioEnabledChange((enabled) => {
+    platformAudio = enabled;
+    applyAudio();
+  });
 
   const lifecycle = new Lifecycle();
   platform.onPause(() => lifecycle.pause());
@@ -122,6 +134,20 @@ export async function boot(root: HTMLElement): Promise<void> {
   if (TESTER) {
     const { createTesterPanel } = await import('../ui/testerPanel');
     createTesterPanel({ root, state, saves, travel, showStats: showDebug, dev: platform.devControls });
+  }
+
+  if (platform.showsMuteButton()) {
+    createMuteButton(root, {
+      muted: () => state.flags.includes(MUTED_FLAG),
+      toggle: () => {
+        const at = state.flags.indexOf(MUTED_FLAG);
+        if (at >= 0) state.flags.splice(at, 1);
+        else state.flags.push(MUTED_FLAG);
+        applyAudio();
+        sound.unlock();
+        void saves.saveNow();
+      },
+    });
   }
 
   await loading.hide();

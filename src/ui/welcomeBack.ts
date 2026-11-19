@@ -1,6 +1,8 @@
 import { money } from '../systems/economy';
 import { icon, setRich } from './icons';
 import { t } from './strings';
+import { isEscape } from './keys';
+import { rewardedAdsAvailable } from '../platform/youtube';
 
 /** "1 h 20 min", "45 min", "2 min". */
 export function formatAway(seconds: number): string {
@@ -52,7 +54,8 @@ export function showWelcomeBack(
   twice.type = 'button';
   twice.className = 'welcome-collect welcome-double';
   setRich(twice, `📺 ${t('collectDouble')}`);
-  card.append(title, bag, amount, away, note, twice, collect);
+  // Doubling it takes a rewarded ad: only where the platform has them.
+  card.append(title, bag, amount, away, note, ...(rewardedAdsAvailable() ? [twice] : []), collect);
   overlay.appendChild(card);
   // The overlay swallows taps so the joystick doesn't start underneath.
   overlay.addEventListener('pointerdown', (e) => e.stopPropagation());
@@ -63,7 +66,7 @@ export function showWelcomeBack(
     onClose();
   };
   const onKey = (e: KeyboardEvent) => {
-    if (e.key === 'Escape' || e.key === 'Enter') close();
+    if (isEscape(e) || e.key === 'Enter') close();
   };
   collect.addEventListener('click', close);
   twice.addEventListener('click', async () => {
