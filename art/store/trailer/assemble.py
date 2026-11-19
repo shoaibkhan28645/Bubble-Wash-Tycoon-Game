@@ -8,6 +8,8 @@ FPS = 30
 BAR = 60 * 4 / 104          # the car wash music: 104 beats a minute, four to a bar
 FADE = 0.2                  # each cut is a short dissolve, centred on the beat
 SHOTS = [('1-car-wash', 'k1'), ('2-build', 'k2'), ('3-crew', 'k3'), ('4-farm', 'k4'), ('5-park', 'k5'), ('6-airport', 'k6')]
+# The first frame used of each shot, where it isn't the first one recorded.
+FIRST = {}
 # Where each part starts, in bars: the cover, six shots of a bar and a half, the end card for two bars.
 starts = [0, 1] + [1 + 1.5 * k for k in range(1, 7)]
 cuts = [s * BAR for s in starts[1:]]       # the seven cuts
@@ -28,7 +30,7 @@ chains.append(f"[{i}:v]scale=3840:-2,zoompan=z='1+0.06*on/{int(L*FPS)}':x='iw/2-
 SLIDE = "y='38*pow(1-min(max((t-0.35)/0.3,0),1),2)'"
 for k, (shot, cap) in enumerate(SHOTS, 1):
     L = lengths[k]
-    v = add('-framerate', str(FPS), '-i', f'frames/{shot}/f%04d.jpg')
+    v = add('-framerate', str(FPS), '-start_number', str(FIRST.get(shot, 0)), '-i', f'frames/{shot}/f%04d.jpg')
     c = add('-loop', '1', '-framerate', str(FPS), '-t', f'{L:.3f}', '-i', f'frames/{cap}.png')
     chains.append(
         f"[{c}:v]format=rgba,fade=t=in:st=0.35:d=0.25:alpha=1,fade=t=out:st={L-0.6:.3f}:d=0.3:alpha=1[c{k}];"
