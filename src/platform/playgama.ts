@@ -11,7 +11,7 @@ import type { PlatformBackend } from './types';
 export const PLAYGAMA = import.meta.env.MODE === 'playgama';
 
 /** The one storage key: the whole save, as the JSON string the game already writes. */
-export const SAVE_KEY = 'main-street-mogul-save';
+export const SAVE_KEY = 'main-street-tycoon-save';
 
 /** An interstitial Bridge doesn't start within this long was skipped (too soon after the last: Bridge decides). */
 const INTERSTITIAL_START_MS = 1500;

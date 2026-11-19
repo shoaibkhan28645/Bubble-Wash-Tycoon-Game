@@ -1,6 +1,6 @@
 # Sound credits
 
-## Music: written for Main Street Mogul
+## Music: written for Main Street Tycoon
 
 All of the game's music was written for it. Each piece is a score in
 `art/music/compose.py`, played with the **FluidR3 GM** instruments

@@ -1,4 +1,4 @@
-"""Main Street Mogul's music, all written for the game: each tune is a score
+"""Main Street Tycoon's music, all written for the game: each tune is a score
 in this file, played by FluidSynth with the FluidR3 GM instruments (MIT) and
 cut into a seamless loop.
 

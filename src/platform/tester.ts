@@ -9,7 +9,8 @@ export const TESTER = import.meta.env.MODE === 'tester';
 /** "Test build 412 · 18 Nov", set by scripts/build-test.mjs; empty in every other build. */
 export const BUILD_LABEL: string = TESTER ? String(import.meta.env.VITE_BUILD_LABEL ?? 'Test build') : '';
 
-/** Where the tester build keeps its save in the browser (apart from the dev server's). */
+/** Where the tester build keeps its save in the browser (apart from the dev server's). Named for the game's
+ * first title, so testers keep their progress. */
 export const TESTER_SAVE_KEY = 'main-street-mogul-test-save';
 
 /** Set by the panel's "an hour away" button: how far back the next start dates the last save. */
