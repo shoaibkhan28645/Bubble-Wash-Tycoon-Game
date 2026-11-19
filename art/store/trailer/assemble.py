@@ -9,7 +9,7 @@ BAR = 60 * 4 / 104          # the car wash music: 104 beats a minute, four to a 
 FADE = 0.2                  # each cut is a short dissolve, centred on the beat
 SHOTS = [('1-car-wash', 'k1'), ('2-build', 'k2'), ('3-crew', 'k3'), ('4-farm', 'k4'), ('5-park', 'k5'), ('6-airport', 'k6')]
 # The first frame used of each shot, where it isn't the first one recorded.
-FIRST = {}
+FIRST = {'2-build': 2}
 # Where each part starts, in bars: the cover, six shots of a bar and a half, the end card for two bars.
 starts = [0, 1] + [1 + 1.5 * k for k in range(1, 7)]
 cuts = [s * BAR for s in starts[1:]]       # the seven cuts
@@ -55,11 +55,11 @@ m = add('-i', music)
 j = add('-i', jingle)
 jingle_at = int((cuts[-1] + 0.3) * 1000)
 chains.append(
-    f"[{m}:a]atrim=duration={total:.3f},afade=t=out:st={total-1.4:.3f}:d=1.4,volume=0.9[mus];"
-    f"[{j}:a]adelay={jingle_at}|{jingle_at},volume=0.85[jin];"
-    f"[mus][jin]amix=inputs=2:duration=first:normalize=0[aout]")
+    f"[{m}:a]atrim=duration={total:.3f},afade=t=out:st={total-1.4:.3f}:d=1.4,volume=1.25[mus];"
+    f"[{j}:a]adelay={jingle_at}|{jingle_at},volume=1.0[jin];"
+    f"[mus][jin]amix=inputs=2:duration=first:normalize=0,alimiter=limit=0.95[aout]")
 cmd = ['ffmpeg', '-v', 'error', '-y', *inputs, '-filter_complex', ';'.join(chains), '-map', '[vout]', '-map', '[aout]',
-       '-c:v', 'libx264', '-preset', 'slow', '-crf', '18', '-pix_fmt', 'yuv420p', '-r', str(FPS),
+       '-c:v', 'libx264', '-preset', 'slow', '-crf', '20', '-pix_fmt', 'yuv420p', '-r', str(FPS),
        '-c:a', 'aac', '-b:a', '160k', '-ar', '44100', '-movflags', '+faststart', '-t', f'{total:.3f}', out]
 subprocess.run(cmd, check=True)
 print(out, f'{total:.2f} s; cuts at', ', '.join(f'{c:.2f}' for c in cuts))
