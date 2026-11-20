@@ -156,7 +156,12 @@ function driver(shot) {
   if (shot.cash !== undefined) await page.evaluate((c) => (window.mogul.state.cash = c), shot.cash);
   // The camera settles on the hero before the first frame.
   await page.clock.runFor(1500);
+  // From here the game's clock moves only as the frames are stepped: left running, it also moved with the real
+  // seconds each frame takes to draw, and the game (taking at most a short step a frame) ran two or three times
+  // faster than the footage.
+  await page.clock.pauseAt((await page.evaluate(() => Date.now())) + 50);
   await page.evaluate(driver, shot);
+  const startedAt = await page.evaluate(() => window.mogul.state.playSeconds);
   const frames = Math.round((shot.seconds ?? 7) * 30);
   for (let f = 0; f < frames; f++) {
     await page.clock.runFor(1000 / 30 - 17);
@@ -169,6 +174,8 @@ function driver(shot) {
     }
     if (f % 15 === 0) await clear();
   }
-  console.log('shot', shotFile, frames, 'frames', JSON.stringify(await page.evaluate(() => ({ step: window.__play.i, log: window.__play.log, hero: window.mogul.game.player.position }))));
+  // The game's own seconds over the shot, against the footage's (they should match: normal speed).
+  const played = (await page.evaluate(() => window.mogul.state.playSeconds)) - startedAt;
+  console.log('shot', shotFile, frames, 'frames,', (frames / 30).toFixed(2), 's of footage,', played.toFixed(2), 's of play', JSON.stringify(await page.evaluate(() => ({ step: window.__play.i, log: window.__play.log }))));
   await browser.close();
 })();
