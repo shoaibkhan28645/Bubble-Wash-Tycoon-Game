@@ -6,7 +6,7 @@
   9.5,
   -5.5
  ],
- "seconds": 10,
+ "seconds": 7.5,
  "steps": [
   {
    "pile": "booth"
@@ -24,7 +24,7 @@
    "pile": "cart"
   },
   {
-   "wait": 1.5
+   "wait": 2
   }
  ]
 }

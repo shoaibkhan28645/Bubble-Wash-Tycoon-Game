@@ -1,8 +1,8 @@
 // A gameplay shot for the trailer, from the real game as a player sees it: the game's own camera and HUD, the
-// game running at normal speed, the hero walking (not running) where a player would take them, along the real way
-// round things, and doing the town's work. Frames are drawn 30 a second with the game's clock stepped 1/30 s each.
+// game running at normal speed, the hero moving as a player moves them (the joystick pushed right over, at the
+// game's own speed), along the real way round things, and doing the town's work. Frames are drawn 30 a second with the game's clock stepped 1/30 s each.
 //   node play.cjs <shots/N.json> <outDir> [preview]     (preview: every 10th frame only, to check the plan)
-// A shot file: { save, town, warm, cash?, start?: [x, z], speed?: m/s, seconds, steps: [...] }, each step one of
+// A shot file: { save, town, warm, cash?, start?: [x, z], speed?: m/s (a slower push), seconds, steps: [...] }, each step one of
 //   { go: [x, z] }      walk there (the game's own route round things)
 //   { wait: s }         stand still (working, if that's where the work is)
 //   { bay: id }         walk to the side of a car wash station's car, and wash it
@@ -22,7 +22,7 @@ if (shot.supplies) raw.supplies = { ...raw.supplies, ...shot.supplies };
 const save = JSON.stringify({ ...raw, savedAt: Date.now() });
 fs.mkdirSync(out, { recursive: true });
 
-/** In the page: walks the hero through the shot's steps by the joystick (a player's thumb, gently pushed). */
+/** In the page: takes the hero through the shot's steps by the joystick, as a player's thumb would. */
 function driver(shot) {
   const g = window.mogul.game;
   const s = window.mogul.state;
@@ -30,7 +30,8 @@ function driver(shot) {
   const layout = view?.upgrades?.layout;
   const dist = (a, b) => Math.hypot(a.x - b.x, a.z - b.z);
   const play = (window.__play = { i: 0, t: 0, way: null, to: null, dir: { x: 0, z: 0 }, log: [] });
-  const speed = shot.speed ?? 2.2;
+  // (Flat out unless the shot asks for a slower push.)
+  const speed = shot.speed ?? Infinity;
   /** Where a step wants the hero (null: nowhere, stand still). */
   const goal = (step) => {
     if (step.go) return { x: step.go[0], z: step.go[1] };
@@ -68,8 +69,11 @@ function driver(shot) {
         while (play.way.length > 1 && dist(play.way[0], hero) < 0.6) play.way.shift();
         const next = play.way[0] ?? to;
         const d = dist(hero, to);
+        // A spot only passed on the way (another walk straight after): kept moving through it, not stopped at.
+        const after = shot.steps[play.i + 1];
+        const passing = !!after && after.wait === undefined && after.cash === undefined;
         // There: on to the next step (a bay's car is washed by standing there: a wait follows it in the plan).
-        if (d < (step.near ?? 0.35) || play.t > (step.giveUp ?? 20)) {
+        if (d < (step.near ?? (passing ? 0.9 : 0.35)) || play.t > (step.giveUp ?? 20)) {
           play.log.push({ step: play.i, at: hero, t: +play.t.toFixed(1) });
           play.i++;
           play.t = 0;
@@ -97,8 +101,8 @@ function driver(shot) {
           play.dir.x += (dx - play.dir.x) * k;
           play.dir.z += (dz - play.dir.z) * k;
           const m = Math.hypot(play.dir.x, play.dir.z) || 1;
-          // Walking pace (the joystick part pushed), easing onto the spot.
-          const push = Math.min(1, speed / g.player.topSpeed) * Math.max(0.35, Math.min(1, d / 1.2));
+          // The joystick pushed (right over, unless the shot says), easing off onto a spot where the hero stops.
+          const push = Math.min(1, speed / g.player.topSpeed) * (passing ? 1 : Math.max(0.35, Math.min(1, d / 1.2)));
           move = { x: (play.dir.x / m) * push, z: (play.dir.z / m) * push };
         }
       }

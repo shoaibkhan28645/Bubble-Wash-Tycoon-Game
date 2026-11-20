@@ -27,10 +27,11 @@ these from this folder:
    - Each shot file names a save in `saves/`, the town, where the hero starts,
      and the steps: walk to a spot, wait, wash a car at a bay, collect a pile,
      or set the cash in hand (so a pad is built on camera).
-   - The hero is steered the way a player's thumb would: gently, at a walking
-     pace (2.2 m/s), along the game's own route round things.
+   - The hero is steered the way a player's thumb would: the joystick pushed
+     right over (the game's own speed), turning smoothly, along the game's own
+     route round things, slowing only onto a spot where they stop to work.
    - The game's clock is stepped 1/30 s per frame, so the footage plays at
-     normal speed however slowly the machine draws it.
+     normal speed (never sped up) however slowly the machine draws it.
    - Add `preview` after the output folder to draw only every 10th frame, to
      check a plan quickly.
 2. `node captions.cjs` draws the end card's "Play now!" in the game's title

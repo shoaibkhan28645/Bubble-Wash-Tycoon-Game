@@ -6,7 +6,7 @@
   -4.5,
   4
  ],
- "seconds": 10.5,
+ "seconds": 9,
  "steps": [
   {
    "bay": "bay1",
@@ -19,7 +19,7 @@
    "pile": "register"
   },
   {
-   "wait": 1.5
+   "wait": 2
   }
  ]
 }
