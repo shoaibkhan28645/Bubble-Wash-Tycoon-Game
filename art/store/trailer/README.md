@@ -1,6 +1,6 @@
 # Trailer
 
-The trailer (`main-street-tycoon-trailer-1080p.mp4`, 1920x1080, 30 fps) is pure
+The trailer (`main-street-tycoon-trailer-1080p.mp4`, 45 s, 1920x1080, 30 fps) is pure
 gameplay: the game as a player sees it, with its own camera and HUD, running at
 normal speed. Like all the store art, the video isn't kept in git (it's too
 heavy). It's on the game's Playgama page, and these scripts make it again.
@@ -16,7 +16,7 @@ dissolves, with no captions over the gameplay. It ends on the cover with
 | 3-busy | fully built car wash | walks through the busy lot past the staff, tunnel and dryer |
 | 4-farm | all four towns | walks past the windmill and fields to the farm stand's cash |
 | 5-park | all four towns | crosses the plaza to the ticket booth, then to the snack cart by the carousel |
-| 6-airport | all four towns | walks up Gate 2's lounge, through its doors, onto the apron |
+| 6-airport | all four towns | walks up Gate 2's lounge, through its doors, onto the apron (ends as the camera pulls back for a plane) |
 
 ## How it's made
 
