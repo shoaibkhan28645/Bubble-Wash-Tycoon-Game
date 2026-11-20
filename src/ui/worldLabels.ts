@@ -28,7 +28,7 @@ interface Label {
   avoid: boolean;
   /**
    * Which of those gives way: a higher rank is placed after (and so moves for) a lower one, whatever their heights
-   * on the screen. (A gate's "Gate closed" moves for its plane's label, never the other way round.)
+   * on the screen.
    */
   rank: number;
   /** How far it's been moved (pixels, down positive): where it was put last, and where it's easing to now. */

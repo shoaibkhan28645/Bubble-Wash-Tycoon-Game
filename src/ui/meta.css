@@ -1318,7 +1318,7 @@
   }
 }
 
-/* The Bubble Boutique: a full-screen shop with a close-up window on the hero above (portrait) or beside (landscape) it. */
+/* The Bubble Shop: a full-screen shop with a close-up window on the hero above (portrait) or beside (landscape) it. */
 .gems-tap {
   pointer-events: auto;
   cursor: pointer;
@@ -2121,16 +2121,9 @@
   animation: flight-hurry 0.45s ease-in-out infinite alternate;
 }
 
-/* A gate that's waiting to be opened. */
-.flight-door {
-  background: var(--pink);
-  animation: flight-hurry 0.5s ease-in-out infinite alternate;
-}
-
 @media (prefers-reduced-motion: reduce) {
   .flight-clock.is-low,
-  .flight-chip.is-go,
-  .flight-door {
+  .flight-chip.is-go {
     animation: none;
   }
 }

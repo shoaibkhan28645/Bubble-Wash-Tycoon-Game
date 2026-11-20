@@ -15,6 +15,7 @@ import {
   Matrix4,
   Mesh,
   MeshBasicMaterial,
+  MeshLambertMaterial,
   Object3D,
   PlaneGeometry,
   Quaternion,
@@ -792,6 +793,63 @@ export class NameSign {
   }
   update(dt: number): void {
     this.plane.rotation.y -= dt * 0.9;
+  }
+}
+
+/** The glass in a gate's doors (the colour of the hall's own doors' glass). */
+const GATE_GLASS = new MeshLambertMaterial({ color: 0xbfeef0, transparent: true, opacity: 0.55 });
+/** A gate's light over its doors: off, red (passengers waiting at a closed gate), green (boarding). */
+const GATE_LIGHT = { off: 0x2d3a46, wait: 0xff3b5c, waitDim: 0x8a1f33, board: 0x3fff6a };
+
+/**
+ * A gate's glass doors, in its doorway out to the apron: shut while the gate's closed, sliding apart once it's
+ * opened for boarding (and for anyone passing through, as the departures doors do). The light over them shows
+ * the gate's state: blinking red while its passengers wait for it to open, green while they board.
+ */
+export class GateDoors {
+  readonly root = new Object3D();
+  private readonly leaves: { node: Object3D; side: number }[] = [];
+  private readonly lamp: Mesh<BoxGeometry, MeshBasicMaterial>;
+  private readonly leaf: number;
+  private open = 0;
+  private time = 0;
+  /** `width`: the doorway's (m); the doors stand just inside the wall it's in (the north wall, at the door's z). */
+  constructor(door: Point, width: number) {
+    this.leaf = width / 2;
+    const w = this.leaf;
+    this.root.name = 'gate-doors';
+    this.root.position.set(door.x, 0, door.z + 0.34);
+    for (const side of [-1, 1]) {
+      const node = new Object3D();
+      const frame = new Mesh(
+        mergeParts([
+          { geometry: new BoxGeometry(w, 0.1, 0.1), color: '#ffffff', y: 2.45 },
+          { geometry: new BoxGeometry(w, 0.1, 0.1), color: '#ffffff', y: 0.05 },
+          { geometry: new BoxGeometry(0.08, 2.5, 0.1), color: '#ffffff', x: -w / 2 + 0.04, y: 1.25 },
+          { geometry: new BoxGeometry(0.08, 2.5, 0.1), color: '#ffffff', x: w / 2 - 0.04, y: 1.25 },
+          // A push bar by the edge where the two meet.
+          { geometry: new BoxGeometry(0.05, 0.5, 0.14), color: '#8a9aa6', x: -side * (w / 2 - 0.18), y: 1.1 },
+        ]),
+        toyMaterial,
+      );
+      const pane = new Mesh(new BoxGeometry(w - 0.1, 2.3, 0.04), GATE_GLASS);
+      pane.position.y = 1.25;
+      node.add(frame, pane);
+      node.position.x = (side * w) / 2;
+      this.root.add(node);
+      this.leaves.push({ node, side });
+    }
+    this.lamp = new Mesh(new BoxGeometry(Math.min(1.6, width * 0.6), 0.14, 0.1), new MeshBasicMaterial({ color: GATE_LIGHT.off }));
+    this.lamp.position.y = 2.68;
+    this.root.add(this.lamp);
+  }
+  /** `open`: whether the doors should be open; `light`: the gate's state (null: nothing at it). */
+  update(dt: number, open: boolean, light: 'wait' | 'board' | null): void {
+    this.time += dt;
+    this.open += ((open ? 1 : 0) - this.open) * Math.min(1, dt * 5);
+    // Each leaf slides out by nearly its own width, behind the wall beside the doorway.
+    for (const { node, side } of this.leaves) node.position.x = side * (this.leaf / 2 + this.leaf * 0.92 * this.open);
+    this.lamp.material.color.setHex(light === 'board' ? GATE_LIGHT.board : light === 'wait' ? (this.time % 1 < 0.6 ? GATE_LIGHT.wait : GATE_LIGHT.waitDim) : GATE_LIGHT.off);
   }
 }
 

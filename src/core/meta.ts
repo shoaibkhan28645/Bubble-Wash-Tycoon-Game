@@ -17,7 +17,7 @@ import type { TownDecor } from '../render/townDecor';
 import { Ads } from '../systems/ads';
 import { finishGems, formatClock, halveBuild, secondsLeft, soonestBuild } from '../systems/construction';
 import { money } from '../systems/economy';
-import { addProgress, carOfDay, claimable, claimCalendar, claimMission, localDate, rollDay, type MissionKind, type MissionTown } from '../systems/daily';
+import { addProgress, carOfDay, claimable, claimCalendar, claimMission, daysToGift, localDate, rollDay, type MissionKind, type MissionTown } from '../systems/daily';
 import { sideButtonOpen, tutorialActive } from '../systems/guide';
 import type { PadSystem } from '../systems/pads';
 import type { Player } from '../systems/player';
@@ -61,6 +61,19 @@ export interface Meta {
   openShop(tab?: ShopTab): void;
 }
 
+/** Where the stand-in for the staff (the brand's close-up) may stand, beside the hero (metres east and south of them). */
+const STAND_IN_SPOTS: readonly (readonly [number, number])[] = [
+  [1.3, 0.4],
+  [-1.3, 0.4],
+  [1.1, 1.3],
+  [-1.1, 1.3],
+  [0, 1.6],
+  [1.4, -0.9],
+  [-1.4, -0.9],
+];
+/** And which way they may face (the close-up stands in front of them): towards the game camera first. */
+const STAND_IN_YAWS = [0, 0.8, -0.8, Math.PI / 2, -Math.PI / 2, Math.PI];
+
 export function createMeta(deps: {
   root: HTMLElement;
   state: GameState;
@@ -95,6 +108,10 @@ export function createMeta(deps: {
   const { root, state, saves, sound, traffic, pads, supplies } = deps;
   const town = deps.town ?? 'carWash';
   const ads = new Ads(platform, () => state.playSeconds);
+  // The speed boost, in words for this town: what it speeds up here (the car wash's washes, the farm's and the
+  // park's counters, the airport's whole crew).
+  const speedTitle = t(town === 'carWash' ? 'speedTitle' : `speedTitle_${town}`);
+  const speedBody = t(town === 'carWash' ? 'speedBody' : `speedBody_${town}`);
   let today = localDate(new Date());
   rollDay(state, today, town);
   let dateTimer = 0;
@@ -135,7 +152,7 @@ export function createMeta(deps: {
     },
     speed: async () => {
       if (state.boostSeconds > 0) return;
-      if (!(await earn('speed-boost', '⚡', t('speedTitle'), t('speedBody'), ADS.speedBoost.gems))) return;
+      if (!(await earn('speed-boost', '⚡', speedTitle, speedBody, ADS.speedBoost.gems))) return;
       state.boostSeconds = ADS.speedBoost.seconds;
       sound.play('reward');
       save();
@@ -205,23 +222,6 @@ export function createMeta(deps: {
   const preview = new HeroPreview(stage, player.mesh);
   const thumbnails = thumbnailsFor(stage.renderer);
 
-  /** The nearest staff member to the hero (the brand's close-up), if there's one. */
-  const nearestStaff = (): PreviewTarget | null => {
-    let best: PreviewTarget | null = null;
-    let bestD = Infinity;
-    const at = player.mesh.position;
-    const where = new Vector3();
-    stage.scene.traverse((node) => {
-      if (!node.userData.staff || !node.visible) return;
-      const d = node.getWorldPosition(where).distanceToSquared(at);
-      if (d < bestD) {
-        bestD = d;
-        best = { person: node };
-      }
-    });
-    return best;
-  };
-
   /**
    * Where the close-up looks for a decoration in this town (null: it's elsewhere, or not up): all of it,
    * from in front and steeply above like the game's own camera (clear of hedges and walls in front); a
@@ -236,18 +236,30 @@ export function createMeta(deps: {
     return flags ? { spot: ball.center, look: 0, eye: r * 0.5, distance: r * 2.4 } : { spot: ball.center, look: 0, eye: r * 2.2, distance: r * 2.0 };
   };
 
-  // With nobody hired yet, a member of staff stands by the hero to show off the brand (only while the shop shows it).
+  // A member of staff stands by the hero to show off the brand (only while the shop shows it): in a spot the
+  // close-up can see clearly. (The real staff stand behind counters, drive vans and go indoors, out of sight.)
   let mannequin: PersonAvatar | null = null;
   const staffModel = (): PreviewTarget => {
-    const someone = nearestStaff();
-    if (someone) return someone;
     if (!mannequin) {
       mannequin = new PersonAvatar(Object.values(CHARACTERS.staff)[0]!);
       stage.scene.add(mannequin.root);
     }
-    const at = player.mesh.position;
-    mannequin.root.position.set(at.x + 1.3, at.y, at.z + 0.4);
-    mannequin.root.rotation.y = 0;
+    const hero = player.mesh.position;
+    const skip = [mannequin.root, player.mesh];
+    const place = new Vector3();
+    // Beside the hero, seen from the game camera's side first (the open ground the player can see), then turned.
+    let chosen: { x: number; z: number; yaw: number } | null = null;
+    search: for (const yaw of STAND_IN_YAWS)
+      for (const [x, z] of STAND_IN_SPOTS) {
+        place.set(hero.x + x, hero.y, hero.z + z);
+        if (preview.canSee(place, yaw, skip)) {
+          chosen = { x, z, yaw };
+          break search;
+        }
+      }
+    const { x, z, yaw } = chosen ?? { x: STAND_IN_SPOTS[0]![0], z: STAND_IN_SPOTS[0]![1], yaw: 0 };
+    mannequin.root.position.set(hero.x + x, hero.y, hero.z + z);
+    mannequin.root.rotation.y = yaw;
     mannequin.root.visible = true;
     return { person: mannequin.root };
   };
@@ -284,7 +296,7 @@ export function createMeta(deps: {
     const add = (action: Exclude<SideAction, 'calendar' | 'missions' | 'shelf' | 'shop' | 'tower' | 'discard'>, view: Omit<BoostView, 'use'>): void => {
       if (available(action)) list.push({ ...view, use: () => void rewards[action]() });
     };
-    add('speed', { icon: '⚡', title: t('speedTitle'), body: t('speedBody'), gems: ADS.speedBoost.gems, status: state.boostSeconds > 0 ? t('boostOn', { time: formatClock(state.boostSeconds) }) : '' });
+    add('speed', { icon: '⚡', title: speedTitle, body: speedBody, gems: ADS.speedBoost.gems, status: state.boostSeconds > 0 ? t('boostOn', { time: formatClock(state.boostSeconds) }) : '' });
     if (traffic) {
       const wait = convoyReadyAt - sessionSeconds;
       add('convoy', { icon: '👑', title: t('convoyTitle'), body: t('convoyBody'), gems: ADS.convoy.gems, status: wait > 0 ? t('boostWait', { time: formatClock(wait) }) : '' });
@@ -338,7 +350,7 @@ export function createMeta(deps: {
         click: () => sound.play('click'),
         picture: (item) => (item.slot === 'hat' ? thumbnails.of({ hat: item.id }) : item.slot === 'decor' ? thumbnails.of({ decor: item.id, ...(item.to ? { to: item.to } : {}) }) : null),
         today,
-        calendarDay: state.daily.loginDay,
+        giftInDays: daysToGift(state, today),
         watchForGems: async () => {
           if (ads.busy) return false;
           const ok = await ads.rewarded('gems');

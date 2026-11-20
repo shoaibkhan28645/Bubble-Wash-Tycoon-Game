@@ -1,4 +1,4 @@
-import { PerspectiveCamera, Vector3, type Object3D } from 'three';
+import { InstancedMesh, Mesh, PerspectiveCamera, Raycaster, SkinnedMesh, Vector3, type Object3D } from 'three';
 import type { Stage } from './stage';
 
 /** How far the close-up camera stands from a person, how high, and the height it looks at (metres). */
@@ -47,6 +47,29 @@ export class HeroPreview {
     if (this.open) this.aim();
   }
 
+  /**
+   * Whether a person standing at `at` and facing `yaw` would be in clear view of the close-up, from the middle
+   * and both ends of its swing: nothing solid between the camera and their chest, and nothing over the spot
+   * they'd stand on. People (they move about), `skip` (and what's in it) and hidden things don't count.
+   */
+  canSee(at: Vector3, yaw: number, skip: readonly Object3D[]): boolean {
+    const solids = solidMeshes(this.stage.scene, skip);
+    const chest = new Vector3(at.x, at.y + CHEST, at.z);
+    // Something already standing there (a counter, a wall): straight down onto the spot.
+    ray.set(new Vector3(at.x, at.y + 3, at.z), DOWN);
+    ray.far = 3 - 0.25;
+    if (ray.intersectObjects(solids, false).length) return false;
+    for (const swing of [0, -SWING, SWING]) {
+      const angle = yaw + swing;
+      const eye = new Vector3(at.x + Math.sin(angle) * DISTANCE, at.y + EYE_HEIGHT, at.z + Math.cos(angle) * DISTANCE);
+      const toward = chest.clone().sub(eye);
+      ray.far = toward.length() - 0.5;
+      ray.set(eye, toward.normalize());
+      if (ray.intersectObjects(solids, false).length) return false;
+    }
+    return true;
+  }
+
   update(dt: number): void {
     if (!this.open) return;
     this.time += dt;
@@ -71,3 +94,23 @@ export class HeroPreview {
 }
 
 const spot = new Vector3();
+const ray = new Raycaster();
+const DOWN = new Vector3(0, -1, 0);
+/** The height of a person's chest, what the close-up must be able to see (metres). */
+const CHEST = 1.0;
+
+/** Every solid thing in the scene a sight line can be blocked by: shown meshes, not people, not in `skip`. */
+function solidMeshes(scene: Object3D, skip: readonly Object3D[]): Mesh[] {
+  const out: Mesh[] = [];
+  const walk = (node: Object3D): void => {
+    if (!node.visible || node.name === 'person' || skip.includes(node)) return;
+    // Animals and the like (skinned) are small and costly to test; the many-copies meshes (grass, crops) too low to matter.
+    if (node instanceof Mesh && !(node instanceof SkinnedMesh) && !(node instanceof InstancedMesh)) {
+      const material = Array.isArray(node.material) ? node.material[0] : node.material;
+      if (material?.visible !== false && !(material?.transparent && material.opacity < 0.5)) out.push(node);
+    }
+    for (const child of node.children) walk(child);
+  };
+  walk(scene);
+  return out;
+}

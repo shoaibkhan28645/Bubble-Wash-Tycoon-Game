@@ -149,6 +149,12 @@ export function calendarReady(state: GameState, today: string): boolean {
   return state.daily.loginDate !== today;
 }
 
+/** Days until the calendar's 7th-day gift for a player who comes every day: 0 when it's today's to open. */
+export function daysToGift(state: GameState, today: string): number {
+  const left = DAILY.calendar.length - 1 - state.daily.loginDay;
+  return calendarReady(state, today) ? left : left + 1;
+}
+
 /** Claims today's calendar reward and moves to the next day (day 7 wraps to day 1). Returns the gems given. */
 export function claimCalendar(state: GameState, today: string): number {
   if (!calendarReady(state, today)) return 0;

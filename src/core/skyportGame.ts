@@ -86,6 +86,7 @@ import {
   skyModel,
   fuelHose,
   gateBarrier,
+  GateDoors,
   hallWalls,
   loungeSeats,
   podium,
@@ -322,7 +323,9 @@ interface GateView {
   ring: TimingRing;
   fuelPad: PadModel;
   holdPad: PadModel;
-  doorLabel: Label;
+  /** Its glass doors, shut until it's opened for boarding; and the pad by its podium, lit while it waits to be. */
+  doors: GateDoors;
+  podiumPad: PadModel;
   truck: FuelTruck | null;
   hose: Object3D | null;
   /** Chocks at its wheels and cones off its wingtips while a plane's parked. */
@@ -838,18 +841,13 @@ export function createSkyportGame(
     const ring = new TimingRing();
     ring.mesh.position.set(spot.marshal.x, 0.09, spot.marshal.z);
     stage.scene.add(ring.mesh);
-    // (The sign pulses inside a box that's placed on the screen: a pulse on the placed box itself would take over
-    // its placing, flinging it to the screen's corner and back.)
-    const door = document.createElement('div');
-    const doorSign = document.createElement('div');
-    doorSign.className = 'upgrade-icon flight-door';
-    doorSign.innerHTML = rich(`🚪 ${t('gateClosed')}`);
-    door.appendChild(doorSign);
-    const doorLabel = labels.add(door, new Vector3(spot.podium.x, 2.6, spot.podium.z));
-    doorLabel.visible = false;
-    // (Kept clear of the planes' labels: it moves for them, they don't move for it.)
-    doorLabel.avoid = true;
-    doorLabel.rank = 1;
+    // Its glass doors in the doorway (the hall's are wider than the wing's and the pier's), and the pad where
+    // whoever opens the gate stands, by its podium.
+    const inHall = spot.door.x > layout.hall.minX && spot.door.x < layout.hall.maxX;
+    const doors = new GateDoors(spot.door, inHall ? 3.0 : 1.5);
+    show(doors.root, animate);
+    const podiumPad = spotPad(podiumFront(spot), 1.3, 0xff5fa8);
+    podiumPad.group.visible = false;
     const kind = planeAt(spot);
     const kit = standKit(kind);
     // (A wide-body's chips sit higher over it.)
@@ -858,7 +856,7 @@ export function createSkyportGame(
     stage.scene.add(kit);
     // (Each gate's hold pad in its cases' colour.)
     const colour = parseInt(GATE_COLOURS[Math.max(0, Object.keys(layout.gates).indexOf(key)) % GATE_COLOURS.length]!.slice(1), 16);
-    const gate: GateView = { key, spot, pad, ring, fuelPad: spotPad(spot.fuelSpot, 1.5, 0xff8a3d), holdPad: spotPad(spot.hold, 1.5, colour), doorLabel, truck: null, hose: null, kit, bridge, loader: null, catering, cateringRun, galleyPad, onPad: false, stood: 0 };
+    const gate: GateView = { key, spot, pad, ring, fuelPad: spotPad(spot.fuelSpot, 1.5, 0xff8a3d), holdPad: spotPad(spot.hold, 1.5, colour), doors, podiumPad, truck: null, hose: null, kit, bridge, loader: null, catering, cateringRun, galleyPad, onPad: false, stood: 0 };
     if (built('sorter')) addLoader(gate, animate);
     night.addStand({ x: spot.x, z: spot.noseZ - 5 });
     gates.push(gate);
@@ -2623,7 +2621,13 @@ export function createSkyportGame(
       floaters.show(`🚪 ${t('gateOpen')}`, new Vector3(spot.door.x, 3.2, spot.door.z), 'star');
       sound.play('chime');
     }
-    gate.doorLabel.visible = !!parked && !parked.boarding && parked.waiting > 0;
+    // The gate's doors: shut until it's opened for boarding (open for anyone going through); its light and the
+    // podium's pad say when passengers are waiting for it to open.
+    const waiting = !!parked && !parked.boarding && parked.waiting > 0;
+    const passing = doorNear.some((p) => Math.abs(p.x - spot.door.x) < 1.9 && Math.abs(p.z - spot.door.z) < 1.6);
+    gate.doors.update(dt, !!parked?.boarding || passing, parked?.boarding ? 'board' : waiting ? 'wait' : null);
+    gate.podiumPad.group.visible = waiting;
+    gate.podiumPad.update(dt, waiting && near(player.position, podiumFront(spot), 1.3));
     // Fuel: by the hose (or the ground handler's there).
     const wantsFuel = !!parked && parked.needsFuel && parked.fuel < 1;
     const fuelling = wantsFuel && (near(player.position, spot.fuelSpot) || (handler?.job === 'fuelling' && handler.flight === parked) || (fueler?.job === 'fuelling' && fueler.flight === parked));
@@ -3494,7 +3498,7 @@ export function createSkyportGame(
     const open = inside + (apron - inside) * out;
     return open + (big - apron) * near * out;
   };
-  /** Who's near the hall's doors this frame (they slide open for anyone). */
+  /** Who's near the hall's and the gates' doors this frame (they slide open for anyone). */
   const doorNear: Point[] = [];
   /** Till the gulls on the apron call again. */
   let cawIn = 0;
@@ -3523,6 +3527,12 @@ export function createSkyportGame(
     showCart();
     wrongSaid -= dt;
     airfield.update(dt);
+    // Who's by a door (the hall's entrance, a gate's): the doors slide open for them.
+    doorNear.length = 0;
+    doorNear.push(player.position);
+    for (const p of passengers.all) doorNear.push(p);
+    for (const member of [handler, dispatcher, fueler, runner, marshal, cargoCrew, engineer]) if (member) doorNear.push(member);
+    hall.update(dt, doorNear);
     for (const gate of gates) workGate(dt, gate);
     workHandler(dt);
     workDispatcher(dt);
@@ -3598,10 +3608,6 @@ export function createSkyportGame(
       sound.play('caw', hearing(birds.from) * 0.8);
     }
     scenery.update(dt, airfield.flights);
-    doorNear.length = 0;
-    doorNear.push(player.position);
-    for (const p of passengers.all) doorNear.push(p);
-    hall.update(dt, doorNear);
     if (cash.update(player.position)) flag('collected');
     floaters.update(dt);
     rateTimer += dt;

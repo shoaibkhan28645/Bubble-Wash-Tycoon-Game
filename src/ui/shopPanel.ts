@@ -72,8 +72,8 @@ export interface ShopDeps {
   today: string;
   /** Plays a rewarded ad for gems: true if they were paid. */
   watchForGems: () => Promise<boolean>;
-  /** Days of the daily calendar claimed this round (0–6): the 7th brings the weekly gift. */
-  calendarDay: number;
+  /** Days until the daily calendar's 7th day, which brings the weekly gift (0: it's today's). */
+  giftInDays: number;
   /** A picture of a hat's or a decoration's model (an image address), if it can be drawn. */
   picture: (item: ShopItem) => string | null;
 }
@@ -466,7 +466,11 @@ export function openShop(deps: ShopDeps, firstTab: ShopTab = 'today'): { close: 
     }
     // The weekly gift: the calendar's 7th day.
     const gift = nextGift(state);
-    if (gift) blocks.push(card('🎁', t('shopGiftTitle'), t('shopGiftBody', { name: gift.name, day: deps.calendarDay + 1 })));
+    if (gift) {
+      const days = deps.giftInDays;
+      const body = days <= 0 ? t('shopGiftToday', { name: gift.name }) : days === 1 ? t('shopGiftTomorrow', { name: gift.name }) : t('shopGiftDays', { name: gift.name, n: days });
+      blocks.push(card('🎁', t('shopGiftTitle'), body));
+    }
     const hint = document.createElement('p');
     hint.className = 'shop-hint';
     setRich(hint, t('shopEarn'));

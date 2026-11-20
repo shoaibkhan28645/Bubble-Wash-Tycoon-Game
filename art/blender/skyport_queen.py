@@ -214,7 +214,9 @@ for i in range(5):
 SPAN = 12.4
 WING_Z = 1.72
 p.append(blob((1.25, 3.2, 0.62), (0, 0.15, 1.62), BELLY, segments=20))
-w = rig.wing((0.0, -2.0, WING_Z, 3.7, 1.0), (SPAN / 2, 1.3, WING_Z + 0.6, 1.1, 0.85), GREYWING)
+WING_ROOT = (0.0, -2.0, WING_Z, 3.7, 1.0)
+WING_TIP = (SPAN / 2, 1.3, WING_Z + 0.6, 1.1, 0.85)
+w = rig.wing(WING_ROOT, WING_TIP, GREYWING)
 p.append(w)
 for side in (-1, 1):
     x = side * SPAN / 2
@@ -227,9 +229,26 @@ for side in (-1, 1):
     p.append(kit.box((0.04, 1.8, 0.02), (side * 1.8, -0.6, WING_Z + 0.22), '#c9d3dd', bevel=0.0))
 
 # --- The engines: four big round nacelles on pylons under the wing, the outer pair a little smaller,
-# further out and further back with the wing's sweep.
+# further out and further back with the wing's sweep: the back of each nacelle under the wing's front, its
+# pylon up into the wing.
 FAN_Y = -3.02
-ENGINES = [(2.95, -2.4, 1.16, 1.0, ''), (5.0, -1.2, 1.38, 0.85, '2')]
+ENGINES = [(2.95, -1.95, 1.16, 1.0, ''), (5.0, -0.8, 1.38, 0.85, '2')]
+
+
+def wing_at(x):
+    """The wing's section at `x` along the span: (leading edge y, z, chord, thickness scale), as rig.wing draws it."""
+    t = min(1.0, abs(x) / WING_TIP[0])
+    return tuple(a + (b - a) * t for a, b in zip(WING_ROOT[1:], WING_TIP[1:]))
+
+
+def pylon(x, front, back, nacelle_top, k):
+    """The pylon from over the nacelle's intake (`front`) back under the wing to `back`, up into its underside."""
+    y_le, wz, chord, thick = wing_at(x)
+    back = max(back, y_le + 0.4 * chord)
+    # Its top just inside the wing (under the leading edge's point, over the wing's lower skin).
+    top = wz - 0.025 * chord * thick + 0.04
+    bottom = nacelle_top - 0.25 * k
+    return kit.box((0.18 * k, back - front, top - bottom), (x, (front + back) / 2, (top + bottom) / 2), WHITE, bevel=0.05)
 
 
 def engine(x, fan_y, z, k):
@@ -249,7 +268,8 @@ def engine(x, fan_y, z, k):
     out.append(kit.cone(0.34 * k, 0.05 * k, 0.62 * k, (x, at(-0.5), z + 0.03 * k), STEEL, verts=16, rot=(-PI / 2, 0, 0)))
     # A gold ring round each nacelle's middle: the Sky Queen's trim.
     out.append(kit.torus(0.69 * k, 0.025 * k, (x, at(-1.75), z), GOLD, rot=(PI / 2, 0, 0), major_segments=20, minor_segments=3))
-    out.append(kit.box((0.18 * k, 1.9 * k, 0.6), (x, at(-1.8), z + 0.7 * k), WHITE, bevel=0.05, rot=(-0.12, 0, 0)))
+    # The pylon up into the wing.
+    out.append(pylon(x, at(-2.7), at(-1.0), z + 0.68 * k, k))
     return out
 
 

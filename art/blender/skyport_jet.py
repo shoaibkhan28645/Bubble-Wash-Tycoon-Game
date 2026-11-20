@@ -212,7 +212,9 @@ for side in (-1, 1):
 SPAN = 14.4
 WING_Z = 1.62
 p.append(blob((1.15, 2.6, 0.55), (0, 0.0, 1.55), BELLY, segments=18))
-w = rig.wing((0.0, -1.7, WING_Z, 3.2, 1.0), (SPAN / 2, 1.45, WING_Z + 0.55, 1.05, 0.85), GREYWING)
+WING_ROOT = (0.0, -1.7, WING_Z, 3.2, 1.0)
+WING_TIP = (SPAN / 2, 1.45, WING_Z + 0.55, 1.05, 0.85)
+w = rig.wing(WING_ROOT, WING_TIP, GREYWING)
 p.append(w)
 for side in (-1, 1):
     x = side * SPAN / 2
@@ -226,15 +228,34 @@ for side in (-1, 1):
 
 # --- The engines: big round nacelles on pylons under the wing, the airline's colour round their lips (the
 # wide-body has a second, smaller pair further out, further back with the wing's sweep and a little higher).
+# Each hangs with the back of its nacelle under the wing's front, its pylon up into the wing: the wing's swept,
+# so at the engines its leading edge is well behind where it is at the root.
 ENG_X = 3.5
 ENG_Z = 1.04
+# (FAN_Y: where the nacelle's shape is drawn from; ENG_BACK: how far behind that the engines hang.)
 FAN_Y = -3.02
-ENGINES = [(ENG_X, FAN_Y, ENG_Z, 1.0, '')] + ([(5.95, FAN_Y + 1.15, ENG_Z + 0.24, 0.84, '2')] if WIDE else [])
+ENG_BACK = 1.25
+ENGINES = [(ENG_X, FAN_Y + ENG_BACK, ENG_Z, 1.0, '')] + ([(5.95, FAN_Y + ENG_BACK + 1.15, ENG_Z + 0.24, 0.84, '2')] if WIDE else [])
+
+
+def wing_at(x):
+    """The wing's section at `x` along the span: (leading edge y, z, chord, thickness scale), as rig.wing draws it."""
+    t = min(1.0, abs(x) / WING_TIP[0])
+    return tuple(a + (b - a) * t for a, b in zip(WING_ROOT[1:], WING_TIP[1:]))
+
+
+def pylon(x, front, back, nacelle_top, k):
+    """The pylon from over the nacelle's intake (`front`) back under the wing to `back`, up into its underside."""
+    y_le, wz, chord, thick = wing_at(x)
+    back = max(back, y_le + 0.4 * chord)
+    # Its top just inside the wing (under the leading edge's point, over the wing's lower skin).
+    top = wz - 0.025 * chord * thick + 0.04
+    bottom = nacelle_top - 0.25 * k
+    return kit.box((0.18 * k, back - front, top - bottom), (x, (front + back) / 2, (top + bottom) / 2), WHITE, bevel=0.05)
 
 
 def engine(x, fan_y, z, k):
     """One nacelle (scaled by k about its fan) with its intake, exhaust cone and pylon."""
-    dy = fan_y - FAN_Y
     nac = rig.loft(
         tuple((fan_y + (y - FAN_Y) * k, x, z + dz * k, r * k, r * k) for y, dz, r in ((-3.15, 0, 0.5), (-3.08, 0, 0.62), (-2.8, 0, 0.66), (-1.7, 0, 0.64), (-1.0, 0.02, 0.52), (-0.75, 0.03, 0.4))),
         NACELLE,
@@ -249,8 +270,8 @@ def engine(x, fan_y, z, k):
     out.append(kit.cylinder(0.6 * k, 0.12 * k, (x, at(-2.7), z), DARK, verts=24, rot=(PI / 2, 0, 0)))
     out.append(kit.cylinder(0.38 * k, 0.12 * k, (x, at(-0.82), z + 0.03 * k), DARK, verts=18, rot=(PI / 2, 0, 0)))
     out.append(kit.cone(0.32 * k, 0.05 * k, 0.6 * k, (x, at(-0.5), z + 0.03 * k), STEEL, verts=16, rot=(-PI / 2, 0, 0)))
-    # The pylon up to the wing.
-    out.append(kit.box((0.18 * k, 1.9 * k, 0.5 + (0.12 if dy else 0)), (x, at(-1.8), z + 0.65 * k), WHITE, bevel=0.05, rot=(-0.12, 0, 0)))
+    # The pylon up into the wing.
+    out.append(pylon(x, at(-2.7), at(-1.0), z + 0.64 * k, k))
     return out
 
 

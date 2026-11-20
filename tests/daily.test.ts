@@ -9,6 +9,7 @@ import {
   claimCalendar,
   claimable,
   claimMission,
+  daysToGift,
   localDate,
   pickMissions,
   rollDay,
@@ -82,6 +83,22 @@ describe('login calendar', () => {
     expect(state.daily.loginDay).toBe(0);
     expect(DAILY.calendar[6]!.chest).toBe(true);
     expect(state.gems).toBe(DAILY.calendar.reduce((sum, r) => sum + r.gems, 0));
+  });
+
+  it('counts the days to the weekly gift (the 7th day) for a player who comes every day', () => {
+    const state = newGame();
+    // Day 1 not opened yet: six more days after today's.
+    expect(daysToGift(state, '2026-10-01')).toBe(6);
+    claimCalendar(state, '2026-10-01');
+    // Today's opened: still six days to go (tomorrow is day 2).
+    expect(daysToGift(state, '2026-10-01')).toBe(6);
+    for (let d = 2; d <= 6; d++) claimCalendar(state, `2026-10-0${d}`);
+    expect(daysToGift(state, '2026-10-06')).toBe(1);
+    // Day 7 waiting to be opened: it's today.
+    expect(daysToGift(state, '2026-10-07')).toBe(0);
+    claimCalendar(state, '2026-10-07');
+    // Just had it: a whole week until the next.
+    expect(daysToGift(state, '2026-10-07')).toBe(7);
   });
 });
 

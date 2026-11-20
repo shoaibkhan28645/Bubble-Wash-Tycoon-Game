@@ -45,7 +45,7 @@ const NEW_GLOW_MS = 4000;
 
 const ICONS: Record<SideAction, IconName> = { calendar: 'gift', shop: 'bag', missions: 'clipboard', speed: 'bolt', convoy: 'crown', refill: 'bottle', finish: 'crane', build: 'cone', fix: 'wrench', shelf: 'teddy', tower: 'tower', discard: 'drop' };
 /** What each button is, for screen readers. */
-const NAMES: Record<SideAction, string> = { calendar: 'Daily gift', shop: 'Boutique', missions: 'Missions', speed: 'Speed boost', convoy: 'VIP convoy', refill: 'Instant delivery', finish: 'Finish it now', build: 'Building', fix: 'Fix every ride', shelf: 'Prize shelf', tower: 'Control tower', discard: 'Put down what you carry' };
+const NAMES: Record<SideAction, string> = { calendar: 'Daily gift', shop: 'Shop', missions: 'Missions', speed: 'Speed boost', convoy: 'VIP convoy', refill: 'Instant delivery', finish: 'Finish it now', build: 'Building', fix: 'Fix every ride', shelf: 'Prize shelf', tower: 'Control tower', discard: 'Put down what you carry' };
 
 const clock = (seconds: number) =>
   seconds >= 3600 ? `${Math.floor(seconds / 3600)}h${String(Math.floor((seconds % 3600) / 60)).padStart(2, '0')}` : `${Math.floor(seconds / 60)}:${String(Math.floor(seconds % 60)).padStart(2, '0')}`;
