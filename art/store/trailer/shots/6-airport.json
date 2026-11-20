@@ -1,44 +1,30 @@
 {
- "save": "saves/all-towns.json",
+ "save": "../saves/all-towns.json",
  "town": "skyport",
- "frames": 104,
- "warm": 24,
- "supplies": {
-  "queen.away": 0,
-  "queen.trip": 0
- },
- "hero": {
-  "at": [
-   93,
-   21
-  ],
-  "yaw": 0.7
- },
- "cam": {
-  "from": [
-   [
-    110,
-    12,
-    44
-   ],
-   [
-    102,
-    9,
-    40
+ "warm": 16,
+ "start": [
+  -9.3,
+  18.5
+ ],
+ "seconds": 7,
+ "steps": [
+  {
+   "go": [
+    -9.3,
+    11.2
    ]
-  ],
-  "at": [
-   [
-    86,
-    5,
-    6
-   ],
-   [
-    86,
-    5,
-    8
+  },
+  {
+   "go": [
+    -9.0,
+    8.8
    ]
-  ],
-  "fov": 48
- }
+  },
+  {
+   "pile": "gate2"
+  },
+  {
+   "wait": 0.5
+  }
+ ]
 }

@@ -1,0 +1,25 @@
+{
+ "save": "../saves/roadside-early.json",
+ "town": "roadside",
+ "warm": 10,
+ "start": [
+  -4.5,
+  4
+ ],
+ "seconds": 10.5,
+ "steps": [
+  {
+   "bay": "bay1",
+   "side": 1
+  },
+  {
+   "wait": 3.5
+  },
+  {
+   "pile": "register"
+  },
+  {
+   "wait": 1.5
+  }
+ ]
+}

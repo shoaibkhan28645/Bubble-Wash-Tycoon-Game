@@ -1,0 +1,27 @@
+{
+ "save": "../saves/roadside-full.json",
+ "town": "roadside",
+ "warm": 16,
+ "start": [
+  -5.5,
+  4.5
+ ],
+ "seconds": 8,
+ "steps": [
+  {
+   "go": [
+    4,
+    4.5
+   ]
+  },
+  {
+   "go": [
+    11,
+    3
+   ]
+  },
+  {
+   "wait": 2
+  }
+ ]
+}
