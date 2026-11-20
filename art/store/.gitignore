@@ -1,0 +1,10 @@
+# The store art itself (covers, screenshots, reference pictures, the trailer) is
+# too heavy for git, so it's kept out: only the scripts and notes that make it are here.
+*.png
+*.jpg
+*.jpeg
+*.webp
+*.gif
+*.mp4
+*.mov
+*.webm

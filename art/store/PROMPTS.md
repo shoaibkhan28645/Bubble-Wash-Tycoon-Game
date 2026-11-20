@@ -5,8 +5,9 @@ Leonardo…). Each prompt below is complete: paste one block as it is.
 
 ## How to get the best result
 
-1. **Attach the references** in `reference/` to every generation, using your
-   tool's image or character reference:
+1. **Attach the references** (the `reference/` pictures I sent you; they're
+   kept out of git) to every generation, using your tool's image or character
+   reference:
    - `hero-front.png` and `hero-three-quarter.png`: the hero, exactly as he
      looks in the game. Always attach at least one, so he doesn't change.
    - `map1` to `map4`: one picture of each town, so the places look like the

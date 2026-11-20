@@ -1,7 +1,9 @@
 # Trailer
 
-`main-street-tycoon-trailer-1080p.mp4`: 27.7 s, 1920x1080, 30 fps, with the game's
-own music (the car wash track and the reward jingle).
+The trailer (`main-street-tycoon-trailer-1080p.mp4`): 27.7 s, 1920x1080, 30 fps,
+with the game's own music (the car wash track and the reward jingle). Like all the
+store art, the video isn't kept in git (too heavy): it's on the game's Playgama
+page, and these scripts make it again.
 
 It is cut to the music: the cover for one bar, six shots of a bar and a half each,
 then the end card for two bars. Each cut is a short dissolve on the beat.
@@ -34,4 +36,5 @@ Everything comes from the real game. Start the dev server first
 3. `python3 assemble.py ../covers/landscape-1920x1080.jpg ../../../public/audio/roadside/roadside-music.mp3 ../../../public/audio/jingle-reward.mp3 main-street-tycoon-trailer-1080p.mp4`
    puts the cover, the shots, the captions and the music together with ffmpeg.
 
-`frames/` is not committed.
+`frames/` and the finished video are not committed. Step 3 needs the landscape
+cover in `../covers/` (also kept out of git).
