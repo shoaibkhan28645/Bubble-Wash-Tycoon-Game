@@ -15,6 +15,7 @@
     "build:playgama": "node scripts/build-playgama.mjs",
     "zip:playgama": "npm run build:playgama && node scripts/size.mjs dist-playgama && node scripts/zip.mjs dist-playgama main-street-tycoon-playgama.zip",
     "size": "node scripts/size.mjs",
+    "models": "node scripts/compress-models.mjs",
     "pacing": "PACING_REPORT=1 vitest run tests/pacing.test.ts tests/farmPacing.test.ts tests/parkPacing.test.ts tests/journey.test.ts --silent=false"
   },
   "devDependencies": {

@@ -18,6 +18,9 @@ import {
   type Object3D,
 } from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+// The models are stored meshopt-compressed (scripts/compress-models.mjs): about a third of the size to download,
+// unpacked here in a moment.
+import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { CHARACTERS } from '../core/config';
 
@@ -87,7 +90,7 @@ export async function loadAssets(onProgress: (fraction: number) => void, townMod
 }
 
 async function loadAll(files: Record<string, string>, onProgress: (fraction: number) => void): Promise<void> {
-  const loader = new GLTFLoader();
+  const loader = new GLTFLoader().setMeshoptDecoder(MeshoptDecoder);
   const entries = Object.entries(files).filter(([id]) => !assets.has(id));
   let done = 0;
   if (entries.length === 0) onProgress(1);
@@ -147,7 +150,7 @@ export function loadedModelCount(): number {
 /** Loads one more model after the start (the Car of the Day, the shoppers), unless it's already here. */
 export async function loadModel(id: string, path: string): Promise<void> {
   if (assets.has(id)) return;
-  const gltf = await new GLTFLoader().loadAsync(import.meta.env.BASE_URL + path);
+  const gltf = await new GLTFLoader().setMeshoptDecoder(MeshoptDecoder).loadAsync(import.meta.env.BASE_URL + path);
   prepare(gltf.scene);
   if (id.startsWith('person:')) mergeSkinnedParts(gltf.scene);
   await warmModel?.(gltf.scene);
@@ -190,6 +193,8 @@ function mergeSkinnedParts(scene: Object3D): void {
       p.material === first.material &&
       p.skeleton.bones.length === first.skeleton.bones.length &&
       p.skeleton.bones.every((bone, i) => bone === first.skeleton.bones[i]) &&
+      // (The same bind pose too: a part quantized over its own bounds has its own, scripts/compress-models.mjs.)
+      p.skeleton.boneInverses.every((m, i) => { const o = first.skeleton.boneInverses[i]; return !!o && m.equals(o); }) &&
       p.bindMatrix.equals(first.bindMatrix),
   );
   if (!sameRig) return;
@@ -254,7 +259,7 @@ export function mergedModel(id: string): Merged {
     if (!(node instanceof Mesh)) return;
     const material = node.material as MeshLambertMaterial;
     materials.add(material);
-    let g = (node.geometry as BufferGeometry).clone().applyMatrix4(node.matrixWorld);
+    let g = plain(node.geometry as BufferGeometry, ['position', 'normal', 'uv']).applyMatrix4(node.matrixWorld);
     if (g.index) g = g.toNonIndexed();
     const count = g.getAttribute('position').count;
     const colors = new Float32Array(count * 3);
@@ -275,10 +280,13 @@ export function mergedModel(id: string): Merged {
   return merged;
 }
 
-/** A copy of a geometry with plain float attributes (the Blender files are quantized), so it can be moved and merged. */
-export function plain(geometry: BufferGeometry): BufferGeometry {
+/**
+ * A copy of a geometry with plain float attributes (the models are stored quantized, scripts/compress-models.mjs),
+ * so it can be moved and merged: moved in place, a quantized one would be clipped to its little grid.
+ */
+export function plain(geometry: BufferGeometry, names = ['position', 'normal', 'color']): BufferGeometry {
   const out = new BufferGeometry();
-  for (const name of ['position', 'normal', 'color']) {
+  for (const name of names) {
     const a = geometry.getAttribute(name);
     if (!a) continue;
     const array = new Float32Array(a.count * a.itemSize);
