@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { SAVE_KEY, bridgeBackend } from '../src/platform/playgama';
 import { Ads } from '../src/systems/ads';
+import { ADS } from '../src/core/config';
 
 /** A stand-in for Playgama Bridge: just what the game uses, with its events. */
 function fakeBridge(opts: { platform?: string; rewarded?: boolean; interstitial?: boolean } = {}) {
@@ -117,16 +118,30 @@ describe('the Playgama Bridge backend', () => {
     expect(bridgeBackend(fakeBridge({ platform: 'youtube' }).bridge as unknown as Bridge).muteButton()).toBe(false);
   });
 
-  it('asks for an interstitial at every natural pause: Bridge decides when one is shown', async () => {
+  it("keeps the game's own interstitial limits on Playgama: none in a new player's first minutes", async () => {
     const asked: number[] = [];
-    const backend = { requestRewardedAd: async () => true, requestInterstitialAd: async () => void asked.push(1), managesAdTiming: true };
-    const ads = new Ads(backend, () => 0);
+    const backend = { requestRewardedAd: async () => true, requestInterstitialAd: async () => void asked.push(1) };
+    let now = 0;
+    let played = 0;
+    const ads = new Ads(backend, () => played, () => now);
+    await ads.betweenScreens();
+    expect(asked).toHaveLength(0);
+    // Past the first five minutes of play and a minute into the visit: one, then none for three minutes.
+    played = ADS.interstitial.newPlayerSeconds;
+    now = ADS.interstitial.sessionGraceSeconds * 1000;
     await ads.betweenScreens();
     await ads.betweenScreens();
+    expect(asked).toHaveLength(1);
+    now += ADS.interstitial.minGapSeconds * 1000;
+    await ads.betweenScreens();
     expect(asked).toHaveLength(2);
-    // Without Bridge (YouTube), the game's own limits apply: none for a brand-new player.
-    const own = new Ads({ ...backend, managesAdTiming: false }, () => 0);
-    await own.betweenScreens();
-    expect(asked).toHaveLength(2);
+  });
+
+  it('sends progress steps to Playgama as custom events', () => {
+    const { bridge } = fakeBridge();
+    const sent: unknown[] = [];
+    (bridge as unknown as { analytics: unknown }).analytics = { send: (name: string, data: unknown) => sent.push([name, data]) };
+    bridgeBackend(bridge as unknown as Bridge).trackEvent?.('progression_completed', { step_id: 'first_wash', step_index: 1 });
+    expect(sent).toEqual([['progression_completed', { step_id: 'first_wash', step_index: 1 }]]);
   });
 });

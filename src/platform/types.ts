@@ -13,8 +13,8 @@ export interface PlatformBackend {
   rewardedSupported(): boolean;
   requestRewardedAd(rewardId: string): Promise<boolean>;
   requestInterstitialAd(): Promise<void>;
-  /** The platform decides when an interstitial is actually shown (Bridge): the game asks at every natural pause. */
-  managesAdTiming?: boolean;
+  /** A progress step for the platform's stats (Playgama's telemetry); platforms without stats leave it out. */
+  trackEvent?(name: string, data: Record<string, string | number>): void;
   /** The game shows its own mute button (Playgama asks for one; YouTube asks for none). */
   muteButton(): boolean;
   /** A whole number, at most Number.MAX_SAFE_INTEGER; YouTube shows the highest sent. */

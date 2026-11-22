@@ -47,8 +47,6 @@ const backend: PlatformBackend = sdk ? youtubeBackend(sdk) : bridge ? bridgeBack
 export const inYouTube = sdk !== undefined;
 /** Fake pause/mute controls for the debug overlay; null on a real platform. */
 export const devControls: DevControls | null = dev?.controls ?? null;
-/** The platform decides when interstitials are shown (Bridge): the game just asks at each natural pause. */
-export const managesAdTiming = backend.managesAdTiming === true;
 
 /**
  * Gets the platform ready: Playgama Bridge must finish starting before the game
@@ -195,6 +193,15 @@ export async function sendScore(value: number): Promise<void> {
   if (!(score >= 0) || score > Number.MAX_SAFE_INTEGER) return;
   try {
     await backend.sendScore(score);
+  } catch (error) {
+    logWarning(error);
+  }
+}
+
+/** Tells the platform's stats about a step the player reached (src/systems/progress.ts). */
+export function trackEvent(name: string, data: Record<string, string | number>): void {
+  try {
+    backend.trackEvent?.(name, data);
   } catch (error) {
     logWarning(error);
   }

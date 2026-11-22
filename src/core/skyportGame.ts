@@ -127,6 +127,7 @@ import { UpgradePads } from '../systems/upgrades';
 import { Floaters } from '../ui/carBubbles';
 import { EdgePointer } from '../ui/edgePointer';
 import { EventChips } from '../ui/eventChips';
+import { padStep, reportProgress } from '../systems/progress';
 import { showEndScreen } from '../ui/endScreen';
 import { openEmpireMap } from '../ui/empireMap';
 import { Hud } from '../ui/hud';
@@ -2402,6 +2403,7 @@ export function createSkyportGame(
       view.refit();
       void saves.saveNow();
       const done = current.pads.find((p) => p.id === id)?.effects;
+      reportProgress(padStep(current.id, id, done));
       if (done?.endOfContent && !state.flags.includes(`ended:${current.id}`)) {
         flag(`ended:${current.id}`);
         finaleIn = FINALE_DELAY;

@@ -82,7 +82,8 @@ export function bridgeBackend(b: Bridge): PlatformBackend {
         ads.on(EVENT_NAME.REWARDED_STATE_CHANGED, onState);
         ads.showRewarded(placement);
       }),
-    // At every natural pause; Bridge decides whether one is shown (the first one's delay, the gap between them).
+    // Asked for only when the game's own limits allow one (src/systems/ads.ts); Bridge may still skip it
+    // (its own gap between them).
     requestInterstitialAd: () =>
       new Promise<void>((resolve) => {
         const ads = b.advertisement;
@@ -103,7 +104,8 @@ export function bridgeBackend(b: Bridge): PlatformBackend {
         ads.showInterstitial();
         setTimeout(() => !started && finish(), INTERSTITIAL_START_MS);
       }),
-    managesAdTiming: true,
+    // Playgama's stats (its telemetry): the steps a player reaches, as custom events.
+    trackEvent: (name, data) => b.analytics.send(name, data),
     // Playgama asks for a mute button in the game (3.3.3); YouTube asks for none (it has its own).
     muteButton: () => b.platform.id !== b.PLATFORM_ID.YOUTUBE,
     // Bridge has no score or health reports the game uses.

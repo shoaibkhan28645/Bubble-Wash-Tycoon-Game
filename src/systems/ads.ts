@@ -6,8 +6,6 @@ import { ADS } from '../core/config';
 export interface AdBackend {
   requestRewardedAd(rewardId: string): Promise<boolean>;
   requestInterstitialAd(): Promise<void>;
-  /** The platform decides when an interstitial is shown (Playgama Bridge): no limits of our own. */
-  readonly managesAdTiming?: boolean;
 }
 
 /**
@@ -56,7 +54,8 @@ export class Ads {
   /** Call when moving between two screens; plays an interstitial only if the rules allow. */
   async betweenScreens(): Promise<void> {
     if (this.showing) return;
-    if (!this.backend.managesAdTiming && !interstitialAllowed(this.now(), this.lastAdMs, this.sessionStartMs, this.playSeconds())) return;
+    // On every platform, Playgama included (a full-screen ad at a new player's first card lost players there).
+    if (!interstitialAllowed(this.now(), this.lastAdMs, this.sessionStartMs, this.playSeconds())) return;
     this.showing = true;
     try {
       await this.backend.requestInterstitialAd();

@@ -66,6 +66,7 @@ import { UpgradePads } from '../systems/upgrades';
 import { WalkUps, type ServedVisitor, type Visitor, type WalkUpCounter } from '../systems/walkups';
 import { Floaters } from '../ui/carBubbles';
 import { EdgePointer } from '../ui/edgePointer';
+import { padStep, reportProgress } from '../systems/progress';
 import { showEndScreen } from '../ui/endScreen';
 import { openEmpireMap } from '../ui/empireMap';
 import { Hud } from '../ui/hud';
@@ -760,6 +761,7 @@ export function createFarmGame(
       view.refit();
       void saves.saveNow();
       const done = current.pads.find((p) => p.id === id)?.effects;
+      reportProgress(padStep(current.id, id, done));
       if (done?.endOfContent) {
         flag(`ended:${current.id}`);
         showEndScreen(root, () => meta.screenClosed(), { title: t('endTitleFarm'), body: t('endBodyFarm') });

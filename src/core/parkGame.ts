@@ -71,6 +71,7 @@ import { EdgePointer } from '../ui/edgePointer';
 import { toast } from '../ui/dialog';
 import { showPrizeShelf } from '../ui/prizeShelf';
 import { EventChips } from '../ui/eventChips';
+import { padStep, reportProgress } from '../systems/progress';
 import { showEndScreen } from '../ui/endScreen';
 import { openEmpireMap } from '../ui/empireMap';
 import { Hud } from '../ui/hud';
@@ -839,6 +840,7 @@ export function createParkGame(
       view.refit();
       void saves.saveNow();
       const done = current.pads.find((p) => p.id === id)?.effects;
+      reportProgress(padStep(current.id, id, done));
       if (done?.endOfContent) {
         flag(`ended:${current.id}`);
         showEndScreen(root, () => meta.screenClosed(), { title: t('endTitlePark'), body: t('endBodyPark') });

@@ -34,6 +34,7 @@ import { Supplies } from '../systems/supplies';
 import { StaffSystem } from '../systems/staff';
 import { UpgradePads } from '../systems/upgrades';
 import { UpgradePanel } from '../ui/upgradePanel';
+import { padStep, reportProgress } from '../systems/progress';
 import { showEndScreen } from '../ui/endScreen';
 import { levelStep } from '../systems/economy';
 import { perk } from '../systems/career';
@@ -120,6 +121,9 @@ export function createRoadsideGame(
     if (state.flags.includes(name)) return;
     state.flags.push(name);
     void saves.saveNow();
+    // A new player's first wash and first cash picked up (src/systems/progress.ts).
+    if (name === 'washed') reportProgress('first_wash');
+    else if (name === 'collected') reportProgress('first_cash');
   };
   /** Set up once the free first bay is built (before the first frame). */
   let onboarding: Onboarding | null = null;
@@ -191,6 +195,7 @@ export function createRoadsideGame(
       onboarding?.onBuilt(id);
       void saves.saveNow();
       const effects = current.pads.find((p) => p.id === id)?.effects;
+      reportProgress(padStep(current.id, id, effects));
       if (effects?.endOfContent) {
         flag('ended');
         showEndScreen(root, () => meta.screenClosed());
