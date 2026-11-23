@@ -132,7 +132,7 @@ export class Livestock {
       while (this.made(pen.id) < def.cap) {
         const fed = this.hasFeeder && this.feed >= def.feedEach;
         // The Cowboy Hat: more eggs and milk (src/systems/perks.ts).
-        const msPerUnit = (def.every * 1000) / animals / (fed ? def.fedSpeed : 1) / boostHere(this.state, 'livestock');
+        const msPerUnit = (def.every * 1000) / animals / (fed ? def.fedSpeed : 1) / boostHere(this.state, 'livestock') / (pen.animal === 'cows' ? boostHere(this.state, 'milk') : 1);
         if (msPerUnit > left) break;
         left -= msPerUnit;
         counted += msPerUnit;

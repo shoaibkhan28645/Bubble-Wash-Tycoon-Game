@@ -9,11 +9,11 @@ import { money, nextStars, ticketPay, tipFor, type Outcome } from './economy';
 import type { Station } from './stations';
 import { comboMultiplier } from './tickets';
 import { unlockedSum } from './arrivals';
-import { perkHere } from './perks';
+import { boostHere, perkHere } from './perks';
 
 /** What a car pays at checkout: everything on its ticket it got, its quality, the combo bonus, and a tip if it didn't wait long. */
-export function bill(car: Pick<Car, 'payDef' | 'stages' | 'served' | 'quality' | 'patience' | 'patienceMax'>): { pay: number; tip: number } {
-  const pay = ticketPay(car.payDef, car.stages, car.served, car.quality);
+export function bill(car: Pick<Car, 'payDef' | 'stages' | 'served' | 'quality' | 'patience' | 'patienceMax'>, snackBoost = 1): { pay: number; tip: number } {
+  const pay = ticketPay(car.payDef, car.stages, car.served, car.quality, snackBoost);
   return { pay, tip: tipFor(pay, car.patience / car.patienceMax, TUNING.customers) };
 }
 
@@ -83,10 +83,14 @@ export class Till {
    * VIPs and monster trucks paying more, and bigger tips from customers the hero (or the staff) served.
    */
   private bill(car: Car): { pay: number; tip: number } {
-    let { pay, tip } = bill(car);
-    const bonus = unlockedSum(this.state, (e) => e.payBonus) + (car.vip ? perkHere(this.state, 'vipPay') : 0) + (car.def.id === 'monster' ? perkHere(this.state, 'monster') : 0);
+    let { pay, tip } = bill(car, boostHere(this.state, 'martSpend'));
+    const bonus =
+      unlockedSum(this.state, (e) => e.payBonus) +
+      (car.vip ? perkHere(this.state, 'vipPay') : 0) +
+      (car.def.id === 'monster' ? perkHere(this.state, 'monster') : 0) +
+      (car.special ? perkHere(this.state, 'carOfDay') : 0);
     if (bonus > 0) pay = Math.round(pay * (1 + bonus));
-    const tips = perkHere(this.state, car.manual ? 'tips' : 'staffTips');
+    const tips = perkHere(this.state, car.manual ? 'tips' : 'staffTips') + perkHere(this.state, 'tipsAll');
     if (tip > 0 && tips > 0) tip = Math.round(tip * (1 + tips));
     return { pay, tip };
   }

@@ -687,7 +687,8 @@ export class ParkCrowd {
   private spawn(dt: number): void {
     const booth = this.booth;
     if (!this.open || !booth) return;
-    const interval = spawnSeconds(PARK.visitors.spawnSeconds, this.state.stars, TUNING.stars.arrivalPerStar, this.arrivalBonus()) / this.rateFactor;
+    // The Topiary Garden: visitors come more often (src/systems/perks.ts).
+    const interval = spawnSeconds(PARK.visitors.spawnSeconds, this.state.stars, TUNING.stars.arrivalPerStar, this.arrivalBonus()) / this.rateFactor / boostHere(this.state, 'arrivals');
     this.spawnTimer += dt;
     if (this.spawnTimer < interval) return;
     if (booth.line.length + booth.coming >= booth.spots * 2 || this.visitors.length >= PARK.visitors.max) return;

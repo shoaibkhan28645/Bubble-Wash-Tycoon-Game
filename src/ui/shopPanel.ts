@@ -29,7 +29,7 @@ import {
   type ShopItem,
   type Slot,
 } from '../systems/wardrobe';
-import { perkWorksIn, type PerkDef } from '../systems/perks';
+import { activeSets, payCapped, perkSources, perkWorksIn, type PerkDef, type PerkKind } from '../systems/perks';
 import { icon as drawn, iconFor, rich, setRich, type IconName } from './icons';
 import { hasString, t, type StringKey } from './strings';
 import { isEscape } from './keys';
@@ -115,6 +115,21 @@ const CLASSIC_POLO = '#22c3c9';
 
 const townName = (id: string): string => JOURNEY.find((stop) => stop.id === id)?.name ?? id;
 
+/** The shop's Perks filter: what each kind of perk helps with. */
+type PerkFamily = 'walk' | 'work' | 'carry' | 'pay' | 'time' | 'staff' | 'customers';
+const FAMILY: Record<PerkKind, PerkFamily> = {
+  walk: 'walk', walkLoaded: 'walk', reach: 'walk', magnet: 'walk', litter: 'walk',
+  handWork: 'work', livestock: 'work', grow: 'work', fruit: 'work', milk: 'work', rideFill: 'work',
+  carry: 'carry',
+  pickupValue: 'pay', tenthDouble: 'pay', tips: 'pay', vipPay: 'pay', monster: 'pay', contracts: 'pay', rushPay: 'pay', rideTickets: 'pay',
+  perfectLaunch: 'pay', onTime: 'pay', takeoff: 'pay', martSpend: 'pay', tipsAll: 'pay', carOfDay: 'pay', buyerOfDay: 'pay', perfectDay: 'pay',
+  shopSpend: 'pay', onTimePay: 'pay', setPay: 'pay',
+  rushTime: 'time', buildTime: 'time', boost: 'time', flightSlack: 'time',
+  staffWalk: 'staff', breaks: 'staff', staffCarry: 'staff', staffTips: 'staff', staffWork: 'staff', offline: 'staff',
+  vipChance: 'customers', patience: 'customers', arrivals: 'customers', eveningArrivals: 'customers', litterDrop: 'customers',
+};
+const FAMILIES: PerkFamily[] = ['walk', 'work', 'carry', 'pay', 'time', 'staff', 'customers'];
+
 /** The perk kinds counted in items or metres; the rest are fractions shown as percentages. */
 const PLAIN_PERKS = new Set(['carry', 'staffCarry', 'reach', 'magnet', 'litter']);
 
@@ -131,10 +146,10 @@ export function perkShort(perk: PerkDef): string {
 }
 
 /** A perk in a sentence, and the one town it works in, if just one ("Carry 2 more bags · Skyport only"). */
-export function perkLong(perk: PerkDef): string {
+export function perkLong(perk: PerkDef, saysTown = true): string {
   const own = `p_${perk.kind}_${perk.town ?? ''}`;
   const text = t((perk.town && hasString(own) ? own : `p_${perk.kind}`) as StringKey, { n: perkNumber(perk) });
-  return perk.town ? `${text} · ${t('perkOnly', { town: townName(perk.town) })}` : text;
+  return perk.town && saysTown ? `${text} · ${t('perkOnly', { town: townName(perk.town) })}` : text;
 }
 
 /** A little suit in the outfit's colours, for its tile. */
@@ -219,6 +234,8 @@ export function openShop(deps: ShopDeps, firstTab: ShopTab = 'today'): { close: 
   overlay.append(window_, head, tabs, body, foot);
 
   let tab: ShopTab = firstTab;
+  /** The Perks filter (null: everything), kept from tab to tab. */
+  let family: PerkFamily | null = null;
   /** The item picked on this tab (null: the slot's "none"). */
   let picked: string | null = null;
 
@@ -303,6 +320,14 @@ export function openShop(deps: ShopDeps, firstTab: ShopTab = 'today'): { close: 
       if (!perkWorksIn(item.perk, deps.town)) perk.classList.add('shop-perk-off');
       perk.textContent = perkShort(item.perk);
       parts.push(perk);
+      // Made for this town: marked, so it stands out from the ones that work anywhere.
+      if (item.perk.town === deps.town) {
+        const here = document.createElement('span');
+        here.className = 'shop-here';
+        here.textContent = '📍';
+        here.title = t('perkGoodHere');
+        parts.push(here);
+      }
     }
     parts.push(price);
     if (item && !owns(state, item.id) && state.wardrobe.featured.date === deps.today && state.wardrobe.featured.ids.includes(item.id)) {
@@ -321,8 +346,30 @@ export function openShop(deps: ShopDeps, firstTab: ShopTab = 'today'): { close: 
     pick(item.id);
   };
 
+  /** The Perks filter: a row of chips, one per family (and All). */
+  const filterRow = (): HTMLElement => {
+    const row = document.createElement('div');
+    row.className = 'shop-filter';
+    for (const f of [null, ...FAMILIES]) {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'shop-filter-chip';
+      b.classList.toggle('shop-filter-on', family === f);
+      b.textContent = f ? t(`pf_${f}` as StringKey) : t('perkFilterAll');
+      b.addEventListener('click', () => {
+        deps.click();
+        family = f;
+        render();
+      });
+      row.appendChild(b);
+    }
+    return row;
+  };
+  /** Whether an item shows under the Perks filter. */
+  const shown = (item: ShopItem | null): boolean => !family || (!!item?.perk && FAMILY[item.perk.kind] === family);
+
   const renderItems = (slot: Slot): void => {
-    const blocks: HTMLElement[] = [];
+    const blocks: HTMLElement[] = [filterRow()];
     const grid = (): HTMLElement => {
       const g = document.createElement('div');
       g.className = 'shop-grid';
@@ -338,12 +385,17 @@ export function openShop(deps: ShopDeps, firstTab: ShopTab = 'today'): { close: 
         header.textContent = townName(town);
         blocks.push(header);
         const g = grid();
-        for (const item of shopItems('decor')) if (item.slot === 'decor' && item.town === town) g.appendChild(tile(item, slot));
+        for (const item of shopItems('decor')) if (item.slot === 'decor' && item.town === town && shown(item)) g.appendChild(tile(item, slot));
+        if (!g.firstChild) {
+          header.remove();
+          g.remove();
+          blocks.splice(blocks.indexOf(header), 2);
+        }
       }
     } else {
       const g = grid();
-      if (slot === 'hat' || slot === 'trail') g.appendChild(tile(null, slot));
-      for (const item of shopItems(slot)) g.appendChild(tile(item, slot));
+      if ((slot === 'hat' || slot === 'trail') && !family) g.appendChild(tile(null, slot));
+      for (const item of shopItems(slot)) if (shown(item)) g.appendChild(tile(item, slot));
     }
     const hint = document.createElement('p');
     hint.className = 'shop-hint';
@@ -458,9 +510,40 @@ export function openShop(deps: ShopDeps, firstTab: ShopTab = 'today'): { close: 
     return row;
   };
 
-  /** Today: the featured things (one of them a deal), gems for an ad, and next week's gift. */
+  /** What's working for the hero in this town now: each thing worn or up with a perk here, and any set complete. */
+  const myPerks = (): HTMLElement[] => {
+    const here = perkSources(state).filter((s) => perkWorksIn(s.perk, deps.town));
+    const list = document.createElement('div');
+    list.className = 'shop-my-perks';
+    for (const source of here) {
+      const row = document.createElement('div');
+      row.className = 'shop-my-perk';
+      const name = document.createElement('strong');
+      name.textContent = source.set ? `📖 ${source.name}` : source.name;
+      const what = document.createElement('span');
+      what.textContent = perkLong(source.perk, false);
+      row.append(name, what);
+      list.appendChild(row);
+    }
+    if (here.length === 0) {
+      const none = document.createElement('p');
+      none.className = 'shop-hint';
+      none.textContent = t('myPerksNone');
+      list.appendChild(none);
+    }
+    const blocks = [heading(`✨ ${t('myPerks', { town: townName(deps.town) })}`), list];
+    if (payCapped(state, deps.town)) {
+      const note = document.createElement('p');
+      note.className = 'shop-hint';
+      note.textContent = t('myPerksCapped');
+      blocks.push(note);
+    }
+    return blocks;
+  };
+
+  /** Today: what's working for the hero here, the featured things (one of them a deal), gems for an ad, and next week's gift. */
   const renderToday = (): void => {
-    const blocks: HTMLElement[] = [heading(`⭐ ${t('shopTodayPicks')}`, t('shopNewPicks', { time: untilMidnight() }))];
+    const blocks: HTMLElement[] = [...myPerks(), heading(`⭐ ${t('shopTodayPicks')}`, t('shopNewPicks', { time: untilMidnight() }))];
     const picks = featuredToday(state, deps.today);
     const grid = document.createElement('div');
     grid.className = 'shop-grid shop-featured-grid';
@@ -546,6 +629,16 @@ export function openShop(deps: ShopDeps, firstTab: ShopTab = 'today'): { close: 
     for (const set of SETS) {
       const { owned: have, total: of, done } = setProgress(state, set);
       blocks.push(heading(`${set.icon} ${set.name}`, done ? `✓ ${set.title}` : `${have}/${of} · ${t('shopSetTitle', { title: set.title })}`));
+      // What it does worn (and placed) all together, and whether it's doing it now.
+      if (set.bonus) {
+        const line = document.createElement('p');
+        line.className = 'shop-set-bonus';
+        // (Complete, and in the town it pays in.)
+        const on = activeSets(state).includes(set) && perkWorksIn(set.bonus, deps.town);
+        line.classList.toggle('shop-set-on', on);
+        line.textContent = `${t('setBonus', { perk: perkLong(set.bonus) })}${on ? ` · ${t('setBonusOn')}` : ''}`;
+        blocks.push(line);
+      }
       const grid = document.createElement('div');
       grid.className = 'shop-grid shop-set-grid';
       for (const id of [...set.items, set.reward]) {

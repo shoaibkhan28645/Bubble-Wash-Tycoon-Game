@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { SHOP } from '../src/core/config';
 import { newGame } from '../src/core/gameState';
 import { BEST_NET_WORTH } from '../src/systems/career';
-import { PAY_CAP, PAY_PERKS, PERK_CAPS, activeItems, perkValue, type PerkKind } from '../src/systems/perks';
+import { PAY_CAP, PAY_PERKS, PAY_SHARE, PERK_CAPS, activeItems, payCapped, perkValue, type PerkKind } from '../src/systems/perks';
 import { DEFAULT_OUTFIT } from '../src/systems/wardrobe';
 
 const TOWNS = ['roadside', 'willowbrook', 'starlight', 'skyport'];
@@ -51,7 +51,7 @@ describe('shop perks', () => {
     expect(perkValue(state, 'walk', 'roadside')).toBeCloseTo(0.2);
   });
 
-  it('no loadout raises pay by more than the cap in any town', () => {
+  it('no loadout, with every decoration up, lifts a town\'s pay past the cap', () => {
     const pick = (list: { id: string }[]) => [undefined, ...list.map((i) => i.id)];
     let worst = 0;
     for (const outfit of SHOP.outfits) {
@@ -59,9 +59,10 @@ describe('shop perks', () => {
         for (const trail of pick(SHOP.trails)) {
           for (const brand of SHOP.brands) {
             const state = wearing({ outfit: outfit.id, hat, trail, brand: brand.id });
+            state.wardrobe.owned.push(...SHOP.decor.map((d) => d.id));
             for (const town of TOWNS) {
-              const pay = PAY_PERKS.reduce((sum, kind: PerkKind) => sum + perkValue(state, kind, town), 0);
-              worst = Math.max(worst, pay);
+              const lift = PAY_PERKS.reduce((sum, kind: PerkKind) => sum + perkValue(state, kind, town) * (PAY_SHARE[kind] ?? 1), 0);
+              worst = Math.max(worst, lift);
             }
           }
         }
@@ -71,17 +72,51 @@ describe('shop perks', () => {
   });
 });
 
+describe('decorations and sets', () => {
+  it('gives every decoration a perk for its own town (the monument: every town), and every set a bonus', () => {
+    for (const d of SHOP.decor) {
+      expect(d.perk, d.id).toBeDefined();
+      if (d.perk!.town) expect(d.perk!.town, d.id).toBe(d.town);
+    }
+    for (const set of SHOP.sets) expect(set.bonus, set.id).toBeDefined();
+  });
+
+  it('works only while a decoration is up, in its own town', () => {
+    const state = newGame();
+    state.wardrobe.owned.push('bunting');
+    expect(perkValue(state, 'arrivals', 'roadside')).toBeCloseTo(0.05);
+    expect(perkValue(state, 'arrivals', 'willowbrook')).toBe(0);
+    state.wardrobe.hidden.push('bunting');
+    expect(perkValue(state, 'arrivals', 'roadside')).toBe(0);
+  });
+
+  it("gives a set's bonus only while all of it is worn and up", () => {
+    const state = wearing({ outfit: 'royal', hat: 'cap', trail: 'bubbles' });
+    expect(perkValue(state, 'setPay', 'roadside')).toBe(0);
+    state.wardrobe.owned.push('blower');
+    expect(perkValue(state, 'setPay', 'roadside')).toBeCloseTo(0.1);
+    expect(perkValue(state, 'setPay', 'skyport')).toBe(0);
+    state.wardrobe.equipped.hat = 'tophat';
+    state.wardrobe.owned.push('tophat');
+    expect(perkValue(state, 'setPay', 'roadside')).toBe(0);
+  });
+});
+
 describe('the shared pay cap', () => {
-  it('shares the cap between pay perks worn together in a town', () => {
+  it('lets small slices add up in full, and scales them back together past the cap', () => {
     const state = newGame();
     state.wardrobe.owned.push('tuxedo', 'skycap', 'berry');
     state.wardrobe.equipped = { outfit: 'tuxedo', hat: 'skycap', brand: 'berry' };
-    // 0.2 + 0.25 + 0.1 = 0.55 at Skyport, scaled to 0.25 together.
-    const total = PAY_PERKS.reduce((sum, kind) => sum + perkValue(state, kind, 'skyport'), 0);
-    expect(total).toBeCloseTo(PAY_CAP);
-    expect(perkValue(state, 'vipPay', 'skyport')).toBeCloseTo((0.2 * PAY_CAP) / 0.55);
-    // At the car wash the captain's cap does nothing: 0.2 + 0.1 = 0.3, still over.
-    expect(perkValue(state, 'takeoff', 'roadside')).toBe(0);
-    expect(perkValue(state, 'vipPay', 'roadside')).toBeCloseTo((0.2 * PAY_CAP) / 0.3);
+    // VIPs, perfect take-offs and staff tips are slices of the airport's pay: 0.05 + 0.05 + 0.02 lifted, under the cap.
+    expect(perkValue(state, 'vipPay', 'skyport')).toBeCloseTo(0.2);
+    expect(perkValue(state, 'takeoff', 'skyport')).toBeCloseTo(0.25);
+    // The Golden Mogul and the Golden Laurels lift everything the hero picks up: 0.1 + 0.1, plus the tips 0.02 and the
+    // airport's on-time decoration 0.12 = 0.34, past the cap: each scaled back by 0.25 / 0.34.
+    state.wardrobe.owned.push('midas', 'laurels', 'goldjet');
+    state.wardrobe.equipped = { outfit: 'midas', hat: 'laurels', brand: 'berry' };
+    const lift = 0.1 + 0.1 + 0.1 * 0.2 + 0.15 * 0.8;
+    expect(perkValue(state, 'pickupValue', 'skyport')).toBeCloseTo((0.1 * PAY_CAP) / lift);
+    expect(payCapped(state, 'skyport')).toBe(true);
+    expect(payCapped(state, 'roadside')).toBe(false);
   });
 });

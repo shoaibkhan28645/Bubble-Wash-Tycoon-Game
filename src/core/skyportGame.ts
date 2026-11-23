@@ -522,6 +522,10 @@ export function createSkyportGame(
       const extra = (flight.needsFuel ? AIRPORT.fuel.clockSeconds : 0) + (flight.needsCases > 0 ? AIRPORT.bags.clockSeconds : 0) + (flight.needsMeals > 0 ? AIRPORT.meals.clockSeconds : 0);
       flight.clock += extra;
       flight.clockMax += extra;
+      // The Vintage Biplane: flights get more time before they're late (src/systems/perks.ts).
+      const slack = perkBoost(state, 'flightSlack', current.id);
+      flight.clock *= slack;
+      flight.clockMax *= slack;
       if (flight.marshalled) {
         flight.clock += AIRPORT.marshal.clockSeconds;
         flight.clockMax += AIRPORT.marshal.clockSeconds;
@@ -610,7 +614,8 @@ export function createSkyportGame(
         sound.play('scan', hearing(id === 'security' ? layout.security.arch : (layout.pierSecurity?.arch ?? layout.security.arch)));
         return;
       }
-      let price = AIRPORT.shops[id].price * levelFactor(UPGRADES.kinds.price, level(`${id}.price`)) * payBonus();
+      // The Spinning Globe: passengers spend more at the café and duty-free (src/systems/perks.ts).
+      let price = AIRPORT.shops[id].price * levelFactor(UPGRADES.kinds.price, level(`${id}.price`)) * payBonus() * perkBoost(state, 'shopSpend', current.id);
       let icon = id === 'cafe' ? '☕' : '🛍️';
       if (id === 'cafe' && cafeTrays && cafeTrays.stack.length > 0) {
         cafeTrays.remove('tray');
@@ -2486,7 +2491,8 @@ export function createSkyportGame(
   };
   let spawnTimer = 2;
   const updateTaxis = (dt: number): void => {
-    const rate = (1 + unlockedSum(state, (e) => e.arrivalBonus)) * (1 + (state.stars - TUNING.stars.start) * TUNING.stars.arrivalPerStar) * arrivals.rateFactor * boost;
+    // The Plane-Spotter Scope: passengers come more often (src/systems/perks.ts).
+    const rate = (1 + unlockedSum(state, (e) => e.arrivalBonus)) * (1 + (state.stars - TUNING.stars.start) * TUNING.stars.arrivalPerStar) * arrivals.rateFactor * boost * perkBoost(state, 'arrivals', current.id);
     spawnTimer -= dt * rate;
     const taxi = taxis.find((x) => x.state === 'away' && !taxis.some((y) => y.kerb === x.kerb && (y.state === 'in' || y.state === 'stop' || (y.state === 'out' && y.x > y.kerb.x - 7))));
     const coming = taxis.reduce((sum, x) => sum + (x.state === 'away' ? 0 : x.riders), 0);
@@ -2568,7 +2574,10 @@ export function createSkyportGame(
     const streak = state.counts[streakKey] ?? 0;
     // The Flying Helmet raises the on-time bonus; the Sky Captain's Cap, a perfect take-off's tip (src/systems/perks.ts).
     const onTimeBonus = AIRPORT.flight.onTimeBonus * perkBoost(state, 'onTime', current.id);
-    const { pay, onTime } = flightPay(flight, fare, streak, onTimeBonus === AIRPORT.flight.onTimeBonus ? AIRPORT : { ...AIRPORT, flight: { ...AIRPORT.flight, onTimeBonus } });
+    const paid = flightPay(flight, fare, streak, onTimeBonus === AIRPORT.flight.onTimeBonus ? AIRPORT : { ...AIRPORT, flight: { ...AIRPORT.flight, onTimeBonus } });
+    const { onTime } = paid;
+    // The Golden Jumbo: an on-time flight pays more.
+    const pay = onTime ? Math.round(paid.pay * perkBoost(state, 'onTimePay', current.id)) : paid.pay;
     const tip = perfect ? Math.round(pay * AIRPORT.flight.perfectTip * perkBoost(state, 'takeoff', current.id)) : 0;
     cash.add(gate.key, pay + tip);
     const at = layout.piles[gate.key] ?? gate.spot.marshal;

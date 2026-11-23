@@ -17,13 +17,15 @@ export function ticketPay(
   stages: readonly StageDef[],
   served: readonly Need[],
   quality = 1,
+  /** The snack's share multiplied (the Tube Dancer: the Mini-Mart takes more). */
+  snackBoost = 1,
 ): number {
   const base = payer.basePay * (payer.payMultiplier ?? 1);
   const bonus = stages.reduce((sum, stage) => sum + stage.payBonus, 0);
   let total = 0;
   // In needs.json order, so a bill always adds up the same way.
   for (const [id, need] of Object.entries(NEEDS)) {
-    if (served.includes(id)) total += need.stagePay ? base * (1 + bonus) : base * (need.payFactor ?? 0);
+    if (served.includes(id)) total += need.stagePay ? base * (1 + bonus) : base * (need.payFactor ?? 0) * (id === 'snack' ? snackBoost : 1);
   }
   return Math.round(total * quality * comboMultiplier(served.length));
 }

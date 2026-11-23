@@ -45,6 +45,8 @@ export interface SetDef {
   title: string;
   items: string[];
   reward: string;
+  /** What the set does while all of it is worn (and placed) together (src/systems/perks.ts). */
+  bonus?: PerkDef;
 }
 
 /** A suit in new colours: the jacket and trousers, the tie and (when given) the shirt. */

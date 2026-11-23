@@ -201,7 +201,8 @@ export function createFarmGame(
   const crops = new Crops(
     state,
     layout,
-    (field) => (1 + unlockedSum(state, (e) => e.growBonus)) / levelFactor(UPGRADES.kinds.grow, level(`${field}.grow`)),
+    // The Scarecrow: fields regrow faster; the Beehives: the orchard bears more (src/systems/perks.ts).
+    (field) => ((1 + unlockedSum(state, (e) => e.growBonus)) * perkBoost(state, 'grow', current.id) * (field === 'orchard' ? perkBoost(state, 'fruit', current.id) : 1)) / levelFactor(UPGRADES.kinds.grow, level(`${field}.grow`)),
     (carrier, plot) => {
       state.counts.harvest = (state.counts.harvest ?? 0) + 1;
       const crop = CROPS[plot.crop]!;
@@ -297,7 +298,9 @@ export function createFarmGame(
     return goods;
   };
   const deliveries = new Deliveries(state, vanIds, madeGoods, autoVans, (order, van) => {
-    const pay = Math.round(order.pay * (1 + unlockedSum(state, (e) => e.payBonus)));
+    // The Blue-Ribbon Trophy: the Buyer of the Day pays more (src/systems/perks.ts).
+    const buyer = order.special === 'buyer' ? perkValue(state, 'buyerOfDay', current.id) : 0;
+    const pay = Math.round(order.pay * (1 + unlockedSum(state, (e) => e.payBonus) + buyer));
     cash.add('yard', pay);
     const at = layout.piles.yard ?? layout.vans[van]!.route[0]!;
     floaters.show(`+${money(pay)} 🚚`, new Vector3(at.x, 1.4, at.z), 'cash');

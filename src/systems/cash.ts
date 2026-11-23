@@ -6,7 +6,7 @@ import type { SoundManager } from '../audio/sound';
 import { blobShadow } from '../render/models/actors';
 import { instancedToyMaterial } from '../render/models/build';
 import { BUNDLE, bundleGeometry } from '../render/models/money';
-import { perkHere } from './perks';
+import { boostHere, perkHere } from './perks';
 
 const MAX_BILLS = 32;
 const COLUMNS = [
@@ -51,6 +51,8 @@ export class CashSystem {
    * anything over is lost; after that there is no cap.
    */
   add(pileId: string, amount: number): void {
+    // A whole set worn (and placed) together: everything in its town pays more (src/systems/perks.ts).
+    amount = Math.round(amount * boostHere(this.state, 'setPay'));
     const current = this.state.piles[pileId] ?? 0;
     const cap = this.unlimited() ? Number.POSITIVE_INFINITY : this.tuning.pileCap;
     this.state.piles[pileId] = Math.min(cap, current + amount);

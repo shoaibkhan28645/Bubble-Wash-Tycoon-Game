@@ -96,7 +96,8 @@ export class Arrivals {
 
   private spawn(dt: number): void {
     const signBonus = unlockedSum(this.state, (e) => e.arrivalBonus);
-    const interval = spawnSeconds(TUNING.cars.spawnSeconds, this.state.stars, TUNING.stars.arrivalPerStar, signBonus) / this.rateFactor;
+    // The Bunting: cars come more often (src/systems/perks.ts).
+    const interval = spawnSeconds(TUNING.cars.spawnSeconds, this.state.stars, TUNING.stars.arrivalPerStar, signBonus) / this.rateFactor / boostHere(this.state, 'arrivals');
     this.spawnTimer = Math.min(interval, this.spawnTimer + dt);
     if (this.spawnTimer < interval || !this.roadClear()) return;
     const types = this.availableCars();

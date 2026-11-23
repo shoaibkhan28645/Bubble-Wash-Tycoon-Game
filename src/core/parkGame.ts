@@ -510,7 +510,8 @@ export function createParkGame(
     layout,
     state,
     // With fireworks, half as many visitors again come for the evening show.
-    () => unlockedSum(state, (e) => e.arrivalBonus) + (fireworksBuilt() ? PARK.fireworks.crowd * evening : 0) + (festival ? PARK.festival.crowd : 0),
+    // (The Hot-Air Balloon: more come for the evening, src/systems/perks.ts.)
+    () => unlockedSum(state, (e) => e.arrivalBonus) + (fireworksBuilt() ? PARK.fireworks.crowd * evening : 0) + (festival ? PARK.festival.crowd : 0) + perkValue(state, 'eveningArrivals', current.id) * evening,
     () => unlockedSum(state, (e) => e.patienceBonus) - litter.patiencePenalty + perkValue(state, 'patience', current.id),
     makeAvatar,
     route,
@@ -532,7 +533,8 @@ export function createParkGame(
           onPaid({ amount: bonus, tip: bonus, automated: false, at: visitor.at });
         } else if (visitor.spent > 0) {
           // Anyone else with a perfect day tips on their way out: half as much again as they spent.
-          const tip = Math.round(visitor.spent * PARK.perfectDay.tip);
+          // The Statue of You: perfect-day tips are bigger (src/systems/perks.ts).
+          const tip = Math.round(visitor.spent * PARK.perfectDay.tip * perkBoost(state, 'perfectDay', current.id));
           cash.add('booth', tip);
           floaters.show(`❤️ ${t('perfectDayTip')} +${money(tip)}`, new Vector3(visitor.at.x, 2.9, visitor.at.z), 'tip');
           onPaid({ amount: tip, tip, automated: true, at: visitor.at });
@@ -569,6 +571,8 @@ export function createParkGame(
       },
       onWishes: (visitor) => showWishes(visitor),
       onLitter: (at) => {
+        // The Light-up Fountain: visitors drop less litter (src/systems/perks.ts).
+        if (Math.random() < perkValue(state, 'litterDrop', current.id)) return;
         const piece = litter.drop(at, state.unlocked.some((id) => current.pads.find((p) => p.id === id)?.effects.bins));
         if (piece) litterView.add(piece);
       },

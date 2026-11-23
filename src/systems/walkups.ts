@@ -13,6 +13,7 @@ import { aroundCar, carIn } from './roadRules';
 import { Station } from './stations';
 import type { WorldLabels } from '../ui/worldLabels';
 import type { Need } from './tickets';
+import { boostHere } from './perks';
 
 /** A person drawn walking (none in tests). */
 export interface WalkerAvatar {
@@ -240,7 +241,8 @@ export class WalkUps {
    */
   private spawn(dt: number): void {
     if (!this.open || this.counters.length === 0) return;
-    const interval = spawnSeconds(this.rules.spawnSeconds, this.state.stars, TUNING.stars.arrivalPerStar, this.arrivalBonus()) / this.rateFactor;
+    // The Pumpkin Patch: shoppers come more often (src/systems/perks.ts).
+    const interval = spawnSeconds(this.rules.spawnSeconds, this.state.stars, TUNING.stars.arrivalPerStar, this.arrivalBonus()) / this.rateFactor / boostHere(this.state, 'arrivals');
     this.spawnTimer += dt;
     if (this.spawnTimer < interval) return;
     const busy = (c: WalkUpCounter) => c.line.length + c.coming;
