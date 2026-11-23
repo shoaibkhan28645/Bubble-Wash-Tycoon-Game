@@ -108,7 +108,7 @@ export class Crops {
         continue;
       }
       const current = this.harvesting.get(carrier);
-      const progress = (current?.plot === plot ? current.progress : 0) + dt / TUNING.farm.harvestSeconds;
+      const progress = (current?.plot === plot ? current.progress : 0) + (dt * carrier.handSpeed()) / TUNING.farm.harvestSeconds;
       if (progress < 1) {
         this.harvesting.set(carrier, { plot, progress });
         continue;

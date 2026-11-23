@@ -16,6 +16,7 @@ import { spawnSeconds } from './economy';
 import { insideRect } from './stations';
 import { Visitor, WalkUpCounter, type WalkerAvatar } from './walkups';
 import type { WorldLabels } from '../ui/worldLabels';
+import { boostHere } from './perks';
 
 /** A ride's kind (rides.json): its seats, how long it goes round, what a seat costs, and its shape. */
 export interface RideDef {
@@ -1124,10 +1125,12 @@ export class ParkCrowd {
     // Those riding go round with their seats.
     for (const [i, v] of ride.seats.entries()) if (v?.step === 'seated') v.at = ride.seatPoint(i);
     if (ride.phase === 'loading') {
+      // Riders step on sooner with the hero at the lever in the Firework Trail (src/systems/perks.ts).
+      const pace = at.hero ? boostHere(this.state, 'rideFill') : 1;
       const front = ride.line[0];
       const free = ride.seats.findIndex((s) => !s);
-      const at = free >= 0 && (ride.ready?.(free) ?? true);
-      if (front && at && front.path.length === 0 && !ride.servicing && ride.nextStep(dt, RULES.boardStagger)) this.board(ride, front);
+      const seat = free >= 0 && (ride.ready?.(free) ?? true);
+      if (front && seat && front.path.length === 0 && !ride.servicing && ride.nextStep(dt * pace, RULES.boardStagger)) this.board(ride, front);
     } else if (ride.phase === 'unloading') {
       const next = ride.seats.findIndex((s) => s?.step === 'seated');
       if (next < 0) {

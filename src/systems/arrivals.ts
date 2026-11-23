@@ -8,6 +8,7 @@ import type { Forecourt } from './forecourt';
 import type { Station } from './stations';
 import { rollTicket, type Need } from './tickets';
 import { TUNNEL_CAPACITY, Tunnel } from './tunnel';
+import { boostHere, perkHere } from './perks';
 
 /** A wash lane cars line up for: a hand-wash bay or the tunnel. */
 export type Lane = Station | Tunnel;
@@ -142,7 +143,8 @@ export class Arrivals {
 
   /** Golden VIP (GDD): first at 5:00 of play, then every 3–5 minutes; joins the shortest bay line. */
   private spawnVip(dt: number): void {
-    this.vipTimer -= dt;
+    // The Top Hat brings them round sooner (src/systems/perks.ts).
+    this.vipTimer -= dt * boostHere(this.state, 'vipChance');
     if (this.vipTimer > 0) return;
     if (!this.addVip()) {
       this.vipTimer = 5; // Try again shortly.
@@ -213,7 +215,7 @@ export class Arrivals {
     // Round the corner off the road rather than pivot on the spot: a long car's tail would swing across the far lane.
     const into = Math.sign(goal.z - this.roadIn) || 1;
     car.spawn(def, road, [{ x: turnX - CORNER, z: this.roadIn }, { x: turnX, z: this.roadIn + into * CORNER }], goal, payDef, needs);
-    car.patienceMax = def.patience * (1 + unlockedSum(this.state, (e) => e.patienceBonus));
+    car.patienceMax = def.patience * (1 + unlockedSum(this.state, (e) => e.patienceBonus) + perkHere(this.state, 'patience'));
     car.patience = car.patienceMax;
     car.wantsDetail = Math.random() < (stationDef('garage').chance ?? 0);
     return car;

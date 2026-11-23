@@ -9,6 +9,7 @@ import { money, nextStars, ticketPay, tipFor, type Outcome } from './economy';
 import type { Station } from './stations';
 import { comboMultiplier } from './tickets';
 import { unlockedSum } from './arrivals';
+import { perkHere } from './perks';
 
 /** What a car pays at checkout: everything on its ticket it got, its quality, the combo bonus, and a tip if it didn't wait long. */
 export function bill(car: Pick<Car, 'payDef' | 'stages' | 'served' | 'quality' | 'patience' | 'patienceMax'>): { pay: number; tip: number } {
@@ -77,11 +78,17 @@ export class Till {
     this.onPaid({ amount: TUNING.vending.pay, tip: 0, automated: true, at, snack: true });
   }
 
-  /** The bill, with the lot's bonus on every bill (the landmark). */
+  /**
+   * The bill, with the lot's bonus on every bill (the landmark), and the shop's perks (src/systems/perks.ts):
+   * VIPs and monster trucks paying more, and bigger tips from customers the hero (or the staff) served.
+   */
   private bill(car: Car): { pay: number; tip: number } {
-    const { pay, tip } = bill(car);
-    const bonus = unlockedSum(this.state, (e) => e.payBonus);
-    return bonus > 0 ? { pay: Math.round(pay * (1 + bonus)), tip } : { pay, tip };
+    let { pay, tip } = bill(car);
+    const bonus = unlockedSum(this.state, (e) => e.payBonus) + (car.vip ? perkHere(this.state, 'vipPay') : 0) + (car.def.id === 'monster' ? perkHere(this.state, 'monster') : 0);
+    if (bonus > 0) pay = Math.round(pay * (1 + bonus));
+    const tips = perkHere(this.state, car.manual ? 'tips' : 'staffTips');
+    if (tip > 0 && tips > 0) tip = Math.round(tip * (1 + tips));
+    return { pay, tip };
   }
 
   rate(outcome: Outcome): void {

@@ -10,6 +10,7 @@
 import { TUNING, type FarmLayout, type PenSpot, type Point, type Rect } from '../core/config';
 import type { GameState } from '../core/gameState';
 import type { CrateCarrier, GoodId } from './crops';
+import { boostHere } from './perks';
 import { insideRect } from './stations';
 
 /** The feed store's stock, in the town's supplies. */
@@ -130,7 +131,8 @@ export class Livestock {
       const animals = this.animals(pen.id);
       while (this.made(pen.id) < def.cap) {
         const fed = this.hasFeeder && this.feed >= def.feedEach;
-        const msPerUnit = (def.every * 1000) / animals / (fed ? def.fedSpeed : 1);
+        // The Cowboy Hat: more eggs and milk (src/systems/perks.ts).
+        const msPerUnit = (def.every * 1000) / animals / (fed ? def.fedSpeed : 1) / boostHere(this.state, 'livestock');
         if (msPerUnit > left) break;
         left -= msPerUnit;
         counted += msPerUnit;
@@ -157,7 +159,7 @@ export class Livestock {
       else {
         const def = ANIMALS[pen.animal];
         const current = this.packing.get(carrier);
-        const progress = (current?.pen === pen ? current.progress : 0) + dt / def.packSeconds;
+        const progress = (current?.pen === pen ? current.progress : 0) + (dt * carrier.handSpeed()) / def.packSeconds;
         if (progress < 1) this.packing.set(carrier, { pen, progress });
         else {
           this.packing.delete(carrier);

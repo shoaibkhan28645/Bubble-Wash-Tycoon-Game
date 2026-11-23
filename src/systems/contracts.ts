@@ -6,6 +6,7 @@
 import { CONTRACTS, type ContractDef } from '../core/config';
 import type { Contract, GameState } from '../core/gameState';
 import { perk } from './career';
+import { boostHere } from './perks';
 
 export function contractDef(kind: string): ContractDef | undefined {
   return CONTRACTS.kinds.find((def) => def.id === kind);
@@ -95,7 +96,8 @@ export function claimContract(state: GameState, i: number, now: number, doubled 
   const slot = state.contracts.slots[i];
   if (!slot || !contractDone(slot)) return { cash: 0, gems: 0 };
   const times = doubled ? 2 : 1;
-  const reward = { cash: slot.cash * times, gems: slot.gems * times };
+  // The Captain's Hat: contracts pay more (src/systems/perks.ts).
+  const reward = { cash: Math.round(slot.cash * times * boostHere(state, 'contracts')), gems: slot.gems * times };
   state.cash += reward.cash;
   state.gems += reward.gems;
   if (doubled) state.contracts.doubledDate = today;

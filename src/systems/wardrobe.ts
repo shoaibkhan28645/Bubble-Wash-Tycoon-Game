@@ -1,5 +1,5 @@
 // The Mogul's Boutique: looks for the hero, the business's brand colour and decorations for the towns,
-// bought with gems. Purely cosmetic: nothing here changes how fast anyone works or what anything pays.
+// bought with gems. What the hero wears and the brand theme each carry one small perk too (src/systems/perks.ts).
 // Prices are fixed and shown up front; there is nothing random. Some things can't be bought, only
 // earned (finishing a town, a rank, a prize ribbon, a whole set); three things a day are featured, one
 // of them cheaper; and a short ad pays a few gems, a few times a day.
@@ -7,6 +7,7 @@ import { ADS, RANKS, SHOP } from '../core/config';
 import type { GameState } from '../core/gameState';
 import type { ParticleKind } from '../render/effects/particles';
 import { bestNetWorth } from './career';
+import type { PerkDef } from './perks';
 
 export type Slot = 'outfit' | 'hat' | 'trail' | 'brand' | 'decor';
 export type Rarity = 'common' | 'rare' | 'epic' | 'legendary';
@@ -32,6 +33,8 @@ interface ItemBase {
   gems: number;
   /** Earned, not bought (its gems are 0). */
   earn?: EarnRule;
+  /** What it does while worn (src/systems/perks.ts); decorations have none yet. */
+  perk?: PerkDef;
 }
 
 /** A collection: owning every item in it earns its reward (an item no one can buy) and a title for the rank chip. */
@@ -201,6 +204,24 @@ export function buy(state: GameState, id: string, today = ''): BuyResult {
   state.gems -= price;
   give(state, id);
   return 'bought';
+}
+
+/** The free starter items a new player picks one of (each with a simple perk), at their first goal reward. */
+export const STARTER_PICKS = ['cap', 'tan', 'charcoal'];
+/** The flag that records the starter item was picked. */
+export const STARTER_FLAG = 'starterPick';
+
+/** Whether to offer the starter pick: not picked yet, and none of its items owned already. */
+export function starterDue(state: GameState): boolean {
+  return !state.flags.includes(STARTER_FLAG) && !STARTER_PICKS.some((id) => state.wardrobe.owned.includes(id));
+}
+
+/** Hands over the picked starter item, free, and puts it on. */
+export function pickStarter(state: GameState, id: string): boolean {
+  if (!STARTER_PICKS.includes(id) || !starterDue(state)) return false;
+  state.flags.push(STARTER_FLAG);
+  give(state, id);
+  return true;
 }
 
 /** Adds an item to the wardrobe and puts it on (just bought). */

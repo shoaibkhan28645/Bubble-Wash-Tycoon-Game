@@ -80,7 +80,7 @@ export class Bakery {
         this.packing.delete(carrier);
         continue;
       }
-      const progress = (this.packing.get(carrier) ?? 0) + dt / TUNING.bakery.packSeconds;
+      const progress = (this.packing.get(carrier) ?? 0) + (dt * carrier.handSpeed()) / TUNING.bakery.packSeconds;
       if (progress < 1) {
         this.packing.set(carrier, progress);
         continue;

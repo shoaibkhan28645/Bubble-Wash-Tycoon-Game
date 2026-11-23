@@ -11,6 +11,7 @@ import { allGoalsDone, goalsSummary } from './townGoals';
 import { goalText } from '../ui/goalsBar';
 import { icon } from '../ui/icons';
 import { t } from '../ui/strings';
+import { perkHere } from './perks';
 
 /** A price as it reads beside a coin: "450", "2.4K" (the coin says it's money). */
 const coins = (amount: number): string => formatCash(Math.ceil(amount));
@@ -266,7 +267,8 @@ export class PadSystem {
     this.current = null;
     if (pad.def.buildSeconds) {
       delete this.state.padPaid[pad.def.id];
-      startBuild(this.state, pad.def.id, pad.def.buildSeconds, Date.now());
+      // The Hard Hat: builds finish sooner (src/systems/perks.ts).
+      startBuild(this.state, pad.def.id, pad.def.buildSeconds * (1 - perkHere(this.state, 'buildTime')), Date.now());
       this.sound.play('upgrade');
       this.waitTimer = this.tuning.revealDelay;
       this.onConstruction(pad.def.id);

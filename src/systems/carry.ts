@@ -198,6 +198,8 @@ export class Carrier<T extends CarryItem = SupplyType> {
   readonly stack: T[] = [];
   /** Seconds until the next item can be picked up or handed over. */
   timer = 0;
+  /** How fast they work by hand (picking, packing): 1, or more for the hero in the right outfit (src/systems/perks.ts). */
+  handSpeed: () => number = () => 1;
   /** Where the i-th item sits (x, y, z in the pile), if not one on top of another (a trailer's rows). */
   arrange: ((i: number) => [number, number, number]) | null = null;
   /** On top of the pile, at life size: whatever else rides there (a rush job's things), wobbling with it. */

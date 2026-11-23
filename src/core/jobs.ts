@@ -22,6 +22,7 @@ import type { EventChips } from '../ui/eventChips';
 import { money } from '../systems/economy';
 import { t } from '../ui/strings';
 import type { Box, WorldLabels } from '../ui/worldLabels';
+import { boostHere } from '../systems/perks';
 
 /** The hero's earnings are measured over this long (seconds), for how far off the next purchase is. */
 const EARN_WINDOW = 90;
@@ -205,6 +206,11 @@ export function createJobs(deps: {
   const offered = (): void => {
     const job = board.active;
     if (!job) return;
+    // The Velvet Violet suit gives more time, the Party Hat more pay (src/systems/perks.ts).
+    const time = boostHere(state, 'rushTime');
+    job.limit *= time;
+    job.left *= time;
+    job.pay = Math.round(job.pay * boostHere(state, 'rushPay'));
     view.show(job);
     sound.play('sparkle');
     // Something solid put down where the hero stands (a car): they step out of its way.

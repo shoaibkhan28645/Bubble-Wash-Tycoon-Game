@@ -35,9 +35,9 @@ import { StaffSystem } from '../systems/staff';
 import { UpgradePads } from '../systems/upgrades';
 import { UpgradePanel } from '../ui/upgradePanel';
 import { padStep, reportProgress } from '../systems/progress';
+import { perkBoost, perkValue } from '../systems/perks';
 import { showEndScreen } from '../ui/endScreen';
 import { levelStep } from '../systems/economy';
-import { perk } from '../systems/career';
 import { Buildings } from '../systems/buildings';
 import { PadSystem } from '../systems/pads';
 import { createMeta } from './meta';
@@ -105,12 +105,12 @@ export function createRoadsideGame(
   stage.scene.add(terrain(layout, bayIds.map((id) => layout.pads[id]!.x), layout.pads.tunnel?.x ?? null));
   const level = (key: string) => state.levels[key] ?? 0;
   // Walk upgrades and the Entrepreneur rank add speed.
-  const player = new Player(stage.scene, layout.playerStart, TUNING.player, () => 1 + perk(state, 'walk'));
+  const player = new Player(stage.scene, layout.playerStart, TUNING.player, (): number => perkBoost(state, 'walk', current.id) * (playerCarry.stack.length > 0 ? perkBoost(state, 'walkLoaded', current.id) : 1));
   player.onFootstep(() => sound.play('step'));
   const playerCarry = new Carrier(
     player.mesh,
     () => player.position,
-    () => TUNING.supplies.carryBase + levelStep(UPGRADES.kinds.carry, level('player.carry')),
+    () => TUNING.supplies.carryBase + levelStep(UPGRADES.kinds.carry, level('player.carry')) + perkValue(state, 'carry', current.id),
   );
   const buildings = new Buildings(stage.scene, layout);
   const cash = new CashSystem(stage.scene, layout, TUNING.cash, state, effects, sound);
@@ -245,7 +245,8 @@ export function createRoadsideGame(
   /** Who is working each station this frame: the player, staff, or both (the faster counts). */
   const work = (station: Station): Work => {
     const byStaff = staff.rateFor(station);
-    const byPlayer = insideRect(player.position, station.zone) ? 1 : 0;
+    // The hero works by hand, faster in some outfits and hats (src/systems/perks.ts).
+    const byPlayer = insideRect(player.position, station.zone) ? perkBoost(state, 'handWork', current.id) : 0;
     return { rate: Math.max(byStaff, byPlayer), byPlayer: byPlayer > 0 && byPlayer >= byStaff };
   };
   const supplies = new Supplies(state, layout, () => traffic.all(), sound, labels, (carrier) => {
@@ -370,7 +371,7 @@ export function createRoadsideGame(
     street.update(dt);
     hoses.update(traffic.forecourt.pumps);
     washSounds.update(dt, player.scrubbing);
-    if (cash.update(player.position)) flag('collected');
+    if (cash.update(player.position, true)) flag('collected');
     const guide = onboarding?.update(dt) ?? null;
     hint = guide;
     floaters.update(dt);

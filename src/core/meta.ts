@@ -23,7 +23,8 @@ import type { PadSystem } from '../systems/pads';
 import type { Player } from '../systems/player';
 import type { Supplies } from '../systems/supplies';
 import type { Paid, Traffic } from '../systems/traffic';
-import { brandColours, claimAdGems, claimGift, collectEarned, featuredAffordable, lookWith, owns, rollFeatured, shopItem, shownTitle, townDecor, type Slot } from '../systems/wardrobe';
+import { perkBoost } from '../systems/perks';
+import { brandColours, claimAdGems, claimGift, collectEarned, featuredAffordable, lookWith, owns, rollFeatured, shopItem, shownTitle, starterDue, townDecor, type Slot } from '../systems/wardrobe';
 import { showCalendar, showMissions } from '../ui/dailyPanels';
 import { offer, setUiSound, toast } from '../ui/dialog';
 import type { Hud } from '../ui/hud';
@@ -32,6 +33,7 @@ import { openShop, type BoostView, type ShopTab } from '../ui/shopPanel';
 import { SideBar, type SideAction } from '../ui/sideBar';
 import { t } from '../ui/strings';
 import { showWelcomeBack } from '../ui/welcomeBack';
+import { offerStarterPick } from '../ui/starterPick';
 
 /** Check the date this often, so missions roll over at local midnight. */
 const DATE_CHECK_SECONDS = 20;
@@ -153,7 +155,7 @@ export function createMeta(deps: {
     speed: async () => {
       if (state.boostSeconds > 0) return;
       if (!(await earn('speed-boost', '⚡', speedTitle, speedBody, ADS.speedBoost.gems))) return;
-      state.boostSeconds = ADS.speedBoost.seconds;
+      state.boostSeconds = ADS.speedBoost.seconds * perkBoost(state, 'boost', state.currentTown);
       sound.play('reward');
       save();
     },
@@ -477,6 +479,15 @@ export function createMeta(deps: {
       if (earnTimer <= 0) {
         earnTimer = EARN_CHECK_SECONDS;
         checkEarned();
+        // The first goal reward claimed: a free starter item to wear (once no other card is up).
+        if (state.goals.claimed.length > 0 && starterDue(state) && !shopOpen && !document.querySelector('.welcome-overlay')) {
+          offerStarterPick(root, state, () => {
+            sound.play('reward');
+            effects.burst('confetti', player.mesh.position.clone().setY(2.2), 24, 3.5, 0.6);
+            showLooks(null, null);
+            save();
+          });
+        }
       }
       // The gem counter's dot: something featured today the gems would buy, and the shop not opened since.
       const fresh = available('shop') && state.wardrobe.seen !== today && featuredAffordable(state, today);

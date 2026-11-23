@@ -6,6 +6,7 @@ import type { SoundManager } from '../audio/sound';
 import { blobShadow } from '../render/models/actors';
 import { instancedToyMaterial } from '../render/models/build';
 import { BUNDLE, bundleGeometry } from '../render/models/money';
+import { perkHere } from './perks';
 
 const MAX_BILLS = 32;
 const COLUMNS = [
@@ -30,6 +31,8 @@ interface Pile {
 export class CashSystem {
   private readonly piles = new Map<string, Pile>();
   private readonly dummy = new Object3D();
+  /** Piles the hero has picked up (the Golden Mogul's lucky double counts them). */
+  private pickups = 0;
 
   constructor(
     private readonly scene: Scene,
@@ -69,14 +72,28 @@ export class CashSystem {
     return best && { id: best.id, at: best.at };
   }
 
-  /** Vacuums up any pile within reach of `collector` into the player's cash. True if anything was collected. */
-  update(collector: Point): boolean {
+  /**
+   * Vacuums up any pile within reach of `collector` into the player's cash. True if anything was collected.
+   * The hero (`byHero`) reaches further, and gets more for it, with some of the shop's perks (src/systems/perks.ts).
+   */
+  update(collector: Point, byHero = false): boolean {
     let collected = false;
+    const reach = byHero ? Math.max(this.tuning.collectRadius + perkHere(this.state, 'reach'), perkHere(this.state, 'magnet')) : this.tuning.collectRadius;
     for (const pile of this.piles.values()) {
-      const amount = this.state.piles[pile.id] ?? 0;
+      let amount = this.state.piles[pile.id] ?? 0;
       if (amount <= 0) continue;
-      if (Math.hypot(collector.x - pile.at.x, collector.z - pile.at.z) > this.tuning.collectRadius) continue;
+      if (Math.hypot(collector.x - pile.at.x, collector.z - pile.at.z) > reach) continue;
       collected = true;
+      if (byHero) {
+        amount = Math.round(amount * (1 + perkHere(this.state, 'pickupValue')));
+        // Every so many piles picked up, one is doubled (0.1: every 10th).
+        const lucky = perkHere(this.state, 'tenthDouble');
+        this.pickups++;
+        if (lucky > 0 && this.pickups % Math.max(2, Math.round(1 / lucky)) === 0) {
+          amount *= 2;
+          this.effects.burst('confetti', new Vector3(collector.x, 1.6, collector.z), 18, 3, 0.5);
+        }
+      }
       this.state.cash += amount;
       delete this.state.piles[pile.id];
       const from = new Vector3(pile.at.x, 0.4, pile.at.z);

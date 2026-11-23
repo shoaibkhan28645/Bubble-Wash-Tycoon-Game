@@ -4,6 +4,7 @@
 import { TUNING } from './config';
 import { TOWN_KEYS, newTownState, type GameState, type TownState } from './gameState';
 import { offlineEarnings } from '../systems/offline';
+import { perkBoost } from '../systems/perks';
 
 /** The pad that hires a town's manager (offline earnings at full rate); every town names it this way. */
 const MANAGER = 'manager';
@@ -65,7 +66,8 @@ export function empireOfflineEarnings(state: GameState, since: number, now: numb
     seconds = Math.max(seconds, earned.seconds);
     cash += earned.cash;
   }
-  return { seconds, cash };
+  // The Gold Standard brand theme: the crew earns more while the hero is away.
+  return { seconds, cash: Math.floor(cash * perkBoost(state, 'offline', state.currentTown)) };
 }
 
 /** Adds background income as play goes on, in whole dollars so the cash counter doesn't twitch every frame. */

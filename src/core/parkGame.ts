@@ -43,7 +43,6 @@ import { ConstructionSites } from '../render/models/site';
 import { PARK_SOLIDS, RideView, Spinners, lightSigns, overRide, parkModel, parkPadModel } from '../render/models/park';
 import { PadModel } from '../render/models/padModel';
 import { PersonAvatar, type Tool } from '../render/models/person';
-import { perk } from '../systems/career';
 import { CashSystem } from '../systems/cash';
 import { Carrier, carriedItems } from '../systems/carry';
 import { formatClock, takeFinished } from '../systems/construction';
@@ -72,6 +71,7 @@ import { toast } from '../ui/dialog';
 import { showPrizeShelf } from '../ui/prizeShelf';
 import { EventChips } from '../ui/eventChips';
 import { padStep, reportProgress } from '../systems/progress';
+import { perkBoost, perkValue } from '../systems/perks';
 import { showEndScreen } from '../ui/endScreen';
 import { openEmpireMap } from '../ui/empireMap';
 import { Hud } from '../ui/hud';
@@ -278,7 +278,7 @@ export function createParkGame(
   stage.scene.add(withShadows(parkland(layout, spinners), false, true));
 
   const level = (key: string) => state.levels[key] ?? 0;
-  const player = new Player(stage.scene, layout.playerStart, TUNING.player, () => 1 + perk(state, 'walk'));
+  const player = new Player(stage.scene, layout.playerStart, TUNING.player, (): number => perkBoost(state, 'walk', current.id) * (heroCarry.stack.length > 0 ? perkBoost(state, 'walkLoaded', current.id) : 1));
   player.onFootstep(() => sound.play('step'));
   /** How loud a sound at `at` is to the hero (1 close by, 0 far off). */
   const hearing = (at: Point, near = HEAR_NEAR, fade = HEAR_FADE): number =>
@@ -288,7 +288,7 @@ export function createParkGame(
   const floaters = new Floaters(labels);
   const chips = new EventChips(root);
   // The hero's back: boxes of supplies from the shed to the stalls.
-  const heroCarry = new Carrier<ParkSupply>(player.mesh, () => player.position, () => TUNING.supplies.carryBase + levelStep(UPGRADES.kinds.carry, level('player.carry')));
+  const heroCarry = new Carrier<ParkSupply>(player.mesh, () => player.position, () => TUNING.supplies.carryBase + levelStep(UPGRADES.kinds.carry, level('player.carry')) + perkValue(state, 'carry', current.id));
   const supplies = new ParkSupplies(state);
   const litter = new Litter();
   const litterView = new LitterView(stage.scene);
@@ -412,7 +412,8 @@ export function createParkGame(
         void saves.saveNow();
       }
     }
-    const tip = tipFor(pay, visitor.patience / visitor.patienceMax, TUNING.customers);
+    // A bigger tip from a visitor the hero (or the staff) served, with the right perk (src/systems/perks.ts).
+    const tip = Math.round(tipFor(pay, visitor.patience / visitor.patienceMax, TUNING.customers) * perkBoost(state, visitor.manual ? 'tips' : 'staffTips', current.id));
     cash.add(counter.id, pay + tip);
     visitor.spent += pay + tip;
     const at = layout.piles[counter.id] ?? counter.at;
@@ -438,8 +439,10 @@ export function createParkGame(
     const night = fireworksBuilt() && evening >= 0.5 ? 1 + PARK.fireworks.nightPay : 1;
     const seat = ride.def.price * quality(ride.id) * payBonus() * storm * night * (1 + shelfBonus(shelf(state).length)) * (crowd.rush?.payMultiplier ?? 1);
     const mess = litter.messAt(ride.spot.at);
-    const pay = Math.round(launch.riders * seat * (1 - mess) * (launch.full ? 1 + rules.fullBonus : 1) * (launch.serviced ? 1 + rules.serviceBonus : 1));
-    const tip = launch.perfect ? Math.round(pay * rules.perfectTip) : 0;
+    // The Flamingo suit sells more tickets on the hero's own launches; the Ringmaster Hat makes perfect ones pay more.
+    const hero = launch.by === 'hero' ? perkBoost(state, 'rideTickets', current.id) : 1;
+    const pay = Math.round(launch.riders * seat * (1 - mess) * (launch.full ? 1 + rules.fullBonus : 1) * (launch.serviced ? 1 + rules.serviceBonus : 1) * hero);
+    const tip = launch.perfect ? Math.round(pay * rules.perfectTip * perkBoost(state, 'perfectLaunch', current.id)) : 0;
     cash.add(ride.id, pay + tip);
     for (const rider of ride.seats) if (rider) rider.spent += Math.round(seat * (1 - mess) * (launch.full ? 1 + rules.fullBonus : 1));
     if (trip) trip.rides += ride.seats.filter((v) => v?.trip && v.step === 'seated').length;
@@ -508,7 +511,7 @@ export function createParkGame(
     state,
     // With fireworks, half as many visitors again come for the evening show.
     () => unlockedSum(state, (e) => e.arrivalBonus) + (fireworksBuilt() ? PARK.fireworks.crowd * evening : 0) + (festival ? PARK.festival.crowd : 0),
-    () => unlockedSum(state, (e) => e.patienceBonus) - litter.patiencePenalty,
+    () => unlockedSum(state, (e) => e.patienceBonus) - litter.patiencePenalty + perkValue(state, 'patience', current.id),
     makeAvatar,
     route,
     {
@@ -895,7 +898,7 @@ export function createParkGame(
   /** How hard each counter is worked this frame: the hero behind it, or a worker (the faster counts), sped up by its upgrade. */
   const work = (counter: WalkUpCounter): { rate: number; byPlayer: boolean } => {
     const byStaff = staff.rateFor(counter);
-    const byPlayer = insideRect(player.position, counter.zone) ? 1 : 0;
+    const byPlayer = insideRect(player.position, counter.zone) ? perkBoost(state, 'handWork', current.id) : 0;
     const speed = levelFactor(UPGRADES.kinds.speed, level(`${counter.id}.speed`));
     return { rate: Math.max(byStaff, byPlayer) / speed, byPlayer: byPlayer > 0 && byPlayer >= byStaff };
   };
@@ -1208,7 +1211,8 @@ export function createParkGame(
       staff.act('janitor', 1.1, piece.at);
     }
     // The hero picks up litter by walking over it.
-    for (const picked of litter.pickUp(player.position, LITTER_REACH)) {
+    // The Confetti trail sweeps up litter from further away (src/systems/perks.ts).
+    for (const picked of litter.pickUp(player.position, Math.max(LITTER_REACH, perkValue(state, 'litter', current.id)))) {
       if (picked === sweeping) sweeping = null;
       litterView.remove(picked);
       effects.burst('sparkle', new Vector3(picked.at.x, 0.4, picked.at.z), 5, 2, 0.4);
@@ -1417,7 +1421,7 @@ export function createParkGame(
     showRides();
     showStock();
     spinners.update(dt);
-    if (cash.update(player.position)) flag('collected');
+    if (cash.update(player.position, true)) flag('collected');
     sites.update(state, Date.now());
     showShelf();
     floaters.update(dt);

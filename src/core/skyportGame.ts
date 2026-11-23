@@ -109,7 +109,6 @@ import { Celebrity, WISHES, type Wish } from '../systems/vip';
 import { brandColours } from '../render/brand';
 import { showRoutes, showTower, type RoutesView } from '../ui/airportPanels';
 import { unlockedSum } from '../systems/arrivals';
-import { perk } from '../systems/career';
 import { CashSystem } from '../systems/cash';
 import { Carrier, carriedItems, type CaseItem, type CarryItem } from '../systems/carry';
 import { levelFactor, levelStep, money, nextStars, tipFor } from '../systems/economy';
@@ -128,6 +127,7 @@ import { Floaters } from '../ui/carBubbles';
 import { EdgePointer } from '../ui/edgePointer';
 import { EventChips } from '../ui/eventChips';
 import { padStep, reportProgress } from '../systems/progress';
+import { perkBoost, perkValue } from '../systems/perks';
 import { showEndScreen } from '../ui/endScreen';
 import { openEmpireMap } from '../ui/empireMap';
 import { Hud } from '../ui/hud';
@@ -405,14 +405,18 @@ export function createSkyportGame(
 
   const level = (key: string) => state.levels[key] ?? 0;
   const built = (id: string) => state.unlocked.includes(id);
-  const player = new Player(stage.scene, layout.playerStart, TUNING.player, () => 1 + perk(state, 'walk'));
+  const player = new Player(stage.scene, layout.playerStart, TUNING.player, (): number => perkBoost(state, 'walk', current.id) * (heroCarry.stack.length > 0 ? perkBoost(state, 'walkLoaded', current.id) : 1));
   player.onFootstep(() => sound.play('step'));
   /** How loud a sound at `at` is to the hero (1 close by, 0 far off). */
   const hearing = (at: Point): number => Math.max(0, Math.min(1, 1 - (Math.hypot(at.x - player.position.x, at.z - player.position.z) - HEAR_NEAR) / HEAR_FADE));
   const cash = new CashSystem(stage.scene, layout, { ...TUNING.cash, pileCap: AIRPORT.pileCap }, state, effects, sound);
   const floaters = new Floaters(labels);
   const chips = new EventChips(root);
-  const heroCarry = new Carrier<CarryItem>(player.mesh, () => player.position, () => TUNING.supplies.carryBase + levelStep(UPGRADES.kinds.carry, level('player.carry')));
+  // The brand theme's perks help the whole crew (src/systems/perks.ts).
+  const staffWalk = (): number => perkBoost(state, 'staffWalk', current.id);
+  const staffWork = (): number => perkBoost(state, 'staffWork', current.id);
+  const staffCarry = (): number => perkValue(state, 'staffCarry', current.id);
+  const heroCarry = new Carrier<CarryItem>(player.mesh, () => player.position, () => TUNING.supplies.carryBase + levelStep(UPGRADES.kinds.carry, level('player.carry')) + perkValue(state, 'carry', current.id));
   /** A gate's colour of case (Gate 1 pink, 2 blue, 3 green, 4 orange, in order). */
   const caseFor = (gate: string): CaseItem => (['case1', 'case2', 'case3', 'case4'] as const)[Math.max(0, Object.keys(layout.gates).indexOf(gate)) % 4]!;
   /** Whether a case goes into `gate`'s hold: its own colour, or the golden one (any hold takes it). */
@@ -587,7 +591,7 @@ export function createSkyportGame(
   const passengers = new Passengers(layout, AIRPORT, airfield, gateKeys, makeAvatar, {
     onCheckedIn: (p: Passenger) => {
       const pay = Math.round(AIRPORT.passengers.ticket * levelFactor(UPGRADES.kinds.price, level('checkin.price')) * queenBonus());
-      const tip = tipFor(pay, p.patience / p.patienceMax, TUNING.customers);
+      const tip = Math.round(tipFor(pay, p.patience / p.patienceMax, TUNING.customers) * perkBoost(state, p.manual ? 'tips' : 'staffTips', current.id));
       cash.add('checkin', pay + tip);
       const at = layout.piles.checkin ?? layout.desk.at;
       // (Checked in at the shuttle station: the ticket shows where they got off.)
@@ -668,7 +672,7 @@ export function createSkyportGame(
       stage.scene.add(avatar.root);
       const member = new CrewMember(avatar, layout.staffSpots.handler ?? layout.belt.at);
       handler = Object.assign(member, {
-        carrier: new Carrier<CarryItem>(avatar.root, () => ({ x: member.x, z: member.z }), () => AIRPORT.bags.handlerCarry + levelStep(UPGRADES.kinds.staffCarry, level('handler.staffCarry'))),
+        carrier: new Carrier<CarryItem>(avatar.root, () => ({ x: member.x, z: member.z }), () => AIRPORT.bags.handlerCarry + levelStep(UPGRADES.kinds.staffCarry, level('handler.staffCarry')) + staffCarry()),
         job: 'idle' as const,
         flight: null,
         wait: 0,
@@ -689,7 +693,7 @@ export function createSkyportGame(
       stage.scene.add(avatar.root);
       const member = new CrewMember(avatar, layout.staffSpots.caterer ?? layout.kitchen.pick);
       runner = Object.assign(member, {
-        carrier: new Carrier<CarryItem>(avatar.root, () => ({ x: member.x, z: member.z }), () => AIRPORT.meals.runnerCarry + levelStep(UPGRADES.kinds.staffCarry, level('caterer.staffCarry'))),
+        carrier: new Carrier<CarryItem>(avatar.root, () => ({ x: member.x, z: member.z }), () => AIRPORT.meals.runnerCarry + levelStep(UPGRADES.kinds.staffCarry, level('caterer.staffCarry')) + staffCarry()),
         job: 'idle' as const,
         flight: null as Flight | null,
         wait: 0,
@@ -713,7 +717,7 @@ export function createSkyportGame(
       stage.scene.add(avatar.root);
       const member = new CrewMember(avatar, layout.staffSpots.cargocrew ?? layout.cargo?.dock ?? layout.belt.at);
       cargoCrew = Object.assign(member, {
-        carrier: new Carrier<CarryItem>(avatar.root, () => ({ x: member.x, z: member.z }), () => AIRPORT.cargo.carry + levelStep(UPGRADES.kinds.staffCarry, level('cargocrew.staffCarry'))),
+        carrier: new Carrier<CarryItem>(avatar.root, () => ({ x: member.x, z: member.z }), () => AIRPORT.cargo.carry + levelStep(UPGRADES.kinds.staffCarry, level('cargocrew.staffCarry')) + staffCarry()),
         job: 'idle' as const,
         wait: 0,
       });
@@ -1066,7 +1070,7 @@ export function createSkyportGame(
       s.timer -= dt;
       if (s.timer <= 0) {
         // (They checked in at the station: straight on to security, as there's room in its line.)
-        if (s.riders > 0 && passengers.arrive({ x: kerb - 1.6 + (s.riders % 4) * 0.8, z: busBayZ - 1.5 }, unlockedSum(state, (e) => e.patienceBonus))) {
+        if (s.riders > 0 && passengers.arrive({ x: kerb - 1.6 + (s.riders % 4) * 0.8, z: busBayZ - 1.5 }, unlockedSum(state, (e) => e.patienceBonus) + perkValue(state, 'patience', current.id))) {
           s.riders -= 1;
           s.timer = 0.6;
         } else if ((s.riders === 0 || s.timer < -25) && mayTurn(roadUsers(shuttle), { x: s.x, half: BUS_HALF + 2, lane: 'bay' })) {
@@ -1289,7 +1293,7 @@ export function createSkyportGame(
   }
   let star: StarVisit | null = null;
   const photographers: PersonAvatar[] = [];
-  const vipPay = (): number => levelFactor(UPGRADES.kinds.price, level('vip.price')) * payBonus();
+  const vipPay = (): number => levelFactor(UPGRADES.kinds.price, level('vip.price')) * payBonus() * perkBoost(state, 'vipPay', current.id);
   const buildVip = (animate: boolean): void => {
     if (vipRoom) return;
     const { lounge, door, bar, seat } = layout.vip;
@@ -1437,7 +1441,7 @@ export function createSkyportGame(
     if (!star) {
       for (const p of photographers) p.root.visible = false;
       if (!airfield.at('vip') && !airfield.calling('vip')) {
-        vipTimer -= dt;
+        vipTimer -= dt * perkBoost(state, 'vipChance', current.id);
         if (vipTimer <= 0) {
           airfield.call('vip');
           const stand = layout.stands.vip!;
@@ -1550,7 +1554,7 @@ export function createSkyportGame(
   const workMarshal = (dt: number): void => {
     const mm = marshal;
     if (!mm) return;
-    const speed = (CREW_SPEED * boost) / levelFactor(UPGRADES.kinds.staffSpeed, level('marshal.staffSpeed'));
+    const speed = (CREW_SPEED * staffWalk() * boost) / levelFactor(UPGRADES.kinds.staffSpeed, level('marshal.staffSpeed'));
     const arrived = mm.walk(dt, speed);
     mm.avatar.update(dt);
     const order = { taxiIn: 0, rollout: 1, approach: 2 } as Record<string, number>;
@@ -1750,7 +1754,7 @@ export function createSkyportGame(
     const c = cargoCrew;
     const cg = layout.cargo;
     if (!c || !cg || !dockCrates) return;
-    const speed = (CREW_SPEED * AIRPORT.cargo.crewSpeed * boost) / levelFactor(UPGRADES.kinds.staffSpeed, level('cargocrew.staffSpeed'));
+    const speed = (CREW_SPEED * staffWalk() * AIRPORT.cargo.crewSpeed * boost) / levelFactor(UPGRADES.kinds.staffSpeed, level('cargocrew.staffSpeed'));
     const arrived = c.walk(dt, speed);
     c.carrier.update(dt, !arrived);
     c.avatar.update(dt);
@@ -1853,8 +1857,8 @@ export function createSkyportGame(
     const onPad = near(player.position, hg.service, 1.1);
     let working = false;
     if (plane && job && job.progress < 1 && !plane.cleared) {
-      const byHero = onPad ? 1 : 0;
-      const byMechanic = engineer?.job === 'working' ? AIRPORT.hangar.mechanicRate / levelFactor(UPGRADES.kinds.staffSpeed, level('engineer.staffSpeed')) : 0;
+      const byHero = onPad ? perkBoost(state, 'handWork', current.id) : 0;
+      const byMechanic = engineer?.job === 'working' ? (AIRPORT.hangar.mechanicRate * staffWork()) / levelFactor(UPGRADES.kinds.staffSpeed, level('engineer.staffSpeed')) : 0;
       const rate = Math.max(byHero, byMechanic) / (AIRPORT.hangar.seconds * levelFactor(UPGRADES.kinds.speed, level('hangar.speed')));
       working = rate > 0;
       if (working) {
@@ -1895,7 +1899,7 @@ export function createSkyportGame(
   const workEngineer = (dt: number): void => {
     const e = engineer;
     if (!e || !layout.hangar) return;
-    const speed = (CREW_SPEED * boost) / levelFactor(UPGRADES.kinds.staffSpeed, level('engineer.staffSpeed'));
+    const speed = (CREW_SPEED * staffWalk() * boost) / levelFactor(UPGRADES.kinds.staffSpeed, level('engineer.staffSpeed'));
     const arrived = e.walk(dt, speed);
     const plane = airfield.parkedAt('hangar');
     const wanted = !!plane && !!hangarJob && hangarJob.progress < 1 && !plane.cleared;
@@ -1988,7 +1992,7 @@ export function createSkyportGame(
     const w = wash && wash.flight.phase === 'parked' && !wash.flight.cleared ? wash : null;
     const atControls = near(player.position, jw.control, 1.1);
     if (w) {
-      const speed = ((atControls ? AIRPORT.jetwash.heroSpeed : 1) * boost) / (AIRPORT.jetwash.seconds * levelFactor(UPGRADES.kinds.speed, level('jetwash.speed')));
+      const speed = ((atControls ? AIRPORT.jetwash.heroSpeed * perkBoost(state, 'handWork', current.id) : 1) * boost) / (AIRPORT.jetwash.seconds * levelFactor(UPGRADES.kinds.speed, level('jetwash.speed')));
       w.progress = Math.min(1, w.progress + dt * speed);
       // Water off the spray bars (and now and then foam), the hiss of it.
       sprayIn -= dt;
@@ -2218,7 +2222,7 @@ export function createSkyportGame(
     const top = new Vector3(flight.x, 9, flight.z + 4);
     floaters.show(`👑 ${t('queenOff')}`, top, 'star');
     if (perfect && queenStandAt) {
-      const tip = Math.round(queenPay() * QUEEN_RULES.perfectTip);
+      const tip = Math.round(queenPay() * QUEEN_RULES.perfectTip * perkBoost(state, 'takeoff', current.id));
       const at = layout.piles.skyqueen ?? layout.skyqueen!.pile;
       cash.add('skyqueen', tip);
       floaters.show(`⭐ ${t('queenPerfect')} +${money(tip)}`, new Vector3(queenStandAt.marshal.x, 3, queenStandAt.marshal.z), 'tip');
@@ -2516,7 +2520,7 @@ export function createSkyportGame(
       } else if (x.state === 'stop') {
         x.timer -= dt;
         if (x.timer <= 0) {
-          if (x.riders > 0 && passengers.spawn({ x: x.kerb.x + (x.riders % 2 ? 0.7 : -0.7), z: taxiZ - 1.5 }, unlockedSum(state, (e) => e.patienceBonus))) {
+          if (x.riders > 0 && passengers.spawn({ x: x.kerb.x + (x.riders % 2 ? 0.7 : -0.7), z: taxiZ - 1.5 }, unlockedSum(state, (e) => e.patienceBonus) + perkValue(state, 'patience', current.id))) {
             x.riders -= 1;
             x.timer = 0.45;
           } else {
@@ -2542,8 +2546,8 @@ export function createSkyportGame(
   /** How hard the check-in desk is worked this frame: the hero behind it, or the agent (whichever's faster). */
   const deskService = (): { rate: number; byPlayer: boolean } => {
     const speed = 1 / levelFactor(UPGRADES.kinds.speed, level('checkin.speed'));
-    const byPlayer = insideRect(player.position, layout.desk.zone) ? speed : 0;
-    const byAgent = agent ? (speed * AGENT_RATE) / levelFactor(UPGRADES.kinds.staffSpeed, level('agent.staffSpeed')) : 0;
+    const byPlayer = insideRect(player.position, layout.desk.zone) ? speed * perkBoost(state, 'handWork', current.id) : 0;
+    const byAgent = agent ? (speed * AGENT_RATE * staffWork()) / levelFactor(UPGRADES.kinds.staffSpeed, level('agent.staffSpeed')) : 0;
     return { rate: Math.max(byPlayer, byAgent), byPlayer: byPlayer > 0 && byPlayer >= byAgent };
   };
 
@@ -2562,8 +2566,10 @@ export function createSkyportGame(
     const nightFlight = built('lights') && dark >= 0.5;
     const fare = AIRPORT.planes[flight.kind].fare * levelFactor(UPGRADES.kinds.price, level(`${gate.key}.price`)) * payBonus() * (nightFlight ? 1 + AIRPORT.night.pay : 1) * (flight.card?.fare ?? 1) * (1 + airline.fareBonus);
     const streak = state.counts[streakKey] ?? 0;
-    const { pay, onTime } = flightPay(flight, fare, streak, AIRPORT);
-    const tip = perfect ? Math.round(pay * AIRPORT.flight.perfectTip) : 0;
+    // The Flying Helmet raises the on-time bonus; the Sky Captain's Cap, a perfect take-off's tip (src/systems/perks.ts).
+    const onTimeBonus = AIRPORT.flight.onTimeBonus * perkBoost(state, 'onTime', current.id);
+    const { pay, onTime } = flightPay(flight, fare, streak, onTimeBonus === AIRPORT.flight.onTimeBonus ? AIRPORT : { ...AIRPORT, flight: { ...AIRPORT.flight, onTimeBonus } });
+    const tip = perfect ? Math.round(pay * AIRPORT.flight.perfectTip * perkBoost(state, 'takeoff', current.id)) : 0;
     cash.add(gate.key, pay + tip);
     const at = layout.piles[gate.key] ?? gate.spot.marshal;
     const top = new Vector3(flight.x, 5.2, flight.z);
@@ -2756,7 +2762,7 @@ export function createSkyportGame(
   const workDispatcher = (dt: number): void => {
     const d = dispatcher;
     if (!d) return;
-    const speed = (CREW_SPEED * boost) / levelFactor(UPGRADES.kinds.staffSpeed, level('dispatcher.staffSpeed'));
+    const speed = (CREW_SPEED * staffWalk() * boost) / levelFactor(UPGRADES.kinds.staffSpeed, level('dispatcher.staffSpeed'));
     const arrived = d.walk(dt, speed);
     d.avatar.update(dt);
     if (!arrived) {
@@ -2821,7 +2827,7 @@ export function createSkyportGame(
   const workHandler = (dt: number): void => {
     const h = handler;
     if (!h) return;
-    const speed = (CREW_SPEED * boost) / levelFactor(UPGRADES.kinds.staffSpeed, level('handler.staffSpeed'));
+    const speed = (CREW_SPEED * staffWalk() * boost) / levelFactor(UPGRADES.kinds.staffSpeed, level('handler.staffSpeed'));
     const arrived = h.walk(dt, speed);
     h.carrier.update(dt, !arrived);
     h.avatar.update(dt);
@@ -2910,7 +2916,7 @@ export function createSkyportGame(
   const workFueler = (dt: number): void => {
     const f = fueler;
     if (!f) return;
-    const speed = (CREW_SPEED * boost) / levelFactor(UPGRADES.kinds.staffSpeed, level('fuelcrew.staffSpeed'));
+    const speed = (CREW_SPEED * staffWalk() * boost) / levelFactor(UPGRADES.kinds.staffSpeed, level('fuelcrew.staffSpeed'));
     const arrived = f.walk(dt, speed);
     f.avatar.update(dt);
     if (!arrived) return;
@@ -2957,7 +2963,7 @@ export function createSkyportGame(
   const workRunner = (dt: number): void => {
     const r = runner;
     if (!r || !hatchTrays) return;
-    const speed = (CREW_SPEED * boost) / levelFactor(UPGRADES.kinds.staffSpeed, level('caterer.staffSpeed'));
+    const speed = (CREW_SPEED * staffWalk() * boost) / levelFactor(UPGRADES.kinds.staffSpeed, level('caterer.staffSpeed'));
     const arrived = r.walk(dt, speed);
     r.carrier.update(dt, !arrived);
     r.avatar.update(dt);
@@ -3035,9 +3041,9 @@ export function createSkyportGame(
   const shopService = (id: ShopId): { rate: number; byPlayer: boolean } => {
     if (!built(id)) return { rate: 0, byPlayer: false };
     const speed = 1 / levelFactor(UPGRADES.kinds.speed, level(`${id}.speed`));
-    const byPlayer = insideRect(player.position, layout[id].zone) ? speed : 0;
+    const byPlayer = insideRect(player.position, layout[id].zone) ? speed * perkBoost(state, 'handWork', current.id) : 0;
     const helper = id === 'cafe' ? barista : clerk;
-    const byStaff = helper ? (speed * AGENT_RATE) / levelFactor(UPGRADES.kinds.staffSpeed, level('shops.staffSpeed')) : 0;
+    const byStaff = helper ? (speed * AGENT_RATE * staffWork()) / levelFactor(UPGRADES.kinds.staffSpeed, level('shops.staffSpeed')) : 0;
     return { rate: Math.max(byPlayer, byStaff), byPlayer: byPlayer > 0 && byPlayer >= byStaff };
   };
 
@@ -3610,7 +3616,7 @@ export function createSkyportGame(
       sound.play('caw', hearing(birds.from) * 0.8);
     }
     scenery.update(dt, airfield.flights);
-    if (cash.update(player.position)) flag('collected');
+    if (cash.update(player.position, true)) flag('collected');
     floaters.update(dt);
     rateTimer += dt;
     if (rateTimer >= 5) {

@@ -15,6 +15,7 @@ type AnyStation = Station<Customer>;
 import { carAhead } from './roadRules';
 import type { Supplies } from './supplies';
 import type { CashSystem } from './cash';
+import { boostHere, perkHere } from './perks';
 
 /** Hire pad id → the role's key in characters.json (the garage comes with its detailer). */
 const ROLES = {
@@ -275,8 +276,11 @@ export class StaffSystem {
     if (!(padId in ROLES) || this.helpers.some((h) => h.role === padId)) return;
     const role = padId as Role;
     const start = this.layout.pads[padId] ?? this.home(role);
-    const capacity = () => TUNING.supplies.carryBase + levelStep(UPGRADES.kinds.staffCarry, this.level(`${role}.staffCarry`)) + (this.bonuses[role]?.carry ?? 0);
+    // The brand theme's perks help every member of staff (src/systems/perks.ts): Fresh Mint, one more carried.
+    const capacity = () => TUNING.supplies.carryBase + levelStep(UPGRADES.kinds.staffCarry, this.level(`${role}.staffCarry`)) + (this.bonuses[role]?.carry ?? 0) + perkHere(this.state, 'staffCarry');
     const helper = new Helper(role, this.scene, start, capacity, this.labels);
+    // Staff pick and pack faster too in the Royal Purple theme.
+    if (helper.carrier) helper.carrier.handSpeed = () => boostHere(this.state, 'staffWork');
     helper.target = this.home(role);
     this.helpers.push(helper);
   }
@@ -318,7 +322,7 @@ export class StaffSystem {
   rateFor(station: AnyStation): number {
     const helper = this.helpers.find((h) => h.working === station && h.onBreak <= 0);
     if (!helper) return 0;
-    return TUNING.staff.workRate / levelFactor(UPGRADES.kinds.staffSpeed, this.level(`${helper.role}.staffSpeed`));
+    return (TUNING.staff.workRate * boostHere(this.state, 'staffWork')) / levelFactor(UPGRADES.kinds.staffSpeed, this.level(`${helper.role}.staffSpeed`));
   }
 
   update(
@@ -346,7 +350,7 @@ export class StaffSystem {
       const skip = (station: AnyStation) =>
         playerAt(station) || (!manager && !!station.customer?.vip) || this.helpers.some((o) => o !== helper && o.assigned === station);
       // The speed upgrade makes them quicker at the job, not on their feet: they walk at a natural pace.
-      const speed = TUNING.staff.walkSpeed * (this.bonuses[helper.role]?.speed ?? 1);
+      const speed = TUNING.staff.walkSpeed * (this.bonuses[helper.role]?.speed ?? 1) * boostHere(this.state, 'staffWalk');
       if (this.takeBreak(dt, helper)) {
         helper.avatar.update(dt);
         continue;
@@ -472,7 +476,7 @@ export class StaffSystem {
     helper.worked = 0;
     const kind = helper.role === 'washer' ? UPGRADES.kinds.stamina : UPGRADES.kinds.staffSpeed;
     const key = helper.role === 'washer' ? 'washer.stamina' : `${helper.role}.staffSpeed`;
-    helper.onBreak = TUNING.staff.breakSeconds * levelFactor(kind, this.level(key));
+    helper.onBreak = TUNING.staff.breakSeconds * levelFactor(kind, this.level(key)) * (1 - perkHere(this.state, 'breaks'));
     helper.assigned = null;
     helper.working = null;
     helper.showCoffee(true);

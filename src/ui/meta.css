@@ -1597,6 +1597,24 @@
   font: 400 15px/1.2 var(--font-display);
 }
 
+/* What an item does while worn, under its name; dimmed in a town where it doesn't work. */
+.shop-perk {
+  max-width: 100%;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: #e1f6ea;
+  color: #187a4e;
+  font: 900 11px/1.35 var(--font-body);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.shop-perk.shop-perk-off {
+  background: #eef2f4;
+  color: #8ea5af;
+}
+
 .shop-price {
   display: flex;
   align-items: center;

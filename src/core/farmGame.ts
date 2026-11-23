@@ -41,7 +41,6 @@ import { FarmTraffic } from '../systems/farmTraffic';
 import { PersonAvatar } from '../render/models/person';
 import { ConstructionSites } from '../render/models/site';
 import { unlockedSum } from '../systems/arrivals';
-import { perk } from '../systems/career';
 import { CashSystem } from '../systems/cash';
 import { Carrier, carriedItems } from '../systems/carry';
 import { takeFinished } from '../systems/construction';
@@ -67,6 +66,7 @@ import { WalkUps, type ServedVisitor, type Visitor, type WalkUpCounter } from '.
 import { Floaters } from '../ui/carBubbles';
 import { EdgePointer } from '../ui/edgePointer';
 import { padStep, reportProgress } from '../systems/progress';
+import { perkBoost, perkValue } from '../systems/perks';
 import { showEndScreen } from '../ui/endScreen';
 import { openEmpireMap } from '../ui/empireMap';
 import { Hud } from '../ui/hud';
@@ -174,13 +174,15 @@ export function createFarmGame(
   });
 
   const level = (key: string) => state.levels[key] ?? 0;
-  const player = new Player(stage.scene, layout.playerStart, TUNING.player, () => 1 + perk(state, 'walk'));
+  const player = new Player(stage.scene, layout.playerStart, TUNING.player, (): number => perkBoost(state, 'walk', current.id) * (playerCarry.stack.length > 0 ? perkBoost(state, 'walkLoaded', current.id) : 1));
   player.onFootstep(() => sound.play('step'));
   const playerCarry: CrateCarrier = new Carrier<GoodId>(
     player.mesh,
     () => player.position,
-    () => TUNING.supplies.carryBase + levelStep(UPGRADES.kinds.carry, level('player.carry')),
+    () => TUNING.supplies.carryBase + levelStep(UPGRADES.kinds.carry, level('player.carry')) + perkValue(state, 'carry', current.id),
   );
+  // The hero picks and packs faster in the right outfit (src/systems/perks.ts).
+  playerCarry.handSpeed = () => perkBoost(state, 'handWork', current.id);
   const cash = new CashSystem(stage.scene, layout, TUNING.cash, state, effects, sound);
   const floaters = new Floaters(labels);
   const income = new IncomeTracker(TUNING.offline.incomeWindowSeconds, state.autoRate);
@@ -378,7 +380,8 @@ export function createFarmGame(
     // The farmers' market's shoppers pay top prices.
     const market = counter.kind === 'stall' ? TUNING.market.premium : 1;
     const pay = Math.round(price * quality * bonus * market * (walkups.rush?.payMultiplier ?? 1));
-    const tip = tipFor(pay, visitor.patience / visitor.patienceMax, TUNING.customers);
+    // A bigger tip from a shopper the hero (or the staff) served, with the right perk (src/systems/perks.ts).
+    const tip = Math.round(tipFor(pay, visitor.patience / visitor.patienceMax, TUNING.customers) * perkBoost(state, visitor.manual ? 'tips' : 'staffTips', current.id));
     cash.add(counter.id, pay + tip);
     const at = layout.piles[counter.id] ?? counter.at;
     floaters.show(`+${money(pay)} ${basket.map((g) => GOODS[g]!.icon).join('')}`, new Vector3(at.x, 1.2, at.z), 'cash');
@@ -397,7 +400,7 @@ export function createFarmGame(
     state,
     TUNING.villagers as { spawnSeconds: number; patience: number; walkSpeed: number; pay: [number, number] },
     () => unlockedSum(state, (e) => e.arrivalBonus),
-    () => unlockedSum(state, (e) => e.patienceBonus),
+    () => unlockedSum(state, (e) => e.patienceBonus) + perkValue(state, 'patience', current.id),
     makeAvatar,
     onServed,
     onGaveUp,
@@ -821,7 +824,7 @@ export function createFarmGame(
   const work = (counter: WalkUpCounter): { rate: number; byPlayer: boolean } => {
     if (stock.total(counter.id) === 0) return { rate: 0, byPlayer: false };
     const byStaff = staff.rateFor(counter);
-    const byPlayer = insideRect(player.position, counter.zone) ? 1 : 0;
+    const byPlayer = insideRect(player.position, counter.zone) ? perkBoost(state, 'handWork', current.id) : 0;
     const speed = levelFactor(UPGRADES.kinds.speed, level(`${counter.id}.speed`));
     return { rate: Math.max(byStaff, byPlayer) / speed, byPlayer: byPlayer > 0 && byPlayer >= byStaff };
   };
@@ -1068,7 +1071,7 @@ export function createFarmGame(
     animalCalls(dt);
     showStock();
     showAnimals();
-    if (cash.update(player.position)) flag('collected');
+    if (cash.update(player.position, true)) flag('collected');
     floaters.update(dt);
     buildTimer -= dt;
     if (buildTimer <= 0) {

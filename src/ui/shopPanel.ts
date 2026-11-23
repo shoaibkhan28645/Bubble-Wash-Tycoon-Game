@@ -1,5 +1,5 @@
 // The Bubble Boutique: the hero's outfits, hats and trails, the business's brand colour and the towns'
-// decorations (bought with gems, just for looks), today's featured things, the sets and the things only
+// decorations (bought with gems; what's worn and the brand theme each carry a perk too), today's featured things, the sets and the things only
 // earned, and the gem boosts gathered in one place. It fills the screen: a window at the top (beside, on
 // a wide screen) shows what's picked up close (the hero, a staff member, a decoration in its spot) before
 // it's bought, and each hat and decoration's tile shows its own model.
@@ -29,8 +29,9 @@ import {
   type ShopItem,
   type Slot,
 } from '../systems/wardrobe';
+import { perkWorksIn, type PerkDef } from '../systems/perks';
 import { icon as drawn, iconFor, rich, setRich, type IconName } from './icons';
-import { t, type StringKey } from './strings';
+import { hasString, t, type StringKey } from './strings';
 import { isEscape } from './keys';
 import { rewardedAdsAvailable } from '../platform/youtube';
 
@@ -113,6 +114,28 @@ const HINTS: Partial<Record<Slot, StringKey>> = { brand: 'shopBrandHint', decor:
 const CLASSIC_POLO = '#22c3c9';
 
 const townName = (id: string): string => JOURNEY.find((stop) => stop.id === id)?.name ?? id;
+
+/** The perk kinds counted in items or metres; the rest are fractions shown as percentages. */
+const PLAIN_PERKS = new Set(['carry', 'staffCarry', 'reach', 'magnet', 'litter']);
+
+/** A perk's number as it's shown: a percentage, or a count or a distance as it is. */
+function perkNumber(perk: PerkDef): number {
+  // The lucky double's "every 10th".
+  if (perk.kind === 'tenthDouble') return Math.round(1 / perk.value);
+  return PLAIN_PERKS.has(perk.kind) ? perk.value : Math.round(perk.value * 100);
+}
+
+/** A perk in a few words, for a tile ("Walk +5%"). */
+export function perkShort(perk: PerkDef): string {
+  return t(`ps_${perk.kind}` as StringKey, { n: perkNumber(perk) });
+}
+
+/** A perk in a sentence, and the one town it works in, if just one ("Carry 2 more bags · Skyport only"). */
+export function perkLong(perk: PerkDef): string {
+  const own = `p_${perk.kind}_${perk.town ?? ''}`;
+  const text = t((perk.town && hasString(own) ? own : `p_${perk.kind}`) as StringKey, { n: perkNumber(perk) });
+  return perk.town ? `${text} · ${t('perkOnly', { town: townName(perk.town) })}` : text;
+}
 
 /** A little suit in the outfit's colours, for its tile. */
 function suitIcon(item: ShopItem): string {
@@ -272,7 +295,16 @@ export function openShop(deps: ShopDeps, firstTab: ShopTab = 'today'): { close: 
       price.innerHTML = `${cost < item.gems ? `<s>${item.gems}</s>` : ''}${drawn('gem', 16)}${cost}`;
       if (state.gems < cost) price.classList.add('shop-short');
     }
-    const parts: HTMLElement[] = [icon, name, price];
+    const parts: HTMLElement[] = [icon, name];
+    // What it does while worn, dimmed where it doesn't work (a town's own perk, seen from another town).
+    if (item?.perk) {
+      const perk = document.createElement('span');
+      perk.className = 'shop-perk';
+      if (!perkWorksIn(item.perk, deps.town)) perk.classList.add('shop-perk-off');
+      perk.textContent = perkShort(item.perk);
+      parts.push(perk);
+    }
+    parts.push(price);
     if (item && !owns(state, item.id) && state.wardrobe.featured.date === deps.today && state.wardrobe.featured.ids.includes(item.id)) {
       const star = document.createElement('span');
       star.className = 'shop-featured';
@@ -337,6 +369,8 @@ export function openShop(deps: ShopDeps, firstTab: ShopTab = 'today'): { close: 
 
     // Under the tiles: a line of anything to know, and the one big button.
     const notes: string[] = [];
+    // What it does while worn (and whether it works in this town), first.
+    if (item?.perk) notes.push(`${perkLong(item.perk)}${perkWorksIn(item.perk, deps.town) ? '' : ` (${t('perkNotHere')})`}`);
     // A decoration for another town goes up there, not here.
     if (item?.slot === 'decor' && item.town !== deps.town) notes.push(t('shopElsewhere', { town: townName(item.town) }));
     const action = document.createElement('button');
@@ -522,7 +556,7 @@ export function openShop(deps: ShopDeps, firstTab: ShopTab = 'today'): { close: 
         b.className = `shop-tile shop-mini rarity-${item.rarity}`;
         if (owns(state, id)) b.classList.add('shop-worn');
         if (id === set.reward) b.classList.add('shop-reward');
-        b.append(...tileFace(item, item.slot, owns(state, id)).slice(0, 3));
+        b.append(...tileFace(item, item.slot, owns(state, id)).filter((el) => !el.classList.contains('shop-perk')).slice(0, 3));
         b.addEventListener('click', () => {
           deps.click();
           jump(item);
