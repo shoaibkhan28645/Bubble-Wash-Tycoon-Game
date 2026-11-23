@@ -427,6 +427,7 @@ export function createParkGame(
   /** Who's given up where (the play-test bot looks): a window's line, a ride's, or 'idle' (every line they wanted full). */
   const gaveUp: Record<string, number> = {};
   const onGaveUp = (visitor: ParkVisitor, where: string): void => {
+    meta.lostCustomer();
     gaveUp[where] = (gaveUp[where] ?? 0) + 1;
     state.stars = nextStars(state.stars, 'angry', TUNING.stars);
     floaters.show(visitor.vip ? '💔' : '😠', new Vector3(visitor.at.x, 2.2, visitor.at.z), 'star');
@@ -1426,6 +1427,7 @@ export function createParkGame(
     showStock();
     spinners.update(dt);
     if (cash.update(player.position, true)) flag('collected');
+    meta.heroFull(heroCarry.full);
     sites.update(state, Date.now());
     showShelf();
     floaters.update(dt);

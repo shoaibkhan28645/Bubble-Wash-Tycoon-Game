@@ -175,6 +175,23 @@ export function speech(root: HTMLElement, who: { name: string; icon: string }, t
 }
 
 /** A short message that floats in at the top and fades. */
+/** A suggestion the player can tap (it opens the shop on the thing it's about), gone after a few seconds. */
+export function nudge(root: HTMLElement, text: string, onTap: () => void): void {
+  root.querySelector('.nudge')?.remove();
+  const el = document.createElement('button');
+  el.type = 'button';
+  el.className = 'nudge';
+  setRich(el, `${text} ›`);
+  // A tap on it is a tap for the shop, never for the joystick underneath.
+  el.addEventListener('pointerdown', (e) => e.stopPropagation());
+  el.addEventListener('click', () => {
+    el.remove();
+    onTap();
+  });
+  root.appendChild(el);
+  setTimeout(() => el.remove(), 9000);
+}
+
 export function toast(root: HTMLElement, text: string): void {
   const el = document.createElement('div');
   el.className = 'toast';

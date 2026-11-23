@@ -320,6 +320,32 @@
 }
 
 /* Toast */
+/* A suggestion to tap (it opens the shop), low on the screen, above the joystick's reach. */
+.nudge {
+  position: absolute;
+  bottom: calc(env(safe-area-inset-bottom) + 150px);
+  left: 50%;
+  translate: -50% 0;
+  z-index: 30;
+  max-width: calc(100% - 40px);
+  padding: 9px 16px 10px;
+  border: var(--rim);
+  border-radius: 18px;
+  background: #e1f6ea;
+  box-shadow: var(--drop);
+  color: var(--navy);
+  font: 400 16px/1.25 var(--font-display);
+  text-align: center;
+  animation: nudge-in 0.3s ease-out;
+}
+
+@keyframes nudge-in {
+  from {
+    translate: -50% 20px;
+    opacity: 0;
+  }
+}
+
 .toast {
   position: absolute;
   top: calc(env(safe-area-inset-top) + 68px);
@@ -1595,6 +1621,72 @@
   text-overflow: ellipsis;
   white-space: nowrap;
   font: 400 15px/1.2 var(--font-display);
+}
+
+/* An item raised a level or two: its stars, gold at the top, and a gold rim. */
+.shop-level {
+  font: 900 12px/1 var(--font-body);
+  color: #2f80d1;
+  letter-spacing: 1px;
+}
+
+.shop-level.shop-level-max {
+  color: var(--sun-deep);
+}
+
+.shop-tile.shop-tile-max {
+  box-shadow: 0 0 0 3px var(--sun), 0 4px 0 var(--edge-deep);
+}
+
+.shop-action.shop-level-up {
+  background: #2f80d1;
+}
+
+/* Saved loadouts (the Today tab): a row each, its items, the auto chip, and Wear / Save. */
+.shop-loadouts {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.shop-loadout {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border: 2px solid #b9cfd6;
+  border-radius: 16px;
+  background: #fff;
+}
+
+.shop-loadout.shop-loadout-on {
+  border-color: var(--aqua);
+  background: #e6fafb;
+}
+
+.shop-loadout-words {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 3px;
+  min-width: 0;
+  color: var(--navy);
+  font: 800 12px/1.3 var(--font-body);
+}
+
+.shop-loadout-words strong {
+  font: 400 15px/1.2 var(--font-display);
+}
+
+.shop-loadout-words .shop-filter-chip {
+  padding: 2px 9px;
+  font-size: 11px;
+}
+
+.shop-loadout-new {
+  align-self: stretch;
 }
 
 /* Made for this town: a pin in the tile's corner. */

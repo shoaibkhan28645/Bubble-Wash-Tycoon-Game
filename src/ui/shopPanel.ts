@@ -8,7 +8,16 @@ import type { GameState } from '../core/gameState';
 import { JOURNEY } from '../systems/journey';
 import {
   adGemsLeft,
+  autoLoadout,
   buy,
+  itemLevel,
+  levelUp,
+  levelUpCost,
+  LOADOUT_SLOTS,
+  loadoutWorn,
+  MAX_LEVEL,
+  saveLoadout,
+  wearLoadout,
   chooseTitle,
   collection,
   decorShown,
@@ -29,7 +38,7 @@ import {
   type ShopItem,
   type Slot,
 } from '../systems/wardrobe';
-import { activeSets, payCapped, perkSources, perkWorksIn, type PerkDef, type PerkKind } from '../systems/perks';
+import { activeSets, leveled, payCapped, perkSources, perkWorksIn, type PerkDef, type PerkKind } from '../systems/perks';
 import { icon as drawn, iconFor, rich, setRich, type IconName } from './icons';
 import { hasString, t, type StringKey } from './strings';
 import { isEscape } from './keys';
@@ -67,6 +76,10 @@ export interface ShopDeps {
   boosts: () => BoostView[];
   /** Something was bought (save, a cheer) or put on (save). */
   bought: (item: ShopItem) => void;
+  /** An item was raised a level (save, a cheer). */
+  leveled: (item: ShopItem, level: number) => void;
+  /** A saved loadout was put on (save, the hero's new look). */
+  woreLoadout: (i: number) => void;
   changed: () => void;
   click: () => void;
   /** Today's local date (the featured things, the day's ads). */
@@ -181,7 +194,7 @@ function iconOf(item: ShopItem | null, picture: (item: ShopItem) => string | nul
 }
 
 /** Opens the boutique on a tab. Returns how to close it. */
-export function openShop(deps: ShopDeps, firstTab: ShopTab = 'today'): { close: () => void } {
+export function openShop(deps: ShopDeps, firstTab: ShopTab = 'today', firstPick: string | null = null): { close: () => void } {
   const { root, state } = deps;
   const overlay = document.createElement('div');
   overlay.className = 'shop-overlay';
@@ -280,6 +293,8 @@ export function openShop(deps: ShopDeps, firstTab: ShopTab = 'today'): { close: 
           ? !equipped(state, slot)
           : equipped(state, slot)?.id === id || ((slot === 'outfit' || slot === 'brand') && !equipped(state, slot) && item?.gems === 0);
     if (worn) b.classList.add('shop-worn');
+    // At the top level: a gold rim.
+    if (item && owns(state, item.id) && itemLevel(state, item.id) >= MAX_LEVEL) b.classList.add('shop-tile-max');
     b.append(...tileFace(item, slot, worn));
     b.addEventListener('click', () => {
       deps.click();
@@ -318,8 +333,16 @@ export function openShop(deps: ShopDeps, firstTab: ShopTab = 'today'): { close: 
       const perk = document.createElement('span');
       perk.className = 'shop-perk';
       if (!perkWorksIn(item.perk, deps.town)) perk.classList.add('shop-perk-off');
-      perk.textContent = perkShort(item.perk);
+      const level = owns(state, item.id) ? itemLevel(state, item.id) : 1;
+      perk.textContent = perkShort(leveled(item.perk, level));
       parts.push(perk);
+      // Raised a level or two: its stars (gold at the top).
+      if (level > 1) {
+        const stars = document.createElement('span');
+        stars.className = `shop-level${level >= MAX_LEVEL ? ' shop-level-max' : ''}`;
+        stars.textContent = '★'.repeat(level);
+        parts.push(stars);
+      }
       // Made for this town: marked, so it stands out from the ones that work anywhere.
       if (item.perk.town === deps.town) {
         const here = document.createElement('span');
@@ -422,7 +445,25 @@ export function openShop(deps: ShopDeps, firstTab: ShopTab = 'today'): { close: 
     // Under the tiles: a line of anything to know, and the one big button.
     const notes: string[] = [];
     // What it does while worn (and whether it works in this town), first.
-    if (item?.perk) notes.push(`${perkLong(item.perk)}${perkWorksIn(item.perk, deps.town) ? '' : ` (${t('perkNotHere')})`}`);
+    const level = item && owns(state, item.id) ? itemLevel(state, item.id) : 1;
+    if (item?.perk) notes.push(`${perkLong(leveled(item.perk, level))}${perkWorksIn(item.perk, deps.town) ? '' : ` (${t('perkNotHere')})`}`);
+    // An owned item with a perk can be raised a level: what the next one gives, and a button for it.
+    const levelCost = item ? levelUpCost(state, item.id) : null;
+    let levelButton: HTMLButtonElement | null = null;
+    if (item?.perk && levelCost !== null) {
+      notes.push(t('levelNext', { level: level + 1, perk: perkShort(leveled(item.perk, level + 1)) }));
+      levelButton = document.createElement('button');
+      levelButton.type = 'button';
+      levelButton.className = 'shop-action shop-level-up';
+      setRich(levelButton, t('levelUp', { gems: levelCost }));
+      levelButton.disabled = state.gems < levelCost;
+      levelButton.addEventListener('click', () => {
+        if (!levelUp(state, item.id)) return;
+        deps.leveled(item, itemLevel(state, item.id));
+        refreshGems();
+        render();
+      });
+    } else if (item?.perk && owns(state, item.id) && level >= MAX_LEVEL) notes.push(t('levelTop'));
     // A decoration for another town goes up there, not here.
     if (item?.slot === 'decor' && item.town !== deps.town) notes.push(t('shopElsewhere', { town: townName(item.town) }));
     const action = document.createElement('button');
@@ -470,7 +511,7 @@ export function openShop(deps: ShopDeps, firstTab: ShopTab = 'today'): { close: 
       parts.push(note);
     }
     // "No hat" needs no button: tapping its tile already took the hat off.
-    foot.replaceChildren(...parts, ...(item ? [action] : []));
+    foot.replaceChildren(...parts, ...(item ? [action] : []), ...(levelButton ? [levelButton] : []));
   };
 
   /** A small heading over part of a tab. */
@@ -541,9 +582,82 @@ export function openShop(deps: ShopDeps, firstTab: ShopTab = 'today'): { close: 
     return blocks;
   };
 
+  /** The saved loadouts: put one on, keep what's worn as one, and choose the one that goes on by itself in this town. */
+  const loadouts = (): HTMLElement[] => {
+    const list = state.wardrobe.loadouts;
+    const rows = document.createElement('div');
+    rows.className = 'shop-loadouts';
+    const button = (label: string, onTap: () => void, disabled = false): HTMLButtonElement => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'shop-use';
+      b.textContent = label;
+      b.disabled = disabled;
+      b.addEventListener('click', () => {
+        deps.click();
+        onTap();
+        render();
+      });
+      return b;
+    };
+    const keep = (i: number): void => {
+      saveLoadout(state, i, t(`loadout_${deps.town}` as StringKey), deps.town);
+      deps.changed();
+    };
+    list.forEach((loadout, i) => {
+      const row = document.createElement('div');
+      row.className = 'shop-loadout';
+      const worn = loadoutWorn(state, i);
+      row.classList.toggle('shop-loadout-on', worn);
+      const words = document.createElement('div');
+      words.className = 'shop-loadout-words';
+      const name = document.createElement('strong');
+      name.textContent = loadout.name || t('loadoutNumber', { n: i + 1 });
+      const what = document.createElement('span');
+      what.textContent = Object.values(loadout.items).map((id) => shopItem(id)?.name ?? '').filter(Boolean).join(' · ');
+      words.append(name, what);
+      // Goes on by itself in its town: a chip to turn it on (here) or off.
+      const auto = document.createElement('button');
+      auto.type = 'button';
+      auto.className = 'shop-filter-chip';
+      const autoHere = loadout.auto && loadout.town === deps.town;
+      auto.classList.toggle('shop-filter-on', loadout.auto);
+      auto.textContent = loadout.auto ? `📍 ${t('loadoutAuto', { town: townName(loadout.town) })}` : t('loadoutAutoOff');
+      auto.addEventListener('click', () => {
+        deps.click();
+        if (autoHere) loadout.auto = false;
+        else {
+          // One per town: this one now, any other for here off.
+          for (const other of list) if (other.town === deps.town) other.auto = false;
+          loadout.auto = true;
+          loadout.town = deps.town;
+        }
+        deps.changed();
+        render();
+      });
+      words.appendChild(auto);
+      row.append(
+        words,
+        button(worn ? t('loadoutWorn') : t('loadoutWear'), () => {
+          if (wearLoadout(state, i)) deps.woreLoadout(i);
+          tryOn();
+        }, worn),
+        button(t('loadoutSave'), () => keep(i)),
+      );
+      rows.appendChild(row);
+    });
+    if (list.length < LOADOUT_SLOTS) {
+      const add = button(`➕ ${t('loadoutNew')}`, () => keep(list.length));
+      add.classList.add('shop-loadout-new');
+      rows.appendChild(add);
+    }
+    const blocks = [heading(`🎽 ${t('loadouts')}`, autoLoadout(state, deps.town) >= 0 ? t('loadoutAutoHere') : ''), rows];
+    return blocks;
+  };
+
   /** Today: what's working for the hero here, the featured things (one of them a deal), gems for an ad, and next week's gift. */
   const renderToday = (): void => {
-    const blocks: HTMLElement[] = [...myPerks(), heading(`⭐ ${t('shopTodayPicks')}`, t('shopNewPicks', { time: untilMidnight() }))];
+    const blocks: HTMLElement[] = [...myPerks(), ...loadouts(), heading(`⭐ ${t('shopTodayPicks')}`, t('shopNewPicks', { time: untilMidnight() }))];
     const picks = featuredToday(state, deps.today);
     const grid = document.createElement('div');
     grid.className = 'shop-grid shop-featured-grid';
@@ -769,6 +883,9 @@ export function openShop(deps: ShopDeps, firstTab: ShopTab = 'today'): { close: 
   // The town's labels, hints and buttons step aside while shopping (they'd float over the close-up; the shop shows the gems).
   root.classList.add('shop-open');
   show(firstTab);
+  // Opened on one thing (a suggestion in the game): its tab, picked.
+  const first = firstPick ? shopItem(firstPick) : undefined;
+  if (first) jump(first);
   deps.preview(window_);
   return { close };
 }

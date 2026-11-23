@@ -23,17 +23,18 @@ import type { PadSystem } from '../systems/pads';
 import type { Player } from '../systems/player';
 import type { Supplies } from '../systems/supplies';
 import type { Paid, Traffic } from '../systems/traffic';
-import { perkBoost } from '../systems/perks';
-import { brandColours, claimAdGems, claimGift, collectEarned, featuredAffordable, lookWith, owns, rollFeatured, shopItem, shownTitle, starterDue, townDecor, type Slot } from '../systems/wardrobe';
+import { leveled, perkBoost, perkWorksIn, type PerkKind } from '../systems/perks';
+import { brandColours, claimAdGems, claimGift, collectEarned, featuredAffordable, autoLoadout, equipped, forSale, itemLevel, loadoutWorn, lookWith, owns, priceOf, rollFeatured, SETS, shopItem, shopItems, shownTitle, starterDue, townDecor, wearLoadout, type ShopItem, type Slot } from '../systems/wardrobe';
 import { showCalendar, showMissions } from '../ui/dailyPanels';
-import { offer, setUiSound, toast } from '../ui/dialog';
+import { nudge, offer, setUiSound, toast } from '../ui/dialog';
 import type { Hud } from '../ui/hud';
 import type { WorldLabels } from '../ui/worldLabels';
-import { openShop, type BoostView, type ShopTab } from '../ui/shopPanel';
+import { openShop, perkShort, type BoostView, type ShopTab } from '../ui/shopPanel';
 import { SideBar, type SideAction } from '../ui/sideBar';
 import { t } from '../ui/strings';
 import { showWelcomeBack } from '../ui/welcomeBack';
 import { offerStarterPick } from '../ui/starterPick';
+import { JOURNEY } from '../systems/journey';
 
 /** Check the date this often, so missions roll over at local midnight. */
 const DATE_CHECK_SECONDS = 20;
@@ -61,7 +62,22 @@ export interface Meta {
   doubleJob(pay: number): Promise<boolean>;
   /** Opens the boutique (the hero's looks, and the gem boosts). */
   openShop(tab?: ShopTab): void;
+  /** Whether the hero's hands are full, every frame (a suggestion may follow if they stay full). */
+  heroFull(full: boolean): void;
+  /** A customer gave up and left (a suggestion may follow if it keeps happening). */
+  lostCustomer(): void;
 }
+
+/** Suggestions in play: none before this far into a visit, and at least this long apart. */
+const NUDGE_AFTER_SECONDS = 45;
+const NUDGE_GAP_SECONDS = 120;
+/** The hero's hands full this long, or two customers giving up within this long, bring a suggestion. */
+const FULL_SECONDS = 8;
+const LOST_WINDOW_SECONDS = 90;
+/** A town's name as players know it. */
+const townLabel = (id: string): string => JOURNEY.find((stop) => stop.id === id)?.name ?? id;
+/** The shop's tabs for things worn (not decorations). */
+const WORN_TABS = ['outfit', 'hat', 'trail', 'brand'] as const;
 
 /** Where the stand-in for the staff (the brand's close-up) may stand, beside the hero (metres east and south of them). */
 const STAND_IN_SPOTS: readonly (readonly [number, number])[] = [
@@ -118,6 +134,8 @@ export function createMeta(deps: {
   rollDay(state, today, town);
   let dateTimer = 0;
   let sessionSeconds = 0;
+  /** Whether this town's own loadout has been looked for (once, just after arriving). */
+  let autoChecked = false;
   let convoyReadyAt = 0;
   let calendarShown = false;
   let dayCarLoading = false;
@@ -319,9 +337,23 @@ export function createMeta(deps: {
     return list;
   };
 
-  const showShop = (tab?: ShopTab): void => {
+  /** What was worn as the shop opened: anything put on by the time it closes gets a word about its perk. */
+  let wornAtOpen: Record<string, string> = {};
+  /** After the shop closes: what each thing newly put on does (a toast or two), and the stats hear what was put on. */
+  const sayWhatsWorn = (): void => {
+    const changed = Object.entries(state.wardrobe.equipped).filter(([slot, id]) => wornAtOpen[slot] !== id);
+    for (const [slot, id] of changed) {
+      const item = shopItem(id);
+      platform.trackEvent('item_equipped', { item_id: id, slot, town: state.currentTown });
+      if (item?.perk && changed.length <= 2) toast(root, `👕 ${t('perkNowWorn', { name: item.name, perk: perkShort(leveled(item.perk, itemLevel(state, id))) })}`);
+    }
+  };
+
+  const showShop = (tab?: ShopTab, pick: string | null = null): void => {
     if (shopOpen || dialogOpen) return;
     shopOpen = true;
+    wornAtOpen = { ...state.wardrobe.equipped };
+    platform.trackEvent('shop_opened', { town: state.currentTown, tab: tab ?? 'today' });
     rollFeatured(state, today);
     // Opened today: the gem counter's dot is for something new.
     state.wardrobe.seen = today;
@@ -334,14 +366,29 @@ export function createMeta(deps: {
         preview: (element) => {
           preview.show(element);
           player.posing = !!element;
-          if (!element) shopOpen = false;
+          if (!element) {
+            shopOpen = false;
+            sayWhatsWorn();
+          }
         },
         boosts,
         bought: (item) => {
           checkEarned();
           sound.play('reward');
           effects.burst('confetti', player.mesh.position.clone().setY(2.2), 24, 3.5, 0.6);
-          toast(root, `🛍️ ${t('shopBought', { name: item.name })}`);
+          toast(root, `🛍️ ${t('shopBought', { name: item.name })}${item.perk ? ` ${perkShort(item.perk)}` : ''}`);
+          platform.trackEvent('item_bought', { item_id: item.id, slot: item.slot, rarity: item.rarity, gems: item.gems, town: state.currentTown });
+          save();
+        },
+        leveled: (item, level) => {
+          sound.play('reward');
+          effects.burst('sparkle', player.mesh.position.clone().setY(2.2), 24, 3.5, 0.6);
+          toast(root, `⭐ ${t('levelReached', { name: item.name, level })}`);
+          platform.trackEvent('item_leveled', { item_id: item.id, level, town: state.currentTown });
+          save();
+        },
+        woreLoadout: () => {
+          platform.trackEvent('loadout_worn', { town: state.currentTown, auto: 0 });
           save();
         },
         changed: () => {
@@ -370,7 +417,81 @@ export function createMeta(deps: {
         },
       },
       tab,
+      pick,
     );
+  };
+
+  // Suggestions in play (src/ui/dialog.ts nudge): one of each kind a visit, a couple of minutes apart, never in
+  // the first moments, the tutorial or over a card, each opening the shop on what it's about.
+  const nudged = new Set<string>();
+  let lastNudge = Number.NEGATIVE_INFINITY;
+  let heroIsFull = false;
+  let fullFor = 0;
+  /** When customers gave up lately (seconds into the visit). */
+  const lost: number[] = [];
+  const canNudge = (kind: string): boolean =>
+    !nudged.has(kind) &&
+    !shopOpen &&
+    !dialogOpen &&
+    sessionSeconds >= NUDGE_AFTER_SECONDS &&
+    sessionSeconds - lastNudge >= NUDGE_GAP_SECONDS &&
+    !tutorialActive(state) &&
+    !document.querySelector('.welcome-overlay');
+  const suggest = (kind: string, text: string, item: ShopItem, tab: ShopTab = item.slot): void => {
+    nudged.add(kind);
+    lastNudge = sessionSeconds;
+    platform.trackEvent('nudge_shown', { kind, item_id: item.id, town: state.currentTown });
+    nudge(root, text, () => {
+      sound.play('click');
+      platform.trackEvent('nudge_tapped', { kind, item_id: item.id, town: state.currentTown });
+      showShop(tab, item.id);
+    });
+  };
+  /** The best thing to wear for a perk here: one owned but not worn (the strongest), or else the cheapest the gems buy. */
+  const itemFor = (kind: PerkKind): { item: ShopItem; owned: boolean } | null => {
+    const fits = WORN_TABS.flatMap((slot) => shopItems(slot)).filter((i) => i.perk?.kind === kind && perkWorksIn(i.perk, state.currentTown));
+    const owned = fits.filter((i) => owns(state, i.id) && equipped(state, i.slot)?.id !== i.id).sort((a, b) => b.perk!.value - a.perk!.value);
+    if (owned[0]) return { item: owned[0], owned: true };
+    const buyable = fits.filter((i) => forSale(i) && !owns(state, i.id) && priceOf(state, i.id, today) <= state.gems).sort((a, b) => a.gems - b.gems);
+    return buyable[0] ? { item: buyable[0], owned: false } : null;
+  };
+  /** Words for a suggestion: the lead, then what to wear and what it does (and its price, if it's to buy). */
+  const offerText = (lead: string, found: { item: ShopItem; owned: boolean }): string =>
+    found.owned
+      ? t('nudgeOwned', { lead, item: found.item.name, perk: perkShort(found.item.perk!) })
+      : t('nudgeBuy', { lead, item: found.item.name, perk: perkShort(found.item.perk!), gems: priceOf(state, found.item.id, today) });
+  const updateNudges = (dt: number): void => {
+    fullFor = heroIsFull ? fullFor + dt : 0;
+    while (lost.length && sessionSeconds - lost[0]! > LOST_WINDOW_SECONDS) lost.shift();
+    // The hero's hands have been full a while: something that carries more.
+    if (fullFor > FULL_SECONDS && canNudge('carry')) {
+      const found = itemFor('carry');
+      if (found) suggest('carry', offerText(t('nudgeCarry'), found), found.item);
+      else nudged.add('carry');
+    }
+    // Customers keep giving up: something that makes them wait longer.
+    if (lost.length >= 2 && canNudge('lost')) {
+      const found = itemFor('patience');
+      if (found) suggest('lost', offerText(t('nudgeLost'), found), found.item);
+      else nudged.add('lost');
+    }
+    // A minute into a town: something owned that's made for it, not worn.
+    if (sessionSeconds > NUDGE_AFTER_SECONDS + 15 && canNudge('town')) {
+      const made = WORN_TABS.flatMap((slot) => shopItems(slot)).find((i) => i.perk?.town === state.currentTown && owns(state, i.id) && equipped(state, i.slot)?.id !== i.id);
+      if (made) suggest('town', t('nudgeTown', { item: made.name, perk: perkShort(made.perk!), town: townLabel(state.currentTown) }), made);
+      else nudged.add('town');
+    }
+    // A set one thing short, that the gems buy: the set's tab, on the missing thing.
+    if (canNudge('set')) {
+      for (const set of SETS) {
+        const missing = set.items.filter((id) => !owns(state, id));
+        const item = missing.length === 1 ? shopItem(missing[0]!) : undefined;
+        if (item && forSale(item) && priceOf(state, item.id, today) <= state.gems) {
+          suggest('set', t('nudgeSet', { set: set.name, item: item.name, gems: priceOf(state, item.id, today) }), item);
+          break;
+        }
+      }
+    }
   };
   hud.onGems(() => {
     sound.play('click');
@@ -450,8 +571,26 @@ export function createMeta(deps: {
   };
 
   return {
+    heroFull(full) {
+      heroIsFull = full;
+    },
+    lostCustomer() {
+      lost.push(sessionSeconds);
+    },
     update(dt) {
       sessionSeconds += dt;
+      updateNudges(dt);
+      // Arriving in a town: its loadout goes on by itself, if one is set to.
+      if (!autoChecked && sessionSeconds > 1.5) {
+        autoChecked = true;
+        const i = autoLoadout(state, state.currentTown);
+        if (i >= 0 && !loadoutWorn(state, i) && wearLoadout(state, i)) {
+          showLooks(null, null);
+          toast(root, `👕 ${t('loadoutOn', { name: state.wardrobe.loadouts[i]!.name })}`);
+          platform.trackEvent('loadout_worn', { town: state.currentTown, auto: 1 });
+          save();
+        }
+      }
       preview.update(dt);
       if (mannequin?.root.visible) mannequin.update(dt, false, 0);
       if (supplies?.anyEmpty()) refillUntil = sessionSeconds + REFILL_LINGER_SECONDS;

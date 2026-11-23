@@ -394,6 +394,7 @@ export function createFarmGame(
     onPaid({ amount: pay + tip, tip, automated: !visitor.manual, at });
   };
   const onGaveUp = (visitor: Visitor): void => {
+    meta.lostCustomer();
     state.stars = nextStars(state.stars, 'angry', TUNING.stars);
     floaters.show('😠', new Vector3(visitor.at.x, 2.2, visitor.at.z), 'star');
     sound.play('pop');
@@ -1075,6 +1076,7 @@ export function createFarmGame(
     showStock();
     showAnimals();
     if (cash.update(player.position, true)) flag('collected');
+    meta.heroFull(playerCarry.full);
     floaters.update(dt);
     buildTimer -= dt;
     if (buildTimer <= 0) {

@@ -91,6 +91,11 @@ export class Traffic {
     return this.arrivals.valetCall;
   }
 
+  /** Calls `fn` whenever a customer leaves unhappy (the shop's suggestions hear of it). */
+  onLostCustomer(fn: () => void): void {
+    this.till.onAngry = fn;
+  }
+
   /** Adds the station a built pad provides: a bay, a fuel pump, the tunnel, the dryer, waxing station or garage. */
   addStation(padId: string): void {
     const pad = town().pads.find((p) => p.id === padId);

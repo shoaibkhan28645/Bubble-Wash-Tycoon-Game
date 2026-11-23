@@ -635,6 +635,7 @@ export function createSkyportGame(
       void p;
     },
     onGaveUp: (p: Passenger) => {
+      meta.lostCustomer();
       state.stars = nextStars(state.stars, 'angry', TUNING.stars);
       floaters.show('😠', new Vector3(p.x, 2.2, p.z), 'star');
       sound.play('pop');
@@ -3626,6 +3627,7 @@ export function createSkyportGame(
     }
     scenery.update(dt, airfield.flights);
     if (cash.update(player.position, true)) flag('collected');
+    meta.heroFull(heroCarry.full);
     floaters.update(dt);
     rateTimer += dt;
     if (rateTimer >= 5) {

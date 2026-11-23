@@ -1,10 +1,10 @@
-import { newDaily, newGame, newTownState, newWardrobe, type Build, type Contract, type ContractsState, type DailyState, type DeliveriesState, type GameState, type GoalsState, type Order, type TownState, type WardrobeState } from './gameState';
+import { newDaily, newGame, newTownState, newWardrobe, type Build, type Contract, type ContractsState, type DailyState, type DeliveriesState, type GameState, type GoalsState, type Loadout, type Order, type TownState, type WardrobeState } from './gameState';
 import { START_TOWN_ID } from './towns';
 import { UPGRADES } from './config';
 import { upgradeCost } from '../systems/economy';
 
 /** Bump when the save shape changes, and add a migration for the old version. */
-export const SAVE_VERSION = 16;
+export const SAVE_VERSION = 17;
 
 /**
  * Upgrades taken out in v11, with what their first level cost then: the
@@ -143,6 +143,8 @@ export const MIGRATIONS: Readonly<Record<number, Migration>> = {
   14: (save) => ({ ...save, wardrobe: { ...(isObject(save.wardrobe) ? save.wardrobe : {}), hidden: [] } }),
   // v16: the boutique's titles, daily featured things, ads for gems, and the shop last opened.
   15: (save) => ({ ...save, wardrobe: { ...(isObject(save.wardrobe) ? save.wardrobe : {}), title: '', featured: { date: '', ids: [], sale: '' }, ad: { date: '', count: 0 }, seen: '' } }),
+  // v17: the shop's perks: items raised a level or two, and saved loadouts (none yet).
+  16: (save) => ({ ...save, wardrobe: { ...(isObject(save.wardrobe) ? save.wardrobe : {}), levels: {}, loadouts: [] } }),
 };
 
 /** The cow barn's "more cows" levels (v13): one cow, then two more. */
@@ -298,7 +300,23 @@ function wardrobeState(value: unknown): WardrobeState {
     featured: { date: date(featured.date), ids: stringList(featured.ids), sale: typeof featured.sale === 'string' ? featured.sale : '' },
     ad: { date: date(ad.date), count: Math.floor(nonNegative(ad.count, 0)) },
     seen: date(value.seen),
+    levels: itemLevels(value.levels),
+    loadouts: Array.isArray(value.loadouts) ? value.loadouts.filter(isObject).slice(0, 3).map(loadout) : [],
   };
+}
+
+/** Item levels: 2 or 3 (1 isn't kept). */
+function itemLevels(value: unknown): Record<string, number> {
+  const levels: Record<string, number> = {};
+  if (isObject(value)) for (const [id, level] of Object.entries(value)) if (level === 2 || level === 3) levels[id] = level;
+  return levels;
+}
+
+/** A saved loadout: its name, the item worn in each slot, and the town it's put on in. */
+function loadout(value: Record<string, unknown>): Loadout {
+  const items: Record<string, string> = {};
+  if (isObject(value.items)) for (const [slot, id] of Object.entries(value.items)) if (typeof id === 'string' && id) items[slot] = id;
+  return { name: typeof value.name === 'string' ? value.name.slice(0, 24) : '', items, town: typeof value.town === 'string' ? value.town : '', auto: value.auto === true };
 }
 
 function goalsState(value: unknown): GoalsState {

@@ -1,6 +1,6 @@
 // The gate for the shop's perks: a keen player wearing the strongest loadout they could have by then for each
-// town (and every decoration for it they could afford up) still takes at least 80% of the planned time over it
-// (the whole-journey model, src/sim/journey.ts).
+// town (every decoration for it they could afford up, and items raised a level or two if that's stronger) still
+// takes at least 80% of the planned time over it (the whole-journey model, src/sim/journey.ts).
 import { describe, expect, it } from 'vitest';
 import { SHOP } from '../src/core/config';
 import { newGame } from '../src/core/gameState';
@@ -29,14 +29,23 @@ const MORE_SHARE: Partial<Record<PerkKind, number>> = {
 };
 
 /** What an item costs a player: its gems; a set's reward, the whole set; the rank hats, nothing (they come early); anything else earned, out of reach. */
-function cost(id: string | undefined): number {
+function price(id: string | undefined): number {
   if (!id) return 0;
   const item = [...SHOP.outfits, ...SHOP.hats, ...SHOP.trails, ...SHOP.brands, ...SHOP.decor].find((i) => i.id === id)!;
   if (!item.earn) return item.gems;
   if (item.earn.rank) return 0;
   const set = SHOP.sets.find((s) => s.reward === id);
-  if (set) return set.items.reduce((sum, i) => sum + cost(i), 0);
+  if (set) return set.items.reduce((sum, i) => sum + price(i), 0);
   return Infinity;
+}
+
+/** The levels a loadout is tried at (every item at the same one), and what raising an item to them costs on top. */
+const LEVELS = [1, 2, 3];
+function cost(id: string | undefined, level: number): number {
+  if (!id) return 0;
+  const item = [...SHOP.outfits, ...SHOP.hats, ...SHOP.trails, ...SHOP.brands, ...SHOP.decor].find((i) => i.id === id)!;
+  const base = item.gems > 0 ? item.gems : 100;
+  return price(id) + (level >= 2 ? base / 2 : 0) + (level >= 3 ? base : 0);
 }
 
 const options = (list: { id: string }[]) => [undefined, ...list.map((i) => i.id)];
@@ -50,23 +59,25 @@ const subsets = <T,>(list: T[]): T[][] => list.reduce<T[][]>((all, x) => [...all
  */
 function strongest(town: string, budget: number): { factor: number; loadout: string } {
   let best = { factor: 1, loadout: '' };
-  const decor = subsets(SHOP.decor.filter((d) => d.town === town && cost(d.id) <= budget).map((d) => d.id));
+  const decor = subsets(SHOP.decor.filter((d) => d.town === town && price(d.id) <= budget).map((d) => d.id));
+  for (const level of LEVELS)
   for (const outfit of SHOP.outfits) {
     for (const hat of options(SHOP.hats)) {
       for (const trail of options(SHOP.trails)) {
         for (const brand of SHOP.brands) {
-          const worn = cost(outfit.id) + cost(hat) + cost(trail) + cost(brand.id);
+          const worn = cost(outfit.id, level) + cost(hat, level) + cost(trail, level) + cost(brand.id, level);
           if (worn > budget) continue;
           for (const up of decor) {
-            if (worn + up.reduce((sum, id) => sum + cost(id), 0) > budget) continue;
+            if (worn + up.reduce((sum, id) => sum + cost(id, level), 0) > budget) continue;
             const state = newGame();
             state.wardrobe.owned.push(...[outfit.id, hat, trail, brand.id].filter((id): id is string => !!id), ...up);
             state.wardrobe.equipped = { outfit: outfit.id, brand: brand.id, ...(hat ? { hat } : {}), ...(trail ? { trail } : {}) };
+            if (level > 1) for (const id of [outfit.id, hat, trail, brand.id, ...up]) if (id) state.wardrobe.levels[id] = level;
             const v = (kind: PerkKind) => perkValue(state, kind, town);
             const pay = PAY_PERKS.reduce((sum, kind) => sum + v(kind) * (PAY_SHARE[kind] ?? 1), 0);
             const more = Object.entries(MORE_SHARE).reduce((sum, [kind, share]) => sum + v(kind as PerkKind) * share, 0);
             const factor = (1 + pay) * (1 + 0.5 * v('handWork') + 0.5 * v('staffWork')) * (1 + 0.25 * Math.max(0, v('walk') - 0.05)) * (1 + more);
-            if (factor > best.factor) best = { factor, loadout: [outfit.id, hat, trail, brand.id, ...up].filter(Boolean).join(' ') };
+            if (factor > best.factor) best = { factor, loadout: `${[outfit.id, hat, trail, brand.id, ...up].filter(Boolean).join(' ')} at level ${level}` };
           }
         }
       }

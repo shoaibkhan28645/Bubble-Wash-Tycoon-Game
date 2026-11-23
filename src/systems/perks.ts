@@ -7,7 +7,7 @@
 import { SHOP } from '../core/config';
 import type { GameState } from '../core/gameState';
 import { perk as rankPerk } from './career';
-import { DEFAULT_OUTFIT, decorShown, equipped, SETS, type SetDef, type ShopItem } from './wardrobe';
+import { DEFAULT_OUTFIT, decorShown, equipped, itemLevel, SETS, type SetDef, type ShopItem } from './wardrobe';
 
 export type PerkKind =
   // The hero.
@@ -76,7 +76,18 @@ export const PERK_CAPS: Partial<Record<PerkKind, number>> = {
   reach: 2,
   arrivals: 0.15,
   patience: 0.25,
+  magnet: 6,
+  litter: 4,
 };
+
+/** Perks counted in whole items: a level adds one more. */
+const COUNTED: PerkKind[] = ['carry', 'staffCarry'];
+
+/** A perk at an item's level: each level past the first adds half of it again (+10%, +15%, +20%), or one more item. */
+export function leveled(perk: PerkDef, level: number): PerkDef {
+  if (level <= 1) return perk;
+  return { ...perk, value: COUNTED.includes(perk.kind) ? perk.value + (level - 1) : perk.value * (1 + 0.5 * (level - 1)) };
+}
 
 /**
  * The perks that raise pay, each with the most of a town's income it can touch, rounded up: the cash the hero
@@ -135,7 +146,7 @@ export interface PerkSource {
 
 /** Every perk working, with where it comes from (in any town: `perkWorksIn` says where). */
 export function perkSources(state: GameState): PerkSource[] {
-  const items = activeItems(state).flatMap((item) => (item.perk ? [{ id: item.id, name: item.name, perk: item.perk }] : []));
+  const items = activeItems(state).flatMap((item) => (item.perk ? [{ id: item.id, name: item.name, perk: leveled(item.perk, itemLevel(state, item.id)) }] : []));
   const sets = activeSets(state).map((set) => ({ id: set.id, name: set.name, perk: set.bonus!, set: true }));
   return [...items, ...sets];
 }
@@ -177,9 +188,9 @@ let cached: { key: string; table: Map<PerkKind, number> } | null = null;
 
 /** A perk's total for the town being played, from everything worn and up (and ranks), capped. 0: none. */
 export function perkValue(state: GameState, kind: PerkKind, town: string): number {
-  const { equipped: on, owned, hidden } = state.wardrobe;
+  const { equipped: on, owned, hidden, levels } = state.wardrobe;
   const rankWalk = rankPerk(state, 'walk');
-  const key = `${town}|${on.outfit ?? ''}|${on.hat ?? ''}|${on.trail ?? ''}|${on.brand ?? ''}|${owned.length}|${hidden.join(',')}|${rankWalk}`;
+  const key = `${town}|${on.outfit ?? ''}|${on.hat ?? ''}|${on.trail ?? ''}|${on.brand ?? ''}|${owned.length}|${hidden.join(',')}|${Object.entries(levels).join(',')}|${rankWalk}`;
   if (cached?.key !== key) cached = { key, table: perkTable(perkSources(state), rankWalk, town) };
   return cached.table.get(kind) ?? 0;
 }

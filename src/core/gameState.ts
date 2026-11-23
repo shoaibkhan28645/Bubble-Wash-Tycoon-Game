@@ -89,10 +89,22 @@ export interface WardrobeState {
   ad: { date: string; count: number };
   /** The local date the shop was last opened (the gem counter's dot is for something new). */
   seen: string;
+  /** Items raised past level 1 (src/systems/perks.ts: each level adds half the perk again), by id: 2 or 3. */
+  levels: Record<string, number>;
+  /** Saved loadouts (what's worn in each slot), up to three; `auto`: put on when arriving in `town`. */
+  loadouts: Loadout[];
+}
+
+/** A saved set of things to wear: the item id by slot, named for the town it was saved in. */
+export interface Loadout {
+  name: string;
+  items: Record<string, string>;
+  town: string;
+  auto: boolean;
 }
 
 export function newWardrobe(): WardrobeState {
-  return { owned: [], equipped: {}, hidden: [], title: '', featured: { date: '', ids: [], sale: '' }, ad: { date: '', count: 0 }, seen: '' };
+  return { owned: [], equipped: {}, hidden: [], title: '', featured: { date: '', ids: [], sale: '' }, ad: { date: '', count: 0 }, seen: '', levels: {}, loadouts: [] };
 }
 
 /** The town's goals: reached (they stay reached) and claimed. */

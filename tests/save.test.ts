@@ -336,6 +336,20 @@ describe('old saves', () => {
     });
   });
 
+  it('v17: keeps item levels and saved loadouts, and drops broken ones', () => {
+    expect(parseSave(fixtures['./fixtures/save-v17.json']!).state.wardrobe).toMatchObject({
+      levels: { cap: 2 },
+      loadouts: [{ name: 'Car wash', items: { outfit: 'tan', hat: 'cap' }, town: 'roadside', auto: true }],
+    });
+    // A v16 save gets none of either.
+    expect(parseSave(fixtures['./fixtures/save-v16.json']!).state.wardrobe).toMatchObject({ levels: {}, loadouts: [] });
+    const load = (wardrobe: unknown) => parseSave(JSON.stringify({ version: SAVE_VERSION, wardrobe })).state.wardrobe;
+    expect(load({ levels: { cap: 3, tan: 7, bubbles: 1 }, loadouts: [{ name: 5, items: { hat: 'cap', trail: 3 } }, 'x'] })).toMatchObject({
+      levels: { cap: 3 },
+      loadouts: [{ name: '', items: { hat: 'cap' }, town: '', auto: false }],
+    });
+  });
+
   it('repairs a broken wardrobe', () => {
     const load = (wardrobe: unknown) => parseSave(JSON.stringify({ version: SAVE_VERSION, wardrobe })).state.wardrobe;
     expect(load('lots')).toEqual(newWardrobe());

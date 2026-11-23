@@ -208,6 +208,82 @@ export function buy(state: GameState, id: string, today = ''): BuyResult {
   return 'bought';
 }
 
+/** Items go up to this level: each adds half the perk again (src/systems/perks.ts). */
+export const MAX_LEVEL = 3;
+/** What a free or earned item is priced as, for its levels. */
+const LEVEL_BASE_GEMS = 100;
+
+/** An item's level, 1 to 3. */
+export function itemLevel(state: GameState, id: string): number {
+  return state.wardrobe.levels[id] ?? 1;
+}
+
+/** Gems to raise an owned item with a perk one level (half its price, then its whole price), or null if it can't go up. */
+export function levelUpCost(state: GameState, id: string): number | null {
+  const item = ITEMS.get(id);
+  if (!item?.perk || !owns(state, id)) return null;
+  const level = itemLevel(state, id);
+  if (level >= MAX_LEVEL) return null;
+  const base = item.gems > 0 ? item.gems : LEVEL_BASE_GEMS;
+  return level === 1 ? Math.round(base / 2) : base;
+}
+
+/** Pays for the next level; false (nothing changes) if it's at the top or the gems are short. */
+export function levelUp(state: GameState, id: string): boolean {
+  const cost = levelUpCost(state, id);
+  if (cost === null || state.gems < cost) return false;
+  state.gems -= cost;
+  state.wardrobe.levels[id] = itemLevel(state, id) + 1;
+  return true;
+}
+
+/** The slots a loadout keeps (decorations stay up whatever's worn). */
+const WORN_SLOTS: Exclude<Slot, 'decor'>[] = ['outfit', 'hat', 'trail', 'brand'];
+/** At most this many loadouts are kept. */
+export const LOADOUT_SLOTS = 3;
+
+/**
+ * Keeps what's worn now as loadout `i` (a new one past the end), named for `town` (numbered if that name's taken) and
+ * going on by itself there, unless another loadout already does.
+ */
+export function saveLoadout(state: GameState, i: number, name: string, town: string): void {
+  const items: Record<string, string> = {};
+  for (const slot of WORN_SLOTS) {
+    const item = equipped(state, slot);
+    if (item) items[slot] = item.id;
+  }
+  const list = state.wardrobe.loadouts;
+  const at = Math.min(i, list.length, LOADOUT_SLOTS - 1);
+  const others = list.filter((_, j) => j !== at);
+  let unique = name;
+  for (let n = 2; others.some((l) => l.name === unique); n++) unique = `${name} ${n}`;
+  const auto = list[at]?.town === town ? list[at]!.auto : !others.some((l) => l.auto && l.town === town);
+  list[at] = { name: unique, items, town, auto };
+}
+
+/** Puts on loadout `i` (anything no longer owned stays as it is); false if there's no such loadout. */
+export function wearLoadout(state: GameState, i: number): boolean {
+  const loadout = state.wardrobe.loadouts[i];
+  if (!loadout) return false;
+  for (const slot of WORN_SLOTS) {
+    const id = loadout.items[slot];
+    if (id && owns(state, id)) state.wardrobe.equipped[slot] = id;
+    else if (!id) delete state.wardrobe.equipped[slot];
+  }
+  return true;
+}
+
+/** Whether loadout `i` is what's worn now. */
+export function loadoutWorn(state: GameState, i: number): boolean {
+  const loadout = state.wardrobe.loadouts[i];
+  return !!loadout && WORN_SLOTS.every((slot) => (loadout.items[slot] ?? null) === (equipped(state, slot)?.id ?? null));
+}
+
+/** The loadout set to go on in a town (its index), or -1. */
+export function autoLoadout(state: GameState, town: string): number {
+  return state.wardrobe.loadouts.findIndex((l) => l.auto && l.town === town);
+}
+
 /** The free starter items a new player picks one of (each with a simple perk), at their first goal reward. */
 export const STARTER_PICKS = ['cap', 'tan', 'charcoal'];
 /** The flag that records the starter item was picked. */

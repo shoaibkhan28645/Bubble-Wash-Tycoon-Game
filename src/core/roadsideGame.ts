@@ -268,6 +268,9 @@ export function createRoadsideGame(
     // (What the hero puts down goes back on the shelf.)
     discard: { count: () => playerCarry.stack.length, drop: () => playerCarry.clear().forEach((item) => supplies.putBack(item)) },
   });
+  // Customers giving up at the car wash: the shop's suggestions hear of it.
+  traffic.onLostCustomer(() => meta.lostCustomer());
+
   const town = createTown({
     root,
     scene: stage.scene,
@@ -372,6 +375,7 @@ export function createRoadsideGame(
     hoses.update(traffic.forecourt.pumps);
     washSounds.update(dt, player.scrubbing);
     if (cash.update(player.position, true)) flag('collected');
+    meta.heroFull(playerCarry.full);
     const guide = onboarding?.update(dt) ?? null;
     hint = guide;
     floaters.update(dt);

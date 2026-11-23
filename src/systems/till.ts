@@ -95,7 +95,11 @@ export class Till {
     return { pay, tip };
   }
 
+  /** A customer left unhappy (the shop's suggestions hear of it). */
+  onAngry: () => void = () => {};
+
   rate(outcome: Outcome): void {
+    if (outcome === 'angry') this.onAngry();
     this.state.stars = nextStars(this.state.stars, outcome, TUNING.stars);
   }
 
