@@ -2,6 +2,7 @@ node_modules/
 dist/
 dist-test/
 dist-playgama/
+dist-youtube/
 *.zip
 *.log
 .DS_Store

@@ -6,6 +6,9 @@ const YOUTUBE_SDK = /\s*(<!--[^>]*-->\s*)?<script src="https:\/\/www\.youtube\.c
 export default defineConfig(({ mode }) => ({
   // YouTube Playables require every path in the build to be relative.
   base: './',
+  // The YouTube build (scripts/build-youtube.mjs) ships its models unpacked and leaves out the meshopt decoder,
+  // which runs on WebAssembly: YouTube may decline to certify games that use it.
+  resolve: mode === 'youtube' ? { alias: { 'three/addons/libs/meshopt_decoder.module.js': '/src/render/noMeshopt.ts' } } : undefined,
   plugins: [
     {
       // The tester build (src/platform/tester.ts) runs outside YouTube, on itch.io: no YouTube SDK.

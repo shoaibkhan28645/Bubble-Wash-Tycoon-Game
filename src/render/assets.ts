@@ -19,7 +19,8 @@ import {
 } from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 // The models are stored meshopt-compressed (scripts/compress-models.mjs): about a third of the size to download,
-// unpacked here in a moment.
+// unpacked here in a moment. The YouTube build ships them unpacked instead and swaps this for an empty stand-in
+// (vite.config.ts, src/render/noMeshopt.ts): the decoder runs on WebAssembly.
 import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { CHARACTERS } from '../core/config';
