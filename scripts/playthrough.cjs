@@ -345,7 +345,8 @@ function tapUI() {
   }
   // The goals: claim any done.
   const goals = document.querySelector('.goals-bar');
-  if (goals && !goals.hidden && /claim/i.test(goals.innerText)) {
+  // (A reward waiting: the bar glows, "Reward waiting. Tap to grab it!".)
+  if (goals && !goals.hidden && goals.classList.contains('goals-hot')) {
     goals.click();
     done.push({ goals: text(goals) });
     return done;
@@ -586,6 +587,8 @@ function tapUI() {
   fs.writeFileSync(path.join(out, 'bought.json'), JSON.stringify(bought, null, 1));
   fs.writeFileSync(path.join(out, 'story.json'), JSON.stringify(story, null, 1));
   fs.writeFileSync(path.join(out, 'save-last.json'), await p.evaluate(() => localStorage.getItem('bubble-wash-dev-save')));
+  // The stats events the game sent (the dev build keeps them in the page).
+  log('events', await p.evaluate(() => (window.__events || []).map((e) => `${e.name} ${JSON.stringify(e.data)}`)));
   log('errors', errs.length, errs.slice(0, 10));
   log('wall minutes', ((Date.now() - start) / 60000).toFixed(1));
   await b.close();

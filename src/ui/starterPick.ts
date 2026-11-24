@@ -8,7 +8,7 @@ import { perkShort } from './shopPanel';
 import { t } from './strings';
 
 /** Offers the pick, if it's due; `picked` runs once one is chosen (save, a cheer, the hero's new look). */
-export function offerStarterPick(root: HTMLElement, state: GameState, picked: () => void): void {
+export function offerStarterPick(root: HTMLElement, state: GameState, picked: (id: string) => void): void {
   if (!starterDue(state)) return;
   const dialog = openDialog(root, {
     icon: '🎁',
@@ -20,7 +20,7 @@ export function offerStarterPick(root: HTMLElement, state: GameState, picked: ()
       return {
         label: `${icon} ${item.name} · ${item.perk ? perkShort(item.perk) : ''}`,
         onTap: () => {
-          if (pickStarter(state, id)) picked();
+          if (pickStarter(state, id)) picked(id);
           dialog.close();
         },
       };

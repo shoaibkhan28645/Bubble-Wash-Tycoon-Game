@@ -635,6 +635,7 @@ const EN = {
   nudgeLost: 'Customers leaving?',
   nudgeOwned: '{lead} Wear your {item}: {perk}',
   nudgeBuy: '{lead} {item}: {perk} for 💎 {gems}',
+  nudgeSave: '{lead} Save up 💎 {gems} for the {item}: {perk}',
   nudgeTown: 'Your {item} is made for {town}: {perk}',
   nudgeSet: 'One more for the {set} set: {item}, 💎 {gems}',
 } as const;

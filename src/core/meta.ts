@@ -23,7 +23,8 @@ import type { PadSystem } from '../systems/pads';
 import type { Player } from '../systems/player';
 import type { Supplies } from '../systems/supplies';
 import type { Paid, Traffic } from '../systems/traffic';
-import { leveled, perkBoost, perkWorksIn, type PerkKind } from '../systems/perks';
+import { leveled, perkBoost } from '../systems/perks';
+import { itemFor, starterOfferDue, WORN_SLOTS, type Offer } from '../systems/suggestions';
 import { brandColours, claimAdGems, claimGift, collectEarned, featuredAffordable, autoLoadout, equipped, forSale, itemLevel, loadoutWorn, lookWith, owns, priceOf, rollFeatured, SETS, shopItem, shopItems, shownTitle, starterDue, townDecor, wearLoadout, type ShopItem, type Slot } from '../systems/wardrobe';
 import { showCalendar, showMissions } from '../ui/dailyPanels';
 import { nudge, offer, setUiSound, toast } from '../ui/dialog';
@@ -76,8 +77,6 @@ const FULL_SECONDS = 8;
 const LOST_WINDOW_SECONDS = 90;
 /** A town's name as players know it. */
 const townLabel = (id: string): string => JOURNEY.find((stop) => stop.id === id)?.name ?? id;
-/** The shop's tabs for things worn (not decorations). */
-const WORN_TABS = ['outfit', 'hat', 'trail', 'brand'] as const;
 
 /** Where the stand-in for the staff (the brand's close-up) may stand, beside the hero (metres east and south of them). */
 const STAND_IN_SPOTS: readonly (readonly [number, number])[] = [
@@ -424,6 +423,10 @@ export function createMeta(deps: {
   // Suggestions in play (src/ui/dialog.ts nudge): one of each kind a visit, a couple of minutes apart, never in
   // the first moments, the tutorial or over a card, each opening the shop on what it's about.
   const nudged = new Set<string>();
+  /** The free starter pick offered this visit (once at most: it waits for a calm moment). */
+  let starterOffered = false;
+  /** Seconds since anything was last on screen over play (a card, a menu, the shop). */
+  let calmSeconds = 0;
   let lastNudge = Number.NEGATIVE_INFINITY;
   let heroIsFull = false;
   let fullFor = 0;
@@ -436,49 +439,43 @@ export function createMeta(deps: {
     sessionSeconds >= NUDGE_AFTER_SECONDS &&
     sessionSeconds - lastNudge >= NUDGE_GAP_SECONDS &&
     !tutorialActive(state) &&
+    // The free starter pick comes first (it shows what items do), once it's due.
+    (!starterDue(state) || starterOffered) &&
     !document.querySelector('.welcome-overlay');
-  const suggest = (kind: string, text: string, item: ShopItem, tab: ShopTab = item.slot): void => {
+  const suggest = (kind: string, text: string, item: ShopItem, offer: Offer, tab: ShopTab = item.slot): void => {
     nudged.add(kind);
     lastNudge = sessionSeconds;
-    platform.trackEvent('nudge_shown', { kind, item_id: item.id, town: state.currentTown });
+    platform.trackEvent('nudge_shown', { kind, item_id: item.id, offer, town: state.currentTown });
     nudge(root, text, () => {
       sound.play('click');
-      platform.trackEvent('nudge_tapped', { kind, item_id: item.id, town: state.currentTown });
+      platform.trackEvent('nudge_tapped', { kind, item_id: item.id, offer, town: state.currentTown });
       showShop(tab, item.id);
     });
   };
-  /** The best thing to wear for a perk here: one owned but not worn (the strongest), or else the cheapest the gems buy. */
-  const itemFor = (kind: PerkKind): { item: ShopItem; owned: boolean } | null => {
-    const fits = WORN_TABS.flatMap((slot) => shopItems(slot)).filter((i) => i.perk?.kind === kind && perkWorksIn(i.perk, state.currentTown));
-    const owned = fits.filter((i) => owns(state, i.id) && equipped(state, i.slot)?.id !== i.id).sort((a, b) => b.perk!.value - a.perk!.value);
-    if (owned[0]) return { item: owned[0], owned: true };
-    const buyable = fits.filter((i) => forSale(i) && !owns(state, i.id) && priceOf(state, i.id, today) <= state.gems).sort((a, b) => a.gems - b.gems);
-    return buyable[0] ? { item: buyable[0], owned: false } : null;
+  /** Words for a suggestion: the lead, then what to wear and what it does (and its price: to buy, or to save up for). */
+  const offerText = (lead: string, found: { item: ShopItem; offer: Offer }): string => {
+    const words = { lead, item: found.item.name, perk: perkShort(found.item.perk!), gems: priceOf(state, found.item.id, today) };
+    return t(found.offer === 'owned' ? 'nudgeOwned' : found.offer === 'buy' ? 'nudgeBuy' : 'nudgeSave', words);
   };
-  /** Words for a suggestion: the lead, then what to wear and what it does (and its price, if it's to buy). */
-  const offerText = (lead: string, found: { item: ShopItem; owned: boolean }): string =>
-    found.owned
-      ? t('nudgeOwned', { lead, item: found.item.name, perk: perkShort(found.item.perk!) })
-      : t('nudgeBuy', { lead, item: found.item.name, perk: perkShort(found.item.perk!), gems: priceOf(state, found.item.id, today) });
   const updateNudges = (dt: number): void => {
     fullFor = heroIsFull ? fullFor + dt : 0;
     while (lost.length && sessionSeconds - lost[0]! > LOST_WINDOW_SECONDS) lost.shift();
     // The hero's hands have been full a while: something that carries more.
     if (fullFor > FULL_SECONDS && canNudge('carry')) {
-      const found = itemFor('carry');
-      if (found) suggest('carry', offerText(t('nudgeCarry'), found), found.item);
+      const found = itemFor(state, 'carry', today);
+      if (found) suggest('carry', offerText(t('nudgeCarry'), found), found.item, found.offer);
       else nudged.add('carry');
     }
     // Customers keep giving up: something that makes them wait longer.
     if (lost.length >= 2 && canNudge('lost')) {
-      const found = itemFor('patience');
-      if (found) suggest('lost', offerText(t('nudgeLost'), found), found.item);
+      const found = itemFor(state, 'patience', today);
+      if (found) suggest('lost', offerText(t('nudgeLost'), found), found.item, found.offer);
       else nudged.add('lost');
     }
     // A minute into a town: something owned that's made for it, not worn.
     if (sessionSeconds > NUDGE_AFTER_SECONDS + 15 && canNudge('town')) {
-      const made = WORN_TABS.flatMap((slot) => shopItems(slot)).find((i) => i.perk?.town === state.currentTown && owns(state, i.id) && equipped(state, i.slot)?.id !== i.id);
-      if (made) suggest('town', t('nudgeTown', { item: made.name, perk: perkShort(made.perk!), town: townLabel(state.currentTown) }), made);
+      const made = WORN_SLOTS.flatMap((slot) => shopItems(slot)).find((i) => i.perk?.town === state.currentTown && owns(state, i.id) && equipped(state, i.slot)?.id !== i.id);
+      if (made) suggest('town', t('nudgeTown', { item: made.name, perk: perkShort(made.perk!), town: townLabel(state.currentTown) }), made, 'owned');
       else nudged.add('town');
     }
     // A set one thing short, that the gems buy: the set's tab, on the missing thing.
@@ -487,7 +484,7 @@ export function createMeta(deps: {
         const missing = set.items.filter((id) => !owns(state, id));
         const item = missing.length === 1 ? shopItem(missing[0]!) : undefined;
         if (item && forSale(item) && priceOf(state, item.id, today) <= state.gems) {
-          suggest('set', t('nudgeSet', { set: set.name, item: item.name, gems: priceOf(state, item.id, today) }), item);
+          suggest('set', t('nudgeSet', { set: set.name, item: item.name, gems: priceOf(state, item.id, today) }), item, 'buy');
           break;
         }
       }
@@ -579,6 +576,7 @@ export function createMeta(deps: {
     },
     update(dt) {
       sessionSeconds += dt;
+      calmSeconds = shopOpen || dialogOpen || document.querySelector('.welcome-overlay') ? 0 : calmSeconds + dt;
       updateNudges(dt);
       // Arriving in a town: its loadout goes on by itself, if one is set to.
       if (!autoChecked && sessionSeconds > 1.5) {
@@ -618,9 +616,13 @@ export function createMeta(deps: {
       if (earnTimer <= 0) {
         earnTimer = EARN_CHECK_SECONDS;
         checkEarned();
-        // The first goal reward claimed: a free starter item to wear (once no other card is up).
-        if (state.goals.claimed.length > 0 && starterDue(state) && !shopOpen && !document.querySelector('.welcome-overlay')) {
-          offerStarterPick(root, state, () => {
+        // A free starter item to wear (what's worn does something), once the opening is over, with nothing else
+        // on screen for a while (src/systems/suggestions.ts).
+        if (!starterOffered && starterOfferDue(state, { tutorial: tutorialActive(state), calmSeconds, sessionSeconds })) {
+          starterOffered = true;
+          platform.trackEvent('starter_offered', { town: state.currentTown });
+          offerStarterPick(root, state, (id) => {
+            platform.trackEvent('starter_picked', { item_id: id, town: state.currentTown });
             sound.play('reward');
             effects.burst('confetti', player.mesh.position.clone().setY(2.2), 24, 3.5, 0.6);
             showLooks(null, null);

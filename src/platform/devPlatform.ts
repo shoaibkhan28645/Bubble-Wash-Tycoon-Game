@@ -74,6 +74,11 @@ export function createDevPlatform(): { backend: PlatformBackend; controls: DevCo
     onPause: (callback) => void pauseEvents.on(callback),
     onResume: (callback) => void resumeEvents.on(callback),
     getLanguage: async () => 'en',
+    // Stats events stay in the page, for the tests and the playthrough bot to read (`window.__events`).
+    trackEvent: (name, data) => {
+      const log = ((window as unknown as { __events?: { name: string; data: Record<string, string | number> }[] }).__events ??= []);
+      log.push({ name, data });
+    },
     rewardedSupported: () => true,
     muteButton: () => false,
     requestRewardedAd: async () => {

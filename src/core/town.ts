@@ -9,6 +9,7 @@ import { canDouble, claimContract, contractDone, countTask, readyCount, refreshB
 import { localDate } from '../systems/daily';
 import type { Paid } from '../systems/till';
 import { allGoalsDone, checkGoals, claimGoal, goalsSummary } from '../systems/townGoals';
+import { trackEvent } from '../platform/youtube';
 import { showContracts } from '../ui/contractsPanel';
 import { toast } from '../ui/dialog';
 import { GoalsBar, goalText, showGoals } from '../ui/goalsBar';
@@ -42,7 +43,9 @@ export function createTown(deps: {
   const bar = new GoalsBar(root, () => {
     sound.play('click');
     showGoals(root, state, (id) => {
-      if (claimGoal(state, id) > 0) {
+      const gems = claimGoal(state, id);
+      if (gems > 0) {
+        trackEvent('goal_claimed', { goal_id: id, town: state.currentTown, gems });
         sound.play('reward');
         save();
       }
