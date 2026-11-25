@@ -11,3 +11,7 @@ dist-youtube/
 CLAUDE.md
 docs/
 __pycache__/
+
+# Research notes and reports (kept local)
+research_notes/
+reports/
