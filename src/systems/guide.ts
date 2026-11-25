@@ -23,6 +23,8 @@ export interface GuideView {
   waiting: { at: Point; kind: string } | null;
   /** The car at the first fuel pump, if it's waiting to be filled up. */
   fuelCar: Point | null;
+  /** The nearest bay car waiting to be washed (the work that pays for the next build). */
+  nextCar?: Point | null;
   /**
    * The first bay's upgrade pad, once there's a second bay, its first upgrade is affordable and the next
    * pad is a long way off (so it never holds up the first builds).
@@ -72,6 +74,10 @@ export function guideTarget(state: GameState, view: GuideView): GuideStep | null
   if (!has('supplied') && view.lowStation) return view.carrying ? step(view.lowStation, 'guideSoapBay') : step(view.shelf, 'guideShelf');
   if (!has('fueled') && view.fuelCar) return step(view.fuelCar, 'guideFuel');
   if (view.pad && state.cash >= view.pad.owed) return step(view.pad.at, 'guideBuild');
+  // Saving up for the next build: the hand stays on the work that pays for it, so a new player is never left
+  // wondering what to do (live stats: half the players who picked up their first cash left before building).
+  if (view.pile) return step(view.pile, 'guideCash');
+  if (view.nextCar) return step(view.nextCar, 'guideWash');
   return null;
 }
 

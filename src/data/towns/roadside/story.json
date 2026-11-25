@@ -12,12 +12,12 @@
     {
       "id": "arrival",
       "when": {
-        "flag": "collected"
+        "built": "register"
       },
       "shout": "You did it!",
       "icon": "🧽",
-      "headline": "Your first sparkling car!",
-      "body": "One bucket, one bay and big plans. This dusty old car wash is yours now, so let’s make it shine.",
+      "headline": "Open for business!",
+      "body": "One bucket, one bay and a till. This dusty old car wash is yours now, so let’s make it shine.",
       "speaker": "mentor",
       "words": "This lot was my first business, forty years ago. Wash every car like it's your own and the town will keep coming back."
     },

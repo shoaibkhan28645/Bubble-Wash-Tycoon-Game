@@ -153,6 +153,10 @@ export async function boot(root: HTMLElement): Promise<void> {
   await loading.hide();
   game!.start();
   platform.gameReady();
+  // Sound starts with the game, not with the first tap: YouTube may hand a Playable focus by itself, and a
+  // game waiting for a tap before any sound is the commonest audio fault it finds. Where the browser holds
+  // sound back until a tap (a page opened without one), the first tap still starts it (each town's unlockAudio).
+  if (!lifecycle.paused) sound.unlock();
   readyMs = performance.now();
   if (offline.cash > 0) game!.welcomeBack(offline);
 

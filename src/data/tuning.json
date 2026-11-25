@@ -78,6 +78,7 @@
   },
   "onboarding": {
     "firstCarPatience": 600,
+    "firstCarPays": 60,
     "adsAfterSeconds": 300,
     "upgradesAfter": "bay2",
     "sideButtons": { "calendar": "washer", "shop": "washer", "missions": "mart", "speed": "bay2", "convoy": "dryer" }

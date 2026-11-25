@@ -75,6 +75,8 @@ export function createOnboarding(deps: {
         lowest = stock;
       }
     }
+    // A car waiting in a bay with nobody washing it (the work that pays for the next build).
+    const nextCar = traffic.bays.find((b) => b.customer?.state === 'waiting' && deps.staffRate(b) === 0)?.customer?.position ?? null;
     const pumpCar = traffic.forecourt.pumps[0]?.customer;
     if (pumpCar?.manual && pumpCar.served.includes('fuel')) flag('fueled');
     const upgradeAt = layout.upgradePads.bay1;
@@ -92,6 +94,7 @@ export function createOnboarding(deps: {
       lowOnSoap: low?.supply === 'soap',
       waiting: kept(dt),
       fuelCar: pumpCar?.state === 'waiting' ? pumpCar.position : null,
+      nextCar,
       upgrade: upgrade ? upgradeAt : null,
     };
   };

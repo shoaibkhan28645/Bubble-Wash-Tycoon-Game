@@ -5,7 +5,8 @@
 //   - loadData before any saveData, and the save's size;
 //   - the bytes downloaded before gameReady (the "initial bundle": MUST be under 30 MiB, SHOULD be under 15);
 //   - onPause stops the game (the picture freezes) and onResume starts it again;
-//   - YouTube's audio setting is followed, and no mute button of the game's own;
+//   - sound starts with no tap (YouTube may give a Playable focus by itself; Chromium runs with autoplay allowed, as
+//     YouTube's frame does), stops on pause and when YouTube's audio is off, and no mute button of the game's own;
 //   - no request outside the build and the SDK, no uncaught error, the JS heap well under 512 MB.
 // It is not YouTube's own Test Suite, which still has to be run on the uploaded build.
 //   node scripts/youtube-smoke.cjs [outDir]
@@ -24,7 +25,7 @@ fs.mkdirSync(out, { recursive: true });
 // The stand-in SDK: records every call, with the time and whether the loading screen was showing.
 const MOCK_SDK = `(() => {
   const loading = () => { const el = document.getElementById('loading'); return !!el && el.isConnected && getComputedStyle(el).display !== 'none' && getComputedStyle(el).visibility !== 'hidden' && Number(getComputedStyle(el).opacity) > 0.05; };
-  const yt = (window.__yt = { calls: [], saved: '', audio: false, pause: [], resume: [], audioChange: [] });
+  const yt = (window.__yt = { calls: [], saved: '', audio: true, pause: [], resume: [], audioChange: [] });
   const note = (name, extra) => yt.calls.push({ name, at: performance.now(), loading: loading(), ...extra });
   window.ytgame = {
     IN_PLAYABLES_ENV: true,
@@ -68,8 +69,26 @@ const check = (ok, what) => {
       }
       await new Promise((r) => setTimeout(r, 500));
     }
-    const browser = await chromium.launch({ args: ['--enable-precise-memory-info'] });
+    const browser = await chromium.launch({ args: ['--enable-precise-memory-info', '--autoplay-policy=no-user-gesture-required'] });
     const page = await browser.newPage({ viewport: { width: 400, height: 860 }, isMobile: true, hasTouch: true });
+    // Every AudioContext the game makes, to read its state (running = sound plays).
+    await page.addInitScript(() => {
+      const Base = window.AudioContext;
+      window.AudioContext = class extends Base {
+        constructor(...args) {
+          super(...args);
+          (window.__audio ||= []).push(this);
+        }
+      };
+      // And every looping track started (the town's music): a running context alone may just be the browser's.
+      const start = AudioBufferSourceNode.prototype.start;
+      AudioBufferSourceNode.prototype.start = function (...args) {
+        if (this.loop) window.__loops = (window.__loops || 0) + 1;
+        return start.apply(this, args);
+      };
+    });
+    const audioState = () => page.evaluate(() => (window.__audio || []).map((c) => c.state).join(',') || 'none');
+    const loopsStarted = () => page.evaluate(() => window.__loops || 0);
     const errors = [];
     const outside = new Set();
     const downloads = [];
@@ -104,6 +123,24 @@ const check = (ok, what) => {
     const before = downloads.filter((d) => d.at <= readyAt).reduce((s, d) => s + d.bytes, 0);
     check(before < 15 * MIB, `downloaded before gameReady: ${(before / MIB).toFixed(1)} MiB uncompressed (MUST < 30, SHOULD < 15)`);
     check(readyAt - startedAt < 5000, `ready ${((readyAt - startedAt) / 1000).toFixed(1)} s after the page started loading (SHOULD < 5 s; local server)`);
+    await page.waitForTimeout(1500);
+    const noTap = await audioState();
+    const music = await loopsStarted();
+    check(noTap === 'running' && music > 0, `music plays before any tap (audio: ${noTap}, tracks started: ${music})`);
+    await page.evaluate(() => {
+      window.__yt.audio = false;
+      window.__yt.audioChange.forEach((cb) => cb(false));
+    });
+    await page.waitForTimeout(400);
+    const off = await audioState();
+    check(off === 'suspended', `YouTube's audio off silences the game (audio: ${off})`);
+    await page.evaluate(() => {
+      window.__yt.audio = true;
+      window.__yt.audioChange.forEach((cb) => cb(true));
+    });
+    await page.waitForTimeout(400);
+    const on = await audioState();
+    check(on === 'running', `YouTube's audio back on brings the sound back (audio: ${on})`);
 
     // Play a little: the first car arrives and is served by itself only when tapped, so tap round the lot.
     for (let i = 0; i < 12; i++) {
@@ -117,10 +154,14 @@ const check = (ok, what) => {
     await page.waitForTimeout(2000);
     const b = await page.screenshot();
     check(a.equals(b), 'onPause freezes the game (two pictures 2 s apart are identical)');
+    const paused = await audioState();
+    check(paused === 'suspended', `onPause silences the game (audio: ${paused})`);
     await page.evaluate(() => window.__yt.resume.forEach((cb) => cb()));
     await page.waitForTimeout(2500);
     const c = await page.screenshot();
     check(!b.equals(c), 'onResume starts it again (the picture moves)');
+    const resumed = await audioState();
+    check(resumed === 'running', `onResume brings the sound back (audio: ${resumed})`);
     fs.writeFileSync(path.join(out, 'after-resume.png'), c);
 
     const all = await page.evaluate(() => window.__yt.calls);
@@ -130,12 +171,6 @@ const check = (ok, what) => {
     const biggest = Math.max(0, ...saves.map((s) => s.bytes));
     check(biggest < 500 * 1024, `largest save ${(biggest / 1024).toFixed(1)} KiB (MUST < 3 MiB, SHOULD < 500 KiB)`);
     check((await page.locator('.mute-button').count()) === 0, 'no mute button of the game\'s own');
-    const audioOn = await page.evaluate(() => {
-      window.__yt.audio = true;
-      window.__yt.audioChange.forEach((cb) => cb(true));
-      return window.__yt.audioChange.length;
-    });
-    check(audioOn > 0, 'listens to YouTube\'s audio setting (onAudioEnabledChange)');
     const heap = await page.evaluate(() => (performance.memory ? performance.memory.usedJSHeapSize : 0));
     check(heap > 0 && heap < 256 * MIB, `JS heap ${(heap / MIB).toFixed(0)} MB (MUST < 512 MB)`);
     const logged = all.filter((x) => x.name === 'logError').length;

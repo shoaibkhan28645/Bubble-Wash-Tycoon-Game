@@ -24,10 +24,12 @@ describe('the roadside story', () => {
     }
   });
 
-  it('opens once the first cash is collected', () => {
+  it('opens once the cash register is built (nothing full-screen before the first build)', () => {
     const state = newGame();
     expect(dueBeats(TOWN, story, state, false)).toEqual([]);
-    state.flags.push('collected');
+    state.flags.push('washed', 'collected');
+    expect(dueBeats(TOWN, story, state, false)).toEqual([]);
+    state.unlocked.push('register');
     expect(ids(dueBeats(TOWN, story, state, false))).toEqual(['arrival']);
     state.flags.push(...told('arrival'));
     expect(dueBeats(TOWN, story, state, false)).toEqual([]);

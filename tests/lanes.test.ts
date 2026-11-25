@@ -235,7 +235,10 @@ describe('tutorial hand', () => {
     expect(where(state, { ...view, carrying: true })).toEqual(at(5));
     state.flags.push('supplied');
     state.cash = 10;
-    expect(guideTarget(state, view)).toBeNull();
+    // Saving up: the hand stays on the work that pays for the build (the cash, else the next car), never idle.
+    expect(guideTarget(state, view)).toEqual({ at: at(2), text: 'guideCash' });
+    expect(guideTarget(state, { ...view, pile: null, nextCar: at(9) })).toEqual({ at: at(9), text: 'guideWash' });
+    expect(guideTarget(state, { ...view, pile: null })).toBeNull();
     state.cash = 50;
     expect(guideTarget(state, view)).toEqual({ at: at(3), text: 'guideBuild' });
   });

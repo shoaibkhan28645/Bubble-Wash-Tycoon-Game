@@ -137,7 +137,10 @@ export class Arrivals {
     const def = this.availableCars()[0];
     if (!lane || lane instanceof Tunnel || !def || lane.customer || lane.queue.length > 0) return;
     const car = this.pool.acquire();
-    car.spawn({ ...def, dirt: 'muddy' }, lane.at, [], lane.at, def);
+    // The first customer pays for the first build (the cash register): a new player washes one car, picks up
+    // the cash and builds straight away, instead of saving through four more washes with nothing new happening.
+    const payDef = { ...def, payMultiplier: TUNING.onboarding.firstCarPays / def.basePay };
+    car.spawn({ ...def, dirt: 'muddy' }, lane.at, [], lane.at, payDef);
     car.patienceMax = car.patience = TUNING.onboarding.firstCarPatience;
     lane.queue.push(car);
   }
