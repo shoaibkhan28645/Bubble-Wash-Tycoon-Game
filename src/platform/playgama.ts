@@ -82,8 +82,9 @@ export function bridgeBackend(b: Bridge): PlatformBackend {
         ads.on(EVENT_NAME.REWARDED_STATE_CHANGED, onState);
         ads.showRewarded(placement);
       }),
-    // Asked for only when the game's own limits allow one (src/systems/ads.ts); Bridge may still skip it
-    // (its own gap between them).
+    // Asked for at every natural pause (src/systems/ads.ts); Bridge decides whether one plays: its delay after
+    // game_ready and gap between ads (left at the defaults moderation expects), or the Playgama portal's own rules.
+    timesInterstitials: () => true,
     requestInterstitialAd: () =>
       new Promise<void>((resolve) => {
         const ads = b.advertisement;

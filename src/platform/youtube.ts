@@ -207,6 +207,15 @@ export function trackEvent(name: string, data: Record<string, string | number>):
   }
 }
 
+/** The platform spaces interstitials itself (Playgama Bridge): src/systems/ads.ts then asks at every natural pause. */
+export function timesInterstitials(): boolean {
+  try {
+    return backend.timesInterstitials?.() ?? false;
+  } catch {
+    return false;
+  }
+}
+
 /** Only call between two different screens, never during play. */
 export async function requestInterstitialAd(): Promise<void> {
   try {

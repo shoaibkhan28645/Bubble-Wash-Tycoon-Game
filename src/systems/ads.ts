@@ -6,10 +6,13 @@ import { ADS } from '../core/config';
 export interface AdBackend {
   requestRewardedAd(rewardId: string): Promise<boolean>;
   requestInterstitialAd(): Promise<void>;
+  /** The platform spaces interstitials itself (Playgama Bridge): the game then asks at every natural pause. */
+  timesInterstitials?(): boolean;
 }
 
 /**
- * May an interstitial play now? Never in a new player's first minutes, never
+ * The game's own interstitial limits, where the platform has none of its own (YouTube's SDK; Playgama Bridge
+ * spaces them itself). May an interstitial play now? Never in a new player's first minutes, never
  * as a session starts (YouTube has just shown its own ad), and at most one
  * every few minutes counting any ad, rewarded ones included.
  */
@@ -51,11 +54,16 @@ export class Ads {
     }
   }
 
-  /** Call when moving between two screens; plays an interstitial only if the rules allow. */
+  /**
+   * Call when moving between two screens (a natural pause). Where the platform spaces interstitials itself
+   * (Playgama Bridge: a delay after the game's ready and a gap between ads, or the portal's own rules), the game
+   * asks every time and the platform decides; Playgama's moderation checks for that, and a game keeping its own
+   * clock showed no ad in its review. Elsewhere (YouTube's own SDK) only if the game's own rules allow.
+   */
   async betweenScreens(): Promise<void> {
     if (this.showing) return;
-    // On every platform, Playgama included (a full-screen ad at a new player's first card lost players there).
-    if (!interstitialAllowed(this.now(), this.lastAdMs, this.sessionStartMs, this.playSeconds())) return;
+    const platformTimes = this.backend.timesInterstitials?.() ?? false;
+    if (!platformTimes && !interstitialAllowed(this.now(), this.lastAdMs, this.sessionStartMs, this.playSeconds())) return;
     this.showing = true;
     try {
       await this.backend.requestInterstitialAd();

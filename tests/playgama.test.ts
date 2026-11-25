@@ -1,7 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { SAVE_KEY, bridgeBackend } from '../src/platform/playgama';
 import { Ads } from '../src/systems/ads';
-import { ADS } from '../src/core/config';
 
 /** A stand-in for Playgama Bridge: just what the game uses, with its events. */
 function fakeBridge(opts: { platform?: string; rewarded?: boolean; interstitial?: boolean } = {}) {
@@ -118,21 +117,16 @@ describe('the Playgama Bridge backend', () => {
     expect(bridgeBackend(fakeBridge({ platform: 'youtube' }).bridge as unknown as Bridge).muteButton()).toBe(false);
   });
 
-  it("keeps the game's own interstitial limits on Playgama: none in a new player's first minutes", async () => {
+  it('leaves interstitial timing to Bridge: the game asks at every natural pause, even a new player\'s first', async () => {
+    const backend = bridgeBackend(fakeBridge().bridge as unknown as Bridge);
+    expect(backend.timesInterstitials?.()).toBe(true);
     const asked: number[] = [];
-    const backend = { requestRewardedAd: async () => true, requestInterstitialAd: async () => void asked.push(1) };
-    let now = 0;
-    let played = 0;
-    const ads = new Ads(backend, () => played, () => now);
+    const ads = new Ads(
+      { requestRewardedAd: async () => true, requestInterstitialAd: async () => void asked.push(1), timesInterstitials: () => true },
+      () => 0,
+      () => 0,
+    );
     await ads.betweenScreens();
-    expect(asked).toHaveLength(0);
-    // Past the first five minutes of play and a minute into the visit: one, then none for three minutes.
-    played = ADS.interstitial.newPlayerSeconds;
-    now = ADS.interstitial.sessionGraceSeconds * 1000;
-    await ads.betweenScreens();
-    await ads.betweenScreens();
-    expect(asked).toHaveLength(1);
-    now += ADS.interstitial.minGapSeconds * 1000;
     await ads.betweenScreens();
     expect(asked).toHaveLength(2);
   });

@@ -13,6 +13,8 @@ export interface PlatformBackend {
   rewardedSupported(): boolean;
   requestRewardedAd(rewardId: string): Promise<boolean>;
   requestInterstitialAd(): Promise<void>;
+  /** The platform spaces interstitials itself (Bridge), so the game asks at every natural pause; else the game's own limits apply. */
+  timesInterstitials?(): boolean;
   /** A progress step for the platform's stats (Playgama's telemetry); platforms without stats leave it out. */
   trackEvent?(name: string, data: Record<string, string | number>): void;
   /** The game shows its own mute button (Playgama asks for one; YouTube asks for none). */
